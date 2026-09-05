@@ -1,0 +1,57 @@
+apiVersion: nivuus.dev/v1
+name: home-desk
+version: 1.0.0
+label: "Tablettes murales de CETTE maison (affichage des trois ecrans)"
+tier: userspace
+
+# Le DEUXIEME satellite, apres home-stock. `requires.packages` fait installer
+# home-manager AVANT ce package : le hook depose son bundle dans le
+# `config/www/` que le socle vient de creer, son composant dans
+# `config/custom_components/`, et son fragment d'automations dans
+# `config/packages/`.
+#
+# Ce package est le CAS D'ECOLE du champ, et le moteur le dit lui-meme. La
+# docstring de installer/packages/dependencies.py porte :
+#
+#   « Ce n'est pas une hypothese : plan_packages() ordonne par
+#     sorted(selected), et `home-desk` trie AVANT `home-manager`. L'ordre
+#     alphabetique est exactement le mauvais. »
+#
+# Sans cette ligne, le satellite ecrirait dans un repertoire que son socle n'a
+# pas encore cree.
+requires:
+  packages: [home-manager]
+
+# `home-stock` n'y figure PAS, deliberement (decision 8 de la spec).
+# L'application le consomme — 3 entites et 3 commandes websocket, 15
+# occurrences dans app/src/ — mais PAR LE BUS, jamais par un import. C'est une
+# dependance d'execution, pas d'installation ; `requires` exprime le dur.
+# Forcer le garde-manger imposerait un cout aux tablettes du salon et du
+# bureau, qui n'en ont aucun besoin. Le silence que cela produisait dans la
+# cuisine est corrige dans l'application elle-meme : `absenceNommee`, cf.
+# app/src/pieces.ts.
+#
+# Ni `apt:`, ni `wizard:`, ni hook `activate` — les trois deliberement.
+#
+# `apt:` : l'application est du JavaScript servi par Home Assistant, et le
+# bundle est VERSIONNE dans dist/ (decision 2), donc `git archive HEAD`
+# l'emporte et la cible n'a jamais besoin de Node.
+# custom_components/vignette/manifest.json declare `requirements: []` et sa
+# seule `dependency` est `http`, composant interne de HA.
+#
+# `wizard:` : le chemin de depot vient du socle, l'application s'authentifie
+# avec le jeton de session du navigateur (app/src/connexion.ts), et les 66
+# `entity_id` en dur ne sont pas des questions qu'on pose a un operateur.
+# Ce package est propre a CETTE maison, et son label le dit (decision 4).
+#
+# `activate` : le tri topologique garantit que ce package s'installe avant que
+# le socle ne demarre Home Assistant. Un activate serait au mieux inutile, au
+# pire une course — les unites nivuus-package-activate@<nom>.service vivent
+# toutes dans multi-user.target.wants, et systemd ne les ordonne pas entre
+# elles. C'est une dette connue du chantier requires.packages, et une raison
+# de plus pour que ce package n'ait pas d'activate.
+#
+# `claims:` : les tablettes sont jointes par le RESEAU, via fully_kiosk. Aucun
+# peripherique local n'est reclame, donc aucun conflit a declarer.
+hooks:
+  install: hooks/install.py
