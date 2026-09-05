@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "target": "ES2021", "module": "ESNext", "moduleResolution": "bundler",
+    "strict": true, "noUnusedLocals": true, "experimentalDecorators": true,
+    "useDefineForClassFields": false, "lib": ["ES2021", "DOM"], "types": ["vitest/globals"]
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
+}
