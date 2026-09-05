@@ -114,7 +114,7 @@ Le premier commit doit être **exactement ce qui tourne sur les trois tablettes*
 - Consumes: rien.
 - Produces: un arbre de travail portant ~115 fichiers sous `app/`, dont `app/src/pieces.ts` avec 36 références `musique_*` et zéro `ytube`.
 
-- [ ] **Step 1: Relever l'état de la source avant de la copier**
+- [x] **Step 1: Relever l'état de la source avant de la copier**
 
 ```bash
 S=/opt/nivuus/HomeAssistant/data/tools/wallpanel-app
@@ -127,7 +127,7 @@ Expected: `mouvement-grammaire`, `a9284b3`, `23`, `115`.
 
 Si `HEAD` diffère de `a9284b3`, **arrêter le plan** : la source a bougé depuis la mesure du 2026-09-04, et l'import ne serait plus celui que la spec décrit.
 
-- [ ] **Step 2: Vérifier que la source est bien celle qui tourne**
+- [x] **Step 2: Vérifier que la source est bien celle qui tourne**
 
 C'est le contrôle qui justifie d'importer l'arbre sale entier plutôt qu'un tri.
 
@@ -142,7 +142,7 @@ Expected: le second nombre est **supérieur** au premier (mesuré : 01:00:16 con
 
 Si le build était antérieur à la dernière modification, **arrêter le plan** : l'arbre porterait du travail non déployé et la décision 10 serait à rouvrir.
 
-- [ ] **Step 3: Créer le dépôt et son `.gitignore`**
+- [x] **Step 3: Créer le dépôt et son `.gitignore`**
 
 ```bash
 cd /home/mallanic/Projects/Nivuus/packages/home-desk
@@ -157,7 +157,7 @@ __pycache__/
 *.pyc
 ```
 
-- [ ] **Step 4: Importer l'application, sans les sauvegardes ni `node_modules`**
+- [x] **Step 4: Importer l'application, sans les sauvegardes ni `node_modules`**
 
 `--exclude` porte exactement ce que la décision 10 laisse dehors.
 
@@ -176,7 +176,7 @@ sudo -n chown -R "$(id -un):$(id -gn)" $R/app
 
 `outils/film/` et `tests/film-detecteurs.test.mjs` sont exclus par prudence : ils vivent sur la branche `mouvement-film`, donc ils ne devraient pas être dans cet arbre. Les exclure coûte une ligne et garantit le résultat.
 
-- [ ] **Step 5: Vérifier ce que l'import a emporté**
+- [x] **Step 5: Vérifier ce que l'import a emporté**
 
 ```bash
 R=/home/mallanic/Projects/Nivuus/packages/home-desk
@@ -189,7 +189,7 @@ echo "docs du depot d'origine : $(find $R/app/docs/superpowers -type f | wc -l)"
 ```
 Expected: `36`, `0`, `0`, `non`, `non`, `9`.
 
-- [ ] **Step 6: Déplacer la spec sous le dépôt et committer l'import**
+- [x] **Step 6: Déplacer la spec sous le dépôt et committer l'import**
 
 La spec est déjà à sa place (`docs/superpowers/specs/`) et ce plan aussi. Le commit d'import les emporte.
 
@@ -257,7 +257,7 @@ Trois défauts mesurés se corrigent ensemble, parce qu'ils ont la même cause :
 - Consumes: l'arbre importé (Task 1).
 - Produces: `REPO/dist/` complet — `wallpanel.js`, `wallpanel.css`, `salon.html`, `bureau.html`, `cuisine.html`, `assets/` (5 fichiers). C'est la source unique du dépôt de la Task 7.
 
-- [ ] **Step 1: Relever l'empreinte de référence, avant de toucher à quoi que ce soit**
+- [x] **Step 1: Relever l'empreinte de référence, avant de toucher à quoi que ce soit**
 
 ```bash
 D=/opt/nivuus/home-manager/config/www/wallpanel
@@ -267,7 +267,7 @@ sudo -n grep -o 'v=[0-9a-f]*' $D/salon.html | head -1
 ```
 Expected: `wallpanel.js` 108645 octets, `wallpanel.css` 88292 octets, `v=2a9ebf2b39`. **Noter les deux sha256** — ce sont les valeurs que le Step 9 doit retrouver.
 
-- [ ] **Step 2: Écrire le test qui échoue**
+- [x] **Step 2: Écrire le test qui échoue**
 
 Créer `tests/test_dist_portable.py` :
 
@@ -353,12 +353,12 @@ if failures:
 print("test_dist_portable: OK")
 ```
 
-- [ ] **Step 3: Lancer le test pour vérifier qu'il échoue**
+- [x] **Step 3: Lancer le test pour vérifier qu'il échoue**
 
 Run: `python3 tests/test_dist_portable.py`
 Expected: FAIL — `dist/ n'est suivi par AUCUN fichier`, plus les lignes citant `/opt/nivuus/HomeAssistant` dans `app/outils/verifier-rendu.mjs`.
 
-- [ ] **Step 4: Rendre la sortie du build relative au dépôt**
+- [x] **Step 4: Rendre la sortie du build relative au dépôt**
 
 Dans `app/rollup.config.js`, remplacer le bloc `output.dir` :
 
@@ -386,7 +386,7 @@ export default {
 };
 ```
 
-- [ ] **Step 5: Rendre `copier-assets.mjs` et `versionner.mjs` relatifs**
+- [x] **Step 5: Rendre `copier-assets.mjs` et `versionner.mjs` relatifs**
 
 Dans `app/scripts/copier-assets.mjs`, remplacer la ligne `SORTIE` :
 
@@ -414,7 +414,7 @@ import { fileURLToPath } from 'node:url';
 const ICI = dirname(fileURLToPath(import.meta.url));
 ```
 
-- [ ] **Step 6: Créer le gabarit des trois pages d'entrée**
+- [x] **Step 6: Créer le gabarit des trois pages d'entrée**
 
 Les trois `<piece>.html` sont **le point d'entrée réel des tablettes** et n'étaient versionnées nulle part : `git ls-files | grep html` ne rendait rien dans le dépôt d'origine. Elles diffèrent de deux lignes — `<title>` et `data-piece`.
 
@@ -436,7 +436,7 @@ Créer `app/gabarits/piece.html` :
 </html>
 ```
 
-- [ ] **Step 7: Écrire le générateur des trois pages**
+- [x] **Step 7: Écrire le générateur des trois pages**
 
 Créer `app/scripts/generer-pages.mjs` :
 
@@ -481,7 +481,7 @@ for (const { piece, titre } of PIECES) {
 }
 ```
 
-- [ ] **Step 8: Brancher le générateur dans le build**
+- [x] **Step 8: Brancher le générateur dans le build**
 
 Dans `app/package.json`, le script `build` doit appeler `generer-pages.mjs` **entre** rollup et `versionner.mjs` — les pages doivent exister avant que l'empreinte n'y soit posée.
 
@@ -494,7 +494,7 @@ Vérifier l'ordre réel du script existant avant d'éditer :
 grep -n '"build"' /home/mallanic/Projects/Nivuus/packages/home-desk/app/package.json
 ```
 
-- [ ] **Step 9: Purger les chemins absolus restants de l'outillage**
+- [x] **Step 9: Purger les chemins absolus restants de l'outillage**
 
 ```bash
 cd /home/mallanic/Projects/Nivuus/packages/home-desk/app
@@ -503,7 +503,7 @@ grep -rn "/opt/nivuus/HomeAssistant" outils/ scripts/ *.js *.json
 
 Remplacer chaque occurrence par un chemin relatif au dépôt, sur le modèle du Step 5. `outils/verifier-rendu.mjs` en portait deux, `outils/mesurer-*.mjs` une chacune.
 
-- [ ] **Step 10: Construire**
+- [x] **Step 10: Construire**
 
 ```bash
 cd /home/mallanic/Projects/Nivuus/packages/home-desk/app
@@ -511,7 +511,7 @@ npm ci
 npm run build
 ```
 
-- [ ] **Step 11: ══ PORTE ══ Le rebuild reproduit-il la production ?**
+- [x] **Step 11: ══ PORTE ══ Le rebuild reproduit-il la production ?**
 
 C'est le contrôle qui prouve que l'import est fidèle.
 
@@ -529,7 +529,7 @@ Expected: `wallpanel.js IDENTIQUE`, `wallpanel.css IDENTIQUE`, `salon.html IDENT
 
 **Si l'un diffère, ARRÊTER le plan** et diagnostiquer avant toute autre tâche. Les causes plausibles, dans l'ordre : une version de node différente de celle qui a produit le bundle du 4 septembre ; un `npm ci` qui a résolu autrement que le `package-lock.json` d'alors ; ou — le cas grave — un fichier de `src/` absent de l'import. Un écart limité au `?v=` des pages est bénin et se règle en relançant `versionner.mjs` ; un écart sur `wallpanel.js` ne l'est pas.
 
-- [ ] **Step 12: Lancer le test de portabilité**
+- [x] **Step 12: Lancer le test de portabilité**
 
 ```bash
 cd /home/mallanic/Projects/Nivuus/packages/home-desk
@@ -540,14 +540,14 @@ Expected: `test_dist_portable: OK`
 
 Le `-f` est nécessaire au premier passage seulement si un `.gitignore` hérité de l'application ignore `dist/` — vérifier `app/.gitignore` et, le cas échéant, y restreindre la règle.
 
-- [ ] **Step 13: Lancer la suite de l'application**
+- [x] **Step 13: Lancer la suite de l'application**
 
 ```bash
 cd /home/mallanic/Projects/Nivuus/packages/home-desk/app && npm test
 ```
 Expected: la suite vitest passe. Elle passait sur la machine d'origine le 2026-09-04 ; un échec ici signale un fichier manquant à l'import, pas une régression.
 
-- [ ] **Step 14: Commit**
+- [x] **Step 14: Commit**
 
 ```bash
 cd /home/mallanic/Projects/Nivuus/packages/home-desk
@@ -581,7 +581,7 @@ Verifie : le rebuild reproduit a l'octet pres le bundle en production du
 - Consumes: `Etat.estUtilisable(id: string): boolean` (`app/src/etat.ts:50`).
 - Produces: le champ optionnel `absenceNommee?: string` sur `Commande` et sur `EntreeSynthese`. Une commande qui le porte n'est **jamais** filtrée : elle est rendue inerte, avec ce libellé en sous-titre.
 
-- [ ] **Step 1: Écrire le test qui échoue**
+- [x] **Step 1: Écrire le test qui échoue**
 
 Ajouter à `app/tests/corps.test.ts` :
 
@@ -628,12 +628,12 @@ describe('absence nommee', () => {
 
 Adapter les noms d'aides (`etatAvec`, `pieceAvec`, `commandesVisibles`) à ceux déjà employés dans `app/tests/corps.test.ts` — les lire avant d'écrire.
 
-- [ ] **Step 2: Lancer le test pour vérifier qu'il échoue**
+- [x] **Step 2: Lancer le test pour vérifier qu'il échoue**
 
 Run: `cd app && npx vitest run tests/corps.test.ts -t "absence nommee"`
 Expected: FAIL — les deuxième et troisième cas échouent (la commande est filtrée, l'étiquette est vide).
 
-- [ ] **Step 3: Ajouter le champ au type**
+- [x] **Step 3: Ajouter le champ au type**
 
 Dans `app/src/pieces.ts`, sur l'interface qui déclare `libelle: string; icone: string; entite: string;` (l. 5) :
 
@@ -651,7 +651,7 @@ Dans `app/src/pieces.ts`, sur l'interface qui déclare `libelle: string; icone: 
   absenceNommee?: string;
 ```
 
-- [ ] **Step 4: Ne plus filtrer ce qui porte le champ**
+- [x] **Step 4: Ne plus filtrer ce qui porte le champ**
 
 Dans `app/src/rendu/corps.ts`, ligne 356 :
 
@@ -670,7 +670,7 @@ Et dans `etiquette()`, avant toute lecture d'état :
 
 Vérifier au passage la ligne 188, qui n'appelait `etiquette` que si `estUtilisable` : elle doit désormais l'appeler inconditionnellement, sans quoi le libellé d'absence ne serait jamais rendu.
 
-- [ ] **Step 5: Faire de même pour la ligne de synthèse**
+- [x] **Step 5: Faire de même pour la ligne de synthèse**
 
 `ligneSynthese` (l. 105-109) saute les entrées inutilisables. Le repas suivant y passe. Même traitement :
 
@@ -684,7 +684,7 @@ Vérifier au passage la ligne 188, qui n'appelait `etiquette` que si `estUtilisa
 
 Ajouter `absenceNommee?: string;` au type `EntreeSynthese`.
 
-- [ ] **Step 6: Nommer les trois absences de la cuisine**
+- [x] **Step 6: Nommer les trois absences de la cuisine**
 
 Dans `app/src/pieces.ts`, sur les trois points de contact mesurés avec `home_stock` :
 
@@ -699,14 +699,14 @@ Dans `app/src/pieces.ts`, sur les trois points de contact mesurés avec `home_st
 
 Conserver les autres champs de chaque ligne tels qu'ils sont — les relire avant d'éditer, `Scanner` porte notamment un lien vers le panneau `/home-stock`.
 
-- [ ] **Step 7: Lancer les tests**
+- [x] **Step 7: Lancer les tests**
 
 ```bash
 cd /home/mallanic/Projects/Nivuus/packages/home-desk/app && npm test
 ```
 Expected: la suite passe, les quatre nouveaux cas compris.
 
-- [ ] **Step 8: Reconstruire et committer**
+- [x] **Step 8: Reconstruire et committer**
 
 ```bash
 cd /home/mallanic/Projects/Nivuus/packages/home-desk/app && npm run build
@@ -739,7 +739,7 @@ le reste : une serrure muette n'a rien a dire."
 - Consumes: rien.
 - Produces: un package nommé `home-desk`, `tier: userspace`, `requires.packages == ("home-manager",)`, découvrable par `discover()` du moteur.
 
-- [ ] **Step 1: Écrire le test qui échoue**
+- [x] **Step 1: Écrire le test qui échoue**
 
 Créer `tests/test_manifest_contract.py` :
 
@@ -846,12 +846,12 @@ if failures:
 print("test_manifest_contract: OK")
 ```
 
-- [ ] **Step 2: Lancer le test pour vérifier qu'il échoue**
+- [x] **Step 2: Lancer le test pour vérifier qu'il échoue**
 
 Run: `python3 tests/test_manifest_contract.py`
 Expected: FAIL — `FileNotFoundError: nivuus-package.yaml`
 
-- [ ] **Step 3: Écrire le manifeste**
+- [x] **Step 3: Écrire le manifeste**
 
 Créer `nivuus-package.yaml` :
 
@@ -915,7 +915,7 @@ hooks:
   install: hooks/install.py
 ```
 
-- [ ] **Step 4: Écrire le `Makefile`**
+- [x] **Step 4: Écrire le `Makefile`**
 
 Créer `Makefile` :
 
@@ -954,12 +954,12 @@ test-app:
 	cd $(PACKAGE_DIR)/app && npm test
 ```
 
-- [ ] **Step 5: Lancer le test pour vérifier qu'il passe**
+- [x] **Step 5: Lancer le test pour vérifier qu'il passe**
 
 Run: `python3 tests/test_manifest_contract.py`
 Expected: `test_manifest_contract: OK` (avec la note `NIVUUS_INSTALLER_DIR absent`)
 
-- [ ] **Step 6: Vérifier avec le vrai parseur du moteur**
+- [x] **Step 6: Vérifier avec le vrai parseur du moteur**
 
 ```bash
 cd /home/mallanic/Projects/Nivuus/packages/home-desk
@@ -968,7 +968,7 @@ NIVUUS_INSTALLER_DIR=$HOME/Projects/Nivuus/packages/installer python3 tests/test
 ```
 Expected: `test_manifest_contract: OK`, **sans** la note — et donc avec le tri topologique vérifié.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add nivuus-package.yaml Makefile tests/test_manifest_contract.py
@@ -996,7 +996,7 @@ d'installation."
 - Consumes: rien.
 - Produces: l'arbre `custom_components/vignette/`, deuxième source de dépôt du hook de la Task 7. Sert `/api/vignette?url=<entity_picture signée>&w=<largeur>`, consommé par `app/src/media.ts`.
 
-- [ ] **Step 1: Importer le composant**
+- [x] **Step 1: Importer le composant**
 
 ```bash
 R=/home/mallanic/Projects/Nivuus/packages/home-desk
@@ -1009,13 +1009,13 @@ ls -la $R/custom_components/vignette/
 ```
 Expected: `__init__.py` (7738 octets) et `manifest.json` (227 octets), pas de `__pycache__`.
 
-- [ ] **Step 2: Vérifier le dépôt que le manifeste annonce**
+- [x] **Step 2: Vérifier le dépôt que le manifeste annonce**
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' https://github.com/nivuus/vignette
 ```
 
-- [ ] **Step 3: Faire dire la vérité au manifeste**
+- [x] **Step 3: Faire dire la vérité au manifeste**
 
 Si le Step 2 rend `404` (dépôt inexistant), remplacer le champ `documentation` de `custom_components/vignette/manifest.json` :
 
@@ -1036,7 +1036,7 @@ Si le Step 2 rend `200`, laisser le champ tel quel et le noter dans `CLAUDE.md` 
 
 Un manifeste qui pointe vers rien est un piège de plus, et cette spec existe pour en retirer, pas pour en ajouter.
 
-- [ ] **Step 4: Vérifier qu'aucun autre consommateur n'a été manqué**
+- [x] **Step 4: Vérifier qu'aucun autre consommateur n'a été manqué**
 
 ```bash
 sudo -n grep -rl "api/vignette" /opt/nivuus/home-manager/config/ \
@@ -1044,7 +1044,7 @@ sudo -n grep -rl "api/vignette" /opt/nivuus/home-manager/config/ \
 ```
 Expected: aucune sortie. La mesure du 2026-08-29 disait déjà « aucun consommateur hors le bundle des tablettes » ; ce contrôle la refait avant que la décision 5 ne devienne irréversible en pratique.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add custom_components/vignette
@@ -1076,7 +1076,7 @@ Décision 6 : elles entrent dans le package, réécrites en un fragment `package
 - Consumes: rien du dépôt.
 - Produces: `packages/home_desk.yaml`, troisième source de dépôt du hook (Task 7), copié — jamais par remplacement de répertoire — vers `config/packages/home_desk.yaml`.
 
-- [ ] **Step 1: Extraire les sept blocs, verbatim**
+- [x] **Step 1: Extraire les sept blocs, verbatim**
 
 Ces automations portent du savoir chèrement acquis — la description de `tablettes_luminosite_adaptative` documente 176 redémarrages relevés, dont 91 sur une minute multiple de 10, et la raison pour laquelle elle n'écrit plus que si la valeur change. **Extraire, ne pas réécrire.**
 
@@ -1097,7 +1097,7 @@ Expected: `7`.
 
 Si le compte diffère de 7, **arrêter** : `automations.yaml` a bougé depuis la mesure du 2026-09-04, et le fragment ne serait pas le décalque de ce qui tourne.
 
-- [ ] **Step 2: Écrire le fragment, avec son en-tête**
+- [x] **Step 2: Écrire le fragment, avec son en-tête**
 
 Créer `packages/home_desk.yaml` — l'en-tête d'abord, puis le contenu de `/tmp/home_desk_extrait.yaml` :
 
@@ -1150,7 +1150,7 @@ vivante — la description de `tablettes_luminosite_adaptative` fait à elle seu
 quinze lignes de mesures. Le Step 1 les produit mécaniquement, le Step 4 vérifie
 l'égalité exacte bloc par bloc. C'est la seule façon sûre.
 
-- [ ] **Step 3: Vérifier que le fragment est un YAML valide et complet**
+- [x] **Step 3: Vérifier que le fragment est un YAML valide et complet**
 
 ```bash
 cd /home/mallanic/Projects/Nivuus/packages/home-desk
@@ -1166,7 +1166,7 @@ PY
 ```
 Expected: `automations : 7`, sept `id` dont `tablettes_luminosite_adaptative` et `tablettes_presence_lit`, `hors perimetre : []`.
 
-- [ ] **Step 4: Vérifier que le fragment est le décalque exact de la production**
+- [x] **Step 4: Vérifier que le fragment est le décalque exact de la production**
 
 ```bash
 cd /home/mallanic/Projects/Nivuus/packages/home-desk
@@ -1188,7 +1188,7 @@ PY
 ```
 Expected: `DECALQUE EXACT des sept blocs`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/home_desk.yaml
@@ -1219,7 +1219,7 @@ et elle est derriere une porte."
 - Consumes: `dist/` (Task 2, 3), `custom_components/vignette/` (Task 5), `packages/home_desk.yaml` (Task 6).
 - Produces: `python3 hooks/install.py --phase install --root <racine>`, lisant un contexte JSON sur stdin, émettant des événements `{"event": "progress"|"done"}` sur stdout, `0` en succès, `1` si le socle est absent.
 
-- [ ] **Step 1: Écrire le test qui échoue**
+- [x] **Step 1: Écrire le test qui échoue**
 
 Créer `tests/test_install_hook.py` :
 
@@ -1374,7 +1374,7 @@ if failures:
 print("test_install_hook: OK")
 ```
 
-- [ ] **Step 2: Écrire le second test qui échoue**
+- [x] **Step 2: Écrire le second test qui échoue**
 
 Créer `tests/test_dist_a_jour.py` :
 
@@ -1431,7 +1431,7 @@ if ecarts:
 print("test_dist_a_jour: OK")
 ```
 
-- [ ] **Step 3: Lancer les deux tests pour vérifier qu'ils échouent**
+- [x] **Step 3: Lancer les deux tests pour vérifier qu'ils échouent**
 
 Run: `python3 tests/test_install_hook.py`
 Expected: FAIL — `can't open file 'hooks/install.py'`
@@ -1439,7 +1439,7 @@ Expected: FAIL — `can't open file 'hooks/install.py'`
 Run: `python3 tests/test_dist_a_jour.py`
 Expected: `test_dist_a_jour: OK` — il passe déjà, `dist/` ayant été construit et committé en Task 2 et 3. C'est attendu : ce test est un garde-fou permanent, pas un test à faire échouer d'abord.
 
-- [ ] **Step 4: Écrire le hook**
+- [x] **Step 4: Écrire le hook**
 
 Créer `hooks/install.py` :
 
@@ -1708,18 +1708,18 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 5: Rendre le hook exécutable**
+- [x] **Step 5: Rendre le hook exécutable**
 
 ```bash
 chmod +x /home/mallanic/Projects/Nivuus/packages/home-desk/hooks/install.py
 ```
 
-- [ ] **Step 6: Lancer le test pour vérifier qu'il passe**
+- [x] **Step 6: Lancer le test pour vérifier qu'il passe**
 
 Run: `python3 tests/test_install_hook.py`
 Expected: `test_install_hook: OK`
 
-- [ ] **Step 7: Lancer la suite complète du package**
+- [x] **Step 7: Lancer la suite complète du package**
 
 ```bash
 cd /home/mallanic/Projects/Nivuus/packages/home-desk
@@ -1727,7 +1727,7 @@ make test NIVUUS_INSTALLER_DIR=$HOME/Projects/Nivuus/packages/installer
 ```
 Expected: les quatre tests passent.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add hooks/install.py tests/test_install_hook.py tests/test_dist_a_jour.py
@@ -1765,7 +1765,7 @@ La décision 4 exige que la portée soit écrite **en toutes lettres** : un pack
 - Consumes: tout ce qui précède.
 - Produces: rien de code.
 
-- [ ] **Step 1: Écrire le `README.md`**
+- [x] **Step 1: Écrire le `README.md`**
 
 ````markdown
 # Tablettes murales (`home-desk`)
@@ -1847,7 +1847,7 @@ voyagent. Toute modification de `app/src/` doit être suivie d'un
 (`test_dist_a_jour`).
 ````
 
-- [ ] **Step 2: Écrire le `CLAUDE.md`**
+- [x] **Step 2: Écrire le `CLAUDE.md`**
 
 ```markdown
 # home-desk — notes d'implémentation
@@ -1910,7 +1910,7 @@ dépendance hors `python3` + PyYAML — c'est le style du dépôt `installer`. L
 suite vitest de l'application a sa propre cible, `make test-app`.
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add README.md CLAUDE.md
@@ -1934,7 +1934,7 @@ Premier passage du hook sur la machine vivante. Tout ce qui précède laissait l
 - Consumes: le package complet.
 - Produces: la production servie depuis le package.
 
-- [ ] **Step 1: Relever l'état de référence**
+- [x] **Step 1: Relever l'état de référence**
 
 ```bash
 D=/opt/nivuus/home-manager/config
@@ -1945,7 +1945,7 @@ sudo -n ls $D/www
 ```
 Expected: 11 occupants dans `www/`, 1 dans `packages/`. **Noter la liste** — le Step 4 la compare.
 
-- [ ] **Step 2: Sauvegarder**
+- [x] **Step 2: Sauvegarder**
 
 ```bash
 D=/opt/nivuus/home-manager/config
@@ -1953,7 +1953,7 @@ sudo -n cp -a $D/www/wallpanel $D/www/wallpanel.backup-home-desk-20260904
 sudo -n cp -a $D/custom_components/vignette $D/custom_components/vignette.backup-home-desk-20260904
 ```
 
-- [ ] **Step 3: Lancer le hook sur la racine réelle**
+- [x] **Step 3: Lancer le hook sur la racine réelle**
 
 ```bash
 cd /home/mallanic/Projects/Nivuus/packages/home-desk
@@ -1964,7 +1964,7 @@ Expected: des événements `progress` puis `{"event": "done"}`, code 0.
 `vignette:` est déclarée (ligne 491 mesurée) : **aucun** signalement à son sujet.
 `packages:` est absente : **le signalement doit apparaître**. C'est ce qui prépare la Task 10.
 
-- [ ] **Step 4: Vérifier ce qui a été déposé, et surtout ce qui ne l'a pas été**
+- [x] **Step 4: Vérifier ce qui a été déposé, et surtout ce qui ne l'a pas été**
 
 ```bash
 D=/opt/nivuus/home-manager/config
@@ -1978,7 +1978,7 @@ sudo -n sha256sum $D/www/wallpanel/wallpanel.js
 ```
 Expected: 12 occupants dans `www/`, 2 dans `packages/`, le fragment déposé, **les intents de `home-stock` intacts**, 3 pages, et le sha256 identique à celui du Step 1.
 
-- [ ] **Step 5: Contrôler les trois tablettes**
+- [x] **Step 5: Contrôler les trois tablettes**
 
 ```bash
 # Recharger la page de chaque tablette depuis Home Assistant.
@@ -1994,7 +1994,7 @@ Expected: les trois écrans affichent leur pièce, avec les tuiles média
 `home_stock` n'est pas chargé — sur cette machine il l'est, donc les tuiles
 « Recette » et « Courses » sont normales.
 
-- [ ] **Step 6: Retirer les sauvegardes une fois le contrôle passé**
+- [x] **Step 6: Retirer les sauvegardes une fois le contrôle passé**
 
 ```bash
 D=/opt/nivuus/home-manager/config
@@ -2020,7 +2020,7 @@ automations chargées → seulement alors retirer les blocs.
 - Modify: `DEPLOY/configuration.yaml` (par l'opérateur, une ligne)
 - Modify: `DEPLOY/automations.yaml` (retrait de 283 lignes sur 4560)
 
-- [ ] **Step 1: Ajouter la ligne à `configuration.yaml`**
+- [x] **Step 1: Ajouter la ligne à `configuration.yaml`**
 
 Geste **de l'opérateur**, jamais du hook.
 
@@ -2040,7 +2040,7 @@ deux espaces. Vérifier :
 sudo -n grep -n -A2 -B2 "include_dir_named packages" $D/configuration.yaml
 ```
 
-- [ ] **Step 2: Redémarrer Home Assistant et constater les DEUX fragments chargés**
+- [x] **Step 2: Redémarrer Home Assistant et constater les DEUX fragments chargés**
 
 ```bash
 sudo -n docker compose -f /opt/nivuus/home-manager/docker-compose.yml restart homeassistant
@@ -2062,7 +2062,7 @@ Les phrases vocales de `home-stock` deviennent chargées au même moment : c'est
 la même ligne. Le vérifier est un bonus gratuit — leur `intent_script` attendait
 depuis le 2026-08-28.
 
-- [ ] **Step 3: ══ PORTE ══ Ne pas franchir sans les sept**
+- [x] **Step 3: ══ PORTE ══ Ne pas franchir sans les sept**
 
 Si le compte est inférieur à sept, **arrêter**. Les causes plausibles :
 l'indentation de la ligne du Step 1 ; un doublon d'`id` entre le fragment et
@@ -2077,7 +2077,7 @@ Un doublon d'`id` est attendu à ce stade : les sept blocs sont encore dans
 n'est pas bloquant tant que les sept entités existent — le Step 4 lève le
 doublon.
 
-- [ ] **Step 4: Retirer les sept blocs d'`automations.yaml`**
+- [x] **Step 4: Retirer les sept blocs d'`automations.yaml`**
 
 ```bash
 D=/opt/nivuus/home-manager/config
@@ -2096,7 +2096,7 @@ PY
 ```
 Expected: `121 automations -> 114 (7 retirees)`
 
-- [ ] **Step 5: Recharger et vérifier que les sept survivent au retrait**
+- [x] **Step 5: Recharger et vérifier que les sept survivent au retrait**
 
 ```bash
 sudo -n docker compose -f /opt/nivuus/home-manager/docker-compose.yml restart homeassistant
@@ -2115,7 +2115,7 @@ Contrôle fonctionnel, sur la luminosité adaptative — la plus facile à voir 
 Expected: la valeur correspond à la règle (220 si l'éclairement ≥ 150, 130 s'il
 est ≥ 30 ou si la lumière de la pièce est allumée, 15 sinon).
 
-- [ ] **Step 6: Commit du socle**
+- [x] **Step 6: Commit du socle**
 
 `automations.yaml` n'est pas versionné par `home-manager` — c'est de la donnée.
 Rien à committer ici ; noter le geste dans le journal de la machine si le dépôt
@@ -2137,7 +2137,7 @@ consommateur** : ces clés ne sont référencées par aucun `!secret`.
 Ce que cela ne prouve pas : la `startUrl` de Fully vit **sur les tablettes**,
 pas dans Home Assistant.
 
-- [ ] **Step 1: Relever la `startUrl` réelle des trois tablettes**
+- [x] **Step 1: Relever la `startUrl` réelle des trois tablettes**
 
 Chaque entrée `fully_kiosk` expose l'URL courante. Dans Outils de développement
 > États, lire pour chacune des trois tablettes l'attribut de l'entité
@@ -2149,7 +2149,7 @@ Les trois adresses mesurées le 2026-08-06 par `CLAUDE.md` de `data/` :
 
 Consigner les trois valeurs relevées avant de continuer.
 
-- [ ] **Step 2: ══ Décision de sûreté ══**
+- [x] **Step 2: ══ Décision de sûreté ══**
 
 - Si les trois `startUrl` pointent sur `/local/wallpanel/<piece>.html` :
   la chaîne bleuenn n'est plus la porte d'entrée. **Continuer.**
@@ -2160,7 +2160,7 @@ Consigner les trois valeurs relevées avant de continuer.
   d'appareil, bon marché — ce n'est pas une raison de garder trois jetons
   vivants.
 
-- [ ] **Step 3: Retirer les trois clés de `secrets.yaml`**
+- [x] **Step 3: Retirer les trois clés de `secrets.yaml`**
 
 ```bash
 D=/opt/nivuus/home-manager/config
@@ -2174,7 +2174,7 @@ Rien de `secrets.yaml` ne part dans le dépôt — ni la valeur, ni un gabarit q
 en aurait la forme. Ce fichier n'est ni versionné par le socle, ni dans son
 `PRESERVED`, parce qu'il n'est jamais touché du tout.
 
-- [ ] **Step 4: Révoquer les jetons dans Home Assistant**
+- [x] **Step 4: Révoquer les jetons dans Home Assistant**
 
 Interface : cliquer sur son nom d'utilisateur (en bas de la barre latérale) >
 onglet Sécurité > **Jetons d'accès de longue durée**. Supprimer le ou les
@@ -2185,7 +2185,7 @@ deviner** : le JWT relevé dans `secrets.yaml.backup-home-desk-20260904` porte u
 `jti` que l'on peut décoder pour confirmer, ou l'on garde le jeton et l'on note
 la dette. Révoquer le mauvais jeton couperait autre chose.
 
-- [ ] **Step 5: Vérifier que rien n'est cassé**
+- [x] **Step 5: Vérifier que rien n'est cassé**
 
 ```bash
 sudo -n docker compose -f /opt/nivuus/home-manager/docker-compose.yml restart homeassistant
@@ -2210,7 +2210,7 @@ Deux gestes d'hygiène, sur de la matière qui n'appartient pas à `home-desk`.
 - Modify: `packages/home-manager/CLAUDE.md` (la dette consignée)
 - Move: `/opt/nivuus/HomeAssistant/data/tools/wallpanel/` → `.../archive/wallpanel-generation1/`
 
-- [ ] **Step 1: Dater la mort de `wallpanel.jinja` sur place**
+- [x] **Step 1: Dater la mort de `wallpanel.jinja` sur place**
 
 Décision 3 : le fichier reste au socle, et son seul défaut — le piège à
 relecture — se ferme à coût nul.
@@ -2244,7 +2244,7 @@ Insérer en tête de `custom_templates/wallpanel.jinja` :
 #}
 ```
 
-- [ ] **Step 2: Dater la mort des cinq capteurs dans `configuration.yaml`**
+- [x] **Step 2: Dater la mort des cinq capteurs dans `configuration.yaml`**
 
 ```bash
 D=/opt/nivuus/home-manager/config
@@ -2270,7 +2270,7 @@ Insérer au-dessus du premier des deux blocs `template:` (vers la ligne 103) :
 # sans lire cette dette dans le CLAUDE.md de home-manager.
 ```
 
-- [ ] **Step 3: Consigner la dette dans `home-manager`**
+- [x] **Step 3: Consigner la dette dans `home-manager`**
 
 Ajouter à `packages/home-manager/CLAUDE.md`, sous « Décisions à ne pas défaire » :
 
@@ -2300,7 +2300,7 @@ et n'est pas reproductible.
 nettoie pas la maison de quelqu'un d'autre ; c'est de l'hygiène du socle.
 ```
 
-- [ ] **Step 4: Vérifier que le chantier music-assistant est clos**
+- [x] **Step 4: Vérifier que le chantier music-assistant est clos**
 
 L'archivage de `tools/wallpanel/` **ne peut pas** se faire avant.
 
@@ -2393,7 +2393,7 @@ et cohérents avec l'état actuel de la maison. C'est une bonne nouvelle pour le
 filet : le regénérer produira des dashboards qui citent les bonnes entités.
 ````
 
-- [ ] **Step 7: Commit de `home-manager`**
+- [x] **Step 7: Commit de `home-manager`**
 
 ```bash
 cd /home/mallanic/Projects/Nivuus/packages/home-manager
