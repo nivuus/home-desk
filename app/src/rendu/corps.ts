@@ -105,7 +105,12 @@ function formaterTexte(texte: string, etatBrut: string): string {
 export function ligneSynthese(etat: Etat, entites: EntreeSynthese[]): { texte: string; ecarts: string[] } {
   const ecarts: string[] = [];
   for (const entree of entites) {
-    if (!etat.estUtilisable(entree.entite)) continue;
+    if (!etat.estUtilisable(entree.entite)) {
+      // Décision 8 : une entrée qui NOMME son absence la dit, au lieu d'être
+      // sautée en silence. Cf. `absenceNommee` (`pieces.ts`).
+      if (entree.absenceNommee) ecarts.push(entree.absenceNommee);
+      continue;
+    }
     const e = etat.lire(entree.entite)!;
     if (estEcart(e.etat, entree)) ecarts.push(formaterTexte(entree.texte, e.etat));
   }
@@ -171,9 +176,15 @@ const bouton = (etat: Etat, b: Bouton, actif: boolean, classe: string) => {
   // Tâche 6 (2026-08-17) : `vue` (navigation interne, ex. « Recette ») agit tout autant que `lien`
   // — `interaction.ts` la traite AVANT `lien`, elle pose un hash — donc `!b.vue` rejoint `!b.lien`
   // ici, sans quoi la tuile « Recette » accuserait faussement une action qui a bien lieu.
-  const inerte = !b.service && !b.lien && !b.vue && !d;
+  // Décision 8 (2026-09-05) : une commande qui NOMME son absence traverse le
+  // filtre avec une entité muette. Elle est inerte par construction — aucun
+  // appui n'est câblé, `interaction.ts` retourne avant `vue`/`lien`/`service` —
+  // et `base.css` lui retire alors son retour tactile : accuser réception d'une
+  // action qui n'a pas lieu est le « bouton mort » que ce projet s'interdit.
+  const absente = !etat.estUtilisable(b.entite);
+  const inerte = absente || (!b.service && !b.lien && !b.vue && !d);
   return html`
-  <div class="${classe} ${actif ? 'actif' : ''} ${d ? 'jauge' : ''} ${inerte ? 'inerte' : ''}"
+  <div class="${classe} ${actif ? 'actif' : ''} ${d ? 'jauge' : ''} ${inerte ? 'inerte' : ''} ${absente ? 'absent' : ''}"
        data-mvt="tuile:${b.entite}"
        style="--jauge:${fraction}"
        @pointerdown=${(ev: PointerEvent) => geste(ev, b.entite, () => appuyer(etat, b))}>
@@ -185,7 +196,7 @@ const bouton = (etat: Etat, b: Bouton, actif: boolean, classe: string) => {
            jamais data-mvt-etat — aucun de ses verdicts possibles (entrée/sortie, mutation) ne peut
            donc se produire. Elle ne coûtait pas rien pour autant : deux lectures de mise en page
            (offsetLeft/offsetWidth) par tuile et par peinture, pour un verdict qui ne vient jamais. -->
-      <div class="s">${etat.estUtilisable(b.entite) ? etiquette(etat, b) : ''}</div></div>
+      <div class="s">${etiquette(etat, b)}</div></div>
   </div>`;
 };
 
@@ -255,7 +266,13 @@ function libelleOuvrant(e: { etat: string; attributs: Record<string, unknown> })
   return e.etat === 'on' ? 'Ouvert' : 'Fermé';
 }
 
-function etiquette(etat: Etat, b: Bouton): string {
+export function etiquette(etat: Etat, b: Bouton): string {
+  // Appelée INCONDITIONNELLEMENT depuis la tuile depuis le 2026-09-05 : tant
+  // que le rendu n'appelait `etiquette` que si `estUtilisable`, un libellé
+  // d'absence n'aurait jamais pu être rendu. C'est donc ici que le repli vit,
+  // avant toute lecture d'état — `etat.lire` renvoie `undefined` sur une
+  // entité muette, et la ligne suivante la déréférence.
+  if (!etat.estUtilisable(b.entite)) return b.absenceNommee ?? '';
   const e = etat.lire(b.entite)!;
   // Tâche 19 — TROIS domaines qui n'avaient jamais atteint une rangée de commandes avant cette
   // tâche, et qui retombaient donc tous sur le repli générique de fin de fonction, écrit pour les
@@ -353,9 +370,19 @@ export function rendreCorps(
   const entrees = masquerEntretien
     ? visibles.filter((e) => e.entite !== ENTITE_ENTRETIEN) : visibles;
   const s = ligneSynthese(etat, entrees);
-  const utilisables = piece.commandes.filter((c) => etat.estUtilisable(c.entite));
+  // Une commande qui NOMME son absence n'est jamais filtrée : c'est tout
+  // l'intérêt du champ (cf. `absenceNommee`, `pieces.ts`).
+  const utilisables = piece.commandes.filter(
+    (c) => etat.estUtilisable(c.entite) || c.absenceNommee !== undefined);
+  // Le second filtre : la tuile `#recette` n'a de sens que s'il y a une recette
+  // à ouvrir. `recetteOuvrable` vaut faux dans DEUX cas que rien ne distinguait
+  // ici — le garde-manger répond mais n'a rien de planifié (la tuile doit bien
+  // disparaître), et le garde-manger n'est pas installé du tout (elle doit
+  // rester, pour nommer son absence). Sans cette seconde condition, ce filtre
+  // reprenait exactement ce que le premier venait de laisser passer.
   const affichables = recetteOuvrable
-    ? utilisables : utilisables.filter((c) => c.vue !== '#recette');
+    ? utilisables
+    : utilisables.filter((c) => c.vue !== '#recette' || !etat.estUtilisable(c.entite));
   const commandes = ctx ? ordreCommandes(affichables, ctx) : affichables;
   return html`
     <!-- La marque data-mvt="vue:accueil" N'EST PLUS ICI (2026-08-28) : elle vit sur .ecran
@@ -428,7 +455,8 @@ export function rendreCorps(
       ${commandes.length ? html`
         <div class="commandes" data-mvt="ligne:commandes">
           ${repeat(commandes, (c) => c.entite,
-                   (c) => bouton(etat, c, commandeActive(c.entite, etat.lire(c.entite)!.etat), 'commande'))}
+                   (c) => bouton(etat, c, etat.estUtilisable(c.entite)
+                     && commandeActive(c.entite, etat.lire(c.entite)!.etat), 'commande'))}
         </div>` : ''}
       <!-- blocCentral est le SEUL bloc central depuis la tâche 14 : ce fichier ne calcule plus
            rien lui-même pour cet emplacement (l'ancien repli « prévisions horaires », .prevision,

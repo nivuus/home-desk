@@ -84,6 +84,13 @@ export function creerAppui(
     // Tâche 6 (2026-08-17) : navigation interne (« Recette ») — AVANT `lien` et avant tout
     // `service` : aucun appel HA, aucun optimisme, aucun garde hors ligne. Consulter une recette
     // reste possible quand la maison ne répond plus, contrairement à une vraie commande.
+    // Décision 8 (2026-09-05) : une commande qui NOMME son absence est rendue
+    // INERTE tant que son entité est muette. Elle est visible pour DIRE qu'une
+    // fonction manque ; l'ouvrir mènerait à une sous-vue vide, ce qui serait un
+    // cul-de-sac de plus, pas une information. Placé avant `vue`/`lien`/`service`
+    // : c'est le seul point de passage de tout appui.
+    if (b.absenceNommee !== undefined && !etat.estUtilisable(b.entite)) return;
+
     if (b.vue) { location.hash = b.vue; return; }
 
     // Tâche 8 bis : un bouton `lien` (le panneau `home_stock`...) ouvre une page autonome plutôt

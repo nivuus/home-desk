@@ -85,18 +85,27 @@ export function rendreMaison(etat: Etat, piece: Piece, horsLigne = false): Templ
       <div class="etiquette ${horsLigne ? 'hl' : ''}">${horsLigne ? 'Hors ligne' : 'Toute la maison'}</div>
       <div class="grille">
         ${boutons
-          .filter((b) => etat.estUtilisable(b.entite))
+          // Même règle qu'en `rendu/corps.ts` : ce qui nomme son absence n'est
+          // jamais filtré. La tuile « Scanner » de la cuisine ne vit QUE ici.
+          .filter((b) => etat.estUtilisable(b.entite) || b.absenceNommee !== undefined)
           .map((b) => {
             // Tâche 13, même décision par domaine qu'en `rendu/corps.ts` : « Chauffage » (sans
             // `service`), « Serrure »/« Aspirateur » (jamais de jauge) et les 6 lumières/rideaux
             // (jauge) sont tous traités par la même règle, sans rien ajouter à `TOUTE_LA_MAISON`.
             const d = descripteurJauge(b.entite, etat);
             const fraction = d ? fractionJauge(d) : 0;
+            // Une tuile qui NOMME son absence traverse le filtre ci-dessus avec une
+            // entité muette : `etat.lire` rend alors `undefined`, et le `!` d'avant
+            // le 2026-09-05 aurait levé au premier rendu. Elle est inerte (aucun
+            // appui n'est câblé) et porte son libellé d'absence sous son nom.
+            const absente = !etat.estUtilisable(b.entite);
             return html`
-            <div class="tuile ${etat.lire(b.entite)!.etat === 'on' ? 'actif' : ''} ${d ? 'jauge' : ''}"
+            <div class="tuile ${!absente && etat.lire(b.entite)!.etat === 'on' ? 'actif' : ''} ${d ? 'jauge' : ''} ${absente ? 'absent' : ''}"
                  style="--jauge:${fraction}"
-                 @pointerdown=${(ev: PointerEvent) => geste(ev, b.entite, () => appuyer(etat, b))}>
-              ${icone(b.icone)}<span>${b.libelle}</span></div>`;
+                 @pointerdown=${(ev: PointerEvent) => (absente ? undefined
+                    : geste(ev, b.entite, () => appuyer(etat, b)))}>
+              ${icone(b.icone)}<span>${b.libelle}</span>${
+                absente ? html`<span class="abs">${b.absenceNommee}</span>` : ''}</div>`;
           })}
       </div>
       <div class="xl" @pointerdown=${() => (location.hash = '')}>${icone('home')}Retour</div>

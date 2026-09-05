@@ -13,7 +13,8 @@ import { join } from 'node:path';
 import { render, html } from 'lit';
 import { Etat } from '../src/etat';
 import { PIECES, type EntreeSynthese } from '../src/pieces';
-import { rendreCorps, ligneSynthese, rendreAlerte } from '../src/rendu/corps';
+import { rendreCorps, ligneSynthese, rendreAlerte, etiquette } from '../src/rendu/corps';
+import { rendreMaison } from '../src/rendu/maison';
 import type { Alerte } from '../src/contexte';
 import type { ContexteModes } from '../src/modes';
 
@@ -1078,5 +1079,104 @@ describe('tâche 19 — étiquette, couleur et retour au doigt des nouvelles com
     expect(css).toMatch(/\.commande\.inerte::after\s*\{\s*content:\s*none;\s*\}/);
     // Et le rayon d'angle ne se resserre plus au contact : il est réaffirmé à sa valeur de repos.
     expect(css).toMatch(/\.commande\.inerte:active\s*\{[^}]*border-radius:\s*var\(--sh-xl\)/);
+  });
+});
+
+// ── Décision 8 de la spec home-desk (2026-09-04) ─────────────────────────────
+// `home-desk` ne déclare pas `home-stock` dans `requires.packages` : la
+// dépendance passe par le bus, jamais par un import. Le défaut de ce choix
+// n'était pas l'absence, c'était le SILENCE — `home_stock` non chargé ⇒ le
+// capteur passe `unavailable` ⇒ le masquage générique ci-dessus filtre la
+// tuile ⇒ elle disparaît de l'écran de la cuisine sans un mot.
+describe('absence nommée', () => {
+  const CUISINE = PIECES.cuisine;
+
+  /** Une pièce d'essai qui ne porte QUE les commandes fournies — la cuisine
+   *  réelle en déclare cinq, dont trois qui n'ont rien à voir avec le
+   *  garde-manger et brouilleraient les comptes. */
+  const pieceAvec = (commandes: typeof CUISINE.commandes) =>
+    ({ ...CUISINE, ambiances: [], commandes, synthese: [], extrasMaison: [] });
+
+  const RECETTE = {
+    libelle: 'Recette', icone: 'book', entite: 'sensor.home_stock_next_meal',
+    vue: '#recette', absenceNommee: 'Garde-manger non installé',
+  } as const;
+
+  it('filtre une commande dont l\'entité est indisponible et qui ne nomme pas son absence', () => {
+    const etat = new Etat();   // aucune entité connue
+    const div = document.createElement('div');
+    render(rendreCorps(etat, pieceAvec([
+      { libelle: 'Recette', icone: 'book', entite: 'sensor.home_stock_next_meal', vue: '#recette' },
+    ])), div);
+    expect(div.querySelectorAll('.commande')).toHaveLength(0);
+  });
+
+  it('CONSERVE une commande qui porte absenceNommee, et la rend inerte', () => {
+    const etat = new Etat();
+    const div = document.createElement('div');
+    render(rendreCorps(etat, pieceAvec([RECETTE])), div);
+    const commandes = Array.from(div.querySelectorAll('.commande'));
+    expect(commandes).toHaveLength(1);
+    expect(commandes[0].textContent).toContain('Recette');
+    expect(commandes[0].className).not.toContain('actif');
+  });
+
+  it('rend le libellé d\'absence en sous-titre, pas un vide', () => {
+    const etat = new Etat();
+    expect(etiquette(etat, RECETTE)).toBe('Garde-manger non installé');
+    const div = document.createElement('div');
+    render(rendreCorps(etat, pieceAvec([RECETTE])), div);
+    expect(div.querySelector('.commande .s')!.textContent)
+      .toBe('Garde-manger non installé');
+  });
+
+  it('ignore absenceNommee dès que l\'entité redevient utilisable', () => {
+    const etat = new Etat();
+    etat.appliquer(ev('sensor.home_stock_next_meal', 'Gratin'));
+    expect(etiquette(etat, RECETTE)).not.toBe('Garde-manger non installé');
+  });
+
+  it('garde la tuile Recette hors ligne même quand aucune recette n\'est ouvrable', () => {
+    // `recetteOuvrable` vaut faux quand le garde-manger est absent (aucun
+    // `recipe_id` à lire) : sans traitement, le SECOND filtre reprenait la
+    // tuile que le premier venait de laisser passer.
+    const etat = new Etat();
+    const div = document.createElement('div');
+    render(rendreCorps(etat, pieceAvec([RECETTE]), undefined, undefined, undefined,
+                       false, /* recetteOuvrable */ false), div);
+    expect(div.querySelectorAll('.commande')).toHaveLength(1);
+  });
+
+  it('garde la tuile Recette masquée quand le garde-manger RÉPOND mais n\'a pas de recette', () => {
+    // Le comportement d'avant, qui ne doit pas régresser : l'entité est
+    // utilisable, il n'y a simplement rien à ouvrir.
+    const etat = new Etat();
+    etat.appliquer(ev('sensor.home_stock_next_meal', 'Gratin'));
+    const div = document.createElement('div');
+    render(rendreCorps(etat, pieceAvec([RECETTE]), undefined, undefined, undefined,
+                       false, /* recetteOuvrable */ false), div);
+    expect(div.querySelectorAll('.commande')).toHaveLength(0);
+  });
+
+  it('nomme aussi l\'absence dans la vue « Toute la maison » (tuile Scanner)', () => {
+    const etat = new Etat();
+    const div = document.createElement('div');
+    render(rendreMaison(etat, { ...CUISINE, extrasMaison: [
+      { libelle: 'Scanner', icone: 'scan', entite: 'sensor.home_stock_next_meal',
+        lien: '/home-stock', absenceNommee: 'Garde-manger non installé' },
+    ] }), div);
+    const scanner = Array.from(div.querySelectorAll('.tuile'))
+      .find((c) => c.textContent?.includes('Scanner'));
+    expect(scanner).toBeDefined();
+    expect(scanner!.textContent).toContain('Garde-manger non installé');
+  });
+
+  it('nomme l\'absence dans la ligne de synthèse au lieu de la sauter', () => {
+    const etat = new Etat();
+    const s = ligneSynthese(etat, [
+      { entite: 'sensor.home_stock_next_meal', texte: '{etat}', operateur: '!=', valeur: '',
+        absenceNommee: 'Garde-manger non installé' } as EntreeSynthese,
+    ]);
+    expect(s.ecarts).toContain('Garde-manger non installé');
   });
 });

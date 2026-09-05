@@ -28,6 +28,20 @@ export type Bouton = {
    *  pour du confort : réservé à ce qu'on doit pouvoir faire sans réfléchir depuis la porte
    *  d'entrée. Un épinglage ne crée JAMAIS de rangée : un mode à zéro commande (minuteur) reste à
    *  zéro, son budget de hauteur ne le permet pas. */
+  /** Ce que la tuile AFFICHE quand son entité est absente ou `unavailable`,
+   *  au lieu de disparaître.
+   *
+   *  Le masquage générique de `rendu/corps.ts` est le bon défaut : une serrure
+   *  muette ou un lecteur éteint n'ont rien à dire. Il ne l'est PAS quand
+   *  l'entité vient d'un autre package : `home-desk` ne déclare pas
+   *  `home-stock` dans `requires.packages` (décision 8 de la spec) parce que
+   *  la dépendance passe par le bus, jamais par un import — mais installé sans
+   *  lui, l'écran de la cuisine voyait deux tuiles s'évaporer sans un mot.
+   *  Une fonction absente doit se nommer.
+   *
+   *  Une commande qui porte ce champ n'est jamais filtrée, elle est rendue
+   *  INERTE : `interaction.ts` ignore l'appui tant que l'entité est muette. */
+  absenceNommee?: string;
   epingle?: true;
 };
 
@@ -73,7 +87,12 @@ export type Operateur = '!=' | '==' | '<' | '>';
  *  l'entrée, au moment où l'on part faire les courses, mais sa vue « Tâches » n'a pas à porter une
  *  liste qu'on ne coche pas d'un canapé — cocher une DLC veut dire « mangé », et ça se fait devant
  *  le frigo. Posé UNIQUEMENT là ; partout ailleurs, l'automatisme reste le bon comportement. */
-type Commun = { entite: string; texte: string; perso?: true; horsTaches?: true };
+/** `absenceNommee` : cf. la docstring du même champ sur `Bouton`. Sur une entrée de
+ *  synthèse, il remplace le SAUT silencieux de `ligneSynthese` par la phrase donnée —
+ *  la ligne « repas suivant » de la cuisine venait de `home_stock`, et disparaissait
+ *  sans un mot quand il n'était pas installé. */
+type Commun = { entite: string; texte: string; perso?: true; horsTaches?: true;
+                absenceNommee?: string };
 
 export type EntreeSynthese =
   | (Commun & { operateur: '<' | '>'; valeur: number })
@@ -405,13 +424,15 @@ export const PIECES: Record<'salon' | 'bureau' | 'cuisine', Piece> = {
       // la tuile affichait un compte sur lequel on ne pouvait rien faire, et la vue « Tâches » ne
       // s'atteignait qu'en touchant la ligne de synthèse. Une navigation interne ne coûte aucun
       // appel HA et supprime un cul-de-sac.
-      { libelle: 'Courses', icone: 'list', entite: 'todo.home_stock_shopping', vue: '#taches' },
+      { libelle: 'Courses', icone: 'list', entite: 'todo.home_stock_shopping', vue: '#taches',
+        absenceNommee: 'Garde-manger non installé' },
       // Tâche 8 bis : demande explicite du propriétaire, jamais rendue accessible jusqu'ici.
       // Ouvre la vue `#recette` de l'app. `entite` est l'indicateur de disponibilité déjà exploité
       // par le masquage générique de `rendu/corps.ts` : `home_stock` non chargé (entrée absente,
       // base verrouillée) ⇒ le capteur passe `unavailable` ⇒ la tuile disparaît, comme toute autre
       // commande dont l'entité est muette.
-      { libelle: 'Recette', icone: 'book', entite: 'sensor.home_stock_next_meal', vue: '#recette' },
+      { libelle: 'Recette', icone: 'book', entite: 'sensor.home_stock_next_meal', vue: '#recette',
+        absenceNommee: 'Garde-manger non installé' },
     ],
     sources: [
       {
@@ -470,7 +491,7 @@ export const PIECES: Record<'salon' | 'bureau' | 'cuisine', Piece> = {
     // indicateur de disponibilité que « Recette ».
     extrasMaison: [
       { libelle: 'Scanner', icone: 'scan', entite: 'sensor.home_stock_next_meal',
-        lien: '/home-stock' },
+        lien: '/home-stock', absenceNommee: 'Garde-manger non installé' },
     ],
     // Seule pièce avec un extra : la liste de courses (cf. docstring du champ sur `Piece`
     // ci-dessus). La liste des DLC, elle, arrive automatiquement par `synthese`.

@@ -747,6 +747,11 @@ body {
   justify-content: center; gap: 6px; font-size: 13px; font-weight: 600;
   transition: background .3s, border-radius .2s var(--ressort); }
 .tuile.actif { background: var(--md-tertiary-container); color: var(--md-on-tertiary-container); }
+/* Tuile inerte qui NOMME son absence (decision 8 de home-desk) : elle reste a
+   sa place, en retrait, et dit pourquoi elle ne fait rien. Sans elle la tuile
+   disparaissait sans un mot — cf. `absenceNommee` (`pieces.ts`). */
+.tuile.absent, .commande.absent { opacity: .55; }
+.tuile .abs { font-size: 10px; font-weight: 500; line-height: 1.1; text-align: center; }
 /* Retour tactile (couche d'état + rayon d'angle) : règles communes à .ambiance/.commande/.xl/
    .tuile juste après le bloc « Liseré d'attention » plus haut dans ce fichier. */
 
