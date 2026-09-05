@@ -8,25 +8,32 @@
  */
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-// 2026-08-28 : la configuration de Home Assistant a été déplacée de
-// /opt/nivuus/HomeAssistant/config vers /opt/nivuus/home-manager/config (c'est ce dossier-là
-// que docker-compose monte sur /config, cf. docker-compose.yml). L'ancien chemin n'existe
-// plus du tout : un build qui y écrivait recréait un dossier orphelin que personne ne sert,
-// et les tablettes continuaient d'afficher l'ancien bundle sans le moindre message d'erreur.
-const SORTIE = '/opt/nivuus/home-manager/config/www/wallpanel';
+const ICI = dirname(fileURLToPath(import.meta.url));
+
+// Meme raison que rollup.config.js : la sortie est relative au depot.
+const SORTIE = join(ICI, '..', '..', 'dist');
+
 const empreinte = createHash('sha256')
   .update(readFileSync(join(SORTIE, 'wallpanel.js')))
   .update(readFileSync(join(SORTIE, 'wallpanel.css')))
   .digest('hex').slice(0, 10);
 
+// Le groupe accepte AUSSI le jeton `@EMPREINTE@` que generer-pages.mjs laisse
+// dans les pages fraichement produites depuis gabarits/piece.html. Sans lui,
+// versionner.mjs prefixait son empreinte SANS consommer le jeton et produisait
+// `?v=<empreinte>?v=@EMPREINTE@` — une URL que Home Assistant sert quand meme,
+// mais qui n'est plus celle de la production. Constate le 2026-09-05 par la
+// porte de fidelite du plan home-desk.
 let n = 0;
 for (const f of readdirSync(SORTIE).filter((x) => x.endsWith('.html'))) {
   const chemin = join(SORTIE, f);
   const avant = readFileSync(chemin, 'utf8');
   const apres = avant
-    .replace(/(\/local\/wallpanel\/wallpanel\.(?:js|css))(\?v=[0-9a-f]+)?/g, `$1?v=${empreinte}`);
+    .replace(/(\/local\/wallpanel\/wallpanel\.(?:js|css))(\?v=(?:[0-9a-f]+|@EMPREINTE@))?/g,
+      `$1?v=${empreinte}`);
   if (apres !== avant) { writeFileSync(chemin, apres); n++; }
 }
 console.log(`empreinte ${empreinte} posée sur ${n} page(s)`);

@@ -1,0 +1,1203 @@
+/* Jetons Material 3 Expressive — GÉNÉRÉ par scripts/generer-jetons.mjs.
+   Ne jamais éditer à la main : changer une couleur veut dire changer la graine. */
+.m3 {
+  --md-primary:#003c48;
+  --md-on-primary:#ffffff;
+  --md-primary-container:#00788d;
+  --md-on-primary-container:#ffffff;
+  --md-secondary:#532b28;
+  --md-on-secondary:#ffffff;
+  --md-secondary-container:#92605c;
+  --md-on-secondary-container:#ffffff;
+  --md-tertiary:#403600;
+  --md-on-tertiary:#ffffff;
+  --md-tertiary-container:#7c6d29;
+  --md-on-tertiary-container:#ffffff;
+  --md-error:#740006;
+  --md-on-error:#ffffff;
+  --md-error-container:#cf2c27;
+  --md-on-error-container:#ffffff;
+  --md-surface:#f5fafc;
+  --md-on-surface:#0c1214;
+  --md-surface-variant:#dbe4e7;
+  --md-on-surface-variant:#2f383a;
+  --md-surface-dim:#c2c7c9;
+  --md-surface-bright:#f5fafc;
+  --md-surface-container-lowest:#ffffff;
+  --md-surface-container-low:#eff4f7;
+  --md-surface-container:#e4e9eb;
+  --md-surface-container-high:#d8dee0;
+  --md-surface-container-highest:#cdd2d5;
+  --md-outline:#4b5457;
+  --md-outline-variant:#666f71;
+  --md-inverse-surface:#2c3133;
+  --md-inverse-on-surface:#ecf2f4;
+  --md-inverse-primary:#78d3ec;
+  --md-scrim:#000000;
+  --md-shadow:#000000;
+  --sh-s:8px; --sh-m:12px; --sh-l:16px; --sh-xl:28px; --sh-full:999px;
+}
+.m3.sombre {
+  --md-primary:#99e8ff;
+  --md-on-primary:#002a33;
+  --md-primary-container:#3b9cb4;
+  --md-on-primary-container:#000000;
+  --md-secondary:#ffd2cd;
+  --md-on-secondary:#3f1b18;
+  --md-secondary-container:#ba837e;
+  --md-on-secondary-container:#000000;
+  --md-tertiary:#f0dc8d;
+  --md-on-tertiary:#2d2500;
+  --md-tertiary-container:#a19049;
+  --md-on-tertiary-container:#000000;
+  --md-error:#ffd2cc;
+  --md-on-error:#540003;
+  --md-error-container:#ff5449;
+  --md-on-error-container:#000000;
+  --md-surface:#0f1416;
+  --md-on-surface:#ffffff;
+  --md-surface-variant:#3f484b;
+  --md-on-surface-variant:#d5dee1;
+  --md-surface-dim:#0f1416;
+  --md-surface-bright:#404547;
+  --md-surface-container-lowest:#04080a;
+  --md-surface-container-low:#191e20;
+  --md-surface-container:#23292b;
+  --md-surface-container-high:#2e3335;
+  --md-surface-container-highest:#393f40;
+  --md-outline:#aab3b7;
+  --md-outline-variant:#899295;
+  --md-inverse-surface:#dee3e5;
+  --md-inverse-on-surface:#252b2d;
+  --md-inverse-primary:#004f5f;
+  --md-scrim:#000000;
+  --md-shadow:#000000;
+}
+
+/* Tâche 11 (HISTORIQUE, corrigé depuis) : « `100vh` mesure plus grand que la zone visible dans le
+   WebView de Fully : la dernière rangée se retrouve coupée sans qu'aucun ajustement de contenu n'y
+   change quoi que ce soit. `100dvh` mesure la zone réellement visible et doit régler le problème à
+   la racine. À MESURER sur la tablette avant de croire que c'est réglé ; repli connu :
+   calc(100vh - 45px). »
+   Ce « à mesurer » n'a jamais été fait, et la conclusion était doublement fausse : `100dvh` n'a
+   rien réglé du tout sur deux des trois tablettes, qui ne connaissent pas cette unité (Chrome 100),
+   et le repli `calc(100vh - 45px)` aurait ajouté une constante magique là où le moteur sait donner
+   la bonne valeur tout seul. La hauteur du cadre se déclare désormais en `height: 100%` sur les
+   trois niveaux — voir le bloc « Tâche 18 » juste au-dessus de la règle `html, body`, qui porte les
+   mesures. Le seul point de cette note d'origine qui tienne encore est son avertissement de fond :
+   NE PAS croire une hauteur d'écran sur parole, la mesurer dans le moteur concerné. */
+/* Tâche 9, retour du coordinateur : `#app` couvre bien 100 % du viewport (100dvh, largeur de
+   bloc par défaut), donc sa propre toile de fond ne se voyait jamais — jusqu'à `.muet`
+   (`opacity: .75` sur `#app`) et jusqu'à la bande d'une quarantaine de pixels que la dalle des
+   trois tablettes laisserait dépasser sous la hauteur du cadre (tâche 20 : le viewport mesuré par
+   le WebView et la zone réellement peinte ne coïncideraient pas tout à fait sur ce matériel — cette
+   quarantaine de pixels n'a jamais été mesurée, elle reste une hypothèse ; tâche 18 : `height: 100%`
+   ne peut de toute façon jamais dépasser la zone de mise en page, donc le pire cas reste une bande
+   NON PEINTE par `#app`, exactement celle que ce filet couvre). Sans fond ici, un
+   navigateur/WebView peint par défaut en BLANC derrière : un `.muet` déclenché sur l'écran de
+   nuit (fond quasi noir, « jamais de blanc pur ») aurait donc ÉCLAIRCI l'écran au lieu de le
+   griser — l'inverse de l'effet voulu, au moment précis où quelqu'un vient de se réveiller dans
+   le noir. NE JAMAIS SUPPRIMER ce filet — seulement lui faire prendre la bonne couleur (tâche 20,
+   ci-dessous) plutôt que de le retirer.
+   Tâche 20 : les jetons M3 (générés, `jetons.css`) sont scopés à la classe `.m3`/`.sombre`, posée
+   sur `racine` (`#app`, cf. `demarrage.ts`) — `html`/`body`, ses ANCÊTRES, n'y ont jamais accès :
+   une propriété personnalisée CSS hérite uniquement vers les descendants, jamais vers un ancêtre.
+   `demarrer()` pose donc désormais les deux mêmes classes en plus sur `<html>` (jamais en les
+   retirant de `racine` : purement additif, cf. son commentaire), en miroir de celles de `racine`
+   à chaque redessin — ce qui rend `--md-surface` visible ici aussi. `var(--md-surface, #14181a)` :
+   le même gris neutre et sombre qu'avant reste le repli (avant l'exécution de ce script, ou s'il
+   échoue) — jamais supprimé — mais devient sinon la vraie couleur de surface de l'ambiance en
+   cours (jour/soir/nuit) : la bande sous la page redevient invisible dans les trois ambiances,
+   sans jamais pouvoir remontrer de blanc. */
+/* Tâche 18 (2026-08-03) — `height: 100%` SUR LES TROIS NIVEAUX, ET PLUS AUCUNE UNITÉ DE VIEWPORT.
+   Ce qui a été mesuré, en lecture seule, sur l'API d'administration Fully (`?cmd=deviceInfo`) :
+   les trois tablettes n'ont PAS le même moteur. Cuisine (192.168.0.159) et salon (192.168.0.218)
+   rendent en Chrome 100.0.4896.127 ; le bureau (192.168.0.138), lui, en Chrome 119.0.6045.194.
+   `dvh` n'existe qu'à partir de Chrome 108 : sur DEUX écrans sur trois, le `height: 100dvh` que
+   `#app` déclarait seul depuis la tâche 11 était une déclaration invalide, JETÉE au parsing.
+   `height` retombait à `auto`, `#app` prenait la hauteur de son contenu, et `.xl
+   { margin-top: auto }` n'avait plus aucun espace à absorber : le bouton « Toute la maison »
+   flottait au milieu de l'écran. Relevé sur les tablettes : le haut de `.xl` tombait à 417,7 px en
+   cuisine et 502,9 px au salon, contre 510,9 px au bureau (le seul en Chrome 119). Le même écran
+   rendu ici, dans un Chromium à 343×585 avec `dvh` neutralisé, redonne 417,9 px et 499,9 px — le
+   défaut se reproduit hors du mur, à quelques dixièmes près (le salon dépend de la hauteur de sa
+   carte média, donc de l'état de la maison à l'instant de la mesure). Le salon avait bien le même
+   défaut, masqué par cette carte qui remplit presque l'écran : il ressortait dans ses modes
+   `aeration` (546 px), `minuteur` (550) et `alerte` (554).
+
+   POURQUOI `100%` ET PAS UN REPLI `height: 100vh; height: 100dvh`. Un pourcentage se résout contre
+   le bloc conteneur initial — exactement la boîte que `document.documentElement.clientHeight`
+   rapporte, celle dans laquelle le moteur compose et peint. Trois conséquences, toutes voulues :
+     · il ne peut PAS dépasser la zone de mise en page, donc jamais de bas d'écran rogné en silence
+       par l'`overflow: hidden` juste en dessous. `100vh`, lui, est défini contre le viewport
+       « large » : c'est justement lui qui mesurait trop grand (tête de ce fichier, tâche 11) et qui
+       avait motivé le passage à `dvh` ; le reprendre en repli aurait rendu au moteur sans `dvh` le
+       défaut d'origine, en pire, puisque muet ;
+     · il est compris de TOUS les moteurs — la propriété existe depuis CSS 1, il n'y a pas de
+       version de WebView où elle se comporte autrement ;
+     · il ne bougera pas quand un WebView gagnera `dvh` : rien à basculer, les trois tablettes
+       restent d'accord entre elles et avec elles-mêmes dans le temps. Un doublet
+       `height: 100%; height: 100dvh` aurait fait changer d'unité, donc potentiellement de hauteur,
+       au hasard d'une mise à jour d'Android System WebView.
+   L'autre piste — poser la hauteur en JS depuis `documentElement.clientHeight` — donne la MÊME
+   valeur, au prix d'un écouteur de redimensionnement, d'un écran sans hauteur si le script tarde ou
+   échoue, et d'une mise en page qui dépend du JS. `100%` est ce résultat-là, sans le script.
+
+   NE JAMAIS RETIRER `height: 100%` DE `html, body` : `#app` en dépend. Un pourcentage dont
+   l'ancêtre n'a pas de hauteur définie retombe sur `auto`, c'est-à-dire exactement le défaut
+   ci-dessus, et tout aussi silencieusement. Deux filets le tiennent : `tests/corps.test.ts`
+   (« hauteur du cadre #app ») lit cette chaîne dans ce fichier, et `outils/verifier-rendu.mjs`
+   la mesure dans un vrai moteur de rendu, `dvh` simulé absent (`autoTestCadre`, et la passe
+   « Cadre en moteur SANS `dvh` » sur les pages réelles). */
+html, body { margin: 0; padding: 0; height: 100%; overflow: hidden;
+             background: var(--md-surface, #14181a); }
+body {
+  font-family: Roboto, system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+/* `height: 100%` : cf. le bloc « Tâche 18 » au-dessus de `html, body`, dont cette règle dépend. */
+/* `position: relative` (tâche 2, mouvement) : ancre `#mvt-fantomes` (`position: absolute`) sur le
+   cadre de l'app plutôt que sur le document — sans ça, les fantômes se positionneraient par
+   rapport au viewport, pas par rapport à `#app`. */
+/* `z-index: 0` (traversée de vue) : rend `#app` CONTEXTE D'EMPILEMENT. Sans lui, `position:
+   relative` seul laisse `z-index: auto`, donc pas de contexte : le calque de fond `#mvt-fond`
+   (`z-index: -1`) remonterait jusqu'au contexte racine et se peindrait DERRIÈRE le fond de `#app`,
+   c'est-à-dire invisible. Avec un contexte ici, un enfant en z négatif se peint après le fond de
+   `#app` et avant son contenu en flux — exactement la place qu'il faut à la vue sortante. */
+#app { height: 100%; display: flex; flex-direction: column; overflow: hidden; position: relative;
+       z-index: 0; background: var(--md-surface); color: var(--md-on-surface); }
+/* Refonte 2026-08-06 — LES DEUX COLONNES SE TERMINENT ENSEMBLE. La version 2026-08-02 posait
+   `align-items: start` : la colonne gauche (heure, date, phrase) descendait plus bas que la
+   droite, la phrase « Il fait … ici » pendait seule en bas à gauche avec du vide à sa droite, et
+   l'ensemble dessinait un « L ». `stretch` donne aux deux colonnes la même hauteur, et
+   `space-between` sur chacune pousse leur second enfant contre le pied : les pieds s'alignent
+   sans qu'AUCUNE taille de texte ne change.
+
+   Hauteur du bandeau MESURÉE inchangée : 121 px avant cette refonte, 121 px après (une estimation
+   de maquette plus optimiste a traîné ici un temps sans avoir jamais été confirmée sur la vraie
+   page — ne JAMAIS créditer un chiffre de hauteur qui ne vient pas de `verifier-rendu.mjs`).
+   C'est le résultat voulu, pas un raté : la consigne du propriétaire est « identique, ni plus ni
+   moins » — cette refonte réaligne les pieds des deux colonnes, elle ne réduit l'encombrement de
+   personne. La hauteur de la ligne de grille reste celle de sa colonne la plus haute (en général
+   la gauche, avec `.phrase`) ; `stretch`/`space-between` ne fait que redistribuer l'espace déjà
+   présent À L'INTÉRIEUR de cette hauteur-là, jamais la réduire.
+
+   PIÈGE — NE PAS ÉLARGIR LA PISTE DROITE. Une première version de cette refonte l'avait portée de
+   44% à 46%, au prétexte que la pastille, ne partant plus du haut, pourrait profiter d'un peu plus
+   de largeur. C'était une erreur de conception : la piste gauche est `1fr`, donc tout pourcentage
+   gagné par la piste droite (`minmax(0, …%)`) est mécaniquement perdu par la gauche — `1fr` ne
+   reçoit que ce qu'il reste une fois l'autre piste montée à son maximum. Mesuré : passer à 46%
+   faisait chuter la boîte de `.date` de 160px à 154px, et sa marge de sécurité (pire cas
+   « dimanche 13 septembre », dérivé à chaque exécution de `verifier-rendu.mjs`) de +1,6px à
+   -4,4px — donc en dépassement. Cette marge est une garantie MESURÉE qui prime sur le confort de
+   largeur de la pastille, laquelle n'a jamais manqué de place à 44%. LA PISTE DROITE RESTE À 44%. */
+.cap { background: var(--md-primary); color: var(--md-on-primary);
+       border-radius: 0 0 var(--sh-xl) var(--sh-xl); padding: 16px 20px 15px; flex: none;
+       display: grid; grid-template-columns: 1fr minmax(0, 44%); column-gap: 10px;
+       align-items: stretch; }
+.sombre .cap { background: var(--md-surface-container-high); color: var(--md-on-surface); }
+/* L'accent des températures. DEUX jetons, pas un : de jour `.cap` a `--md-primary` (#003c48) POUR
+   FOND — un accent `--md-primary` y serait littéralement invisible, même couleur que son support.
+   Dans les deux palettes c'est « le cyan clair » de la graine, et le contraste tient largement :
+   7,1:1 de jour (#78d3ec sur #003c48), 9,3:1 de nuit (#99e8ff sur #2e3335), pour un seuil de 5:1
+   vérifié sur le rendu peint par `outils/verifier-rendu.mjs`.
+
+   Ce que l'accent couvre : les trois températures affichées, et rien d'autre — l'icône météo reste
+   dans la couleur du texte (elle hérite de `currentColor` de `.dehors`, hors du `.val`). La règle
+   que l'œil apprend est donc unique et sans exception : ce qui est coloré ici est une température. */
+/* DUPLICATION VOLONTAIRE de `.cap` et `.sombre .cap` (déjà déclarés juste au-dessus, propriétés de
+   fond/mise en page) : ce second jeu de règles ne porte QUE `--cap-accent`, pour rester à côté du
+   commentaire qui l'explique plutôt que noyé dans le bloc de mise en page. Sans danger de
+   spécificité (les deux jeux ont la même, les propriétés déclarées ne se recouvrent pas) — mais un
+   futur éditeur qui modifie `.cap` risque de ne voir que l'un des deux blocs. Les deux DOIVENT
+   rester synchronisés sur leurs sélecteurs. */
+.cap { --cap-accent: var(--md-inverse-primary); }
+.sombre .cap { --cap-accent: var(--md-primary); }
+.cap .val { color: var(--cap-accent); }
+/* `gap: 9px` reprend l'ancien `margin-top` de `.phrase` (retiré plus bas) : avec `space-between`
+   une marge s'ADDITIONNERAIT à la répartition, alors qu'un `gap` n'agit que comme plancher quand
+   la colonne est trop courte pour écarter ses deux blocs. */
+.cap .gauche { min-width: 0; display: flex; flex-direction: column;
+               justify-content: space-between; gap: 9px; }
+/* Un élément `inline` ignore purement et simplement `transform` : sans cette ligne, le roulement
+   ne se voit nulle part et aucun test unitaire ne peut le dire (jsdom ne calcule aucune mise en
+   page). `overflow: hidden` sur le conteneur pour que le glyphe sortant disparaisse au lieu de
+   déborder sur la ligne du dessus. */
+.heure { font-size: 42px; font-weight: 400; line-height: 1; letter-spacing: -1.5px;
+         overflow: hidden; }
+.chiffre { display: inline-block; }
+/* Tâche 13 (2026-08-03), MESURÉ : la colonne gauche du bandeau fait 160px (grille `1fr
+   minmax(0, 44%)` sur `.cap`, moins la gouttière). À 12px/.6, la date la plus large demandait
+   171px — elle passait donc à la ligne, `.date` doublait de hauteur (14 → 28px) et le bandeau
+   regonflait de 122 à 136px : l'invariance de hauteur obtenue à la tâche 8 tombait, sur une date
+   parfaitement ordinaire. 11px/.4 la ramène sous la barre.
+
+   Ronde de correction 1 (relecteur) — LA MARGE RÉELLE EST DE 1,6px, PAS 6px. Le premier jet
+   affirmait « mercredi 30 septembre » (153,6px) « la plus longue de l'année » : c'était faux.
+   `outils/verifier-rendu.mjs` DÉRIVE désormais le pire cas à chaque exécution, par balayage des
+   2 562 chaînes distinctes que produisent 28 ans de dates réelles (le cycle complet du calendrier
+   grégorien), mesurées dans la police réellement résolue. Le vrai pire cas est « dimanche 13
+   septembre » — à égalité exacte avec « dimanche 18 septembre », les chiffres ayant la même
+   chasse — à 158,4px pour 160px de boîte.
+
+   Cette marge de 1,6px est un PLANCHER, pas une estimation optimiste : la machine de vérification
+   n'a pas Roboto et retombe sur DejaVu Sans, plus large que Roboto qui est, elle, la police
+   système des Fire 7. La marge réelle sur les tablettes est donc supérieure. Elle reste mince :
+   si elle doit être élargie un jour, `letter-spacing: .2px` rend ~4px sans rien changer d'autre.
+
+   `white-space: nowrap` est le garde-fou permanent : il ne masque rien (l'`overflow` de `.cap`
+   reste visible) mais rend la faute VISIBLE au vérificateur, dont le contrôle « texte tronqué »
+   compare `scrollWidth` à `clientWidth` sur les seuls éléments en `nowrap`. Sans lui, une future
+   date plus large repasserait silencieusement à la ligne. */
+.date { font-size: 11px; font-weight: 600; letter-spacing: .4px; margin-top: 7px;
+        white-space: nowrap; }
+.dehors { display: flex; align-items: center; gap: 7px; font-size: 24px; font-weight: 600; }
+.phrase { font-size: 14px; line-height: 1.35; }
+.phrase b { font-weight: 700; }
+/* `background` (traversée de vue) : la vue entrante glisse PAR-DESSUS la sortante restée en place.
+   Transparente, elle laisserait voir les deux écrans superposés pendant les 320 ms du geste. Le
+   jeton est celui que `#app` porte déjà — rigoureusement rien ne change hors traversée, palette
+   sombre comprise (les jetons M3 sont scopés à `.sombre`, `var()` suit donc tout seul). */
+/* `min-height: 0` (tâche 12) : sans lui, la taille minimale AUTOMATIQUE d'un item flex (`.corps`
+   dans `#app`) vaut le min-content de son contenu — jamais mesuré jusqu'à cette tâche, faute de
+   contenu assez long pour la faire apparaître (tout le reste de l'app est pré-paginé pour tenir).
+   La vue `#recette` est la PREMIÈRE dont le contenu (avant sous-découpage) dépasse franchement les
+   585 px disponibles : sans ce `min-height: 0`, `.corps` refuse de rétrécir sous cette taille et
+   grandit avec son contenu (mesuré : 665 px sur 585 px de cadre), entraînant tout `#app` dans son
+   débordement — et surtout, empêchant `.recette-page` (flex:1 lui aussi) de jamais recevoir une
+   place plus petite que son contenu, donc `zone.scrollHeight` d'être jamais mesuré SUPÉRIEUR à
+   `zone.clientHeight` : `reScinder` (`rendu/recette.ts`) ne peut détecter un débordement à couper
+   que si le CADRE, pas seulement le contenu, refuse de grandir. */
+/* `.ecran` (2026-08-28) — la racine de vue de l'ACCUEIL : bandeau + corps sous une seule marque
+   `data-mvt="vue:accueil"` (cf. `demarrage.ts`), pour que la traversée emporte l'écran ENTIER
+   plutôt que son corps seul, en laissant le bandeau disparaître sec. Purement structurelle : elle
+   reprend le `display: flex` en colonne de `#app` et se donne toute sa hauteur (`flex: 1`), donc
+   `.cap` (`flex: none`) et `.corps` (`flex: 1`) se répartissent exactement comme avant.
+   `min-height: 0` pour la même raison que `.corps` juste en dessous : sans lui, la taille minimale
+   automatique d'un item flex vaut le min-content de son contenu, et la vue `#recette` — la seule
+   dont le contenu dépasse franchement le cadre — ferait déborder tout `#app` au lieu de laisser
+   `reScinder` mesurer un débordement à couper.
+   Le fond est celui de `#app`, comme `.corps` : rien ne change hors traversée, et le clone de
+   fond reste opaque du haut au bas du cadre pendant les 320 ms du geste. */
+.ecran { display: flex; flex-direction: column; flex: 1; min-height: 0;
+         background: var(--md-surface); }
+.corps { padding: 12px 16px; display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 8px;
+         background: var(--md-surface); }
+/* Tâche 9, ronde de correction 1 (relecteur, IMPORTANT) : remonté de .55 à .75 — la contrainte
+   globale du projet interdit toute opacité sous 0,75 sur du texte (dalle médiocre, souvent
+   regardée de biais). En dessous, un texte déjà peu contrasté devient illisible plutôt que
+   « visiblement périmé ». Le voile n'a plus besoin d'être aussi appuyé : le message est
+   maintenant porté explicitement par le bandeau `.hors-ligne` (écran normal), par le remplacement
+   de la température/serrure (écran de nuit, `rendu/nuit.ts`) et par l'étiquette de la vue
+   « Toute la maison » (`rendu/maison.ts`) — `.muet` n'est plus le seul porteur de l'information,
+   juste un renfort ambiant. Seuil vérifié par `tests/corps.test.ts`. */
+.muet { opacity: .75; transition: opacity .3s; }
+
+.etiquette { font-size: 11px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase;
+             color: var(--md-on-surface-variant); margin-bottom: -4px; }
+/* Tâche 9, ronde de correction 1 : signal « hors ligne » de la vue « Toute la maison »
+   (`rendu/maison.ts`) — même couleur que `.synthese .ecart`, déjà posée directement sur le fond
+   `#app` sans conteneur dédié, jamais une opacité réduite (règle globale du projet). Aucun coût
+   de hauteur : remplace le texte d'une ligne qui existe déjà dans tous les cas. */
+.etiquette.hl { color: var(--md-error); }
+/* Le nombre de colonnes vient du rendu (`--ambiances`, cf. rendu/corps.ts) : la cuisine en a 4
+   depuis les minuteurs, le salon et le bureau restent à 3. Le repli à 3 garde intact tout rendu
+   qui ne publierait pas la variable (tests existants, anciennes pages en cache). `minmax(0, 1fr)`
+   et non `1fr` : sans le plancher à 0, un libellé long élargit sa colonne et fait déborder la
+   rangée hors de l'écran. */
+.groupe { display: grid; grid-template-columns: repeat(var(--ambiances, 3), minmax(0, 1fr)); gap: 4px; }
+.ambiance { height: 72px; background: var(--md-surface-container-high); color: var(--md-on-surface);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px;
+  font-size: 13px; font-weight: 600; border-radius: var(--sh-s);
+  transition: background .3s, border-radius .2s var(--ressort); }
+.ambiance:first-child { border-radius: var(--sh-xl) var(--sh-s) var(--sh-s) var(--sh-xl); }
+.ambiance:last-child { border-radius: var(--sh-s) var(--sh-xl) var(--sh-xl) var(--sh-s); }
+.commandes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* `--mvt-fond-*` : les deux fonds d'état de la tuile, nommés une seule fois pour que le fond réel
+   ci-dessous et `.commande.actif` restent forcément d'accord — deux déclarations séparées
+   auraient pu dériver en silence sans qu'aucun test ne le voie. */
+.commande { --mvt-fond-inactif: var(--md-surface-container-high);
+  --mvt-fond-actif: var(--md-tertiary-container);
+  height: 64px; border-radius: var(--sh-xl); padding: 0 15px; display: flex;
+  align-items: center; gap: 11px; background: var(--mvt-fond-inactif);
+  color: var(--md-on-surface);
+  /* `color 0s .3s` — le texte bascule à la FIN du fondu de fond, jamais pendant. `lit` peint la
+     tuile dans son état d'arrivée avant tout mouvement : sans ce délai, le texte prend la couleur
+     d'arrivée à la première image pendant que le fond porte encore celle du départ — du blanc sur
+     `#d8dee0`, soit environ 1,6:1 contre un plancher projet de 5:1. Fondre les deux couleurs
+     ENSEMBLE a été essayé et mesuré : à mi-parcours elles se moyennent et le texte devient plus
+     terne que le défaut qu'on corrige. Il tient, puis il cède. */
+  transition: background .3s, color 0s .3s, border-radius .2s var(--ressort);
+  /* `.s` (ci-dessous) est bornée à 2 lignes : sans cet `overflow: hidden`, un état texte long
+     déborderait du cadre de 150,5 px de la tuile au lieu d'y rester tenu dedans. */
+  overflow: hidden; }
+.commande.actif { background: var(--mvt-fond-actif); color: var(--md-on-tertiary-container); }
+/* L'`overflow: hidden` de `.commande` ci-dessus ne SUFFIT PAS : la boîte interne est un enfant de
+   flex, donc `min-width: auto`, donc elle refuse de descendre sous la largeur min-content de son
+   `.s` en `nowrap`. Le libellé le plus long réellement rendu ici — « Petit-déjeuner
+   chèvre-tomates-pain complet », sous-titre de la tuile « Recette » en cuisine — la poussait à
+   266 px dans une tuile de 150,5 px : la grille `.commandes` s'élargissait, la page cuisine
+   dépassait le cadre de 125 px (relevé par `verifier-rendu.mjs`) et le texte était coupé NET,
+   sans ellipse, faute d'être contraint. `min-width: 0` rend la boîte compressible, l'ellipse
+   ci-dessous dit au lecteur que la phrase continue. */
+.commande > div { min-width: 0; }
+.commande .t { font-size: 14px; font-weight: 600; line-height: 1.2; }
+/* PLUS de `white-space: nowrap` ici. Sur une seule ligne insécable, le sous-titre le plus long
+   réellement rendu — « Petit-déjeuner chèvre-tomates-pain complet », 42 caractères, sous la tuile
+   « Recette » en cuisine — ne peut PAS être lu : ~20 caractères tiennent dans 150,5 px, le reste
+   était coupé net. Deux lignes en portent ~40, et la tuile ne bouge pas d'un pixel (`.t` 17 px +
+   2 × 14 px = 45 px dans 64 px de hauteur fixe). Le clamp est déclaré dans `CLAMPS_VOULUS`
+   (`outils/verifier-rendu.mjs`) : borné et rapporté, jamais silencieux. */
+.commande .s { font-size: 12px; font-weight: 500; line-height: 1.2;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+/* .prevision/.heure-prev (les six prochaines heures) ont disparu à la tâche 14 (2026-08-03) avec
+   le mode `previsions` — remplacées par `.mode-bloc` (repas en cuisine, agenda au bureau,
+   `rendu/defaut.ts`), déjà défini plus bas pour ménage/aération. */
+.demain { background: var(--md-secondary-container); color: var(--md-on-secondary-container);
+  border-radius: var(--sh-xl); padding: 11px 16px; display: flex; align-items: center; gap: 13px; }
+.demain .t { font-size: 11px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; }
+.demain .v { font-size: 15px; font-weight: 600; line-height: 1.3; margin-top: 2px; }
+/* Tâche 8 bis : même padding, même border-radius ET même structure interne (.t/.v) que .demain —
+   l'un des trois remplace toujours les deux autres (jamais deux en même temps), pour que la
+   hauteur totale de l'écran ne bouge pas selon qu'une alerte ou un média est actif. Ronde de
+   correction 1 : le conteneur seul ne suffisait pas (.alerte rendait un unique <span>, une
+   ligne, quand .demain/.media en portent deux) — la hauteur RÉELLE différait, même si rien ne le
+   prouvait dans les tests (jsdom ne calcule aucune vraie mise en page) ni à l'écran (.xl absorbe
+   l'écart via `margin-top: auto`). .alerte reprend maintenant .t/.v à l'identique de .demain/
+   .media, vérifié par tests/corps.test.ts (comparaison des règles CSS ET de la structure DOM
+   rendue), pas seulement supposé. */
+.alerte { background: var(--md-error-container); color: var(--md-on-error-container);
+  border-radius: var(--sh-xl); padding: 11px 16px; display: flex; align-items: center; gap: 13px; }
+.alerte .t { font-size: 11px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; }
+.alerte .v { font-size: 15px; font-weight: 600; line-height: 1.3; margin-top: 2px; }
+/* Carte média (2026-08-02). Même rayon, même padding, même structure `.t`/`.v` que `.demain` et
+   `.alerte` — règle 1 de cohérence : seule la SURFACE change, jamais la forme. `position:
+   relative` porte la couche d'affiche et la bande de progression, toutes deux en fond, donc
+   toutes deux à coût de hauteur NUL. Hauteur totale visée : 153 px (padding 8 + étiquette 15 +
+   titre 2 lignes 38 + sous-titre 16 + gouttière 6 + rangée 62 + padding 8).
+   Correctif important (revue tâche 6) : ce total n'était qu'une intention, jamais imposé — sans
+   sous-titre (`sousTitre` vaut `''` pour toute source qui n'expose ni `media_series_title` ni
+   `media_artist`, cf. `media.ts`) et avec un titre d'une seule ligne, le bloc perdait le budget
+   qu'il est censé garantir, violant « la hauteur de la carte média ne dépend jamais de son
+   contenu ». `min-height` fixe un plancher à 153px, qui est aussi le PLAFOND réel (le titre est
+   borné à 2 lignes par `.v.deux-lignes`, le sous-titre à 1 par `white-space: nowrap`) : la
+   hauteur est donc constante, jamais seulement minorée.
+   Tâche 13 (2026-08-03), MESURÉ et non déduit : `box-sizing` vaut `content-box` par défaut dans
+   ce projet (aucune remise à zéro globale dans ce fichier), donc `min-height: 153px` s'appliquait
+   à la BOÎTE DE CONTENU et les 16px de padding s'ajoutaient par-dessus — 169px réels, alors que
+   le décompte du commentaire ci-dessus compte explicitement les deux paddings DANS ses 153px.
+   Ces 16px de trop faisaient déborder les modes `media` et `cinema` de 9px du cadre de 585px,
+   relevés par le contrôle de budget par mode de `outils/verifier-rendu.mjs`. `border-box` rend au
+   `min-height` le sens que son commentaire lui prête depuis le début, sans rien sacrifier de la
+   carte (le contenu réel — 132,8px — reste sous les 137px que le plancher laisse alors). */
+.media { position: relative; overflow: hidden; padding: 8px 16px; min-height: 153px;
+  box-sizing: border-box;
+  border-radius: var(--sh-xl); background: var(--md-primary-container);
+  color: var(--md-on-primary-container); display: flex; flex-direction: column; gap: 6px; }
+.media .t { font-size: 11px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; }
+.media .v { font-size: 15px; font-weight: 600; line-height: 1.26; }
+/* Deux lignes maximum, jamais une : les titres YouTube sont longs (71 caractères relevés) et un
+   titre coupé à la première ligne ne dit plus rien. `-webkit-line-clamp` est compris par le
+   WebView Chromium de ces tablettes. */
+.media .v.deux-lignes { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; }
+.media-sous { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; }
+.media-texte, .media-rangee { position: relative; z-index: 1; }
+/* L'affiche : couche de fond en `cover`, SOUS un voile UNI (jamais un dégradé, jamais un flou —
+   c'est le dégradé sur grande surface qui fait du banding sur ces dalles 6 bits).
+   `.34` EST CALIBRÉE depuis la tâche 13 (le commentaire qui disait encore « valeur de départ, pas
+   encore calibrée » datait de la tâche 6, avant que la carte ne soit rendue nulle part).
+   `outils/verifier-rendu.mjs` échantillonne les pixels RÉELLEMENT peints sous chaque zone de
+   texte, sur trois affiches de luminosités différentes : le pire cas est l'affiche TRÈS CLAIRE en
+   mode cinéma (palette sombre forcée, donc texte blanc par-dessus), mesuré à 5,45:1 pour 5:1
+   exigés — 0,45 point de marge, soit ~9 %. Le voile relâché à `.60` tombe, lui, sous le seuil :
+   c'est la contre-épreuve permanente d'`autoTestPeint` (`--auto-test`), qui prouve que ce
+   contrôle sait rougir. Marge mince mais MESURÉE à chaque exécution : toute augmentation de cette
+   opacité doit être repassée sous l'outil, jamais estimée. */
+.media-affiche { position: absolute; inset: 0; z-index: 0; background-size: cover;
+  background-position: center; opacity: .34; }
+/* Correctif critique (revue tâche 6) : le fond change avec l'affiche mais la COULEUR DE TEXTE
+   de repos (`--md-on-primary-container`, blanc) ne suit pas — sur `--md-surface-container-highest`
+   (clair) ou `--md-surface-container-low` (sombre), ça tombe à ~1,5:1/~1,2:1, très sous le seuil
+   global de 5:1. `--md-on-surface` (le texte fait pour ces surfaces neutres, cf. `jetons.css`)
+   redonne 12,4:1 en clair et 16,8:1 en sombre — vérifié avant/après par calcul WCAG, cf. rapport. */
+.media.avec-affiche { background: var(--md-surface-container-highest); color: var(--md-on-surface); }
+.sombre .media.avec-affiche { background: var(--md-surface-container-low); color: var(--md-on-surface); }
+/* La progression : bande de 4 px sur le bord bas, en couche de fond — exactement le même
+   mécanisme que `.commande.jauge`, donc AUCUNE hauteur ajoutée. */
+.media::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; z-index: 2;
+  background: linear-gradient(to right, var(--md-tertiary) calc(var(--progression, 0) * 100%), transparent 0);
+  pointer-events: none;
+}
+/* Correctif important (revue tâche 6) : largeur réellement disponible dans `.media-rangee` =
+   343 − 32 (padding `.corps`) − 32 (padding `.media`) = 279px. Le contenu déclaré (3 boutons de
+   62px + 2 gouttières de 8px + la gouttière de 10px + un rail de 90px) faisait 302px — 23px
+   d'excédent que le `flex-shrink` par défaut absorbait en écrasant TOUT (boutons compris, jusqu'à
+   ~57px, sous la cible tactile de 62px), et le rail rétrécissait sans que son dégradé (fixé à
+   90px) ne suive, désynchronisant le remplissage visible du calcul `ev.clientX / r.width`. Les
+   boutons de transport sont maintenant `flex: none` (jamais en dessous de 62px) ; `.media-volume`
+   absorbe tout le reste (`flex: 1`), et c'est en son sein le rail, seul enfant flexible, qui en
+   hérite — son dégradé suit `100%` de sa largeur RÉELLE au lieu d'un `90px` figé, donc le calcul
+   au doigt reste toujours exact quel que soit le nombre de boutons affichés à sa gauche. */
+.media-rangee { display: flex; align-items: center; gap: 10px; height: 62px; }
+.media-transport { display: flex; align-items: center; gap: 8px; flex: none; }
+/* 62 px : la cible minimale du projet, non négociable — un bouton de transport n'y échappe pas.
+   `flex: none` : jamais rétréci par le `flex-shrink` par défaut, cf. commentaire ci-dessus. */
+.media-bouton { width: 62px; height: 62px; flex: none; border-radius: var(--sh-full);
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, .18); color: inherit; position: relative; }
+.sombre .media-bouton { background: rgba(255, 255, 255, .16); }
+.media-volume { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
+  justify-content: flex-end; }
+/* Rail : occupe tout ce que `.media-volume` lui laisse (`flex: 1`, cf. commentaire de
+   `.media-rangee` ci-dessus), jamais une largeur fixe — c'est ce qui garde son dégradé
+   (`100% 6px`) synchronisé avec la largeur réellement rendue, donc avec le calcul du doigt.
+   `min-width` : plancher sous lequel la cible deviendrait trop étroite pour rester utilisable
+   (cas extrême, un seul bouton de transport affiché — rare, cf. `rendu/media.ts`). Zone de
+   contact étendue à 62 px de haut par le padding, alors que le trait visible n'en fait que 6 — la
+   cible respecte la règle sans que le dessin ne s'alourdisse. */
+.media-rail { flex: 1; min-width: 56px; height: 62px; display: flex; align-items: center;
+  background: linear-gradient(to right, currentColor calc(var(--niveau, 0) * 100%), transparent 0)
+              center / 100% 6px no-repeat;
+  touch-action: none; }
+.media-pas { width: 44px; height: 62px; flex: none; display: flex; align-items: center;
+  justify-content: center;
+  font-size: 22px; font-weight: 600; border-radius: var(--sh-l); background: rgba(0, 0, 0, .18); }
+.sombre .media-pas { background: rgba(255, 255, 255, .16); }
+/* Tâche 9 : même gabarit que .alerte/.media (padding, border-radius, structure .t/.v) — il les
+   remplace, jamais en plus (cf. demarrage.ts), pour que la hauteur totale de l'écran ne bouge
+   pas selon qu'il est affiché ou non. Couleur error-container comme .alerte : une connexion
+   morte depuis 30 s mérite la même attention qu'une porte déverrouillée, pas un ton neutre qui
+   se fondrait dans le décor déjà grisé par .muet. */
+.hors-ligne { background: var(--md-error-container); color: var(--md-on-error-container);
+  border-radius: var(--sh-xl); padding: 11px 16px; display: flex; align-items: center; gap: 13px; }
+.hors-ligne .t { font-size: 11px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; }
+.hors-ligne .v { font-size: 15px; font-weight: 600; line-height: 1.3; margin-top: 2px; }
+/* Tâche 18 : ligne tapable (ouvre la vue « Tâches »), cf. `rendu/corps.ts` — `position: relative`
+   nécessaire à sa propre couche d'état, ajoutée plus bas dans un bloc dédié (elle n'a pas de
+   rayon d'angle à resserrer au contact, contrairement à `.ambiance`/`.commande`/`.xl`/`.tuile` :
+   une simple ligne de texte, pas une carte). */
+.synthese { display: flex; align-items: center; gap: 9px; padding: 0 4px; position: relative; }
+/* Ronde de correction 1 (tâche 10 bis, relecture) : bornée à 2 lignes, même mécanisme et même
+   discipline que `.pastille .pv`/`.v.deux-lignes` (`CLAMPS_VOULUS`, `outils/verifier-rendu.mjs`)
+   — jamais un simple `overflow: hidden` qui couperait le texte à mi-ligne. Sans plafond, cette
+   ligne grandissait avec le nombre d'écarts réellement actifs en même temps (porte déverrouillée,
+   rideau ouvert, voiture à brancher, tâches d'entretien) : un jour de rideau ouvert (automation
+   quotidienne) et de liste d'entretien non vide suffit à en cumuler trois, poussant `.synthese` à
+   3 lignes (+16 px) — c'est ce qui faisait déborder le mode `voiture` à 590 px dans un état de
+   salon parfaitement ordinaire, jamais atteint par les mesures qui se contentaient de l'état du
+   moment. `min-width: 0` : élément flex, sans lui il refuserait de rétrécir sous sa largeur
+   intrinsèque et ne clamperait jamais. */
+.synthese-texte { font-size: 13.5px; font-weight: 500; color: var(--md-on-surface-variant);
+  min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; }
+.synthese .ecart { color: var(--md-error); font-weight: 700; }
+.xl { margin-top: auto; height: 62px; border-radius: var(--sh-full); background: var(--md-primary);
+  color: var(--md-on-primary); display: flex; align-items: center; justify-content: center;
+  gap: 10px; font-size: 16px; font-weight: 600; transition: border-radius .2s var(--ressort); }
+.sombre .xl { background: var(--md-primary-container); color: var(--md-on-primary-container); }
+
+/* Retour tactile Material 3 (tâche 12) : remplace le liseré `outline` gris (tâches 8/8bis, « ça
+   fait sélection de tableur ») par les deux mouvements que propose M3 Expressive au contact — une
+   couche de couleur par-dessus le composant, et un resserrement bref de ses angles — plutôt qu'un
+   cadre. Ces tablettes n'ont aucun moteur de vibration : `:active` reste le seul accusé de
+   réception à un appui, peint par le moteur de rendu au moment même du contact, sans attendre le
+   JS ni le retour optimiste de `interaction.ts` (qui repeint juste après, lui, en fonction de
+   l'état visé). Contrainte non négociable du propriétaire : l'AFFICHAGE doit être instantané au
+   contact (le projet existe parce qu'il croyait ses appuis ignorés) ; c'est seulement le retour au
+   RELÂCHEMENT qui peut se permettre une détente. Mécanique : chaque règle `:active` ci-dessous
+   pose `transition: … 0s` sur elle-même — plus spécifique que la règle de repos (classe + pseudo-
+   classe contre classe seule), donc prioritaire pendant tout le contact, donc aucun délai perçu à
+   l'entrée. La règle de repos, elle, garde sa propre transition avec `--ressort` (ci-dessous) : dès
+   que `:active` cesse de matcher au relâchement, c'est elle qui reprend la main et anime le retour. */
+:root {
+  /* Repli universel : décélération marquée, visuellement proche d'un ressort sans dépendre d'une
+     syntaxe CSS récente. `cubic-bezier()` (CSS Transitions niveau 1) est compris par absolument
+     tout moteur de rendu concerné ici — y compris le WebView de ces tablettes, quelle que soit sa
+     version : jamais vérifiable sans l'appareil en main, donc le repli le plus sûr qui existe. */
+  --ressort: cubic-bezier(.05, .7, .1, 1);
+}
+
+/* Couche d'état : `currentColor` (jamais une couleur codée en dur) pour suivre automatiquement la
+   couleur `on-*` déjà posée par chaque règle de repos/`.actif`/`.sombre` — sans avoir à énumérer
+   ici leurs combinaisons. `opacity` sur un pseudo-élément plutôt que `color-mix()` : fonctionne sur
+   n'importe quel moteur de rendu, aucune vérification de support requise (même repli universel que
+   `--ressort` ci-dessus, pour la même raison). `pointer-events: none` : la couche ne doit jamais
+   voler le contact suivant à l'élément réel. `border-radius: inherit` : suit tout seul le rayon du
+   parent, y compris pendant qu'il change lui-même au contact (bloc suivant) — aucune règle
+   dupliquée. Coût : une opacité et un rayon sur une couche déjà composée séparément par le moteur
+   de rendu ; ni l'un ni l'autre ne force de recalcul de mise en page (dalle/mémoire limitées). */
+/* Défaut relevé en revue (rapport de tâche 13) : la carte média (`.media`, réglable au glissement
+   depuis la tâche 13) n'avait jamais rejoint ce groupe — elle réagissait donc au glissement (la
+   jauge) sans jamais donner le moindre accusé de réception visuel au simple CONTACT, contrairement
+   à toutes les autres tuiles à jauge (`.commande.jauge`, `.tuile.jauge`). Rejoint le groupe ici,
+   tâche 18 : même traitement, aucune règle nouvelle.
+   Tâche 6 (2026-08-02) : `.media` en ressort — le bloc entier n'est plus tapable (la jauge de
+   volume plein cadre disparaît avec `descripteurMedia`, `jauge.ts`), seuls ses boutons le sont ;
+   un accusé de réception sur toute la carte mentirait sur ce qu'un contact y déclenche. Ce sont
+   `.media-bouton`/`.media-pas` qui rejoignent le groupe à sa place.
+   Correctif important (revue tâche 6) : `.media-rail` n'avait jamais rejoint ce groupe non plus —
+   au contact, rien ne bougeait à l'écran avant le retour d'état de Home Assistant (contrairement
+   aux boutons, qui ont eux cet overlay depuis le paragraphe ci-dessus). Le rétroactif optimiste
+   sur `--niveau` (cf. `rendu/media.ts`) déplace déjà le remplissage immédiatement ; cet overlay
+   ajoute l'accusé de réception au CONTACT lui-même, même principe que pour les boutons. */
+.ambiance, .commande, .xl, .tuile, .media-bouton, .media-pas, .media-rail { position: relative; }
+.ambiance::after, .commande::after, .xl::after, .tuile::after,
+.media-bouton::after, .media-pas::after, .media-rail::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: currentColor; opacity: 0; pointer-events: none;
+  transition: opacity .2s var(--ressort);
+}
+.ambiance:active::after, .commande:active::after, .xl:active::after, .tuile:active::after,
+.media-bouton:active::after, .media-pas:active::after, .media-rail:active::after {
+  opacity: .1; transition: none;
+}
+
+/* Minuteurs (2026-08-03) : `.mn-bouton`/`.mn-nouveau` rejoignent le même retour au contact que le
+   groupe ci-dessus — un bouton qui ne répond pas au doigt sur cette dalle passe pour cassé — mais
+   dans un bloc SÉPARÉ plutôt qu'en rallongeant la liste ci-dessus : `tests/carte-media.test.ts`
+   fige cette liste par une regex exacte (même patron que `.synthese`/`.ligne-tache` juste
+   au-dessous, qui n'a pas non plus rejoint le groupe principal).
+   `.mn-etiquette` (tâche 5, ronde de correction 1) rejoint ce même bloc : contrairement à
+   `.ambiance.inactif` (tuile SATURÉE, ci-dessous, qui ne déclenche rien et ne doit RIEN accuser),
+   une étiquette porte un vrai `@pointerdown` (`actions.choisirEtiquette`) — elle agit, et le
+   re-rendu qui la fait passer en `.choisie` n'arrive qu'après le câblage de la tâche 7 : sans cet
+   overlay, rien ne bouge sous le doigt entre le contact et ce re-rendu.
+   `.vt-bouton` (voiture, tâche 9 bis) rejoint le même bloc, en TÊTE de la liste (jamais en queue) :
+   les tests qui figent ce groupe cherchent la séquence exacte `.mn-bouton, .mn-nouveau,
+   .mn-etiquette` immédiatement suivie de `{` — l'ajouter en queue aurait cassé ce verrou existant
+   pour rien. Son cas d'appui pendant l'attente est désarmé plus bas par `.vt-bouton.vt-attente`,
+   même patron que `.ambiance.inactif` ci-dessous. */
+.vt-bouton, .mn-bouton, .mn-nouveau, .mn-etiquette { position: relative; }
+.vt-bouton::after, .mn-bouton::after, .mn-nouveau::after, .mn-etiquette::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: currentColor; opacity: 0; pointer-events: none;
+  transition: opacity .2s var(--ressort);
+}
+.vt-bouton:active::after, .mn-bouton:active::after, .mn-nouveau:active::after, .mn-etiquette:active::after {
+  opacity: .1; transition: none;
+}
+/* `.vt-attente` (voiture, tâche 9 bis) désarme cette couche exactement comme `.ambiance.inactif`
+   ci-dessous : un ordre en vol ne doit RIEN accuser au contact, `content: none` supprime la
+   génération même de la boîte `::after`, pas seulement son opacité. Pas de radius à réaffirmer
+   ici : `.vt-bouton` n'a jamais rejoint `.commande:active, .tuile:active, .mn-bouton:active,
+   .mn-nouveau:active` (plus bas) — rien à désarmer de ce côté. */
+.vt-bouton.vt-attente::after { content: none; }
+
+/* Arbitrage du propriétaire, ronde de correction 1 (2026-08-03) : la tuile minuteur SATURÉE
+   (`.ambiance.inactif`, `tuileMinuteur(true)`) ne doit RIEN accuser au contact — son `pointerdown`
+   ne déclenche jamais `ouvrir()` (cf. `rendu/minuteur.ts`), donc tout accusé de réception y
+   mentirait sur ce qu'un appui provoque : exactement le bouton mort que la contrainte globale
+   interdit. Elle hérite pourtant du groupe `.ambiance` ci-dessus sa couche `::after` et son
+   resserrement de rayon au `:active` (une classe ajoutée ne retire jamais l'élément du sélecteur
+   `.ambiance` qui le couvrait déjà). Désarmé ici, par une spécificité volontairement plus élevée
+   (deux classes) que `.ambiance` seule (une classe), donc gagnante quel que soit l'ordre des
+   règles :
+   - `content: none` supprime la génération même de la boîte `::after` (jamais seulement son
+     opacité) : aucune surface ne reste à assombrir, en repos comme au contact.
+   - Les trois variantes de rayon d'angle (milieu, premier, dernier — `tuileMinuteur` est
+     aujourd'hui toujours la dernière tuile de la rangée, cf. `rendu/corps.ts`, mais les trois sont
+     couvertes pour rester correct si l'ordre change un jour) sont réaffirmées à leur valeur de
+     REPOS, `transition: none` : le rayon ne bouge plus du tout au contact, il n'y a donc plus rien
+     à animer au relâchement non plus. */
+.ambiance.inactif::after { content: none; }
+.ambiance.inactif:active {
+  border-radius: var(--sh-s); transition: background .3s, border-radius .2s var(--ressort);
+}
+.ambiance.inactif:first-child:active {
+  border-radius: var(--sh-xl) var(--sh-s) var(--sh-s) var(--sh-xl);
+  transition: background .3s, border-radius .2s var(--ressort);
+}
+.ambiance.inactif:last-child:active {
+  border-radius: var(--sh-s) var(--sh-xl) var(--sh-xl) var(--sh-s);
+  transition: background .3s, border-radius .2s var(--ressort);
+}
+
+/* Tâche 19 (2026-08-03) : une commande INERTE — sans `service`, sans `lien` et sans jauge à régler
+   au glissement, donc dont l'appui ne déclenche rien du tout (cf. `inerte` dans `rendu/corps.ts`,
+   qui pose la classe) — ne doit RIEN accuser au contact. Règle du propriétaire : une tuile qui
+   n'agit pas ne répond pas au doigt ; une tuile qui agit, si. Aujourd'hui : le Velux du bureau,
+   fenêtre de toit manuelle sans actionneur, tuile d'état pure. Même mécanique que
+   `.ambiance.inactif` et `.vt-bouton.vt-attente` plus haut, pour la même raison et avec la même
+   précaution de spécificité : `.commande.inerte` (deux classes) l'emporte sur `.commande` (une
+   seule) quel que soit l'ordre des règles.
+   - `content: none` supprime la génération même de la boîte `::after` (jamais seulement son
+     opacité) : plus aucune surface à assombrir, ni au repos ni au contact.
+   - Le rayon d'angle est réaffirmé à sa valeur de REPOS (`--sh-xl`, cf. `.commande` plus haut),
+     donc il ne bouge plus au contact — et n'a donc plus rien à animer au relâchement non plus.
+     Pas de `transition` déclarée ici : le rayon ne changeant plus, la durée n'a aucun effet
+     observable, et ne rien poser évite d'entrer en concurrence avec `.commande:active` (plus bas,
+     spécificité inférieure — `.commande.inerte:active` l'emporte de toute façon) sur cette seule
+     propriété. */
+.commande.inerte::after { content: none; }
+.commande.inerte:active { border-radius: var(--sh-xl); }
+
+/* Tâche 18 : deux nouveaux éléments tapables, chacun avec sa propre couche d'état plutôt que de
+   rejoindre le groupe ci-dessus — `.synthese` n'a pas de carte (juste une ligne de texte, rien à
+   arrondir), et `.ligne-tache.reste` (le compte-rendu « +N tâches » de la vue Tâches) est
+   délibérément EXCLUE : elle n'a aucun `@pointerdown` (cf. `rendu/taches.ts`), un accusé de
+   réception visuel y mentirait sur ce qu'elle fait. `:not(.reste)` couvre donc les vraies lignes
+   de tâches, cochables, sans toucher à la ligne informative. */
+.synthese, .ligne-tache:not(.reste) { position: relative; }
+.synthese::after, .ligne-tache:not(.reste)::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: currentColor; opacity: 0; pointer-events: none;
+  transition: opacity .2s var(--ressort);
+}
+.synthese:active::after, .ligne-tache:not(.reste):active::after { opacity: .1; transition: none; }
+
+/* Jauges à glissement (tâche 13) : luminosité, consigne de chauffage, position de rideau, volume
+   média. « Un remplissage de fond, pas un élément qui s'ajoute » (contrainte du brief — écran à
+   585px, marge nulle, aucune hauteur disponible pour un élément de plus) : implémenté en couche
+   `background-image` (bande basse) posée PAR-DESSUS le `background-color` déjà déclaré par
+   `.commande`/`.tuile`/`.media`/`.actif` plus haut — jamais en remplacement. C'est délibéré et
+   pas un détail : `outils/verifier-rendu.mjs` calcule le contraste texte/fond à partir de
+   `getComputedStyle(el).backgroundColor` UNIQUEMENT (jamais `background-image`), donc laisser
+   `background-color` porter la vraie couleur dominante de la tuile (celle sous l'icône/le texte,
+   99% de sa surface) est ce qui garde ce contrôle automatique VRAI pour les tuiles à jauge — une
+   variante en dégradé plein cadre (fond coupé en deux zones de couleur, une jauge « classique »)
+   aurait rendu `backgroundColor` invisible au vérificateur (une valeur de dégradé ne s'y range
+   jamais), un angle mort qu'aucun des 131 tests existants n'aurait pu détecter. La bande de 4px
+   en bas, sous l'icône/le texte (jamais dessous : `justify-content`/`align-items: center` des
+   règles `.commande`/`.tuile` gardent le contenu loin du bord), ne recouvre donc jamais de texte
+   à vérifier — elle est purement indicative, comme `.synthese .ecart` (couleur `--md-error` posée
+   sans conteneur dédié, jamais soumise au contrôle de contraste pour cette même raison). `--jauge`
+   (0 à 1, jamais défini directement dans ce fichier — posé par `rendu/corps.ts`/`rendu/maison.ts`
+   à chaque rendu, et réécrit en direct sur l'élément par `geste.ts` PENDANT un glissement, sans
+   attendre le prochain rendu complet de la page) : `calc(var(--jauge, 0) * 100%)` à 0 rend la
+   bande invisible (le premier point du dégradé coïncide avec le second, transparent) — c'est
+   très exactement l'affichage voulu pour une lumière éteinte (règle du brief : « une lumière
+   éteinte n'a pas de luminosité », jauge vide plutôt que de mentir sur un niveau qu'elle n'a
+   plus). `--md-tertiary` (pas `-container`) : un ton plus saturé que les fonds neutres de repos,
+   pour rester visible sur `--md-surface-container-high` ET sur `--md-tertiary-container`
+   (`.actif`) sans dépendre de laquelle des deux tuiles porte la jauge. */
+.commande.jauge, .tuile.jauge {
+  /* `--h-jauge` : la hauteur de la bande, nommée plutôt qu'un `4px` littéral repris tel quel dans
+     `background-size` ci-dessous — un nombre magique répété dirait moins que son nom. */
+  --h-jauge: 4px;
+  background-image: linear-gradient(to right, var(--md-tertiary) calc(var(--jauge, 0) * 100%), transparent 0);
+  background-repeat: no-repeat;
+  background-position: left bottom;
+  background-size: 100% var(--h-jauge);
+  /* Correctif urgent (retour tablette réelle, après la tâche 13) : `touch-action: manipulation`
+     posé sur `body` (tête de ce fichier) autorise le WebView à interpréter un glissement comme
+     un DÉBUT DE DÉFILEMENT — dès que le doigt bouge, le moteur de rendu s'approprie le geste au
+     niveau du compositeur et émet `pointercancel` avant même que `geste.ts` ne voie un second
+     `pointermove` utile. `geste.ts` traite ce `pointercancel` très correctement (`annuler()`,
+     aucune bascule ni réglage) : le code réagissait exactement comme demandé, c'est cette
+     déclaration CSS qui l'empêchait de recevoir les mouvements. Invisible en test parce que
+     jsdom ignore `touch-action` (aucun moteur de rendu réel derrière) et que
+     `outils/verifier-rendu.mjs` pilotait jusqu'ici une souris, jamais un doigt (cf. sa nouvelle
+     vérification par glissement tactile réel, plus bas dans ce commentaire de tâche).
+     `touch-action: none` dit au navigateur « ce geste m'appartient, ne l'interprète jamais
+     comme un défilement » — posé UNIQUEMENT sur les tuiles à jauge (ce sélecteur), jamais sur
+     `body` ni sur les tuiles sans jauge, qui gardent `manipulation` (leur bascule au contact n'a
+     jamais eu besoin de suivre un glissement, et perdre le double-tap-zoom désactivé par
+     `manipulation` sur ces tuiles n'apporterait rien). */
+  touch-action: none;
+}
+
+/* Rayon d'angle : un cran en dessous sur l'échelle déjà définie par `jetons.css`, plutôt que des
+   valeurs inventées (`--sh-xl` → `--sh-l`, `--sh-full` → `--sh-xl` pour `.xl` — son rayon de repos
+   est un « plein » qui se plafonne de toute façon à la moitié de sa hauteur : une réduction du
+   même ORDRE que les autres (ex. quelques px de moins sur 999px) n'aurait produit AUCUN changement
+   visible, le plafond restant identique). `--sh-s` (8px, `.ambiance` du milieu) n'a pas de cran
+   nommé en dessous : moitié codée en dur (4px), dans le même style que le reste des dimensions déjà
+   en pixels littéraux de ce fichier. */
+.ambiance:active { border-radius: 4px; transition: background 0s, border-radius 0s; }
+.ambiance:first-child:active {
+  border-radius: var(--sh-l) 4px 4px var(--sh-l); transition: background 0s, border-radius 0s;
+}
+.ambiance:last-child:active {
+  border-radius: 4px var(--sh-l) var(--sh-l) 4px; transition: background 0s, border-radius 0s;
+}
+/* Correctif important (revue tâche 6) : `.media` en est sorti — `:active` matche aussi les
+   ANCÊTRES de l'élément pressé (comportement CSS standard, pas JS), donc le laisser ici aurait
+   fait sauter les quatre angles de la carte entière à chaque appui sur un simple bouton de
+   transport, instantanément et sans amorti, sur la plus grande surface de l'écran. La carte
+   elle-même n'a plus de `@pointerdown` propre (cf. `rendu/media.ts`) : rien ne doit plus réagir
+   à son propre rayon d'angle au contact. */
+.commande:active, .tuile:active, .mn-bouton:active, .mn-nouveau:active {
+  border-radius: var(--sh-l); transition: background 0s, border-radius 0s;
+}
+.xl:active { border-radius: var(--sh-xl); transition: background 0s, border-radius 0s; }
+/* Tâche 18 : même rayon de repos que `.commande` (`--sh-xl`, cf. `.ligne-tache` plus bas) — même
+   cran de resserrement au contact. `.reste` exclue, comme pour la couche d'état ci-dessus. */
+.ligne-tache:not(.reste):active { border-radius: var(--sh-l); transition: background 0s, border-radius 0s; }
+
+/* Écran de nuit (tâche 8) : trois informations, aucun blanc pur — `surface-container-lowest`
+   est la surface la plus sombre de la palette. */
+.nuit { flex: 1; display: flex; flex-direction: column; align-items: center;
+        justify-content: center; text-align: center; gap: 0;
+        background: var(--md-surface-container-lowest); }
+.nuit .hn { font-size: 92px; font-weight: 200; letter-spacing: -4px; line-height: 1;
+            color: var(--md-on-surface); opacity: .92; }
+.nuit .tn { font-size: 20px; font-weight: 500; color: var(--md-primary); margin-top: 34px; }
+.nuit .on { margin-top: 12px; font-size: 14px; font-weight: 500; color: var(--md-outline);
+            display: flex; align-items: center; gap: 8px; }
+
+/* Vue « Toute la maison » (tâche 8) : tuiles 76 px, 2 colonnes — voir le calcul de budget de
+   hauteur dans le rapport de tâche, ne pas augmenter (écran contraint à 585 px). */
+.grille { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tuile { height: 76px; border-radius: var(--sh-xl); background: var(--md-surface-container-high);
+  color: var(--md-on-surface); display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 6px; font-size: 13px; font-weight: 600;
+  transition: background .3s, border-radius .2s var(--ressort); }
+.tuile.actif { background: var(--md-tertiary-container); color: var(--md-on-tertiary-container); }
+/* Retour tactile (couche d'état + rayon d'angle) : règles communes à .ambiance/.commande/.xl/
+   .tuile juste après le bloc « Liseré d'attention » plus haut dans ce fichier. */
+
+/* Vue « Tâches » (tâche 18) : lignes 64 px (même hauteur que .commande — au moins les 62 px
+   demandés), séparées par le même intervalle que .corps (8px). Budget de hauteur (585px, marge
+   nulle) calculé et vérifié dans tests/taches.test.ts, même patron que .grille/.tuile ci-dessus
+   (rapport de tâche 8) : ne pas changer sans revoir MAX_LIGNES_TACHES (cochage.ts) en même temps. */
+.taches-liste { display: flex; flex-direction: column; gap: 8px; }
+.taches-vide { text-align: center; padding: 20px 0; font-size: 14px; font-weight: 500;
+  color: var(--md-on-surface-variant); }
+.ligne-tache { height: 64px; border-radius: var(--sh-xl); padding: 0 15px; display: flex;
+  align-items: center; gap: 11px; background: var(--md-surface-container-high);
+  color: var(--md-on-surface); transition: background .3s, border-radius .2s var(--ressort); }
+.ligne-tache .t { font-size: 14px; font-weight: 600; line-height: 1.2; }
+.ligne-tache .s { font-size: 12px; font-weight: 500; white-space: nowrap; }
+/* Armée (premier appui, en attente de confirmation) : même registre de couleur que .alerte/
+   .hors-ligne — « ceci va changer, un second appui confirme » — jamais le vert/teal de .actif,
+   qui signifie autre chose (un appareil allumé) ailleurs dans l'app. */
+.ligne-tache.armee { background: var(--md-error-container); color: var(--md-on-error-container); }
+/* Compte-rendu de dépassement (« +N tâches ») : ton neutre, plus sombre que le repos — signale
+   « informatif, pas une tâche » sans recourir à une couleur déjà prise (erreur, actif). Jamais de
+   pointerdown dessus (cf. rendu/taches.ts) : exclue de la couche d'état plus haut dans ce fichier. */
+.ligne-tache.reste { background: var(--md-surface-container-low); color: var(--md-on-surface-variant); }
+
+/* Blocs des modes ménage et aération (2026-08-02). Même rayon, même padding, même structure
+   `.t`/`.v` que `.demain`/`.alerte` — mais une couleur NEUTRE : aucun des deux n'est une alerte.
+   `surface-container-low`, le même ton que `.prevision` qu'ils remplacent, pour que la traversée
+   d'un mode à l'autre ne change pas la valeur du bloc dans la page. */
+.mode-bloc { background: var(--md-surface-container-low); color: var(--md-on-surface);
+  border-radius: var(--sh-xl); padding: 11px 16px; display: flex; align-items: center; gap: 13px; }
+.mode-texte { flex: 1; min-width: 0; }
+.mode-bloc .t { font-size: 11px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase;
+  color: var(--md-on-surface-variant); }
+.mode-bloc .v { font-size: 15px; font-weight: 600; line-height: 1.3; margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Tâche 14 : repas (cuisine) et rendez-vous (bureau) portent un nom de plat / un résumé
+   d'événement — une donnée EXTERNE (`home_stock`, calendrier), de longueur non maîtrisée ici,
+   contrairement au vocabulaire fixe de `.mode-bloc .v` ailleurs (« Ménage », « Ouvert » — cf.
+   `rendu/modes.ts`). `.v` seul (nowrap + ellipse) a été mesuré tronqué dès le pire cas réaliste
+   (deux plats le même jour, un résumé de réunion un peu long, `outils/verifier-rendu.mjs`) : cette
+   variante reprend le clamp 2 lignes de `.media .v.deux-lignes`, la seule façon honnête de montrer
+   un nom entier plutôt qu'une coupe silencieuse. `white-space: normal` annule le `nowrap` hérité
+   ci-dessus (sinon `-webkit-line-clamp` n'a rien à répartir sur plusieurs lignes). */
+.mode-bloc .v.deux-lignes { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; white-space: normal; }
+/* Cible tactile pleine hauteur du bloc (62 px), comme toute commande du projet. */
+.mode-action { flex: none; height: 62px; padding: 0 16px; border-radius: var(--sh-full);
+  background: var(--md-primary); color: var(--md-on-primary); display: flex; align-items: center;
+  font-size: 13px; font-weight: 600; position: relative;
+  transition: border-radius .2s var(--ressort); }
+.sombre .mode-action { background: var(--md-primary-container); color: var(--md-on-primary-container); }
+.mode-action:active { border-radius: var(--sh-l); transition: border-radius 0s; }
+.mode-action::after { content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: currentColor; opacity: 0; pointer-events: none; transition: opacity .2s var(--ressort); }
+.mode-action:active::after { opacity: .1; transition: none; }
+
+/* Minuteurs (2026-08-03). Lignes à 62 px : c'est la cible tactile minimale du projet, et chaque
+   ligne porte deux boutons. Trois lignes font donc 186 px + les gouttières — plus haut que les
+   153 px de la carte média. C'est assumé et mesuré en tâche 10 : quand trois minuteurs tournent,
+   « Nouveau » n'existe pas (plus aucun slot libre), ce qui rend justement sa hauteur. */
+.minuteurs { background: var(--md-surface-container-low); color: var(--md-on-surface);
+  border-radius: var(--sh-xl); padding: 6px 10px; display: flex; flex-direction: column; gap: 4px; }
+/* Tâche 10 — `minmax(0, 1fr)` et NON `1fr` : même piège, même remède que `.groupe` plus haut
+   (« sans le plancher à 0, un libellé long élargit sa colonne et fait déborder la rangée »). Sans
+   lui, `outils/verifier-rendu.mjs` mesurait un `.mn-nom` dont le `scrollWidth` dépassait son
+   `clientWidth` (« Minuteur 3 », l'ANCIEN nom de repli d'un 3e emplacement sans étiquette choisie)
+   — invisible à jsdom, qui ne calcule aucune vraie piste de grille, et donc invisible avant que
+   cette tâche ne mesure dans un vrai navigateur. Pur défaut de mise en page, sans rapport avec le
+   budget de hauteur (les lignes restent à 62 px) : `text-overflow: ellipsis` sur `.mn-nom` ne peut
+   ellipser que si sa piste de grille accepte de rétrécir sous la largeur de son contenu.
+   Ronde de correction 1 (tâche 10 bis) : le repli est devenu « N° 3 » (`rendu/minuteur.ts`,
+   `libelle()`) — plus court que sa colonne (~79 px), il ne s'ellipse plus du tout ; ce
+   `minmax(0, 1fr)` reste néanmoins nécessaire pour un NOM personnalisé anormalement long. */
+.mn-ligne { height: 62px; display: grid; grid-template-columns: minmax(0, 1fr) auto 62px 62px;
+  align-items: center; gap: 8px; }
+.mn-nom { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; }
+.mn-temps { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* `tabular-nums` : sans lui, chaque seconde change la largeur du texte et toute la ligne tremble. */
+.mn-grand .mn-temps { font-size: 44px; }
+.mn-pause .mn-temps { opacity: .6; }
+.mn-bouton { height: 62px; min-width: 62px; border-radius: var(--sh-xl);
+  background: var(--md-surface-container-high); display: flex; align-items: center;
+  justify-content: center; font-size: 15px; font-weight: 600; }
+/* `.mn-reglage` partage la même rangée d'actions (`− 5 / durée / + 5`) que la forme solo :
+   même règle, pas de duplication. */
+.mn-solo .mn-actions, .mn-reglage .mn-actions { display: flex; gap: 8px; justify-content: center;
+  align-items: center; }
+.mn-solo .mn-grand { text-align: center; }
+.mn-nouveau { height: 62px; display: flex; align-items: center; justify-content: center; gap: 6px;
+  border-radius: var(--sh-xl); background: var(--md-surface-container-high); font-weight: 600; }
+.ambiance.inactif { opacity: .5; }
+/* Tâche 10 bis : `.mn-reglage` est désormais la sous-vue plein écran `#minuteur`, enfant DIRECT
+   de `#app` — plus jamais niché dans `.corps` (l'ancien blocCentral). Elle reprend TEL QUEL le
+   gabarit de `.corps` (marges, gap, `flex: 1` pour se répartir toute la hauteur disponible),
+   sans en inventer un nouveau : aucune raison qu'une sous-vue de plus se comporte différemment
+   des deux autres (`rendu/maison.ts`, `rendu/taches.ts`). Le fond de carte et le rayon d'angle
+   hérités de `.minuteurs` n'avaient de sens que niché À L'INTÉRIEUR de `.corps` — sur un écran qui
+   couvre maintenant 100 % du cadre, un rayon d'angle laisserait voir le fond de `#app` aux quatre
+   coins ; neutralisés ici.
+   CORRECTION 2026-08-28 — `background: none` était le neutralisant d'origine, et il était FAUX
+   pour une racine de vue : hors traversée le fond de `#app` transparaissait et rien ne se voyait,
+   mais pendant les 320 ms d'une traversée la vue entrante glisse PAR-DESSUS le clone de la
+   sortante (`mouvement/moteur.ts`) — transparente, elle laissait lire les commandes de l'accueil
+   au travers du réglage de minuteur (reproduit dans un vrai Chromium). Elle reprend donc le fond
+   de `.corps`, qui est déjà celui de `#app` : rien ne change hors traversée, exactement comme le
+   documente `.corps`. */
+.mn-reglage { background: var(--md-surface); border-radius: 0; padding: 12px 16px; gap: 8px;
+  flex: 1; }
+.mn-reglage .mn-duree { font-size: 28px; font-weight: 700; min-width: 110px; text-align: center;
+  font-variant-numeric: tabular-nums; }
+/* 62 px comme TOUT le reste, arbitrage du propriétaire (2026-08-03) : la règle des cibles
+   tactiles ne souffre aucune exception, pas même pour une pastille de choix dont un appui manqué
+   serait sans conséquence. Une règle absolue n'a pas à être ré-argumentée à chaque écran.
+   Conséquence assumée et mesurée en tâche 10 : les cinq étiquettes passent sur DEUX rangées
+   (`flex-wrap`), et le bloc de réglage gagne ~68 px par rapport à une rangée unique. */
+.mn-etiquettes { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.mn-etiquette { height: 62px; min-width: 62px; padding: 0 14px; border-radius: var(--sh-xl);
+  display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600;
+  background: var(--md-surface-container-high); }
+.mn-etiquette.choisie { background: var(--md-primary); color: var(--md-on-primary); }
+
+/* Voiture (2026-08-03) : occupe la place des prévisions horaires au salon. Même gabarit visuel
+   que `.mode-bloc`, et un bouton à 62 px comme toutes les cibles tactiles du projet. */
+.voiture { background: var(--md-surface-container-low); color: var(--md-on-surface);
+  border-radius: var(--sh-xl); padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; }
+.vt-chiffres { display: flex; align-items: baseline; gap: 12px; }
+.vt-niveau { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.vt-autonomie { font-size: 17px; font-weight: 600; opacity: .75; }
+.vt-etat { font-size: 14px; font-weight: 600; opacity: .85; }
+.vt-bouton { height: 62px; border-radius: var(--sh-xl); background: var(--md-surface-container-high);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 15px; font-weight: 600; }
+/* Un ordre en vol ne se re-presse pas : le bouton le dit et ne répond plus au doigt (désarmement
+   de la couche `::after`, cf. `.vt-bouton.vt-attente::after` ci-dessous, même patron que
+   `.ambiance.inactif`). */
+.vt-attente { opacity: .6; }
+
+/* Colonne droite du bandeau (2026-08-02) : la température extérieure, puis la pastille
+   contextuelle sous elle — l'espace qui était vide. Alignée à droite, jamais ne mord sur l'heure
+   qui reste l'élément dominant du bandeau.
+   Largeur bornée par la piste de grille (`minmax(0, 44%)` sur `.cap`, cf. plus haut), pas par
+   cette règle : `min-width: 0` est ce qui compte ici, sinon un item de grille refuse de
+   rétrécir sous la largeur intrinsèque de son contenu (« 29° et des passages nuageux » forcerait
+   la piste à s'élargir plutôt que le texte à passer à la ligne). */
+.cap .droite { display: flex; flex-direction: column; justify-content: space-between;
+  align-items: flex-end; gap: 6px; min-width: 0; text-align: right; }
+.pastille .pt { font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
+  opacity: .82; }
+.pastille .pv { font-size: 13px; font-weight: 600; line-height: 1.25;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Mouvement. Jusqu'à la tâche 8, trois niveaux (`mvt-complet`/`mvt-sobre`/`mvt-aucun`) étaient
+   posés sur `#app` par `demarrage.ts` et pilotaient ICI, en CSS, la transition `transform` du
+   FLIP (`deplacer()`) et sa coupure sous `prefers-reduced-motion`/`?mouvement=`. Depuis la tâche 8
+   (moteur de mouvement), `transform`/`opacity` sont animés par le moteur via la Web Animations API
+   (`el.animate()`, `src/mouvement/moteur.ts`) — jamais par une transition CSS — et le niveau, FIXE
+   depuis la tâche 1 du chantier grammaire (`niveauDemande`, `src/mouvement.ts`), vit entièrement
+   dans ce moteur : il ne s'exprime plus du tout ici. `.commande` garde sa transition
+   `background`/`border-radius`,
+   déclarée plus haut dans ce fichier, HORS de ce bloc — c'est la SEULE que ce module ait jamais eu
+   besoin d'ajouter, `.mvt-aucun .commande` la répétait sans rien y changer — et
+   le retour au contact (`:active`, plus haut dans ce fichier) reste, comme avant, JAMAIS concerné
+   par une animation : il est instantané, HORS moteur, quel que soit ce que la dalle encaisse. */
+/* Le calque des sorties (2026-08-06). Les clones y sont posés en absolu à la place exacte qu'ils
+   occupaient : la mise en page réelle, elle, s'est déjà refermée. C'est ce qui garantit que la
+   hauteur du cadre 343 × 585 ne bouge jamais pendant une sortie. Aucun contact : un clone n'est
+   pas un bouton. Sous le survol DeLorean, qui passe par-dessus tout. */
+#mvt-fantomes { position: absolute; inset: 0; pointer-events: none; z-index: 5; overflow: hidden; }
+/* Le calque de FOND, et le seul à vivre SOUS le contenu : il ne porte que la vue sortante d'une
+   traversée, qui doit rester visible derrière l'écran qui arrive. Tous les autres fantômes (tuiles,
+   chiffres, blocs) restent dans `#mvt-fantomes` au-dessus — un clone de tuile doit couvrir la
+   grille qu'il quitte, pas se cacher dessous. Deux calques plutôt qu'un `z-index` par fantôme :
+   `#mvt-fantomes` est lui-même un contexte d'empilement (`z-index: 5`), aucun de ses enfants ne
+   peut donc passer sous le contenu, quel que soit son propre `z-index`. */
+#mvt-fond { position: absolute; inset: 0; pointer-events: none; z-index: -1; overflow: hidden; }
+/* Le contenu repasse au-dessus de `::after` (retour au contact, plus haut dans ce fichier) : cette
+   couche générée est postérieure aux enfants réels dans l'ordre de peinture (même z-index:auto),
+   donc les couvrirait pendant son fondu de 200 ms sans ce z-index explicite. */
+.commande > * { position: relative; z-index: 1; }
+/* Clin d'œil DeLorean (2026-08-02) : six secondes, puis plus rien. `pointer-events: none` — il
+   ne vole jamais un contact à ce qu'il recouvre. Aucun dégradé (dalle 6 bits) : deux aplats.
+   `forwards` + `opacity: 0` en fin de course : le survol reste dans le DOM le temps que
+   `demarrage.ts` le retire, sans jamais rester visible. */
+/* Afficheurs à segments — DSEG de Keshikan, licence SIL Open Font License. DSEG7 pour les
+   chiffres (sept segments), DSEG14 pour les lettres (quatorze) : la géométrie des vrais
+   afficheurs LED des années 80, celle du tableau de bord du film. Servies en fichier et NON en
+   data-URI : intégrées au CSS, leurs 11 ko partiraient sur CHAQUE chargement de page, y compris
+   en cuisine et au bureau, qui ne jouent jamais la scène. */
+@font-face {
+  font-family: "DSEG7";
+  src: url(/local/wallpanel/assets/DSEG7Classic-Bold.woff2) format("woff2");
+  font-weight: 700; font-display: swap;
+}
+@font-face {
+  font-family: "DSEG14";
+  src: url(/local/wallpanel/assets/DSEG14Classic-Bold.woff2) format("woff2");
+  font-weight: 700; font-display: swap;
+}
+
+/* La scène DeLorean (2026-08-21). Elle se pose PAR-DESSUS l'écran sans rien déplacer : la hauteur
+   totale ne bouge pas, aucun bloc n'est remplacé. `--delorean-duree` est posée par
+   `rendu/delorean.ts` depuis `DUREES_DELOREAN` — les durées ne sont écrites qu'à un seul endroit,
+   sinon la sortie du voile se déclencherait avant ou après la fin de la scène, sans erreur et
+   sans test qui rougisse (même piège que `--mvt-palette`, plus haut). */
+.delorean { position: fixed; inset: 0; z-index: 50; pointer-events: none; }
+
+/* Le voile noir n'est pas décoratif : l'écran est CLAIR, un effet lumineux n'y ressortirait pas.
+   Entrée et sortie sont à durée FIXE (220 ms / 300 ms) : elles ne s'étirent pas avec la scène. */
+.delorean-voile {
+  position: absolute; inset: 0; background: #000; opacity: 0; will-change: transform;
+  animation:
+    delorean-entree 220ms cubic-bezier(.16, .9, .3, 1) both,
+    delorean-sortie 300ms cubic-bezier(.5, 0, .75, 0) forwards calc(var(--delorean-duree) - 300ms);
+}
+@keyframes delorean-entree {
+  0% { opacity: 1; transform: scaleY(.014); }
+  100% { opacity: 1; transform: scaleY(1); }
+}
+@keyframes delorean-sortie {
+  0% { opacity: 1; transform: scaleY(1); }
+  82% { opacity: 1; transform: scaleY(.014); }
+  100% { opacity: 0; transform: scaleY(.014); }
+}
+
+/* Le flash qui couvre chacune des deux coupes. Deux images à peine : l'œil ne le lit pas comme un
+   effet, seulement comme une transition propre. */
+.delorean-coupe {
+  position: absolute; inset: 0; background: #dcebff; opacity: 0;
+  animation:
+    delorean-flash 190ms ease-out both,
+    delorean-flash 240ms ease-out forwards calc(var(--delorean-duree) - 300ms);
+}
+@keyframes delorean-flash { 0% { opacity: .5; } 100% { opacity: 0; } }
+
+/* Tout contenu s'éteint à 91 % de la scène, AVANT que le voile ne se rétracte : sinon la traînée
+   de feu resterait visible par-dessus l'écran clair pendant la transition de sortie. */
+@keyframes delorean-paraitre {
+  0% { opacity: 0; }
+  6% { opacity: 1; }
+  80% { opacity: 1; }
+  91% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+/* 22 h 04 — deux frappes séparées d'une seconde et demie. */
+.delorean-eclair {
+  position: absolute; top: -6%; left: 50%; width: 78%; transform: translateX(-50%);
+  mix-blend-mode: screen; opacity: 0;
+  animation: delorean-frappe var(--delorean-duree) linear both;
+}
+@keyframes delorean-frappe {
+  0%, 14% { opacity: 0; }
+  15% { opacity: 1; }
+  18% { opacity: .1; }
+  20% { opacity: .95; }
+  24%, 46% { opacity: 0; }
+  47% { opacity: 1; }
+  52% { opacity: .15; }
+  55% { opacity: .8; }
+  62%, 100% { opacity: 0; }
+}
+.delorean-flash {
+  position: absolute; inset: 0; background: #eaf4ff; opacity: 0;
+  animation: delorean-tonnerre var(--delorean-duree) linear both;
+}
+@keyframes delorean-tonnerre {
+  0%, 14% { opacity: 0; }
+  15.5% { opacity: .75; }
+  19%, 46.5% { opacity: 0; }
+  47.5% { opacity: .55; }
+  51%, 100% { opacity: 0; }
+}
+
+/* 01 h 21 — la traînée reste plaquée au bas de la dalle : c'est le sol, la voiture vient de
+   passer. La caler plus haut la faisait flotter. */
+.delorean-feu {
+  position: absolute; left: 0; bottom: 0; width: 100%; display: block; opacity: 0;
+  animation: delorean-paraitre var(--delorean-duree) ease-out both;
+}
+.delorean-compteur {
+  position: absolute; left: 0; right: 0; top: 27%; text-align: center; opacity: 0;
+  animation: delorean-allumer var(--delorean-duree) linear both;
+}
+@keyframes delorean-allumer {
+  0% { opacity: 0; }
+  4% { opacity: 1; }
+  74% { opacity: 1; }
+  80%, 100% { opacity: 0; }
+}
+.delorean-nombre {
+  display: block; position: relative; font-family: "DSEG7", monospace; font-weight: 700;
+  font-size: 76px; line-height: 1; color: #ffb000;
+  text-shadow: 0 0 26px rgba(255, 176, 0, .65), 0 0 6px rgba(255, 120, 0, .9);
+}
+/* Les deux « 8 » éteints, derrière : c'est ce détail qui distingue un afficheur d'un texte. */
+.delorean-nombre::before {
+  content: "88"; position: absolute; inset: 0; color: rgba(255, 176, 0, .13); text-shadow: none;
+}
+.delorean-unite {
+  display: block; font-family: "DSEG14", monospace; font-weight: 700; font-size: 17px;
+  letter-spacing: .16em; margin-top: 14px; color: #ffc94a;
+  text-shadow: 0 0 16px rgba(255, 176, 0, .5);
+}
+.delorean-bleu {
+  position: absolute; inset: 0; opacity: 0;
+  background: radial-gradient(ellipse 60% 34% at 50% 52%,
+    rgba(160, 230, 255, .95), rgba(60, 150, 255, .35) 45%, transparent 72%);
+  animation: delorean-depart var(--delorean-duree) ease-out both;
+}
+@keyframes delorean-depart {
+  0%, 74% { opacity: 0; }
+  80% { opacity: 1; }
+  92%, 100% { opacity: 0; }
+}
+
+/* 21 octobre et 5 novembre — le flux capacitor tient le tiers haut, les cadrans le bas ; les deux
+   ne se croisent jamais, quelle que soit la hauteur des afficheurs. */
+.delorean-flux {
+  position: absolute; left: 50%; top: 18px; width: 264px; transform: translateX(-50%); opacity: 0;
+  animation: delorean-paraitre var(--delorean-duree) ease-out both;
+}
+.delorean-circuits {
+  position: absolute; left: 14px; right: 14px; bottom: 22px; opacity: 0;
+  display: flex; flex-direction: column; gap: 9px;
+  animation: delorean-monter var(--delorean-duree) ease-out both;
+}
+@keyframes delorean-monter {
+  0%, 12% { opacity: 0; }
+  26% { opacity: 1; }
+  74% { opacity: 1; }
+  84%, 100% { opacity: 0; }
+}
+.delorean-rangee {
+  display: flex; flex-direction: column; gap: 5px; padding: 11px 10px 12px;
+  border-radius: 4px; background: #080604; border: 1px solid rgba(255, 255, 255, .08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+}
+.delorean-etiquette { font-size: 8px; font-weight: 600; letter-spacing: .19em; color: #7c6a57; }
+.delorean-valeur { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+.delorean-mois, .delorean-num { position: relative; font-weight: 700; font-size: 20px; line-height: 1; }
+.delorean-mois { font-family: "DSEG14", monospace; }
+.delorean-num { font-family: "DSEG7", monospace; }
+.delorean-num::before {
+  content: attr(data-fantome); position: absolute; left: 0; top: 0; opacity: .14; text-shadow: none;
+}
+.delorean-rangee.destination .delorean-valeur { color: #ff453a; text-shadow: 0 0 13px rgba(255, 69, 58, .55); }
+.delorean-rangee.present .delorean-valeur { color: #3dd68c; text-shadow: 0 0 13px rgba(61, 214, 140, .5); }
+.delorean-rangee.depart .delorean-valeur { color: #ffb000; text-shadow: 0 0 13px rgba(255, 176, 0, .45); }
+/* Tâche 8 (moteur de mouvement) : la neutralisation sous `prefers-reduced-motion`/`?mouvement=`
+   n'est plus une règle CSS scopée `.mvt-aucun .delorean` (la classe n'existe plus) mais un refus
+   dans `demarrage.ts` (`survol()`, `niveauInitial !== 'aucun'`) — le survol n'est alors même plus
+   rendu, plutôt que rendu-et-masqué : rien à peindre du tout plutôt qu'un aplat invisible animé. */
+/* Fondu de palette (2026-08-06) — L'UNIQUE animation de couleur de l'application, et elle est
+   bornée dans le temps : `demarrage.ts` pose cette classe (via `Moteur.basculerPalette`), bascule
+   `.sombre`, puis la RETIRE 600 ms plus tard (`PALETTE_MS`, `grammaire.ts`). Posée en permanence,
+   elle croiserait aussi chaque changement d'état de tuile — doublant la transition `background
+   .3s, color 0s .3s` de `.commande` (plus haut) — et coûterait du repaint toute la journée :
+   exactement ce que le reste de ce fichier s'interdit (seuls `transform` et `opacity` sont animés
+   ailleurs). */
+/* M10 (revue finale) — LA DURÉE VIENT DE `grammaire.ts`, PLUS D'ICI. `--mvt-palette` est posée sur
+   `<html>` par `creerMoteur` à partir de `PALETTE_MS`, la même constante que le minuteur qui retire
+   la classe. Écrites séparément, les deux valeurs pouvaient dériver — la classe serait alors
+   retirée avant ou après la fin du fondu, sans erreur, sans test qui rougisse. `.6s` reste comme
+   repli pour une page servie sans moteur (il n'y en a aucune aujourd'hui) : sans lui, une valeur
+   manquante rendrait la déclaration invalide et la palette basculerait sec. */
+.fondu-palette, .fondu-palette * {
+  transition: background-color var(--mvt-palette, .6s) linear, color var(--mvt-palette, .6s) linear,
+              fill var(--mvt-palette, .6s) linear, border-color var(--mvt-palette, .6s) linear;
+}
+
+/* Vue Recette (2026-08-17). Budget : étiquette + titre 64 px, nav 62 px, actions 62 px, le reste
+   pour la page — c'est cette hauteur restante que `scinderSelonHauteur` reçoit, mesurée dans le
+   navigateur par outils/verifier-rendu.mjs (jsdom ne calcule aucune mise en page). */
+.recette-titre { font-size: 18px; font-weight: 600; color: var(--md-on-surface); }
+.recette-pages { float: right; font-variant-numeric: tabular-nums; }
+.recette-page { flex: 1; min-height: 0; overflow: hidden; color: var(--md-on-surface); font-size: 16px; }
+/* Tâche 12 — MARGE ZÉRO, PARTOUT, une fois pour toutes (round 1, revue : la première version ne
+   couvrait que `h3`/`p`/`li`/`ol`/`ul` — tout autre bloc qu'une description peut porter, `h2`, `h4`, `div`,
+   `table`, `blockquote`…, ramenait le même défaut, invisible de la même façon). `reScinder`
+   (`rendu/recette.ts`) mesure la hauteur de chaque UNITÉ SOURCE avec `offsetHeight`
+   (`mesurerHorsEcran`), qui NE COMPTE JAMAIS la marge — seulement la boîte de bordure. Mesuré sur
+   la pire page du catalogue (« Œufs brouillés + tartines comté », 454 caractères + une image) avant
+   ce correctif : `<p>` sans aucune règle (marge par défaut du navigateur, `1em 0` ≈ 16 px)
+   faisait occuper à `.recette-page` 434 px RÉELS pour un budget de 354, alors que la somme des
+   `offsetHeight` mesurée restait à 287 px, sous ce budget — 80 px de contenu débordaient le cadre en
+   silence (`overflow: hidden` les masque, ne les empêche pas d'exister). Round 2 (revue, point d) :
+   `.recette-page > *` (enfants DIRECTS seulement) laissait passer la marge d'un `<p>` niché dans un
+   `<div>` — elle s'échappe par FUSION à travers le parent (un `<div>` sans marge propre laisse la
+   marge de son `<p>` se propager à son propre extérieur) et redevient invisible à la mesure,
+   exactement le même défaut, un niveau plus bas. `.recette-page *` (TOUS les descendants, plus
+   seulement les directs et `li`) le ferme partout, quelle que soit la profondeur d'imbrication. Le
+   padding, LUI, fait partie de la boîte de bordure : `offsetHeight` le compte toujours, donc la
+   somme que `reScinder` calcule correspond à la place réellement occupée (les marges, elles, ne se
+   coupent jamais parfaitement juste — deux éléments adjacents partagent une marge qui FUSIONNE, un
+   padding non). */
+.recette-page * { margin: 0; }
+.recette-page h3 { font-size: 16px; padding: 4px 0; color: var(--md-on-surface); }
+.recette-page ol, .recette-page ul { padding: 4px 0 4px 20px; }
+.recette-page li { padding: 2px 0; }
+.recette-page p { padding: 4px 0; }
+/* Les images des recettes arrivent en 200-250 px de haut : plafonnées ici, jamais dans le HTML
+   d'origine (que `assainir` nettoie de ses tailles en dur). */
+.recette-img { width: 100%; max-height: 140px; object-fit: cover; border-radius: 12px; }
+.recette-nav, .recette-actions { display: grid; gap: 8px; }
+.recette-nav { grid-template-columns: 1fr 1fr; }
+.recette-actions { grid-template-columns: 1fr 1fr 1fr; }
+.recette-nav > *, .recette-actions > * {
+  min-height: 62px; display: flex; align-items: center; justify-content: center; gap: 6px;
+  border-radius: 16px; background: var(--md-surface-container-high); color: var(--md-on-surface);
+  font-size: 14px;
+}
+.recette-nav > .inactif { opacity: 0.4; }
+/* Bouton de minuteur INLINE dans le texte d'une étape (tâche 8) — remplace le tag `#nom:secondes`.
+   Hauteur minimale 62 px comme toute cible tactile, même posé au milieu d'une phrase. */
+.recette-minuteur {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 62px; padding: 0 14px;
+  border-radius: 16px; background: var(--md-secondary-container);
+  color: var(--md-on-secondary-container); font-variant-numeric: tabular-nums;
+}
+.recette-minuteur.encours { background: var(--md-primary); color: var(--md-on-primary); }
+.recette-minuteur.inactif { opacity: 0.4; }
+/* Panneau ingrédients (tâche 9) : RECOUVRE la zone `.recette-page` dans la même vue, budget de
+   hauteur inchangé (nav + actions restent affichées en dessous, comme le reste de la vue). Le
+   stock insuffisant se lit à la COULEUR (`--md-error`), jamais à un texte à mémoriser. */
+.ing-panneau { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+/* Pas de scroll ici (round 1 revue) : `.ing-liste` NE défile jamais — MAX_LIGNES_ING (recette.ts)
+   pagine plutôt, seul geste autorisé sur ces tablettes étant l'appui bouton. `overflow: hidden`
+   reste un FILET (round 2 revue), exactement comme `.recette-page` : le calibrage de
+   MAX_LIGNES_ING peut se tromper (ça a déjà été le cas), un dépassement doit rester invisible,
+   jamais un débordement visuel silencieux. */
+.ing-liste { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+.ing-vide { color: var(--md-on-surface); opacity: 0.7; font-size: 14px; text-align: center; padding: 16px 0; }
+.ing-ligne {
+  min-height: 62px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 0 12px; border-radius: 16px; background: var(--md-surface-container-high);
+  color: var(--md-on-surface);
+}
+.ing-ligne .t { font-size: 16px; }
+.ing-ligne .s { font-size: 13px; opacity: 0.9; }
+.ing-stock.manque { color: var(--md-error); }
+/* Lot 6 : une seule action, « Fermer » — le panneau est en LECTURE (cf. `rendrePanneau`,
+   rendu/recette.ts). La grille passe à une colonne pleine largeur plutôt que de laisser le seul
+   bouton restant occuper les deux tiers gauches et un vide à droite. */
+.ing-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.ing-actions > * {
+  min-height: 62px; display: flex; align-items: center; justify-content: center;
+  border-radius: 16px; background: var(--md-surface-container-high); color: var(--md-on-surface);
+  font-size: 14px; text-align: center;
+}
+/* « Terminer » armé : ton d'erreur, comme une ligne de tâche armée (`.ligne-tache.armee`) — c'est
+   le MÊME geste à deux appuis, il ne doit pas changer d'apparence selon la vue. */
+.recette-actions > .armee { background: var(--md-error-container); color: var(--md-on-error-container); }
+.recette-actions > .inactif { opacity: 0.4; }

@@ -5,7 +5,23 @@
 import { chromium } from 'playwright-core';
 import { readFileSync } from 'node:fs';
 import { build } from 'esbuild';
-const mcp = JSON.parse(readFileSync('/opt/nivuus/HomeAssistant/data/.mcp.json', 'utf8')).mcpServers.homeassistant.env;
+/* `NIVUUS_HA_DATA` : le repertoire de donnees de l'instance Home Assistant a
+ * mesurer — celui qui porte `.mcp.json`, d'ou ce script tire l'URL et le jeton.
+ * Il etait CODE EN DUR jusqu'au 2026-09-05, ce qui figeait cet outil sur une
+ * seule machine et laissait un chemin de production dans du code suivi par git.
+ * Exemple : NIVUUS_HA_DATA=<repertoire de donnees HA> node outils/mesurer-salve.mjs <piece>
+ */
+function racineDonnees() {
+  const d = process.env.NIVUUS_HA_DATA;
+  if (!d) {
+    console.error('NIVUUS_HA_DATA n\'est pas defini : indiquez le repertoire '
+      + 'de donnees de Home Assistant (celui qui contient .mcp.json).');
+    process.exit(2);
+  }
+  return d.replace(/\/$/, '');
+}
+const DATA = racineDonnees();
+const mcp = JSON.parse(readFileSync(`${DATA}/.mcp.json`, 'utf8')).mcpServers.homeassistant.env;
 const HA_URL = mcp.HA_URL.replace(/\/$/, '');
 const piece = process.argv[2] ?? 'salon';
 const nav = await chromium.launch({ headless: true });

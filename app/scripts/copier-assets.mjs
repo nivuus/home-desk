@@ -20,12 +20,12 @@ import { fileURLToPath } from 'node:url';
 
 const ICI = dirname(fileURLToPath(import.meta.url));
 const SOURCE = join(ICI, '..', 'assets');
-// 2026-08-28 : la configuration de Home Assistant a été déplacée de
-// /opt/nivuus/HomeAssistant/config vers /opt/nivuus/home-manager/config (c'est ce dossier-là
-// que docker-compose monte sur /config, cf. docker-compose.yml). L'ancien chemin n'existe
-// plus du tout : un build qui y écrivait recréait un dossier orphelin que personne ne sert,
-// et les tablettes continuaient d'afficher l'ancien bundle sans le moindre message d'erreur.
-const SORTIE = '/opt/nivuus/home-manager/config/www/wallpanel/assets';
+// Meme raison que rollup.config.js : la sortie est relative au depot. Les cinq
+// fichiers d'assets (411 Ko, inchanges depuis le 2026-08-21) sont DUPLIQUES
+// dans dist/ a dessein — c'est ce qui rend dist/ complet, donc deposable par
+// un seul replace_tree() atomique. Le repertoire est relu par trois clients
+// qui rechargent tout seuls ; deux gestes de depot y ouvriraient une fenetre.
+const SORTIE = join(ICI, '..', '..', 'dist', 'assets');
 
 mkdirSync(SORTIE, { recursive: true });
 

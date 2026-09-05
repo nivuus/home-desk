@@ -41,13 +41,29 @@ import { deflateSync } from 'node:zlib';
 import { execFileSync } from 'node:child_process';
 import esbuild from 'esbuild';
 
-const DATA = '/opt/nivuus/HomeAssistant/data';
-// 2026-08-28 : la configuration de Home Assistant a été déplacée de
-// /opt/nivuus/HomeAssistant/config vers /opt/nivuus/home-manager/config (c'est ce dossier-là
-// que docker-compose monte sur /config, cf. docker-compose.yml). L'ancien chemin n'existe
-// plus du tout : un build qui y écrivait recréait un dossier orphelin que personne ne sert,
-// et les tablettes continuaient d'afficher l'ancien bundle sans le moindre message d'erreur.
-const WWW_WALLPANEL = '/opt/nivuus/home-manager/config/www/wallpanel';
+/* `NIVUUS_HA_DATA` : le repertoire de donnees de l'instance Home Assistant a
+ * mesurer — celui qui porte `.mcp.json`, d'ou ce script tire l'URL et le jeton.
+ * Il etait CODE EN DUR jusqu'au 2026-09-05, ce qui figeait cet outil sur une
+ * seule machine et laissait un chemin de production dans du code suivi par git.
+ * Exemple : NIVUUS_HA_DATA=<repertoire de donnees HA> node outils/verifier-rendu.mjs
+ */
+function racineDonnees() {
+  const d = process.env.NIVUUS_HA_DATA;
+  if (!d) {
+    console.error('NIVUUS_HA_DATA n\'est pas defini : indiquez le repertoire '
+      + 'de donnees de Home Assistant (celui qui contient .mcp.json).');
+    process.exit(2);
+  }
+  return d.replace(/\/$/, '');
+}
+const DATA = racineDonnees();
+
+// Le bundle REELLEMENT DEPLOYE, celui que servent les tablettes (option
+// --deploye). Surchargeable, avec pour defaut le chemin du socle home-manager :
+// c'est la seule installation existante, et l'outil doit rester utilisable sans
+// ceremonie. Il ne cite plus l'emplacement disparu le 2026-08-28.
+const WWW_WALLPANEL = process.env.NIVUUS_WWW_WALLPANEL
+  ?? '/opt/nivuus/home-manager/config/www/wallpanel';
 // Racine `src/` résolue par rapport à CE FICHIER, jamais un chemin absolu figé sur l'installation
 // de production (contrairement à `DATA`/`WWW_WALLPANEL` ci-dessus, délibérément fixes : eux
 // vérifient LA tablette réelle). Le contrôle tactile plus bas (tâche 15) doit au contraire rester

@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "jetons": "node scripts/generer-jetons.mjs > src/styles/jetons.css",
-    "build": "npm run jetons && rollup -c && npm run assets && node scripts/versionner.mjs",
+    "build": "npm run jetons && rollup -c && npm run assets && node scripts/generer-pages.mjs && node scripts/versionner.mjs",
     "test": "vitest run",
     "assets": "node scripts/copier-assets.mjs"
   },
