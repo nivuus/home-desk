@@ -1,0 +1,320 @@
+# Les sept automations des trois tablettes murales.
+#
+# CE FICHIER N'EST CHARGE QUE SI configuration.yaml DECLARE :
+#     packages: !include_dir_named packages
+# La ligne manquait au 2026-09-04, et le fragment d'intents de `home-stock`
+# etait dans le meme cas : depose, jamais charge. Elle a ete posee en
+# production le 2026-09-05 (configuration.yaml l.519, sous `homeassistant:`) et
+# Home Assistant redemarre — mesure du 2026-09-05, sauvegarde
+# configuration.yaml.backup-packages-home-stock-20260905. Le hook
+# d'installation la SIGNALE quand meme, il ne l'ecrit pas : configuration.yaml
+# est un fichier que le proprietaire tient a la main, et le PRESERVED du socle
+# le protege.
+#
+# POURQUOI ICI ET PAS DANS automations.yaml. Home Assistant charge
+# `config/packages/` par REPERTOIRE, ce qui permet a un package d'y deposer un
+# fichier sans fusionner. `automations.yaml` est un fichier unique que
+# l'interface graphique de Home Assistant reecrit EN ENTIER : y inserer sept
+# blocs depuis un hook, c'est prendre en charge une fusion sur le fichier que
+# le proprietaire edite le plus. `home-stock` a resolu le meme probleme de la
+# meme facon.
+#
+# CE QU'ELLES PILOTENT. L'integration `fully_kiosk` et ses
+# switch/number/button — du MATERIEL, pas de l'affichage. Elles marcheraient a
+# l'identique si les tablettes affichaient autre chose. Elles entrent quand
+# meme dans ce package parce que sans elles, une installation neuve laisse
+# trois ecrans allumes en permanence, sans garde thermique : le package ne
+# remplirait pas sa fonction.
+#
+# LES `id:` SONT CONSERVES A L'IDENTIQUE. Ils fixent l'`entity_id` des sept
+# entites `automation.*` dans le registre : les changer perdrait l'historique,
+# les traces et toute reference exterieure.
+#
+# CONSEQUENCE A CONNAITRE : une automation definie en YAML n'est plus EDITABLE
+# depuis l'interface de Home Assistant. Elle s'y voit, elle s'y declenche, elle
+# ne s'y modifie plus. C'est le prix de la voie propre, et il est assume.
+#
+# Extrait de config/automations.yaml le 2026-09-05 par yaml.safe_load, sans
+# aucune retouche a la main (283 lignes sur 4560 au 2026-09-04 ; 123
+# automations au total au 2026-09-05). Le retrait de ces blocs de
+# automations.yaml est la Task 10 du plan, apres constat que ce fragment est
+# charge.
+#
+# NOTE DE MESURE : `grep -c "alias:"` rend HUIT sur ce fichier, pas sept. La
+# huitieme est un alias d'ETAPE, a l'interieur de
+# `tablettes_luminosite_adaptative` — « N'ecrire que si la valeur CHANGE, et
+# jamais vers une tablette muette ». Le compte qui fait foi est celui du
+# parseur : sept entrees de premier niveau.
+
+automation:
+- id: tablettes_luminosite_adaptative
+  alias: Tablettes - Luminosité adaptative
+  description: 'Adapte la luminosité des tablettes selon l''éclairement ambiant et les lumières allumées.
+    Mode queued (corrigé 2026-05-29). 2026-08-25 — N''ÉCRIT PLUS QUE SI LA VALEUR CHANGE : la version
+    précédente réémettait les trois luminosités toutes les 10 minutes même quand elles étaient déjà bonnes,
+    et cette écriture inutile tuait la WebView de la tablette du salon (Fire 7, Fully 1.57.1). Signature
+    relevée le 2026-08-25 : 91 des 176 redémarrages isolés tombaient sur une minute multiple de 10, aux
+    secondes 10-17 ; 18 minutes couvrant deux échéances, automation désactivée, ont donné 0 mort, et le
+    déclenchement suivant en a produit une. Le défaut est dans Fully, hors de notre portée — mais rien
+    n''oblige à le provoquer six fois par heure pour réécrire une valeur identique. Garde annexe : on
+    n''écrit jamais vers une entité unknown/unavailable (tablette absente), ce qui évitait déjà des commandes
+    perdues dans le vide.'
+  triggers:
+  - trigger: state
+    entity_id:
+    - light.lumiere_salon
+    - light.lumiere_cuisine
+    - light.bureau
+  - trigger: numeric_state
+    entity_id: sensor.capteur_humain_eclairement
+    above: 150
+  - trigger: numeric_state
+    entity_id: sensor.capteur_humain_eclairement
+    below: 150
+  - trigger: numeric_state
+    entity_id: sensor.capteur_humain_eclairement
+    below: 30
+  - trigger: time_pattern
+    minutes: /10
+  conditions: []
+  actions:
+  - variables:
+      lux: '{{ states(''sensor.capteur_humain_eclairement'') | float(0) }}'
+  - repeat:
+      for_each:
+      - entite: number.tablette_cuisine_screen_brightness
+        lumiere: light.lumiere_cuisine
+      - entite: number.tablette_salon_screen_brightness
+        lumiere: light.lumiere_salon
+      - entite: number.tablette_bureau_screen_brightness
+        lumiere: light.bureau
+      sequence:
+      - variables:
+          cible: '{% if lux >= 150 %}220{% elif lux >= 30 %}130{% elif is_state(repeat.item.lumiere, ''on'')
+            %}130{% else %}15{% endif %}'
+      - alias: N'écrire que si la valeur CHANGE, et jamais vers une tablette muette
+        if:
+        - condition: template
+          value_template: '{{ states(repeat.item.entite) not in [''unknown'', ''unavailable''] and (states(repeat.item.entite)
+            | int(-1)) != (cible | int) }}'
+        then:
+        - action: number.set_value
+          target:
+            entity_id: '{{ repeat.item.entite }}'
+          data:
+            value: '{{ cible }}'
+  mode: queued
+  max: 3
+- id: tablettes_presence_lit
+  alias: Tablettes - Allumage écran (présence, jour/nuit, lumières)
+  description: 'Contrôleur unique des 3 écrans tablettes (salon, cuisine, bureau — même pièce). OFF si
+    Maxime absent ou au lit. OFF en mode cinéma (TV en lecture ET lumières salon+cuisine éteintes), de
+    jour comme de nuit. Sinon : le JOUR (soleil levé) les écrans restent allumés ; la NUIT ils suivent
+    les lumières salon/cuisine (allumés si l''une des deux est allumée, éteints sinon). La luminosité
+    des écrans est gérée séparément par « Tablettes - Luminosité adaptative » (suit les lux). GARDE THERMIQUE
+    par tablette : l''écran d''une tablette dont la température batterie dépasse 40°C est forcé OFF (priorité
+    absolue), et n''est ré-autorisé qu''une fois redescendu sous 38°C (hystérésis anti-clignotement).'
+  triggers:
+  - trigger: state
+    entity_id:
+    - person.maxime_allanic
+    - binary_sensor.maxime_au_lit
+    - light.lumiere_salon
+    - light.lumiere_cuisine
+    - media_player.televiseur_salon
+    - media_player.televiseur_salon_3
+  - trigger: state
+    entity_id: sun.sun
+  - trigger: state
+    entity_id:
+    - sensor.tablette_salon_battery_temperature
+    - sensor.tablette_cuisine_battery_temperature
+    - sensor.tablette_bureau_battery_temperature
+  - trigger: homeassistant
+    event: start
+  actions:
+  - variables:
+      base_on: "{{ is_state('person.maxime_allanic','home')\n   and is_state('binary_sensor.maxime_au_lit','off')\n\
+        \   and not ((is_state('media_player.televiseur_salon','playing')\n             or is_state('media_player.televiseur_salon_3','playing'))\n\
+        \            and is_state('light.lumiere_salon','off')\n            and is_state('light.lumiere_cuisine','off'))\n\
+        \   and (is_state('sun.sun','above_horizon')\n        or is_state('light.lumiere_salon','on')\n\
+        \        or is_state('light.lumiere_cuisine','on')) }}"
+      to_on: "{% set screens = [\n    ('switch.tablette_salon_screen','sensor.tablette_salon_battery_temperature'),\n\
+        \    ('switch.tablette_cuisine_screen','sensor.tablette_cuisine_battery_temperature'),\n    ('switch.tablette_bureau_screen','sensor.tablette_bureau_battery_temperature')\
+        \ ] %}\n{% set ns = namespace(on=[]) %} {% for sw, tmp in screens %} {% set t = states(tmp) |\
+        \ float(0) %} {% set block = t > 40 or (t > 38 and is_state(sw,'off')) %} {% if base_on and not\
+        \ block %}{% set ns.on = ns.on + [sw] %}{% endif %} {% endfor %} {{ ns.on }}"
+      to_off: "{% set screens = [\n    ('switch.tablette_salon_screen','sensor.tablette_salon_battery_temperature'),\n\
+        \    ('switch.tablette_cuisine_screen','sensor.tablette_cuisine_battery_temperature'),\n    ('switch.tablette_bureau_screen','sensor.tablette_bureau_battery_temperature')\
+        \ ] %}\n{% set ns = namespace(off=[]) %} {% for sw, tmp in screens %} {% set t = states(tmp) |\
+        \ float(0) %} {% set block = t > 40 or (t > 38 and is_state(sw,'off')) %} {% if not (base_on and\
+        \ not block) %}{% set ns.off = ns.off + [sw] %}{% endif %} {% endfor %} {{ ns.off }}"
+  - if:
+    - condition: template
+      value_template: '{{ to_on | count > 0 }}'
+    then:
+    - action: switch.turn_on
+      target:
+        entity_id: '{{ to_on }}'
+  - if:
+    - condition: template
+      value_template: '{{ to_off | count > 0 }}'
+    then:
+    - action: switch.turn_off
+      target:
+        entity_id: '{{ to_off }}'
+  mode: restart
+- id: auto_6546e7e0
+  alias: Tablettes - Thème clair au lever du soleil
+  description: Bascule les 3 tablettes en thème clair (thème par défaut, mode light) au lever du soleil
+  triggers:
+  - trigger: state
+    entity_id: sun.sun
+    to: above_horizon
+  conditions: []
+  actions:
+  - action: browser_mod.set_theme
+    data:
+      theme: default
+      dark: light
+      browser_id:
+      - 6e434d9a05ee92671ec7a8c8882880fb
+  - action: browser_mod.set_theme
+    data:
+      theme: default
+      dark: light
+      browser_id:
+      - ffb53aeda2a1843f1bfc84d69faaa286
+  - action: browser_mod.set_theme
+    data:
+      theme: default
+      dark: light
+      browser_id:
+      - 0642252a3261b59d2f665b007486420f
+- id: auto_56d94a1e
+  alias: Tablettes — Reload browser après démarrage HA
+  description: Force un reload du browser FK 30s après le boot HA pour que card-mod finisse de s'initialiser
+    avant le rendu des vues (fix marge persistance au restart)
+  triggers:
+  - trigger: homeassistant
+    event: start
+  conditions: []
+  actions:
+  - action: homeassistant.update_entity
+    target:
+      entity_id:
+      - switch.tablette_bureau_screen
+      - switch.tablette_salon_screen
+  - delay:
+      seconds: 30
+  - action: button.press
+    target:
+      entity_id:
+      - button.tablette_bureau_load_start_url
+      - button.tablette_salon_load_start_url
+      - button.tablette_cuisine_load_start_url
+- id: auto_eb4fb6f0
+  alias: Tablettes - Synchronisation thème jour/nuit (résilience reconnexion)
+  description: 'Réémet périodiquement le thème correct (light le jour / dark la nuit) sur les 3 tablettes.
+    Corrige la cause racine: browser_mod.set_theme est un push instantané vers une connexion WebView Kindle
+    Fire instable (flapping toutes les 2-7 min); une tablette déconnectée au moment du trigger sun rate
+    le set_theme et reste bloquée sur l''ancien thème. Cette réémission toutes les 5 min rattrape toute
+    tablette reconnectée.'
+  triggers:
+  - trigger: time_pattern
+    minutes: /5
+  conditions: []
+  actions:
+  - variables:
+      dark_cible: '{{ ''light'' if is_state(''sun.sun'',''above_horizon'') else ''dark'' }}'
+  - action: browser_mod.set_theme
+    data:
+      theme: default
+      dark: '{{ dark_cible }}'
+      browser_id:
+      - ffb53aeda2a1843f1bfc84d69faaa286
+  - action: browser_mod.set_theme
+    data:
+      theme: default
+      dark: '{{ dark_cible }}'
+      browser_id:
+      - 0642252a3261b59d2f665b007486420f
+  - action: browser_mod.set_theme
+    data:
+      theme: default
+      dark: '{{ dark_cible }}'
+      browser_id:
+      - 6e434d9a05ee92671ec7a8c8882880fb
+- id: auto_fbde9552
+  alias: Tablettes - Thème au démarrage HA
+  description: Au démarrage de Home Assistant, ré-applique le mode light/dark (selon le soleil) aux 3
+    tablettes, qui perdent leur réglage après un reboot.
+  triggers:
+  - trigger: homeassistant
+    event: start
+  conditions: []
+  actions:
+  - delay:
+      seconds: 30
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: sun.sun
+        state: above_horizon
+      sequence:
+      - action: browser_mod.set_theme
+        data:
+          browser_id: ca95c7de_c456b812
+          theme: default
+          dark: light
+      - action: browser_mod.set_theme
+        data:
+          browser_id: 606bfd06_e19c0286
+          theme: default
+          dark: light
+      - action: browser_mod.set_theme
+        data:
+          browser_id: e30dbd2c-08efec81
+          theme: default
+          dark: light
+    default:
+    - action: browser_mod.set_theme
+      data:
+        browser_id: ca95c7de_c456b812
+        theme: default
+        dark: dark
+    - action: browser_mod.set_theme
+      data:
+        browser_id: 606bfd06_e19c0286
+        theme: default
+        dark: dark
+    - action: browser_mod.set_theme
+      data:
+        browser_id: e30dbd2c-08efec81
+        theme: default
+        dark: dark
+- id: automation.tablettes_theme_sombre_au_coucher_du_soleil
+  alias: Tablettes - Thème sombre au coucher du soleil
+  description: Bascule les 3 tablettes en thème sombre (thème par défaut, mode dark) au coucher du soleil
+  triggers:
+  - trigger: state
+    entity_id: sun.sun
+    to: below_horizon
+  conditions: []
+  actions:
+  - action: browser_mod.set_theme
+    data:
+      browser_id: ca95c7de_c456b812
+      theme: default
+      dark: dark
+  - action: browser_mod.set_theme
+    data:
+      browser_id: 606bfd06_e19c0286
+      theme: default
+      dark: dark
+  - action: browser_mod.set_theme
+    data:
+      browser_id: ebe18f06_5ecc966e
+      theme: default
+      dark: dark
+
