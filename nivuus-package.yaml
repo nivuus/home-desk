@@ -1,6 +1,6 @@
 apiVersion: nivuus.dev/v1
 name: home-desk
-version: 1.0.0
+version: 0.0.0
 label: "Tablettes murales de CETTE maison (affichage des trois ecrans)"
 tier: userspace
 
