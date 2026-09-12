@@ -1446,6 +1446,11 @@ export async function demarrer(
       // un écran lui-même, exactement comme pour `blocDefaut` et `rangeeAmbiance`.
       modes: agencement.modes,
       modulateurs: agencement.modulateurs,
+      // Repris tel quel d'`Ecran.hauteurUtile` — ce module ne lit jamais un écran lui-même, même
+      // patron que `blocDefaut`, `rangeeAmbiance`, `modes` et `modulateurs` ci-dessus. Absent pour
+      // les trois écrans déclarés aujourd'hui : `combien` retombe alors sur `BUDGET.hauteurUtileParDefaut`
+      // (585, les Fire 7), donc ce câblage ne change le rendu d'aucune pièce existante.
+      hauteurUtile: piece.hauteurUtile,
     };
     const mode = modePrincipal(ctx);
     const modulateurs = modulateursActifs(ctx);

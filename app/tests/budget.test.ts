@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { combien, ordreCommandes, BUDGET, BudgetIntenable, type ContexteModes } from '../src/modes';
+import { combien, ordreCommandes, verifierBudget, BUDGET, type ContexteModes } from '../src/modes';
 import { ECRANS } from '../src/ecran';
 import { CALME } from './contextes';
 
@@ -87,8 +87,12 @@ describe('hauteurUtile', () => {
     expect(combien('media', true, 2000)).toBe(4);
   });
 
-  it('leve BudgetIntenable quand meme zero commande ne tient pas', () => {
-    expect(() => combien('defaut', true, 100)).toThrow(BudgetIntenable);
+  /** 2026-09-12, plan 2 : `combien()` LEVAIT `BudgetIntenable` ici. Or c'est le moteur de rendu
+   *  qui l'appelle (via `ordreCommandes`) : un ecran declarant `hauteurUtile: 480` aurait donc
+   *  fait un ECRAN BLANC. Le verdict a demenage dans `verifierBudget`, que le rendu n'appelle
+   *  jamais ; `combien` degrade desormais a zero, comme le mode `minuteur` le fait deja. */
+  it('rend 0 plutot que de lever quand meme zero commande ne tient pas', () => {
+    expect(combien('defaut', true, 100)).toBe(0);
   });
 
   /** Le mode sans commande n'est PAS un budget intenable : zero est son resultat normal, et il
@@ -96,5 +100,22 @@ describe('hauteurUtile', () => {
    *  C'est la frontiere entre les deux notions, et elle merite d'etre clouee. */
   it('rend zero sans lever pour un mode sans commande, meme sur un ecran minuscule', () => {
     expect(combien('minuteur', true, 100)).toBe(0);
+  });
+
+  /** `verifierBudget` porte le verdict que `combien` a perdu : elle n'est appelee que par le
+   *  formulaire de l'integration (plan 3), jamais par le rendu. */
+  it('verifierBudget rend 0 quand la composition tient', () => {
+    expect(verifierBudget('defaut', true, 585)).toBe(0);
+  });
+
+  it('verifierBudget rend le debordement en pixels quand elle ne tient pas', () => {
+    expect(verifierBudget('defaut', true, 100)).toBeGreaterThan(0);
+  });
+
+  /** Le cablage de bout en bout : `ordreCommandes` ne doit JAMAIS lever, meme sur un
+   *  `hauteurUtile` absurde — c'est exactement le piege que cette tache referme. */
+  it('ordreCommandes ne leve jamais, meme sur un ecran absurde', () => {
+    expect(() => ordreCommandes(ECRANS.bureau.commandes,
+      { ...CALME_VOITURE, hauteurUtile: 50 })).not.toThrow();
   });
 });

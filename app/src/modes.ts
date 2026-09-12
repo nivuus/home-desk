@@ -68,6 +68,11 @@ export type ContexteModes = {
   modes?: ModePrincipal[];
   /** Modulateurs actifs, même provenance et même défaut. Sans ordre significatif. */
   modulateurs?: Modulateur[];
+  /** Hauteur utile de l'écran en pixels CSS, reprise d'`Ecran.hauteurUtile` par `demarrage.ts` —
+   *  ce module ne lit jamais un écran lui-même. Facultatif : absent,
+   *  `BUDGET.hauteurUtileParDefaut` (585, les Fire 7) s'applique. Même patron que `modes`,
+   *  `modulateurs`, `blocDefaut` et `rangeeAmbiance` avant lui. */
+  hauteurUtile?: number;
 };
 
 /** Dix minutes : repris tel quel de `ouverture_problematique()`
@@ -192,57 +197,73 @@ export function modulateursActifs(c: ContexteModes): Modulateur[] {
  *  — sans quoi elles seraient comptées deux fois. Les deux relevés s'accordent, ce qui est déjà
  *  une vérification : 64 + 10 pour une rangée de commandes, 9 + 72 + 2 × 8 = 97 px pour la rangée
  *  « Ambiance » complète, contre les ~100 px estimés en août. */
-/** Levée quand AUCUNE composition ne tient dans la hauteur demandée — pas même le mode réduit à
- *  son bloc central, sa ligne de synthèse et son bouton de pied, sans une seule commande. Une
- *  exception et non un `0` : zéro commande est un RÉSULTAT légitime (c'est celui du mode
- *  minuteur), alors qu'un écran qui déborde de son cadre est une configuration à refuser. Le
- *  distinguer par un code de retour aurait obligé chaque appelant à s'en souvenir ;
- *  l'intégration Home Assistant (plan 3), elle, doit pouvoir dire NON à la saisie. */
-export class BudgetIntenable extends Error {}
+/** Ce que l'écran mesure pour `rangees` rangées de commandes, à mode et rangée d'ambiance donnés.
+ *  `.corps` est une COLONNE FLEX à gouttière fixe : son coût est la somme de ses enfants plus une
+ *  gouttière entre chaque paire, plus son padding vertical, le bandeau venant au-dessus. Trois
+ *  enfants sont toujours là (le bloc central, la ligne de synthèse, le bouton « Toute la
+ *  maison ») ; la rangée « Ambiance » en ajoute DEUX (son étiquette est un enfant à part entière),
+ *  la grille de commandes UN.
+ *
+ *  2026-09-12, plan 2 : extraite de la clôture `cout` qui vivait dans `combien` — `verifierBudget`
+ *  la réutilise sans dupliquer l'addition. Deux additions du même budget finiraient par diverger,
+ *  et c'est précisément ce que `contrat/budget.json` existe pour empêcher. Ne recapture pas `bloc`
+ *  d'un appelant : elle le recalcule depuis `mode`, puisqu'elle n'a plus de fermeture commune avec
+ *  `combien` pour le lui prêter. */
+function coutEcran(mode: ModePrincipal, rangeeAmbiance: boolean, rangees: number): number {
+  const h = BUDGET.hauteurs;
+  const bloc = (BUDGET.modesABlocHaut as string[]).includes(mode) ? h.blocHaut : h.blocDefaut;
+  let enfants = 3;
+  let somme = bloc + h.synthese + h.touteLaMaison;
+  if (rangeeAmbiance) {
+    enfants += 2;
+    somme += h.etiquetteAmbiance + h.rangeeAmbiance;
+  }
+  if (rangees > 0) {
+    enfants += 1;
+    // Les rangées vivent dans UNE grille : leur gouttière est celle de la grille (10 px), pas
+    // celle de la colonne (8 px) — et il n'y en a pas après la dernière.
+    somme += h.rangeeCommandes * rangees + h.gouttiereCommandes * (rangees - 1);
+  }
+  return h.bandeau + h.paddingCorps + somme + h.gouttiere * (enfants - 1);
+}
 
+/** Combien de commandes l'écran montre. NE LÈVE JAMAIS : un budget intenable rend 0, et l'écran
+ *  affiche alors ses autres zones sans rangée de commandes — exactement ce que le mode `minuteur`
+ *  fait déjà légitimement (630 px pour sa seule liste, aucune place pour une commande).
+ *
+ *  2026-09-12, plan 2 : cette fonction LEVAIT `BudgetIntenable` jusqu'ici. Or c'est le moteur de
+ *  rendu qui l'appelle, via `ordreCommandes` — un écran mal configuré aurait fait un écran blanc,
+ *  ce que ce projet s'interdit au même titre que le bouton mort. Le verdict déménage dans
+ *  `verifierBudget`, que le rendu n'appelle jamais et que le formulaire de l'intégration (plan 3)
+ *  appellera. Le rendu dégrade, la saisie refuse. */
 export function combien(
   mode: ModePrincipal,
   rangeeAmbiance = true,
   hauteurUtile: number = BUDGET.hauteurUtileParDefaut,
 ): number {
   if ((BUDGET.modesSansCommande as string[]).includes(mode)) return 0;
-  const h = BUDGET.hauteurs;
-  const bloc = (BUDGET.modesABlocHaut as string[]).includes(mode) ? h.blocHaut : h.blocDefaut;
   // Le plafond de DEUX rangées n'est pas un chiffre de plus : c'est ce que `commandesParDefaut`
   // (4 places) et `tuilesParRangee` (2 colonnes) disent déjà. Une troisième rangée n'existe dans
   // aucun écran de ce projet, et l'inventer ici sur un grand écran ferait rendre à `combien` un
   // nombre que la grille n'a jamais rendu.
   const rangeesMax = Math.floor(BUDGET.commandesParDefaut / BUDGET.tuilesParRangee);
-  /** Ce que l'écran mesure pour `rangees` rangées de commandes. `.corps` est une COLONNE FLEX à
-   *  gouttière fixe : son coût est la somme de ses enfants plus une gouttière entre chaque paire,
-   *  plus son padding vertical, le bandeau venant au-dessus. Trois enfants sont toujours là (le
-   *  bloc central, la ligne de synthèse, le bouton « Toute la maison ») ; la rangée « Ambiance »
-   *  en ajoute DEUX (son étiquette est un enfant à part entière), la grille de commandes UN. */
-  const cout = (rangees: number): number => {
-    let enfants = 3;
-    let somme = bloc + h.synthese + h.touteLaMaison;
-    if (rangeeAmbiance) {
-      enfants += 2;
-      somme += h.etiquetteAmbiance + h.rangeeAmbiance;
-    }
-    if (rangees > 0) {
-      enfants += 1;
-      // Les rangées vivent dans UNE grille : leur gouttière est celle de la grille (10 px), pas
-      // celle de la colonne (8 px) — et il n'y en a pas après la dernière.
-      somme += h.rangeeCommandes * rangees + h.gouttiereCommandes * (rangees - 1);
-    }
-    return h.bandeau + h.paddingCorps + somme + h.gouttiere * (enfants - 1);
-  };
   for (let rangees = rangeesMax; rangees >= 1; rangees--) {
-    if (cout(rangees) <= hauteurUtile) return rangees * BUDGET.tuilesParRangee;
+    if (coutEcran(mode, rangeeAmbiance, rangees) <= hauteurUtile) return rangees * BUDGET.tuilesParRangee;
   }
-  // Jamais de rangée coupée en deux (cf. plus haut) : sous une rangée, il ne reste que zéro.
-  if (cout(0) > hauteurUtile) {
-    throw new BudgetIntenable(
-      `${mode} ne tient pas dans ${hauteurUtile} px : ${Math.round(cout(0))} px sont nécessaires `
-      + 'sans une seule commande');
-  }
+  // Jamais de rangée coupée en deux (cf. plus haut) : sous une rangée, il ne reste que zéro — que
+  // le budget tienne ou non. Ne lève plus depuis 2026-09-12 (plan 2) : cf. le docstring ci-dessus.
   return 0;
+}
+
+/** De combien cette composition déborde, en pixels. 0 si elle tient. Écrite pour le formulaire de
+ *  l'intégration Home Assistant (plan 3), qui doit pouvoir dire « cet écran déborde de 45 px en
+ *  mode minuteur » AU MOMENT DE LA SAISIE — pas devant la tablette.
+ *
+ *  Le rendu ne l'appelle jamais : c'est toute la différence avec la version d'avant, où le verdict
+ *  (l'ex-`BudgetIntenable`) et le calcul vivaient dans la même fonction, `combien`. */
+export function verifierBudget(mode: ModePrincipal, rangeeAmbiance: boolean,
+                               hauteurUtile: number): number {
+  return Math.max(0, coutEcran(mode, rangeeAmbiance, 0) - hauteurUtile);
 }
 
 /** Remonte en tête les commandes dont le libellé est cité, dans l'ordre cité, en gardant les
@@ -316,5 +337,5 @@ export function ordreCommandes(commandes: Bouton[], c: ContexteModes): Bouton[] 
   else if (c.serrureDeverrouillee) ordre = remonter(commandes, ['Porte']);
   // `Ambilight` n'a rien à faire sur l'accueil courant : déclaré au salon pour le mode cinéma
   // seulement, il ne remonte dans aucun autre ordre et se fait donc écarter par la coupe.
-  return epingler(ordre, combien(mode, c.rangeeAmbiance));
+  return epingler(ordre, combien(mode, c.rangeeAmbiance, c.hauteurUtile));
 }
