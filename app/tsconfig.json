@@ -2,7 +2,8 @@
   "compilerOptions": {
     "target": "ES2021", "module": "ESNext", "moduleResolution": "bundler",
     "strict": true, "noUnusedLocals": true, "experimentalDecorators": true,
-    "useDefineForClassFields": false, "lib": ["ES2021", "DOM"], "types": ["vitest/globals"]
+    "useDefineForClassFields": false, "lib": ["ES2021", "DOM"], "types": ["vitest/globals"],
+    "resolveJsonModule": true
   },
   "include": ["src/**/*.ts", "tests/**/*.ts"]
 }

@@ -1,6 +1,7 @@
 import resolve from '@rollup/plugin-node-resolve';
 import typescript from '@rollup/plugin-typescript';
 import terser from '@rollup/plugin-terser';
+import json from '@rollup/plugin-json';
 import css from 'rollup-plugin-import-css';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +24,7 @@ export default {
     format: 'iife', name: 'Wallpanel', sourcemap: false,
   },
   plugins: [
-    resolve(), typescript(),
+    resolve(), typescript(), json(),
     css({ output: 'wallpanel.css' }),
     terser({ format: { comments: false } }),
   ],

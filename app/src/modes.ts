@@ -12,6 +12,9 @@
  *  Fonctions pures : aucune lecture d'`Etat` ici, seulement le contexte déjà réduit à des valeurs
  *  simples par l'appelant (`demarrage.ts`). C'est ce qui les rend testables sans navigateur. */
 import type { Bouton } from './ecran';
+import BUDGET from '../../contrat/budget.json';
+
+export { BUDGET };
 
 export type ModePrincipal =
   'alerte' | 'recette' | 'minuteur' | 'menage' | 'cinema' | 'media' | 'aeration' | 'voiture' | 'defaut';
@@ -125,15 +128,19 @@ export function modulateursActifs(c: ContexteModes): Modulateur[] {
  *  comme tout bloc central plus haut que le bloc `defaut` qu'il remplace. Tâche 14 : `repas`/
  *  `agenda` (mode `defaut` en cuisine/bureau) reprennent le même gabarit `.mode-bloc` que
  *  `menage`/`aeration` — déjà mesurés à quatre commandes — donc `defaut` reste dans la branche
- *  par défaut ci-dessous, comme `previsions` avant lui. */
-function combien(mode: ModePrincipal, rangeeAmbiance = true): number {
-  if (mode === 'minuteur') return 0;
-  const blocHaut = mode === 'media' || mode === 'cinema' || mode === 'voiture';
-  // Une pièce sans rangée « Ambiance » a les 100 px qu'il faut pour la seconde rangée, y compris
-  // sous un bloc central haut (2026-08-29, cf. `rangeeAmbiance`). Le budget rendu paie UNE rangée
-  // et une seule : un mode déjà à quatre n'en gagne pas une cinquième, et `minuteur` reste à zéro
-  // — 630 px pour son seul bloc, il n'y a aucune place à financer.
-  return blocHaut && rangeeAmbiance ? 2 : 4;
+ *  par défaut ci-dessous, comme `previsions` avant lui.
+ *
+ *  2026-09-12 : la règle et ses chiffres vivent désormais dans `contrat/budget.json`, lu aussi
+ *  par l'intégration Home Assistant (plan 3) — elle doit pouvoir dire « cet écran déborde » au
+ *  moment de la saisie, ce qu'elle ne peut pas faire en relisant des `if` TypeScript. Le
+ *  RÉSULTAT est strictement inchangé : `tests/budget.test.ts` porte la table de vérité d'avant
+ *  et la vérifie à chaque commit. */
+export function combien(mode: ModePrincipal, rangeeAmbiance = true): number {
+  if ((BUDGET.modesSansCommande as string[]).includes(mode)) return 0;
+  const blocHaut = (BUDGET.modesABlocHaut as string[]).includes(mode);
+  return blocHaut && rangeeAmbiance
+    ? BUDGET.commandesSousBlocHaut
+    : BUDGET.commandesParDefaut;
 }
 
 /** Remonte en tête les commandes dont le libellé est cité, dans l'ordre cité, en gardant les
