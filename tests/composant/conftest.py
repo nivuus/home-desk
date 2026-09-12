@@ -79,10 +79,19 @@ async def _geste(hass, section: str, index: int, geste: str):
     « liste » : reconfigurer la sous-entree, choisir la section, choisir
     l'element, soumettre `geste` avec ses champs INCHANGES — un vrai geste
     « monter »/« descendre » ne touche QUE le rang, jamais les champs de la
-    tuile elle-meme."""
+    tuile elle-meme.
+
+    Ronde 4 de relecture (mineur) : n'etait PORTABLE que sur les sections
+    dont l'element est un dict (`{**element}` echoue avec une TypeError des
+    qu'un element est une CHAINE — le cas d'`ouvrants`). Les trois gestes ne
+    fonctionnent bien sur les cinq sections que depuis cette correction ;
+    voir `test_monter_descendre_supprimer_fonctionnent_sur_les_cinq_
+    sections` (test_config_flow_listes.py), qui les exerce toutes."""
     entry = hass.config_entries.async_entries(DOMAIN)[0]
     subentry = next(iter(entry.subentries.values()))
     element = subentry.data[section][index]
+    charge = {**element, "geste": geste} if isinstance(element, dict) else {
+        "entite": element, "geste": geste}
 
     flow = await hass.config_entries.subentries.async_init(
         (entry.entry_id, SOUS_ENTREE_ECRAN),
@@ -95,8 +104,27 @@ async def _geste(hass, section: str, index: int, geste: str):
         flow["flow_id"], {"next_step_id": section})
     await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {"choix": str(index)})
-    return await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {**element, "geste": geste})
+    return await hass.config_entries.subentries.async_configure(flow["flow_id"], charge)
+
+
+def _variante(cle: str, i: int):
+    """Un element VALIDE de plus pour la section `cle`, distinct du i-eme
+    autre — utilise pour peupler une section de plusieurs elements sans
+    recopier `ELEMENTS_VALIDES` a la main (ronde 4 de relecture, mineur :
+    exercer monter/descendre/supprimer sur les CINQ sections, pas
+    seulement "commandes")."""
+    base = ELEMENTS_VALIDES[cle]
+    if cle == "ouvrants":
+        return {**base, "entite": f"{base['entite']}_{i}"}
+    if cle == "synthese":
+        return {**base, "texte": f"{base['texte']} {i}"}
+    return {**base, "libelle": f"{base['libelle']} {i}"}
+
+
+def _elements(hass, entree, cle: str) -> list:
+    entry = hass.config_entries.async_get_entry(entree.entry_id)
+    subentry = next(iter(entry.subentries.values()))
+    return list(subentry.data.get(cle, []))
 
 
 @pytest.fixture

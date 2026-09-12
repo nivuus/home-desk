@@ -9,17 +9,33 @@ sous 500 lignes chacun — jamais a un compte de lignes arbitraire : c'est la
 MEME couture que celle deja appliquee au code lui-meme.
 """
 import json
+import pathlib
 
 from conftest import _commandes, _creer_ecran, _init_reconfigure
 from custom_components.home_desk import listes_champs, schema
 from custom_components.home_desk.const import (
     ACTION_ENREGISTRER,
-    ERREUR_CHAMP_INVALIDE,
+    ERREUR_CHAMP_TYPE_INVALIDE,
     ERREUR_SERVICE_INCOMPLET,
+    SOUS_ENTREE_ECRAN,
 )
 from custom_components.home_desk.listes_champs import SECTIONS
 from custom_components.home_desk.schema import OPERATEURS
 from homeassistant import data_entry_flow
+
+CHEMIN_TRADUCTIONS = (
+    pathlib.Path(__file__).resolve().parents[2] / "custom_components" / "home_desk" / "translations"
+)
+
+
+def _message_erreur(langue: str, code: str) -> str:
+    """Le message REELLEMENT rendu pour un code d'erreur, dans une langue —
+    utilise par les tests qui epinglent le message, pas seulement le code
+    (ronde 4 de relecture, point 1 : un code correct peut encore porter un
+    message qui ment ou reste illisible ; seul le TEXTE final le prouve)."""
+    traductions = json.loads(
+        (CHEMIN_TRADUCTIONS / f"{langue}.json").read_text(encoding="utf-8"))
+    return traductions["config_subentries"][SOUS_ENTREE_ECRAN]["error"][code]
 
 
 # ---------------------------------------------------------------------------
@@ -66,12 +82,18 @@ def test_composition_du_formulaire_synthese_est_complete():
 # ---------------------------------------------------------------------------
 
 
-async def test_synthese_operateur_dordre_refuse_une_valeur_non_numerique_et_nomme_le_motif(
+async def test_synthese_operateur_dordre_refuse_une_valeur_non_numerique_avec_un_message_lisible(
     hass, entree
 ):
     """Le piege de la tache : `<`/`>` exigent un nombre ($defs/synthese, allOf
     du contrat). Un champ texte unique laisserait passer une chaine — refusee
-    par `schema.SYNTHESE`, et le refus doit NOMMER le motif."""
+    par `schema.SYNTHESE`.
+
+    Ronde 4 de relecture, un des quatre chemins mesures par le relecteur :
+    avant cette ronde, le message REELLEMENT rendu etait « Ce champ n'est
+    pas valide : /valeur: type. » — le mot-cle JSON Schema brut, montre a un
+    humain. `errors["valeur"]` porte desormais `ERREUR_CHAMP_TYPE_INVALIDE`,
+    dont le message dit quoi faire, sans plus jamais interpoler de motif."""
     subentry_id = await _creer_ecran(hass, entree)
     flow = await _init_reconfigure(hass, entree, subentry_id)
     await hass.config_entries.subentries.async_configure(
@@ -87,8 +109,11 @@ async def test_synthese_operateur_dordre_refuse_une_valeur_non_numerique_et_nomm
         },
     )
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["valeur"] == ERREUR_CHAMP_INVALIDE
-    assert "valeur" in resultat["description_placeholders"]["motif"]
+    assert resultat["errors"]["valeur"] == ERREUR_CHAMP_TYPE_INVALIDE
+    assert not resultat["description_placeholders"]
+    for langue in ("fr", "en"):
+        message = _message_erreur(langue, ERREUR_CHAMP_TYPE_INVALIDE)
+        assert ": type" not in message and "{motif}" not in message
 
 
 async def test_synthese_operateur_dordre_accepte_une_valeur_numerique_saisie_en_texte(
@@ -405,3 +430,4 @@ async def test_vider_les_deux_champs_service_retire_le_service_existant(hass, en
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
     assert not resultat["errors"]
     assert "service" not in _commandes(hass)[0]
+

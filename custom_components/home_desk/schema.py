@@ -47,6 +47,7 @@ from .fautes import (
     _FautePattern,
     _FauteType,
     _FauteUniqueItems,
+    localiser,
     motif,
 )
 
@@ -169,7 +170,7 @@ def hauteur_utile(valeur):
     return valeur
 
 
-def paire_service():
+def _paire_service():
     """Le pendant de `"service": {"minItems": 2, "maxItems": 2, "items":
     {"type": "string", "minLength": 1}}`. Ecrit a la main plutot qu'avec
     `vol.Length` : ce dernier ne distingue pas minItems de maxItems dans sa
@@ -178,13 +179,25 @@ def paire_service():
     `_Faute` ci-dessus, appliquee ici puisque le cout marginal est nul une
     fois la hierarchie en place.
 
-    Publique (sans prefixe, ronde 2 de relecture de la tache 6) :
-    `listes_champs._construire_donnee_bouton` la REUTILISE pour refuser une
-    paire service_domaine/service_action a demi remplie, plutot que
-    d'ecrire une seconde regle "il en faut exactement deux" a cote de celle-
-    ci -- le meme motif ("minItems"/"maxItems") nomme le refus des DEUX
-    cotes (formulaire ET validation finale de schema.BOUTON), jamais deux
-    regles qui pourraient diverger."""
+    PRIVEE de nouveau depuis la ronde 4 de relecture. La ronde 2 l'avait
+    rendue publique (`paire_service`, sans prefixe) en affirmant que
+    `listes_champs._construire_donnee_bouton` la REUTILISAIT pour refuser
+    une paire `service_domaine`/`service_action` a demi remplie — la ronde 3
+    a retire cette reutilisation (le motif JSON Schema qu'elle produisait,
+    "minItems" pose sur "base", etait illisible pour un humain ; voir
+    `listes_champs.ServiceIncomplet`) SANS corriger cette affirmation, qui
+    est devenue fausse au moment meme ou elle l'ecrivait — sixieme
+    docstring menteuse du chantier. Aucun appelant hors de ce module ne
+    l'utilise plus (`grep paire_service`, verifie) : redevenue privee.
+
+    La regle « exactement deux elements » vit donc desormais a DEUX
+    endroits, assume : ICI (validation finale de `schema.BOUTON`, la SEULE
+    garantie que `contrat/ecran.schema.json` exige vraiment) et dans
+    `listes_champs.ServiceIncomplet` (le refus lisible, a la saisie). Les
+    deux sont necessaires — une saisie complete peut toujours produire un
+    `service` invalide par un autre chemin que le formulaire (import direct
+    d'une config, par exemple) — mais c'est une duplication DELIBEREE,
+    nommee ici plutot que cachee."""
     chaine_non_vide = _chaine(1)
 
     def valider(valeur):
@@ -201,9 +214,9 @@ def paire_service():
 
 def _uniques():
     """Le pendant de `"uniqueItems": true`. Remplace `vol.Unique()` pour la
-    meme raison que `paire_service` remplace `vol.Length` : rester dans notre
-    propre hierarchie d'exceptions plutot que dans le vocabulaire interne de
-    voluptuous."""
+    meme raison que `_paire_service` remplace `vol.Length` : rester dans
+    notre propre hierarchie d'exceptions plutot que dans le vocabulaire
+    interne de voluptuous."""
 
     def valider(valeur):
         vus = []
@@ -229,7 +242,7 @@ BOUTON = vol.Schema(
         vol.Required("icone"): vol.All(_chaine(1), _enum(_ICONES)),
         vol.Required("entite"): ENTITE,
         vol.Optional("cible"): ENTITE,
-        vol.Optional("service"): paire_service(),
+        vol.Optional("service"): _paire_service(),
         vol.Optional("lien"): _chaine(1),
         vol.Optional("vue"): _motif_chaine(_VUE_PATTERN),
         vol.Optional("epingle"): _const(True),

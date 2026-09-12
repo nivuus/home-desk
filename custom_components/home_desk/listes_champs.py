@@ -145,18 +145,43 @@ def _schema_bouton(editable: bool) -> vol.Schema:
 class ServiceIncomplet(Exception):
     """Leve par `_construire_donnee_bouton` quand `service_domaine`/
     `service_action` sont a demi remplis. Ronde 3 de relecture : la ronde 2
-    rejouait `schema.paire_service()` pour ce refus, qui leve avec un chemin
-    VIDE (un validateur FEUILLE, jamais imbrique dans un dict au moment ou
-    il est appele ici) — le message reellement affiche etait "Ce champ n'est
-    pas valide : : minItems.", un mot-cle JSON Schema destine au corpus ajv,
-    jamais a un humain, pose sur "base" (aucun champ surligne). Une
-    exception DEDIEE, portant le nom du champ REELLEMENT vide, permet a
-    `_async_step_section_element` de poser un message qui nomme le geste a
-    faire plutot qu'un vocabulaire de validateur."""
+    rejouait `schema._paire_service()` (alors publique, `paire_service()`)
+    pour ce refus, qui leve avec un chemin VIDE (un validateur FEUILLE,
+    jamais imbrique dans un dict au moment ou il est appele ici) — le
+    message reellement affiche etait "Ce champ n'est pas valide : : minItems.",
+    un mot-cle JSON Schema destine au corpus ajv, jamais a un humain, pose
+    sur "base" (aucun champ surligne). Une exception DEDIEE, portant le nom
+    du champ REELLEMENT vide, permet a `_async_step_section_element` de
+    poser un message qui nomme le geste a faire plutot qu'un vocabulaire de
+    validateur. `schema._paire_service()` redevient privee en ronde 4 (plus
+    aucun appelant hors de `schema.py`) ; la regle « exactement deux »
+    vit desormais a deux endroits, assume — voir sa docstring."""
 
     def __init__(self, champ_vide: str) -> None:
         self.champ_vide = champ_vide
         super().__init__(champ_vide)
+
+
+class ChampVide(Exception):
+    """Leve quand un champ texte REQUIS d'une section « liste »
+    ($defs/bouton.libelle, $defs/synthese.texte) est vide ou ne contient
+    QUE des espaces. Ronde 4 de relecture (mineur) : `nom` est
+    `.strip()`-verifie depuis la ronde 1 (`EcranSubentryFlow.
+    async_step_user`) ; `libelle`/`texte` ne l'etaient pas — une tuile au
+    libelle invisible (`"   "`) etait acceptee et PERSISTEE, le bouton mort
+    que ce depot s'interdit.
+
+    Ce N'EST PAS une regle a corriger dans schema.py : `_chaine(1)`
+    (minLength: 1) compte les espaces comme des caracteres, EXACTEMENT ce
+    qu'ajv ferait aussi sur `contrat/ecran.schema.json` — y ajouter un
+    `.strip()` ferait DIVERGER le miroir voluptuous du contrat partage
+    (`contrat/cas-schema.json`). Le garde-fou est donc un garde-fou
+    d'ERGONOMIE propre a CE formulaire, comme celui deja pose sur `nom`,
+    jamais une correction du contrat lui-meme."""
+
+    def __init__(self, champ: str) -> None:
+        self.champ = champ
+        super().__init__(champ)
 
 
 def _construire_donnee_bouton(user_input: dict[str, Any], existant: dict | None) -> dict:
@@ -167,8 +192,14 @@ def _construire_donnee_bouton(user_input: dict[str, Any], existant: dict | None)
     frappe dans "service_action" suffisait a rendre une tuile de commande
     muette, le bouton mort que ce depot s'interdit). Refuse desormais en
     levant `ServiceIncomplet(champ_vide)` — voir sa docstring pour pourquoi
-    ce n'est plus `schema.paire_service()` qui porte ce refus depuis la
-    ronde 3."""
+    ce n'est plus `schema._paire_service()` qui porte ce refus depuis la
+    ronde 3.
+
+    Ronde 4 : `libelle` vide ou compose uniquement d'espaces leve desormais
+    `ChampVide("libelle")`, meme doctrine que `nom`
+    (`EcranSubentryFlow.async_step_user`, ronde 1) — voir `ChampVide`."""
+    if not (user_input.get("libelle") or "").strip():
+        raise ChampVide("libelle")
     donnee: dict[str, Any] = {}
     for champ in _CHAMPS_TEXTE_BOUTON:
         valeur = user_input.get(champ)
@@ -263,6 +294,11 @@ def _convertir_valeur(brut: str) -> Any:
 
 
 def _construire_donnee_synthese(user_input: dict[str, Any], existant: dict | None) -> dict:
+    """Ronde 4 de relecture (mineur) : `texte` vide ou compose uniquement
+    d'espaces leve `ChampVide("texte")` — meme garde-fou que `libelle`
+    (`_construire_donnee_bouton`), voir sa docstring."""
+    if not (user_input.get("texte") or "").strip():
+        raise ChampVide("texte")
     donnee: dict[str, Any] = {}
     for champ in _CHAMPS_TEXTE_SYNTHESE:
         valeur = user_input.get(champ)
@@ -278,8 +314,25 @@ def _construire_donnee_synthese(user_input: dict[str, Any], existant: dict | Non
     return _fusionner(CHAMPS_SYNTHESE, existant, donnee)
 
 
-def _afficher_tel_quel(valeur: dict | None) -> dict:
-    return dict(valeur) if valeur else {}
+def _afficher_synthese(valeur: dict | None) -> dict:
+    """Ronde 4 de relecture (mineur) : `valeur` est STOCKEE comme un NOMBRE
+    (int/float) des que `_convertir_valeur` a reussi, mais `_schema_synthese`
+    declare ce champ `str` — le seul DESACCORD de type entre `afficher()` et
+    `construire_schema()` du composant. Reproposer le nombre TEL QUEL comme
+    `suggested_value` desaccorde les deux cotes : une reedition qui ne
+    touche pas ce champ resoumettrait ce nombre, que le `str` impose par HA
+    (`data_schema(user_input)`, avant meme d'atteindre ce step) refuserait —
+    `InvalidData`, une EXCEPTION non rattrapee, jamais un formulaire
+    reaffiche. Exactement la classe de defaut (deux cotes d'un meme champ
+    qui divergent en silence) qui a deja coute plusieurs rondes ailleurs
+    dans ce chantier — corrigee ici avant qu'un test ne la revele en
+    plantant plutot qu'en echouant proprement."""
+    if not valeur:
+        return {}
+    affichage = dict(valeur)
+    if "valeur" in affichage:
+        affichage["valeur"] = str(affichage["valeur"])
+    return affichage
 
 
 # --------------------------------------------------------------------------
@@ -369,6 +422,6 @@ SECTIONS: dict[str, Section] = {
     ),
     "synthese": Section(
         "synthese", lambda el: el["texte"], schema.SYNTHESE, _schema_synthese,
-        _construire_donnee_synthese, _afficher_tel_quel,
+        _construire_donnee_synthese, _afficher_synthese,
     ),
 }

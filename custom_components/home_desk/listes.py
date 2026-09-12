@@ -104,7 +104,18 @@ from .const import (
     ACTION_ENREGISTRER,
     ACTION_MONTER,
     ACTION_SUPPRIMER,
+    ERREUR_CHAMP_INCONNU,
     ERREUR_CHAMP_INVALIDE,
+    ERREUR_CHAMP_FORMAT_INVALIDE,
+    ERREUR_CHAMP_REQUIS,
+    ERREUR_CHAMP_TROP_COURT,
+    ERREUR_CHAMP_TROP_D_ELEMENTS,
+    ERREUR_CHAMP_TROP_PEU_D_ELEMENTS,
+    ERREUR_CHAMP_TYPE_INVALIDE,
+    ERREUR_CHAMP_VALEUR_FIGEE,
+    ERREUR_CHAMP_VALEUR_NON_AUTORISEE,
+    ERREUR_CHAMP_VIDE,
+    ERREUR_CHAMP_DOUBLON,
     ERREUR_SELECTION_MANQUANTE,
     ERREUR_SERVICE_INCOMPLET,
 )
@@ -117,7 +128,34 @@ from .formulaire import reafficher
 # sans l'autre (un `__all__` qui oublie de suivre un renommage, par exemple),
 # rien ne le signale. `listes_champs.py` EST leur definition : c'est donc la
 # SEULE adresse canonique, y compris pour config_flow.py.
-from .listes_champs import SECTIONS, Section, ServiceIncomplet
+from .listes_champs import SECTIONS, Section, ChampVide, ServiceIncomplet
+
+# Ronde 4 de relecture : table DERIVEE des mots-cles que `fautes._Faute`
+# (et voluptuous/probatio eux-memes, pour "required"/"additionalProperties")
+# peuvent produire sur $defs/bouton, $defs/synthese et $defs/entite — les
+# TROIS formes qu'une section « liste » valide (`Section.valider`). Chaque
+# mot-cle devient une PHRASE traduite qui dit quoi faire, jamais le mot-cle
+# JSON Schema brut : voir `schema.motif()`/`fautes.motif()`, reserves au
+# corpus (`contrat/cas-schema.json`), jamais montres a un humain depuis
+# cette table.
+_ERREUR_PAR_MOT_CLE: dict[str, str] = {
+    "required": ERREUR_CHAMP_REQUIS,
+    "pattern": ERREUR_CHAMP_FORMAT_INVALIDE,
+    "type": ERREUR_CHAMP_TYPE_INVALIDE,
+    "minLength": ERREUR_CHAMP_TROP_COURT,
+    "enum": ERREUR_CHAMP_VALEUR_NON_AUTORISEE,
+    "const": ERREUR_CHAMP_VALEUR_FIGEE,
+    "minItems": ERREUR_CHAMP_TROP_PEU_D_ELEMENTS,
+    "maxItems": ERREUR_CHAMP_TROP_D_ELEMENTS,
+    "uniqueItems": ERREUR_CHAMP_DOUBLON,
+    "additionalProperties": ERREUR_CHAMP_INCONNU,
+    # "contains" n'est PAS ici : $defs/bouton, $defs/synthese et
+    # $defs/entite ne l'utilisent jamais (seul $defs/agencement le fait,
+    # zones/modes — hors de portee d'une section « liste »). Un mot-cle
+    # absent de cette table retombe sur ERREUR_CHAMP_INVALIDE, un message
+    # STATIQUE (jamais de {motif} interpole) : la fuite de la ronde 3/4 ne
+    # peut donc pas reapparaitre meme pour un mot-cle qu'on aurait oublie.
+}
 
 __all__ = ["SectionsListeMixin"]
 
@@ -244,10 +282,25 @@ class SectionsListeMixin:
                 # JSON Schema de `schema.motif()` (voir listes_champs.
                 # ServiceIncomplet pour le message que la ronde 2 affichait).
                 errors[err.champ_vide] = ERREUR_SERVICE_INCOMPLET
+            except ChampVide as err:
+                # Ronde 4 de relecture (mineur) : `libelle`/`texte` composes
+                # uniquement d'espaces — voir listes_champs.ChampVide.
+                errors[err.champ] = ERREUR_CHAMP_VIDE
             except vol.Invalid as err:
-                brut = err.errors[0] if isinstance(err, vol.MultipleInvalid) else err
-                errors[str(brut.path[0]) if brut.path else "base"] = ERREUR_CHAMP_INVALIDE
-                description_placeholders["motif"] = schema.motif(err)
+                # Ronde 4 de relecture (Important 1 du relecteur) : le
+                # generique ERREUR_CHAMP_INVALIDE + `schema.motif()` brut
+                # etait EXACTEMENT le charabia que la ronde 3 pensait avoir
+                # ferme pour `service` seul — mesure sur quatre autres
+                # chemins ("Ce champ n'est pas valide : : required.", sur
+                # un champ REMPLI d'une chaine vide, entre autres). Chaque
+                # mot-cle devient desormais un code d'erreur DEDIE
+                # (`_ERREUR_PAR_MOT_CLE`), et le champ fautif est TOUJOURS
+                # celui que `fautes.localiser()` designe — plus de "base"
+                # quand le chemin est connu. `description_placeholders` ne
+                # porte plus AUCUN motif brut.
+                chemin, mot_cle = schema.localiser(err)
+                champ = str(chemin[0]) if chemin else "base"
+                errors[champ] = _ERREUR_PAR_MOT_CLE.get(mot_cle, ERREUR_CHAMP_INVALIDE)
             else:
                 if index is not None:
                     elements[index] = valide

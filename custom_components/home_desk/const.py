@@ -35,15 +35,52 @@ EVENEMENT_CHANGEMENT = f"{DOMAIN}_config_changed"
 ERREUR_HAUTEUR_HORS_BORNES = "hauteur_hors_bornes"
 ERREUR_BUDGET_INTENABLE = "budget_intenable"
 
-# Refus generique d'un champ d'element de section « liste » (tuile de
+# Refus de repli d'un champ d'element de section « liste » (tuile de
 # commande, rangee d'ambiance, tuile « extras maison », ouvrant surveille,
 # ligne de synthese — les cinq sections de `listes_champs.SECTIONS`) : la
 # MEME validation que schema.valider() applique a l'ecran complet
 # (schema.BOUTON / schema.SYNTHESE / schema.ENTITE, via listes.py), rejouee
-# champ par champ pour refuser A LA SAISIE plutot qu'a l'ecriture. Meme
-# regle de nommage que les deux erreurs ci-dessus : jamais retape en dur,
-# jamais recopie dans translations/*.json sans repercuter l'un sur l'autre.
+# champ par champ pour refuser A LA SAISIE plutot qu'a l'ecriture.
+#
+# Ronde 4 de relecture : jusque-la, CE code portait TOUJOURS le message,
+# et son gabarit ("Ce champ n'est pas valide : {motif}.") interpolait
+# `schema.motif()` BRUT — un mot-cle JSON Schema destine au corpus ajv,
+# jamais a un humain ("Ce champ n'est pas valide : : required.", entre
+# autres, sur le champ le PLUS courant de la section la PLUS courante ;
+# mesure sur quatre chemins). Exactement le charabia que la ronde 3 pensait
+# avoir ferme en ne le corrigeant QUE pour `service`. `listes.py` traduit
+# desormais chaque mot-cle JSON Schema en un code DEDIE (ci-dessous,
+# `_ERREUR_PAR_MOT_CLE`) ; CE code ne reste que le REPLI d'un mot-cle
+# qu'aucune des deux formes ($defs/bouton, $defs/synthese) ne peut
+# produire aujourd'hui (`contains`, propre a $defs/agencement). Son message
+# est desormais STATIQUE, SANS `{motif}` : la fuite ne peut donc plus
+# reapparaitre meme pour un mot-cle non prevu.
 ERREUR_CHAMP_INVALIDE = "champ_invalide"
+
+# Un code par mot-cle JSON Schema atteignable par $defs/bouton,
+# $defs/synthese et $defs/entite (les trois formes qu'une section « liste »
+# valide) — chacun une PHRASE traduite qui dit quoi faire, jamais le
+# mot-cle brut. `listes.py` les choisit via `_ERREUR_PAR_MOT_CLE`, derivee
+# de `fautes.localiser()`.
+ERREUR_CHAMP_REQUIS = "champ_requis"
+ERREUR_CHAMP_FORMAT_INVALIDE = "champ_format_invalide"
+ERREUR_CHAMP_TYPE_INVALIDE = "champ_type_invalide"
+ERREUR_CHAMP_TROP_COURT = "champ_trop_court"
+ERREUR_CHAMP_VALEUR_NON_AUTORISEE = "champ_valeur_non_autorisee"
+ERREUR_CHAMP_VALEUR_FIGEE = "champ_valeur_figee"
+ERREUR_CHAMP_TROP_PEU_D_ELEMENTS = "champ_trop_peu_d_elements"
+ERREUR_CHAMP_TROP_D_ELEMENTS = "champ_trop_d_elements"
+ERREUR_CHAMP_DOUBLON = "champ_doublon"
+ERREUR_CHAMP_INCONNU = "champ_inconnu"
+
+# Ronde 4 de relecture (mineur) : `libelle` ($defs/bouton) et `texte`
+# ($defs/synthese) sont requis et non vides dans le contrat (minLength: 1),
+# mais seule la LONGUEUR y est verifiee (des espaces comptent) — un libelle
+# "   " passait et etait PERSISTE, le bouton mort que ce depot s'interdit.
+# Meme doctrine que `nom` (ERREUR_NOM_VIDE ci-dessus, ronde 1) : verifie
+# ICI, jamais dans schema.py (qui doit rester fidele au contrat partage
+# avec ajv, ou les espaces comptent bel et bien comme des caracteres).
+ERREUR_CHAMP_VIDE = "champ_vide"
 
 # Ronde 1 de relecture (tache 6) : dette de la tache 5 corrigee ici. `nom`
 # vide passait (SCHEMA_IDENTITE ne declare qu'un `str`, sans borne) et etait

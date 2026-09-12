@@ -22,7 +22,18 @@ from custom_components.home_desk.config_flow import EcranSubentryFlow
 from custom_components.home_desk.const import (
     DOMAIN,
     ERREUR_BUDGET_INTENABLE,
+    ERREUR_CHAMP_DOUBLON,
+    ERREUR_CHAMP_FORMAT_INVALIDE,
+    ERREUR_CHAMP_INCONNU,
     ERREUR_CHAMP_INVALIDE,
+    ERREUR_CHAMP_REQUIS,
+    ERREUR_CHAMP_TROP_COURT,
+    ERREUR_CHAMP_TROP_D_ELEMENTS,
+    ERREUR_CHAMP_TROP_PEU_D_ELEMENTS,
+    ERREUR_CHAMP_TYPE_INVALIDE,
+    ERREUR_CHAMP_VALEUR_FIGEE,
+    ERREUR_CHAMP_VALEUR_NON_AUTORISEE,
+    ERREUR_CHAMP_VIDE,
     ERREUR_HAUTEUR_HORS_BORNES,
     ERREUR_NOM_VIDE,
     ERREUR_SELECTION_MANQUANTE,
@@ -80,6 +91,17 @@ def _cles_attendues() -> set[str]:
         f"/config_subentries/ecran/error/{ERREUR_HAUTEUR_HORS_BORNES}",
         f"/config_subentries/ecran/error/{ERREUR_BUDGET_INTENABLE}",
         f"/config_subentries/ecran/error/{ERREUR_CHAMP_INVALIDE}",
+        f"/config_subentries/ecran/error/{ERREUR_CHAMP_REQUIS}",
+        f"/config_subentries/ecran/error/{ERREUR_CHAMP_FORMAT_INVALIDE}",
+        f"/config_subentries/ecran/error/{ERREUR_CHAMP_TYPE_INVALIDE}",
+        f"/config_subentries/ecran/error/{ERREUR_CHAMP_TROP_COURT}",
+        f"/config_subentries/ecran/error/{ERREUR_CHAMP_VALEUR_NON_AUTORISEE}",
+        f"/config_subentries/ecran/error/{ERREUR_CHAMP_VALEUR_FIGEE}",
+        f"/config_subentries/ecran/error/{ERREUR_CHAMP_TROP_PEU_D_ELEMENTS}",
+        f"/config_subentries/ecran/error/{ERREUR_CHAMP_TROP_D_ELEMENTS}",
+        f"/config_subentries/ecran/error/{ERREUR_CHAMP_DOUBLON}",
+        f"/config_subentries/ecran/error/{ERREUR_CHAMP_INCONNU}",
+        f"/config_subentries/ecran/error/{ERREUR_CHAMP_VIDE}",
         f"/config_subentries/ecran/error/{ERREUR_NOM_VIDE}",
         f"/config_subentries/ecran/error/{ERREUR_SELECTION_MANQUANTE}",
         f"/config_subentries/ecran/error/{ERREUR_SERVICE_INCOMPLET}",
@@ -267,11 +289,18 @@ def test_les_traductions_nomment_le_debordement(langue):
 
 
 @pytest.mark.parametrize("langue", ["fr", "en"])
-def test_les_traductions_nomment_le_motif_du_champ_invalide(langue):
+def test_le_champ_invalide_n_interpole_plus_de_motif(langue):
+    """Ronde 4 de relecture : ce test affirmait l'INVERSE avant cette ronde
+    (« {motif} DOIT etre dans la phrase ») — exactement la fuite que la
+    ronde 4 corrige, clouee ici par le propre test qui la garantissait.
+    `ERREUR_CHAMP_INVALIDE` ne reste que le REPLI d'un mot-cle imprevu
+    (chaque mot-cle CONNU a desormais son propre code, `listes.
+    _ERREUR_PAR_MOT_CLE`) : son message est STATIQUE, jamais un `{motif}`
+    JSON Schema montre a un humain."""
     traductions = json.loads(
         (CHEMIN_TRADUCTIONS / f"{langue}.json").read_text(encoding="utf-8"))
     phrase = traductions["config_subentries"][SOUS_ENTREE_ECRAN]["error"][ERREUR_CHAMP_INVALIDE]
-    assert "{motif}" in phrase
+    assert "{motif}" not in phrase
 
 
 def test_fr_et_en_ont_la_meme_structure_de_traductions():

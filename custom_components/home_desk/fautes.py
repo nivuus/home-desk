@@ -77,9 +77,13 @@ class _FauteUniqueItems(_Faute):
     mot_cle = "uniqueItems"
 
 
-def motif(err: vol.Invalid) -> str:
-    """Rend la faute au format du corpus : `chemin: mot-cle`, le pendant de
-    `${instancePath}: ${keyword}` cote ajv (app/tests/cas-schema.test.ts).
+def localiser(err: vol.Invalid) -> tuple[list, str]:
+    """Le CHEMIN et le MOT-CLE JSON Schema d'une faute — l'analyse que
+    `motif()` formate pour le corpus, partagee ici (ronde 4 de relecture)
+    pour que `listes.py` puisse attribuer un refus utilisateur au bon CHAMP
+    et au bon MOT-CLE SANS dupliquer cette analyse : une seconde copie de ce
+    calcul aurait ete exactement la divergence que ce module existe pour
+    empecher.
 
     - `required` et `additionalProperties` : voluptuous porte le champ
       fautif (le manquant, ou l'inconnu) comme DERNIER segment du chemin ;
@@ -89,7 +93,8 @@ def motif(err: vol.Invalid) -> str:
       chemin voluptuous et le instancePath ajv designent deja le meme point.
     - Une `vol.MultipleInvalid` ne porte pas `.error_type` (elle ne passe
       jamais par `Invalid.__init__`) : on lit sa premiere erreur, qui suffit
-      ici puisque chaque cas du corpus n'exerce qu'UNE seule regle a la fois.
+      ici puisque chaque cas du corpus n'exerce qu'UNE seule regle a la fois
+      (et puisqu'un refus de section « liste » n'en souleve jamais qu'une).
     - `voluptuous` est charge par ce module directement (le paquet PyPI
       classique), mais des l'instant ou `custom_components/home_desk` importe
       `homeassistant.core` (`__init__.py`), Home Assistant remplace
@@ -115,31 +120,41 @@ def motif(err: vol.Invalid) -> str:
       touchee par cette reecriture, contrairement a l'attribut. `required`,
       `additionalProperties` et `contains` restent detectes comme avant
       (classes/messages de voluptuous ou du shim, hors de notre controle) ;
-      tout le reste passe desormais par `isinstance(err, _Faute)`.
-
-    Correction de la ronde 3 : ce module ne nomme QUE le vocabulaire JSON
-    Schema destine au corpus (`contrat/cas-schema.json`) — jamais un message
-    montre TEL QUEL a un utilisateur. Un refus METIER a la saisie (un champ
-    `service` a demi rempli, par exemple) doit porter son PROPRE code
-    d'erreur, lisible, jamais ce mot-cle brut (voir `listes_champs.
-    ServiceIncomplet` et `const.ERREUR_SERVICE_INCOMPLET`, qui existent
-    exactement pour ne plus jamais montrer `": minItems"` a un humain)."""
+      tout le reste passe desormais par `isinstance(err, _Faute)`."""
     if isinstance(err, vol.MultipleInvalid):
         err = err.errors[0]
 
     chemin_parts = list(err.path)
     if isinstance(err, vol.RequiredFieldInvalid):
-        mot_cle = "required"
-        chemin_parts = chemin_parts[:-1]
-    elif type(err).__name__ == "ExtraKeysInvalid" or err.msg == "extra keys not allowed":
-        mot_cle = "additionalProperties"
-        chemin_parts = chemin_parts[:-1]
-    elif isinstance(err, vol.ContainsInvalid):
-        mot_cle = "contains"
-    elif isinstance(err, _Faute):
-        mot_cle = err.mot_cle
-    else:
-        mot_cle = err.error_type or "invalid"
+        return chemin_parts[:-1], "required"
+    if type(err).__name__ == "ExtraKeysInvalid" or err.msg == "extra keys not allowed":
+        return chemin_parts[:-1], "additionalProperties"
+    if isinstance(err, vol.ContainsInvalid):
+        return chemin_parts, "contains"
+    if isinstance(err, _Faute):
+        return chemin_parts, err.mot_cle
+    return chemin_parts, (err.error_type or "invalid")
 
+
+def motif(err: vol.Invalid) -> str:
+    """Rend la faute au format du corpus : `chemin: mot-cle`, le pendant de
+    `${instancePath}: ${keyword}` cote ajv (app/tests/cas-schema.test.ts) —
+    un vocabulaire JSON Schema, jamais un message montre TEL QUEL a un
+    utilisateur (voir `localiser()` pour l'analyse partagee).
+
+    Correction de la ronde 3, ETENDUE en ronde 4 : la ronde 3 avait affirme
+    ici que ce module « ne nomme QUE le vocabulaire JSON Schema destine au
+    corpus » en ne le verifiant QUE pour `service` (`listes_champs.
+    ServiceIncomplet`) — alors que TOUS LES AUTRES refus d'un element de
+    section « liste » (`listes._async_step_section_element`) interpolaient
+    encore `motif()` BRUT dans le message utilisateur (« Ce champ n'est pas
+    valide : : required. », entre autres, mesure sur quatre chemins) : la
+    MEME classe de defaut, au meme endroit, creee par la ronde qui pensait
+    l'avoir fermee — sixieme et septieme docstrings menteuses du chantier.
+    `listes.py` traduit desormais CHAQUE mot-cle en un code d'erreur dedie
+    (`listes._ERREUR_PAR_MOT_CLE`) via `localiser()`, jamais `motif()` :
+    cette fonction ne sert plus qu'au corpus, ici, et a ses propres tests
+    (`tests/composant/test_schema.py`) — verifie par grep, pas suppose."""
+    chemin_parts, mot_cle = localiser(err)
     chemin = "/" + "/".join(str(p) for p in chemin_parts) if chemin_parts else ""
     return f"{chemin}: {mot_cle}"

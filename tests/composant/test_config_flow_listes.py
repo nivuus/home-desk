@@ -15,14 +15,22 @@ import pytest
 import voluptuous as vol
 from homeassistant import data_entry_flow
 
-from conftest import ELEMENTS_VALIDES, _commandes, _creer_ecran, _geste, _init_reconfigure
+from conftest import (
+    ELEMENTS_VALIDES,
+    _commandes,
+    _creer_ecran,
+    _elements,
+    _geste,
+    _init_reconfigure,
+    _variante,
+)
 from custom_components.home_desk import schema
 from custom_components.home_desk.const import (
     ACTION_DESCENDRE,
     ACTION_ENREGISTRER,
     ACTION_MONTER,
     ACTION_SUPPRIMER,
-    ERREUR_CHAMP_INVALIDE,
+    ERREUR_CHAMP_FORMAT_INVALIDE,
     ERREUR_SELECTION_MANQUANTE,
 )
 from custom_components.home_desk.listes_champs import SECTIONS, _fusionner
@@ -219,6 +227,46 @@ async def test_chaque_section_accepte_un_ajout_et_l_ecrit_dans_SA_propre_cle(has
                 f"l'ajout dans {cle!r} a fuite dans {autre!r}")
 
 
+@pytest.mark.parametrize("cle", sorted(SECTIONS))
+async def test_monter_descendre_supprimer_fonctionnent_sur_les_cinq_sections(hass, entree, cle):
+    """Ronde 4 de relecture (mineur) : les trois gestes n'etaient exerces
+    QUE sur "commandes" (`test_monter_une_tuile_change_son_rang_et_RIEN_D_
+    AUTRE` et ses voisins, plus haut) — `conftest._geste` n'etait pas
+    PORTABLE (il faisait `{**element}` sur un element qui est une CHAINE
+    pour `ouvrants`, une TypeError immediate des le premier essai). Rendu
+    portable ; ce test rejoue les trois gestes sur les CINQ sections,
+    presque gratuit une fois `_geste` corrige — parametre sur `SECTIONS`,
+    comme le reste de ce fichier."""
+    subentry_id = await _creer_ecran(hass, entree)
+    for i in range(3):
+        flow = await _init_reconfigure(hass, entree, subentry_id)
+        await hass.config_entries.subentries.async_configure(
+            flow["flow_id"], {"next_step_id": cle})
+        await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
+        resultat = await hass.config_entries.subentries.async_configure(
+            flow["flow_id"], _variante(cle, i))
+        assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+
+    avant = _elements(hass, entree, cle)
+    assert len(avant) == 3
+
+    await _geste(hass, cle, index=1, geste=ACTION_MONTER)
+    apres_monter = _elements(hass, entree, cle)
+    assert apres_monter == [avant[1], avant[0], avant[2]]
+
+    await _geste(hass, cle, index=0, geste=ACTION_MONTER)
+    assert _elements(hass, entree, cle) == apres_monter, "borne : monter la premiere ne fait rien"
+
+    await _geste(hass, cle, index=len(apres_monter) - 1, geste=ACTION_DESCENDRE)
+    assert _elements(hass, entree, cle) == apres_monter, (
+        "borne : descendre la derniere ne fait rien")
+
+    await _geste(hass, cle, index=1, geste=ACTION_SUPPRIMER)
+    apres_suppr = _elements(hass, entree, cle)
+    assert len(apres_suppr) == 2
+    assert apres_monter[1] not in apres_suppr
+
+
 # ---------------------------------------------------------------------------
 # Point 3 de la ronde 1 : le plan ne rendait jamais la sous-entree validable
 # ---------------------------------------------------------------------------
@@ -340,6 +388,6 @@ async def test_un_refus_reaffiche_la_saisie_sur_TOUTES_les_sections(hass, entree
     invalide = {**ELEMENTS_VALIDES[cle], "entite": "a1.pas_une_entite_valide"}
     resultat = await hass.config_entries.subentries.async_configure(flow["flow_id"], invalide)
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["entite"] == ERREUR_CHAMP_INVALIDE
+    assert resultat["errors"]["entite"] == ERREUR_CHAMP_FORMAT_INVALIDE
     marqueurs = {str(c): c for c in resultat["data_schema"].schema}
     assert marqueurs["entite"].description == {"suggested_value": "a1.pas_une_entite_valide"}
