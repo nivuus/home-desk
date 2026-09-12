@@ -343,6 +343,7 @@ export function brancherGeste(fn: typeof geste) { geste = fn; }
  *                          `.media`, `.voiture`, `.minuteurs`. Un seul NOM pour tous : c'est
  *                          l'outil qui sait quel mode il a posé, et ce fichier n'a pas à
  *                          connaître le vocabulaire du budget ;
+ *    `synthese`          — la ligne de synthèse, permanente, plus bas dans ce fichier ;
  *    `touteLaMaison`     — le grand bouton `.xl` du pied, présent dans tous les modes. */
 export function rendreCorps(
   etat: Etat, piece: Ecran,
