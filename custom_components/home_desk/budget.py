@@ -124,7 +124,9 @@ def verifier_budget(mode: str, rangee_ambiance: bool, hauteur_utile: int,
                      zones: list[str] | None = None) -> int:
     """De combien cette composition deborde, en pixels. 0 si elle tient. Ecrite pour le
     formulaire de l'integration Home Assistant, qui doit pouvoir dire « cet ecran deborde de
-    45 px » AU MOMENT DE LA SAISIE — pas devant la tablette.
+    58 px » (`verifier_budget('minuteur', True, 500)`, verifie en l'executant — la valeur
+    precedente, 45, etait fausse : `verifier_budget('minuteur', True, 585)` rend 0, pas 45)
+    AU MOMENT DE LA SAISIE — pas devant la tablette.
 
     Compte toujours ZERO rangee de commandes : c'est la composition la plus petite que l'ecran
     puisse rendre, donc la question « tient-elle, meme a vide ? ». Le rendu ne l'appelle jamais :

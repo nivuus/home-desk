@@ -3,19 +3,16 @@
     "step": {
       "user": {
         "title": "Tablettes murales",
-        "description": "Ajoute l'integration. Chaque tablette se configure ensuite comme une sous-entree, depuis cette meme integration."
+        "description": "Ajoute l'intégration « Tablettes murales », une fois pour toute la maison. Pour une tablette supplémentaire, n'ajoutez pas une seconde intégration : ouvrez celle-ci depuis la liste des intégrations et ajoutez un écran depuis son propre menu."
       }
-    },
-    "abort": {
-      "single_instance_allowed": "Les tablettes murales sont deja configurees. Ajoutez un ecran depuis l'integration existante."
     }
   },
   "config_subentries": {
     "ecran": {
       "step": {
         "user": {
-          "title": "Identite et budget",
-          "description": "Le nom de l'ecran et la hauteur utile de la tablette, en pixels.",
+          "title": "Identité et budget",
+          "description": "Le nom de l'écran et la hauteur utile de la tablette, en pixels.",
           "data": {
             "nom": "Nom",
             "hauteurUtile": "Hauteur utile (px)",
@@ -24,7 +21,8 @@
         }
       },
       "error": {
-        "budget_intenable": "Cet ecran deborde de {debordement} px. Augmentez la hauteur utile, ou retirez une zone dans « Blocs et modes »."
+        "hauteur_hors_bornes": "La hauteur utile doit être comprise entre {min} et {max} px.",
+        "budget_intenable": "Cet écran déborde de {debordement} px. Augmentez la hauteur utile, ou retirez une zone dans « Blocs et modes »."
       }
     }
   }

@@ -50,8 +50,13 @@ _MODULATEURS = frozenset(_DEFS["agencement"]["properties"]["modulateurs"]["items
 _ENTITE_PATTERN = re.compile(_DEFS["entite"]["pattern"])
 _VUE_PATTERN = re.compile(_DEFS["bouton"]["properties"]["vue"]["pattern"])
 
-_HAUTEUR_MIN = _SCHEMA_JSON["properties"]["hauteurUtile"]["minimum"]
-_HAUTEUR_MAX = _SCHEMA_JSON["properties"]["hauteurUtile"]["maximum"]
+# Publiques (pas de prefixe _) : config_flow.py les reutilise pour refuser
+# une hauteur hors bornes DES LA SAISIE, avant que schema.valider() ne le
+# fasse plus tard sur l'ecran complet. Les bornes viennent du contrat une
+# seule fois, ici ; les redupliquer en dur dans config_flow.py aurait ete
+# exactement la seconde copie que ce fichier existe pour empecher.
+HAUTEUR_MIN = _SCHEMA_JSON["properties"]["hauteurUtile"]["minimum"]
+HAUTEUR_MAX = _SCHEMA_JSON["properties"]["hauteurUtile"]["maximum"]
 
 
 # --------------------------------------------------------------------------
@@ -163,13 +168,17 @@ def _const(attendu):
     return valider
 
 
-def _hauteur_utile(valeur):
+def hauteur_utile(valeur):
+    """Publique : reutilisee telle quelle par config_flow.py (EcranSubentryFlow),
+    pour que le formulaire de saisie refuse la MEME plage que schema.valider().
+    Le nom sans prefixe EST l'interface ; ne pas le re-prefixer sans repercuter
+    l'import de config_flow.py."""
     if isinstance(valeur, bool) or not isinstance(valeur, int):
         raise _FauteType("attendu un entier")
-    if valeur < _HAUTEUR_MIN:
-        raise _FauteMinimum(f"minimum {_HAUTEUR_MIN}")
-    if valeur > _HAUTEUR_MAX:
-        raise _FauteMaximum(f"maximum {_HAUTEUR_MAX}")
+    if valeur < HAUTEUR_MIN:
+        raise _FauteMinimum(f"minimum {HAUTEUR_MIN}")
+    if valeur > HAUTEUR_MAX:
+        raise _FauteMaximum(f"maximum {HAUTEUR_MAX}")
     return valeur
 
 
@@ -341,7 +350,7 @@ _ECRAN_STRUCTURE = vol.Schema(
         vol.Optional("version"): _const(1),
         vol.Required("nom"): _chaine(1),
         vol.Optional("note"): _chaine(),
-        vol.Optional("hauteurUtile"): _hauteur_utile,
+        vol.Optional("hauteurUtile"): hauteur_utile,
         vol.Required("temperature"): ENTITE,
         vol.Required("ambiances"): [BOUTON],
         vol.Required("commandes"): [BOUTON],

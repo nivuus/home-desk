@@ -1,0 +1,29 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wall tablets",
+        "description": "Adds the \"Wall tablets\" integration, once for the whole house. For an extra tablet, do not add a second integration: open this one from the integrations list and add a screen from its own menu."
+      }
+    }
+  },
+  "config_subentries": {
+    "ecran": {
+      "step": {
+        "user": {
+          "title": "Identity and budget",
+          "description": "The screen's name, and the tablet's usable height, in pixels.",
+          "data": {
+            "nom": "Name",
+            "hauteurUtile": "Usable height (px)",
+            "note": "Note"
+          }
+        }
+      },
+      "error": {
+        "hauteur_hors_bornes": "The usable height must be between {min} and {max} px.",
+        "budget_intenable": "This screen overflows by {debordement} px. Increase the usable height, or remove a zone in \"Blocks and modes\"."
+      }
+    }
+  }
+}

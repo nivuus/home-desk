@@ -25,6 +25,22 @@ reste un aller-retour normal `show_form` puis `create_entry`.
 (ex. deux entrees issues de sources differentes), mais ici le manifeste dit
 deja tout : suivre l'API reelle plutot que le brief, comme demande.
 
+**Ronde 1 de relecture : le message de ce refus vient du COEUR de Home
+Assistant, jamais de ce module.** `ConfigEntriesFlowManager.async_init`
+construit lui-meme le `ConfigFlowResult` d'abort avec
+`translation_domain=HOMEASSISTANT_DOMAIN` (pas `DOMAIN`), et le frontend
+resout la traduction sur `translation_domain or handler.domain` : la cle
+effectivement lue est donc `component.homeassistant.config.abort.
+single_instance_allowed` (« Deja configure. Une seule configuration est
+possible. »), jamais `component.home_desk.config.abort.
+single_instance_allowed`. Une cle `config.abort.single_instance_allowed`
+dans `translations/fr.json` serait donc MORTE : aucun chemin utilisateur ne
+l'atteint, et elle a ete retiree. Le geste que l'utilisateur doit faire —
+ajouter un ecran depuis l'integration EXISTANTE, pas une seconde integration
+— vit desormais dans `config.step.user.description` de `translations/fr.json`
+(et `en.json`), la SEULE description que la premiere installation affiche
+reellement.
+
 **Une entree, N sous-entrees.** L'entree « Tablettes murales » ne detient
 RIEN : toute la configuration vit dans les sous-entrees, une par ecran.
 Ajouter une quatrieme tablette est alors la MEME operation que pour les trois
@@ -41,6 +57,16 @@ commandes, ...). Le budget, lui, doit deja etre verifie ICI : c'est la seule
 donnee qui existe a cette etape, et le mode le moins cher (`defaut`,
 `rangeeAmbiance=True`) suffit a refuser un ecran qu'AUCUN mode ne pourrait
 tenir.
+
+**Ronde 1 de relecture, second refus : `hauteurUtile` porte aussi les bornes
+du contrat** (`schema.HAUTEUR_MIN`/`HAUTEUR_MAX`, 320 et 4000 px). Le budget
+seul ne les couvre pas : une hauteur enorme (10 000 px, par exemple) ne
+deborde JAMAIS (`verifier_budget` y rend 0), et sans cette seconde garde le
+formulaire l'acceptait — pour que `schema.valider()` la refuse plus tard,
+inversant exactement ce que cette tache existe pour eviter (refuser a la
+saisie, pas devant la tablette). La garde reutilise `schema.hauteur_utile`,
+la MEME fonction que `schema.py` applique a l'ecran complet : aucune borne
+n'est redupliquee ici.
 """
 from __future__ import annotations
 
@@ -57,11 +83,22 @@ from homeassistant.config_entries import (
 )
 from homeassistant.core import callback
 
+from . import schema
 from .budget import verifier_budget
-from .const import DOMAIN, SOUS_ENTREE_ECRAN, VERSION_CONFIG
+from .const import (
+    DOMAIN,
+    ERREUR_BUDGET_INTENABLE,
+    ERREUR_HAUTEUR_HORS_BORNES,
+    SOUS_ENTREE_ECRAN,
+    VERSION_CONFIG,
+)
 
 # La section « Identite et budget » seule : le reste (ambiances, commandes,
-# synthese, ...) arrive avec le menu a huit entrees de la tache 6.
+# synthese, ...) arrive avec le menu a huit entrees de la tache 6. Le type de
+# `hauteurUtile` reste `int` ici (le champ frontend) : la validation reelle
+# des bornes passe par `schema.hauteur_utile`, appelee explicitement dans
+# `EcranSubentryFlow.async_step_user` — Home Assistant n'applique JAMAIS
+# `data_schema` lui-meme sur la saisie, seul le step le fait.
 SCHEMA_IDENTITE = vol.Schema(
     {
         vol.Required("nom"): str,
@@ -78,7 +115,9 @@ class HomeDeskConfigFlow(ConfigFlow, domain=DOMAIN):
 
     Le refus "single_instance_allowed" vient de `manifest.json`
     (`single_config_entry: true`) : Home Assistant l'applique avant meme
-    d'appeler cette classe, donc ce step n'a rien a verifier lui-meme."""
+    d'appeler cette classe, donc ce step n'a rien a verifier lui-meme — et
+    son MESSAGE vient du coeur de Home Assistant, jamais de nos traductions
+    (voir la docstring de module)."""
 
     VERSION = 1
 
@@ -110,9 +149,20 @@ class EcranSubentryFlow(ConfigSubentryFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         """Saisie de `nom`, `hauteurUtile`, `note`. Refuse AU MOMENT DE LA
-        SAISIE une hauteur ou meme le mode le moins cher ne tient pas, et dit
-        de combien — jamais « valeur invalide », qui signalerait un refus
-        sans dire quoi faire."""
+        SAISIE une hauteur ou meme le mode le moins cher ne tient pas (et dit
+        de combien), ou une hauteur hors des bornes du contrat (10 000 px ne
+        deborde jamais, mais `schema.valider()` le refuserait quand meme,
+        plus tard) — jamais « valeur invalide », qui signalerait un refus
+        sans dire quoi faire.
+
+        Le budget est verifie EN PREMIER : c'est la garde la plus frequente
+        (toute hauteur trop juste, meme dans les bornes, deborde), et c'est
+        elle que `test_un_ecran_qui_deborde_est_REFUSE_avec_son_chiffre`
+        exerce avec 100 px — une valeur qui, en pratique, deborde toujours
+        avant d'etre hors bornes (le cout minimal d'un ecran depasse deja
+        320 px, la borne basse). Les bornes ne sont donc la seule garde
+        atteignable que pour une hauteur EXCESSIVE, au-dela de ce que le
+        budget peut jamais signaler."""
         errors: dict[str, str] = {}
         description_placeholders: dict[str, str] = {}
 
@@ -121,15 +171,25 @@ class EcranSubentryFlow(ConfigSubentryFlow):
                 "defaut", rangee_ambiance=True, hauteur_utile=user_input["hauteurUtile"]
             )
             if deborde:
-                errors["hauteurUtile"] = "budget_intenable"
+                errors["hauteurUtile"] = ERREUR_BUDGET_INTENABLE
                 description_placeholders["debordement"] = str(deborde)
             else:
-                donnee = {**user_input, "version": VERSION_CONFIG}
-                return self.async_create_entry(title=donnee["nom"], data=donnee)
+                try:
+                    schema.hauteur_utile(user_input["hauteurUtile"])
+                except vol.Invalid:
+                    errors["hauteurUtile"] = ERREUR_HAUTEUR_HORS_BORNES
+                    description_placeholders["min"] = str(schema.HAUTEUR_MIN)
+                    description_placeholders["max"] = str(schema.HAUTEUR_MAX)
+                else:
+                    donnee = {**user_input, "version": VERSION_CONFIG}
+                    return self.async_create_entry(title=donnee["nom"], data=donnee)
 
         return self.async_show_form(
             step_id="user",
-            data_schema=SCHEMA_IDENTITE,
+            # Reaffiche la saisie precedente (nom, note) apres un refus : sans
+            # cette ligne, un budget intenable effacerait aussi ce que
+            # l'utilisateur avait deja correctement rempli.
+            data_schema=self.add_suggested_values_to_schema(SCHEMA_IDENTITE, user_input),
             errors=errors,
             description_placeholders=description_placeholders,
         )
