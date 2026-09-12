@@ -46,10 +46,10 @@ elle reste, inerte, et affiche son libellé. Cinq endroits le respectent, et
 
 | Fichier | Ce qu'il fait |
 |---|---|
-| `rendu/corps.ts:399` | le filtre des commandes de la pièce |
-| `rendu/corps.ts:407` | le **second** filtre (`recetteOuvrable`), qui reprenait ce que le premier venait de laisser passer |
-| `rendu/corps.ts:105` | `ligneSynthese`, qui **sautait** l'entrée |
-| `rendu/corps.ts:269` | l'étiquette, appelée **inconditionnellement** depuis |
+| `rendu/corps.ts:411` | le filtre des commandes de la pièce |
+| `rendu/corps.ts:419` | le **second** filtre (`recetteOuvrable`), qui reprenait ce que le premier venait de laisser passer |
+| `rendu/corps.ts:106` | `ligneSynthese`, qui **sautait** l'entrée |
+| `rendu/corps.ts:270` | l'étiquette, appelée **inconditionnellement** depuis |
 | `rendu/maison.ts:90` | la tuile « Scanner », qui vit dans `extrasMaison` et n'est **pas** rendue par `corps.ts` |
 
 `interaction.ts` rend l'appui inerte, et `base.css` retire le retour tactile

@@ -17,7 +17,7 @@ import { rendreCorps, ligneSynthese, rendreAlerte, etiquette } from '../src/rend
 import { rendreMaison } from '../src/rendu/maison';
 import type { Alerte } from '../src/contexte';
 import type { ContexteModes } from '../src/modes';
-import { AGENCEMENT_DEFAUT, type Agencement } from '../src/agencement';
+import { AGENCEMENT_DEFAUT, type Agencement, type Zone } from '../src/agencement';
 import type { Ecran } from '../src/ecran';
 
 const ev = (id: string, etat: string, attributes: Record<string, unknown> = {}) =>
@@ -1242,5 +1242,24 @@ describe('rendreCorps — assembleur de zones', () => {
   it('garde le bandeau et Toute la maison hors de l ordre reglable', () => {
     const racine = rendreDans(ECRANS.cuisine, { ...AGENCEMENT_DEFAUT, zones: ['commandes'] });
     expect(racine.querySelector('[data-zone="touteLaMaison"]')).not.toBeNull();
+  });
+
+  /** Ronde de correction (relecture de la tâche 3) : l'assembleur clé ses zones PAR NOM. Sans clé,
+   *  lit apparie les entrées d'un tableau par leur INDEX — le retrait d'une zone amont ferait
+   *  glisser les suivantes d'un cran, et lit détruirait puis recréerait leur DOM. Avant cette
+   *  tâche chaque zone occupait sa propre expression dans le gabarit, donc un emplacement fixe, et
+   *  le bloc central SURVIVAIT au retrait de la rangée de commandes. Le rendu est le même dans les
+   *  deux cas : c'est l'IDENTITÉ des nœuds qui était en jeu, et elle se perdait sans qu'aucun
+   *  rendu ne la trahisse. Ce test la rend observable. */
+  it('garde le meme noeud de bloc central quand une zone amont disparait', () => {
+    const racine = document.createElement('div');
+    const rendre = (zones: Zone[]) => render(
+      rendreCorps(new Etat(), ECRANS.cuisine, BLOC_CENTRAL_FACTICE, undefined, undefined,
+                  false, false, { ...AGENCEMENT_DEFAUT, zones }), racine);
+    rendre(['commandes', 'blocCentral']);
+    const avant = racine.querySelector('[data-zone="blocCentral"]');
+    expect(avant).not.toBeNull();
+    rendre(['blocCentral']);
+    expect(racine.querySelector('[data-zone="blocCentral"]')).toBe(avant);
   });
 });

@@ -561,8 +561,19 @@ export function rendreCorps(
            dur ici. Le filter est INDISPENSABLE, pas cosmétique : lit rendrait un undefined comme
            un nœud vide, mais chaque enfant de cette colonne flex coûte une gouttière de 8 px
            (base.css), et le budget de hauteur n'a que 3 px de marge — cf. le commentaire du type
-           RenduZone plus haut. -->
-      ${zones.map((z) => ZONES[z]()).filter((t) => t !== undefined)}
+           RenduZone plus haut.
+           CLÉ PAR NOM DE ZONE, pour la même raison que la rangée de commandes plus haut est clée
+           par entité : lit apparie les entrées d'un tableau NON clé par leur index, donc la
+           disparition d'une zone amont ferait glisser toutes les suivantes d'un cran et lit
+           détruirait puis recréerait leur DOM. Avant cette tâche chaque zone occupait sa propre
+           expression, donc un emplacement fixe, et le bloc central SURVIVAIT au retrait de la
+           rangée de commandes. La clé rend cette propriété au tableau. Le rendu est le même ;
+           c'est l'identité des nœuds qui était en jeu, et elle se perdait en silence.
+           (Pas de guillemet oblique dans ce commentaire : il vit DANS un template literal.) -->
+      ${repeat(
+        zones.map((z) => [z, ZONES[z]()] as const).filter(([, t]) => t !== undefined),
+        ([z]) => z,
+        ([, t]) => t)}
       <div class="xl" data-zone="touteLaMaison" data-mvt="tuile:toute-la-maison"
            @pointerdown=${() => (location.href = '#maison')}>
         ${icone('home')}Toute la maison</div>
