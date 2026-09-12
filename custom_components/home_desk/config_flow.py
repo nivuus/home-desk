@@ -92,13 +92,25 @@ from .const import (
     SOUS_ENTREE_ECRAN,
     VERSION_CONFIG,
 )
+from .listes import SECTIONS, SectionsListeMixin
 
-# La section « Identite et budget » seule : le reste (ambiances, commandes,
-# synthese, ...) arrive avec le menu a huit entrees de la tache 6. Le type de
+# La section « Identite et budget » seule ; les sections « liste » (tuiles de
+# commande, rangee d'ambiance, ligne de synthese) sont dans listes.py depuis
+# la tache 6, reutilisees ci-dessous par EcranSubentryFlow. Le type de
 # `hauteurUtile` reste `int` ici (le champ frontend) : la validation reelle
 # des bornes passe par `schema.hauteur_utile`, appelee explicitement dans
-# `EcranSubentryFlow.async_step_user` — Home Assistant n'applique JAMAIS
-# `data_schema` lui-meme sur la saisie, seul le step le fait.
+# `EcranSubentryFlow.async_step_user`.
+#
+# Correction tache 6 : `data_schema` EST applique automatiquement par
+# `FlowManager._async_configure` avant d'appeler le step (verifie dans
+# data_entry_flow.py, cf. la docstring de listes.py) — l'affirmation inverse
+# ci-dessus, ecrite en tache 5, etait fausse. Sans consequence ICI : les deux
+# champs valides par SCHEMA_IDENTITE (`str`, `int`) n'y ajoutent aucune regle
+# metier, seulement un type deja correct pour tout appelant de ce module. Les
+# refus du budget et des bornes restent des controles APRES coup, dans le
+# step lui-meme — c'est la seule facon d'obtenir un formulaire reaffiche avec
+# erreurs plutot qu'une exception (listes.py, meme raison pour les sections
+# « liste »).
 SCHEMA_IDENTITE = vol.Schema(
     {
         vol.Required("nom"): str,
@@ -141,9 +153,12 @@ class HomeDeskConfigFlow(ConfigFlow, domain=DOMAIN):
         return {SOUS_ENTREE_ECRAN: EcranSubentryFlow}
 
 
-class EcranSubentryFlow(ConfigSubentryFlow):
-    """Une sous-entree, un ecran. Pour cette tache : la seule section
-    « Identite et budget ». Le menu a huit entrees arrive a la tache 6."""
+class EcranSubentryFlow(ConfigSubentryFlow, SectionsListeMixin):
+    """Une sous-entree, un ecran. `async_step_user` (tache 5) cree la
+    sous-entree avec sa seule section « Identite et budget ». Une fois creee,
+    on y REVIENT par `async_step_reconfigure` (source `SOURCE_RECONFIGURE`,
+    cf. listes.py) : c'est la que vivent les sections « liste » de la
+    tache 6, et celles des taches suivantes."""
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -193,3 +208,47 @@ class EcranSubentryFlow(ConfigSubentryFlow):
             errors=errors,
             description_placeholders=description_placeholders,
         )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Point d'entree d'une sous-entree EXISTANTE. Un menu vers les
+        sections « liste » deja livrees (`listes.SECTIONS`) ; les sections
+        manquantes (Sources media, Blocs et modes, Minuteurs, Voiture)
+        etendent ce MEME menu aux taches suivantes."""
+        return self.async_show_menu(step_id="reconfigure", menu_options=list(SECTIONS))
+
+    # Les six relais qu'exige `listes.SectionsListeMixin` : HA appelle un
+    # step par SON NOM (`getattr(flow, f"async_step_{step_id}")`), donc pas
+    # de facon generique de les eviter — mais chacun ne fait qu'UN appel, et
+    # c'est `_async_step_section`/`_async_step_section_element` qui portent
+    # toute la logique, une seule fois, pour les trois sections.
+    async def async_step_commandes(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return await self._async_step_section("commandes", user_input)
+
+    async def async_step_commandes_element(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return await self._async_step_section_element("commandes", user_input)
+
+    async def async_step_ambiances(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return await self._async_step_section("ambiances", user_input)
+
+    async def async_step_ambiances_element(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return await self._async_step_section_element("ambiances", user_input)
+
+    async def async_step_synthese(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return await self._async_step_section("synthese", user_input)
+
+    async def async_step_synthese_element(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return await self._async_step_section_element("synthese", user_input)

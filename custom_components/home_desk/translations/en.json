@@ -18,11 +18,76 @@
             "hauteurUtile": "Usable height (px)",
             "note": "Note"
           }
+        },
+        "reconfigure": {
+          "title": "Edit the screen",
+          "menu_options": {
+            "commandes": "Command tiles",
+            "ambiances": "Ambiance row",
+            "synthese": "Summary line"
+          }
+        },
+        "commandes": {
+          "title": "Command tiles",
+          "description": "Add a tile, or pick one to edit, move or remove it.",
+          "data": {
+            "choix": "Tile"
+          }
+        },
+        "commandes_element": {
+          "title": "Command tile",
+          "data": {
+            "libelle": "Label",
+            "icone": "Icon",
+            "entite": "Entity",
+            "cible": "Target entity",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "ambiances": {
+          "title": "Ambiance row",
+          "description": "Add a tile, or pick one to edit, move or remove it.",
+          "data": {
+            "choix": "Tile"
+          }
+        },
+        "ambiances_element": {
+          "title": "Ambiance tile",
+          "data": {
+            "libelle": "Label",
+            "icone": "Icon",
+            "entite": "Entity",
+            "cible": "Target entity",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "synthese": {
+          "title": "Summary line",
+          "description": "Add a line, or pick one to edit, move or remove it.",
+          "data": {
+            "choix": "Line"
+          }
+        },
+        "synthese_element": {
+          "title": "Summary line",
+          "data": {
+            "entite": "Entity",
+            "texte": "Text",
+            "operateur": "Operator",
+            "valeur": "Value",
+            "perso": "Custom",
+            "horsTaches": "Outside chores",
+            "note": "Note",
+            "geste": "Action"
+          }
         }
       },
       "error": {
         "hauteur_hors_bornes": "The usable height must be between {min} and {max} px.",
-        "budget_intenable": "This screen overflows by {debordement} px. Increase the usable height, or remove a zone in \"Blocks and modes\"."
+        "budget_intenable": "This screen overflows by {debordement} px. Increase the usable height, or remove a zone in \"Blocks and modes\".",
+        "champ_invalide": "This field is not valid: {motif}."
       }
     }
   }

@@ -18,11 +18,76 @@
             "hauteurUtile": "Hauteur utile (px)",
             "note": "Note"
           }
+        },
+        "reconfigure": {
+          "title": "Modifier l'écran",
+          "menu_options": {
+            "commandes": "Tuiles de commande",
+            "ambiances": "Rangée d'ambiance",
+            "synthese": "Ligne de synthèse"
+          }
+        },
+        "commandes": {
+          "title": "Tuiles de commande",
+          "description": "Ajoutez une tuile, ou choisissez-en une pour la modifier, la déplacer ou la supprimer.",
+          "data": {
+            "choix": "Tuile"
+          }
+        },
+        "commandes_element": {
+          "title": "Tuile de commande",
+          "data": {
+            "libelle": "Libellé",
+            "icone": "Icône",
+            "entite": "Entité",
+            "cible": "Entité cible",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "ambiances": {
+          "title": "Rangée d'ambiance",
+          "description": "Ajoutez une tuile, ou choisissez-en une pour la modifier, la déplacer ou la supprimer.",
+          "data": {
+            "choix": "Tuile"
+          }
+        },
+        "ambiances_element": {
+          "title": "Tuile d'ambiance",
+          "data": {
+            "libelle": "Libellé",
+            "icone": "Icône",
+            "entite": "Entité",
+            "cible": "Entité cible",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "synthese": {
+          "title": "Ligne de synthèse",
+          "description": "Ajoutez une ligne, ou choisissez-en une pour la modifier, la déplacer ou la supprimer.",
+          "data": {
+            "choix": "Ligne"
+          }
+        },
+        "synthese_element": {
+          "title": "Ligne de synthèse",
+          "data": {
+            "entite": "Entité",
+            "texte": "Texte",
+            "operateur": "Opérateur",
+            "valeur": "Valeur",
+            "perso": "Personnalisée",
+            "horsTaches": "Hors tâches",
+            "note": "Note",
+            "geste": "Action"
+          }
         }
       },
       "error": {
         "hauteur_hors_bornes": "La hauteur utile doit être comprise entre {min} et {max} px.",
-        "budget_intenable": "Cet écran déborde de {debordement} px. Augmentez la hauteur utile, ou retirez une zone dans « Blocs et modes »."
+        "budget_intenable": "Cet écran déborde de {debordement} px. Augmentez la hauteur utile, ou retirez une zone dans « Blocs et modes ».",
+        "champ_invalide": "Ce champ n'est pas valide : {motif}."
       }
     }
   }

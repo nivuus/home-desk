@@ -58,6 +58,11 @@ _VUE_PATTERN = re.compile(_DEFS["bouton"]["properties"]["vue"]["pattern"])
 HAUTEUR_MIN = _SCHEMA_JSON["properties"]["hauteurUtile"]["minimum"]
 HAUTEUR_MAX = _SCHEMA_JSON["properties"]["hauteurUtile"]["maximum"]
 
+# Publique pour la meme raison : listes.py (tache 6) construit le
+# SelectSelector de `operateur` de la ligne de synthese sur CES quatre
+# valeurs, jamais une liste ecrite a la main a cote de _OPERATEURS.
+OPERATEURS = _OPERATEURS
+
 
 # --------------------------------------------------------------------------
 # Validateurs feuille. Chacun leve une SOUS-CLASSE de vol.Invalid dediee au

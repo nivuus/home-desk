@@ -34,3 +34,21 @@ EVENEMENT_CHANGEMENT = f"{DOMAIN}_config_changed"
 # le test plutot que de laisser l'affichage silencieusement casse.
 ERREUR_HAUTEUR_HORS_BORNES = "hauteur_hors_bornes"
 ERREUR_BUDGET_INTENABLE = "budget_intenable"
+
+# Refus generique d'un champ d'element de section « liste » (tuile de
+# commande, rangee d'ambiance, ligne de synthese) : la MEME validation que
+# schema.valider() applique a l'ecran complet (schema.BOUTON / schema.SYNTHESE,
+# via listes.py), rejouee champ par champ pour refuser A LA SAISIE plutot qu'a
+# l'ecriture. Meme regle de nommage que les deux erreurs ci-dessus : jamais
+# retape en dur, jamais recopie dans translations/*.json sans repercuter l'un
+# sur l'autre.
+ERREUR_CHAMP_INVALIDE = "champ_invalide"
+
+# Les quatre gestes d'un element de section « liste » (listes.py). « ajouter »
+# n'en est pas un : c'est la valeur speciale du champ "choix" du menu de
+# section qui declenche un element VIERGE plutot qu'un index existant.
+ACTION_AJOUTER = "ajouter"
+ACTION_ENREGISTRER = "enregistrer"
+ACTION_MONTER = "monter"
+ACTION_DESCENDRE = "descendre"
+ACTION_SUPPRIMER = "supprimer"
