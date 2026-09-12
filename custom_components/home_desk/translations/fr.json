@@ -37,7 +37,12 @@
             "ambiances": "Rangée d'ambiance",
             "extrasMaison": "Tuiles « Extras maison »",
             "ouvrants": "Ouvrants",
-            "synthese": "Ligne de synthèse"
+            "synthese": "Ligne de synthèse",
+            "sources": "Sources média",
+            "minuteurs": "Minuteurs",
+            "etiquettesMinuteur": "Étiquettes de minuteur",
+            "agencement": "Blocs et modes",
+            "voiture": "Voiture"
           }
         },
         "commandes": {
@@ -151,6 +156,89 @@
             "note": "Note",
             "geste": "Action"
           }
+        },
+        "sources": {
+          "title": "Sources média",
+          "description": "Choisissez une source existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.",
+          "data": {
+            "nouveau": "Ajouter une nouvelle source",
+            "choix": "Source existante"
+          }
+        },
+        "sources_element": {
+          "title": "Source média",
+          "description": "Une étape par source : cette version de Home Assistant n'offre pas de section repliable à l'intérieur d'un formulaire de flow.",
+          "data": {
+            "nom": "Nom",
+            "titre": "Entités de titre",
+            "sousTitre": "Entités de sous-titre",
+            "affiche": "Entités d'affiche",
+            "progression": "Entités de progression",
+            "transport": "Entités de transport",
+            "volume": "Entités de volume",
+            "allumee_entite": "Entité « allumée » (facultatif)",
+            "allumee_etats": "États « allumée », séparés par des virgules",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "minuteurs": {
+          "title": "Minuteurs",
+          "description": "Choisissez un slot existant pour le modifier, le déplacer ou le supprimer, ou cochez « Ajouter » pour un nouveau.",
+          "data": {
+            "nouveau": "Ajouter un nouveau slot",
+            "choix": "Slot existant"
+          }
+        },
+        "minuteurs_element": {
+          "title": "Slot de minuteur",
+          "data": {
+            "timer": "Minuteur (timer)",
+            "nom": "Entité du nom affiché",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "etiquettesMinuteur": {
+          "title": "Étiquettes de minuteur",
+          "description": "Choisissez une étiquette existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.",
+          "data": {
+            "nouveau": "Ajouter une nouvelle étiquette",
+            "choix": "Étiquette existante"
+          }
+        },
+        "etiquettesMinuteur_element": {
+          "title": "Étiquette de minuteur",
+          "data": {
+            "etiquette": "Étiquette",
+            "geste": "Action"
+          }
+        },
+        "agencement": {
+          "title": "Blocs et modes",
+          "description": "L'ordre des zones et des modes est celui dans lequel vous les sélectionnez ci-dessous.",
+          "data": {
+            "blocDefaut": "Bloc par défaut",
+            "zones": "Zones (dans l'ordre affiché)",
+            "modes": "Modes (dans l'ordre de priorité)",
+            "modulateurs": "Modulateurs",
+            "note": "Note"
+          }
+        },
+        "voiture": {
+          "title": "Voiture",
+          "description": "Cochez « Pas de voiture » pour retirer entièrement cette section, plutôt que de laisser des champs vides.",
+          "data": {
+            "sans_voiture": "Pas de voiture",
+            "batterie": "Batterie",
+            "autonomie": "Autonomie",
+            "branchee": "Branchée",
+            "enCharge": "En charge",
+            "clim": "Climatisation (état)",
+            "demarrerClim": "Démarrer la climatisation",
+            "arreterClim": "Arrêter la climatisation",
+            "note": "Note"
+          }
         }
       },
       "error": {
@@ -170,7 +258,11 @@
         "champ_inconnu": "Ce champ n'est pas reconnu.",
         "champ_vide": "Ce champ ne peut pas être vide.",
         "selection_manquante": "Cochez « Ajouter » pour un nouvel élément ; si la liste n'est pas vide, vous pouvez aussi en choisir un existant.",
-        "service_incomplet": "Renseignez les deux champs du service, ou videz-les tous les deux."
+        "service_incomplet": "Renseignez les deux champs du service, ou videz-les tous les deux.",
+        "allumee_incomplet": "Renseignez l'entité et les états « allumée », ou videz les deux champs.",
+        "champ_element_requis": "Cette liste doit contenir un élément que l'écran exige (« Commandes » pour les zones, « Défaut » pour les modes).",
+        "recette_sans_mode": "Cette tuile ouvre la vue Recette, mais le mode « recette » n'est pas dans les modes de l'écran (section « Blocs et modes ») : le mode ne s'engagerait jamais et la tuile resterait inerte. Ajoutez le mode « recette » dans « Blocs et modes » avant d'enregistrer cette tuile.",
+        "budget_intenable_mode": "Le mode {mode} déborde de {debordement} px avec ces zones. Augmentez la hauteur utile, retirez une zone, ou retirez ce mode."
       }
     }
   }

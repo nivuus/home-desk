@@ -6,6 +6,7 @@ import pytest
 from homeassistant import config_entries, data_entry_flow
 
 from custom_components.home_desk.const import DOMAIN, SOUS_ENTREE_ECRAN
+from custom_components.home_desk.listes_champs import SECTIONS
 
 pytest_plugins = "pytest_homeassistant_custom_component"
 
@@ -20,6 +21,12 @@ IDENTITE_MINIMALE = {"nom": "Salon d essai", "hauteurUtile": 900, "temperature":
 # sections, preuve de bout en bout que seul `sources` manque encore a
 # schema.valider()). Ronde 3 de relecture : la mention de test_config_
 # flow.py etait perimee — ce fichier n'importe pas ELEMENTS_VALIDES.
+#
+# Tache 7 : `sources`, `minuteurs` et `etiquettesMinuteur` rejoignent cette
+# table — les tests parametres sur `SECTIONS` (test_config_flow_listes.py,
+# `_cles_attendues` de test_config_flow.py) les couvrent donc d'office, sans
+# une ligne de test supplementaire, exactement ce que le brief invite a
+# reutiliser.
 ELEMENTS_VALIDES = {
     "commandes": {"libelle": "Lampe test", "icone": "bulb", "entite": "light.test_commande"},
     "ambiances": {"libelle": "Ambiance test", "icone": "sofa", "entite": "light.test_ambiance"},
@@ -28,6 +35,17 @@ ELEMENTS_VALIDES = {
         "entite": "sensor.test_synthese", "texte": "Texte test", "operateur": "==", "valeur": "ok",
     },
     "ouvrants": {"entite": "binary_sensor.test_ouvrant"},
+    "sources": {
+        "nom": "Source test",
+        "titre": ["sensor.test_titre"],
+        "sousTitre": ["sensor.test_sous_titre"],
+        "affiche": ["media_player.test_affiche"],
+        "progression": ["sensor.test_progression"],
+        "transport": ["media_player.test_transport"],
+        "volume": ["media_player.test_volume"],
+    },
+    "minuteurs": {"timer": "timer.test_minuteur", "nom": "input_text.test_minuteur_nom"},
+    "etiquettesMinuteur": {"etiquette": "Pates"},
 }
 
 
@@ -74,6 +92,16 @@ def _commandes(hass):
     return list(subentry.data.get("commandes", []))
 
 
+def _champ_scalaire(section: str) -> str:
+    """Le nom du champ UNIQUE d'une section SCALAIRE (ouvrants: "entite",
+    etiquettesMinuteur: "etiquette") — derive du schema de la section
+    plutot qu'une correspondance ecrite a la main qui pourrait diverger."""
+    champs = {str(c) for c in SECTIONS[section].construire_schema(True).schema}
+    champs.discard("geste")
+    assert len(champs) == 1, f"{section!r} n'est pas une section scalaire a un seul champ"
+    return next(iter(champs))
+
+
 async def _geste(hass, section: str, index: int, geste: str):
     """Rejoue le parcours reel d'UN geste sur le N-ieme element d'une section
     « liste » : reconfigurer la sous-entree, choisir la section, choisir
@@ -86,12 +114,17 @@ async def _geste(hass, section: str, index: int, geste: str):
     qu'un element est une CHAINE — le cas d'`ouvrants`). Les trois gestes ne
     fonctionnent bien sur les cinq sections que depuis cette correction ;
     voir `test_monter_descendre_supprimer_fonctionnent_sur_les_cinq_
-    sections` (test_config_flow_listes.py), qui les exerce toutes."""
+    sections` (test_config_flow_listes.py), qui les exerce toutes.
+
+    Tache 7 : `etiquettesMinuteur` est une DEUXIEME section scalaire, dont
+    le champ unique n'est PAS "entite" (`"etiquette"`) — le nom fixe
+    "entite" ci-dessous aurait ete FAUX pour elle. `_champ_scalaire` le
+    derive du schema de la section plutot que de le deviner."""
     entry = hass.config_entries.async_entries(DOMAIN)[0]
     subentry = next(iter(entry.subentries.values()))
     element = subentry.data[section][index]
     charge = {**element, "geste": geste} if isinstance(element, dict) else {
-        "entite": element, "geste": geste}
+        _champ_scalaire(section): element, "geste": geste}
 
     flow = await hass.config_entries.subentries.async_init(
         (entry.entry_id, SOUS_ENTREE_ECRAN),
@@ -118,6 +151,12 @@ def _variante(cle: str, i: int):
         return {**base, "entite": f"{base['entite']}_{i}"}
     if cle == "synthese":
         return {**base, "texte": f"{base['texte']} {i}"}
+    if cle == "sources":
+        return {**base, "nom": f"{base['nom']} {i}"}
+    if cle == "minuteurs":
+        return {**base, "timer": f"{base['timer']}_{i}"}
+    if cle == "etiquettesMinuteur":
+        return {**base, "etiquette": f"{base['etiquette']} {i}"}
     return {**base, "libelle": f"{base['libelle']} {i}"}
 
 

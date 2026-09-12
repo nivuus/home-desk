@@ -104,6 +104,8 @@ from .const import (
     ACTION_ENREGISTRER,
     ACTION_MONTER,
     ACTION_SUPPRIMER,
+    ERREUR_ALLUMEE_INCOMPLETE,
+    ERREUR_CHAMP_ELEMENT_REQUIS,
     ERREUR_CHAMP_INCONNU,
     ERREUR_CHAMP_INVALIDE,
     ERREUR_CHAMP_FORMAT_INVALIDE,
@@ -116,6 +118,7 @@ from .const import (
     ERREUR_CHAMP_VALEUR_NON_AUTORISEE,
     ERREUR_CHAMP_VIDE,
     ERREUR_CHAMP_DOUBLON,
+    ERREUR_RECETTE_SANS_MODE,
     ERREUR_SELECTION_MANQUANTE,
     ERREUR_SERVICE_INCOMPLET,
 )
@@ -129,6 +132,13 @@ from .formulaire import reafficher
 # rien ne le signale. `listes_champs.py` EST leur definition : c'est donc la
 # SEULE adresse canonique, y compris pour config_flow.py.
 from .listes_champs import SECTIONS, Section, ChampVide, ServiceIncomplet
+# Tache 7 : `AllumeeIncomplete` (la paire allumee_entite/allumee_etats de
+# $defs/source, a demi remplie) importee directement de
+# `listes_champs_sources` plutot que re-exportee par `listes_champs.py` — ce
+# dernier ne re-exporte QUE ce que `config_flow.py` consomme aussi
+# (`SECTIONS`, `Section`, `ChampVide`, `ServiceIncomplet`, deja communs aux
+# DEUX modules) ; `AllumeeIncomplete` n'est necessaire qu'ICI.
+from .listes_champs_sources import AllumeeIncomplete
 
 # Ronde 4 de relecture : table DERIVEE des mots-cles que `fautes._Faute`
 # (et voluptuous/probatio eux-memes, pour "required"/"additionalProperties")
@@ -149,12 +159,26 @@ _ERREUR_PAR_MOT_CLE: dict[str, str] = {
     "maxItems": ERREUR_CHAMP_TROP_D_ELEMENTS,
     "uniqueItems": ERREUR_CHAMP_DOUBLON,
     "additionalProperties": ERREUR_CHAMP_INCONNU,
-    # "contains" n'est PAS ici : $defs/bouton, $defs/synthese et
-    # $defs/entite ne l'utilisent jamais (seul $defs/agencement le fait,
-    # zones/modes — hors de portee d'une section « liste »). Un mot-cle
-    # absent de cette table retombe sur ERREUR_CHAMP_INVALIDE, un message
-    # STATIQUE (jamais de {motif} interpole) : la fuite de la ronde 3/4 ne
-    # peut donc pas reapparaitre meme pour un mot-cle qu'on aurait oublie.
+    # "contains" a rejoint la table a la tache 7 : $defs/agencement (zones
+    # doit contenir "commandes", modes doit contenir "defaut") est
+    # desormais atteignable via SectionsObjetMixin.async_step_agencement
+    # (objets.py), qui rejoue ce meme mecanisme de mapping — la SEULE
+    # raison pour laquelle cette table, definie ICI, est importee par
+    # objets.py plutot que dupliquee. Verifie par execution (pas suppose) :
+    # soumettre `zones` sans "commandes" leve bien `('zones', 'contains')`,
+    # traduit en ERREUR_CHAMP_ELEMENT_REQUIS — un message qui nomme
+    # explicitement "commandes"/"defaut" (voir translations/fr.json). Une
+    # soumission de zones/modes EN DOUBLE (que le SelectSelector multiple
+    # de l'UI empeche mais qu'un appel direct au flow ne bloque pas) rend
+    # de la meme facon "uniqueItems" atteignable — verifie par execution,
+    # non ajoute comme test permanent (hors du perimetre des deux regles de
+    # cette tache, cf. rapport). $defs/bouton, $defs/synthese et
+    # $defs/entite (les trois formes qu'une section « liste » de CE module
+    # valide) ne l'utilisent toujours jamais : un mot-cle absent de cette
+    # table retombe sur ERREUR_CHAMP_INVALIDE, un message STATIQUE (jamais
+    # de {motif} interpole) : la fuite de la ronde 3/4 ne peut donc pas
+    # reapparaitre meme pour un mot-cle qu'on aurait oublie.
+    "contains": ERREUR_CHAMP_ELEMENT_REQUIS,
 }
 
 __all__ = ["SectionsListeMixin"]
@@ -282,6 +306,13 @@ class SectionsListeMixin:
                 # JSON Schema de `schema.motif()` (voir listes_champs.
                 # ServiceIncomplet pour le message que la ronde 2 affichait).
                 errors[err.champ_vide] = ERREUR_SERVICE_INCOMPLET
+            except AllumeeIncomplete as err:
+                # Tache 7 : le meme refus que ServiceIncomplet, pour la paire
+                # allumee_entite/allumee_etats de $defs/source — voir
+                # listes_champs_sources.AllumeeIncomplete pour pourquoi ce
+                # n'est PAS ServiceIncomplet qui la porte (son message nomme
+                # "le service", un mensonge ici).
+                errors[err.champ_vide] = ERREUR_ALLUMEE_INCOMPLETE
             except ChampVide as err:
                 # Ronde 4 de relecture (mineur) : `libelle`/`texte` composes
                 # uniquement d'espaces — voir listes_champs.ChampVide.
@@ -302,13 +333,31 @@ class SectionsListeMixin:
                 champ = str(chemin[0]) if chemin else "base"
                 errors[champ] = _ERREUR_PAR_MOT_CLE.get(mot_cle, ERREUR_CHAMP_INVALIDE)
             else:
-                if index is not None:
-                    elements[index] = valide
-                else:
-                    elements.append(valide)
-                self._persister(entry, subentry, cle, elements)
-                self._index_courant = None
-                return await self._async_step_section(cle, None)
+                # Tache 7, le TROISIEME invariant croise (legue par le plan
+                # 2, jamais mis dans le contrat a dessein — voir const.
+                # ERREUR_RECETTE_SANS_MODE). Applique aux TROIS sections qui
+                # partagent $defs/bouton (commandes, ambiances,
+                # extrasMaison) : `vue` y est le MEME champ, et le vrai
+                # ecran reel qui pose `vue: '#recette'` le fait depuis
+                # `commandes` (app/src/ecran.ts, piece cuisine) — rien ne
+                # garantit qu'un ecran futur ne le pose pas ailleurs.
+                # Verifie contre `agencement.modes` TEL QUE DEJA PERSISTE
+                # (cette section n'edite jamais l'agencement elle-meme) ;
+                # un ecran sans agencement du tout (`agencement` absent)
+                # n'a AUCUN mode, donc refuse tout `vue: '#recette'` —
+                # exactement le cas ou la tuile serait la plus inerte.
+                if isinstance(valide, dict) and valide.get("vue") == "#recette":
+                    modes_actuels = (subentry.data.get("agencement") or {}).get("modes", [])
+                    if "recette" not in modes_actuels:
+                        errors["base"] = ERREUR_RECETTE_SANS_MODE
+                if not errors:
+                    if index is not None:
+                        elements[index] = valide
+                    else:
+                        elements.append(valide)
+                    self._persister(entry, subentry, cle, elements)
+                    self._index_courant = None
+                    return await self._async_step_section(cle, None)
 
         return reafficher(
             self,

@@ -115,3 +115,47 @@ ACTION_ENREGISTRER = "enregistrer"
 ACTION_MONTER = "monter"
 ACTION_DESCENDRE = "descendre"
 ACTION_SUPPRIMER = "supprimer"
+
+# Tache 7 : les quatre sections « objet » (sources, blocs et modes, minuteurs,
+# voiture), et les deux regles croisees que le contrat NE PEUT PAS porter
+# (le troisieme invariant croise, et la verification de budget MODE PAR
+# MODE) — voir config_flow.py (EcranSubentryFlow.async_step_agencement) et
+# listes.py (_async_step_section_element) pour ou elles sont posees.
+
+# Le pendant de `listes._ERREUR_PAR_MOT_CLE["contains"]` (schema.AGENCEMENT :
+# zones doit contenir "commandes", modes doit contenir "defaut"). Message
+# STATIQUE (comme ERREUR_CHAMP_INVALIDE) : `vol.ContainsInvalid` ne porte
+# aucune donnee qui distinguerait laquelle des deux listes a echoue au-dela
+# du CHAMP deja pose par `fautes.localiser()` ("zones" ou "modes").
+ERREUR_CHAMP_ELEMENT_REQUIS = "champ_element_requis"
+
+# Le pendant de ERREUR_SERVICE_INCOMPLET pour la paire `allumee_entite`/
+# `allumee_etats` de $defs/source (listes_champs_sources.AllumeeIncomplete) :
+# meme regime qu'un service a demi rempli, mais un message DEDIE — celui de
+# ERREUR_SERVICE_INCOMPLET nomme explicitement "les deux champs du service",
+# ce qui serait un mensonge affiche sur une paire qui n'appelle aucun
+# service.
+ERREUR_ALLUMEE_INCOMPLETE = "allumee_incomplet"
+
+# Le TROISIEME invariant croise (legue par le plan 2, jamais mis dans le
+# contrat a dessein) : une tuile `vue: '#recette'` sur un ecran dont
+# `agencement.modes` ne contient pas `recette` ouvrirait la vue sans que le
+# mode s'engage jamais — un bouton qui a l'air vivant et ne fait rien. Le
+# schema JSON juge un ecran FINI ; ce refus juge une saisie EN COURS, et lui
+# seul peut proposer le remede (aller dans « Blocs et modes » et y ajouter
+# le mode "recette") : un if/then JSON Schema ne sait pas faire ce dernier
+# geste. Pose par `listes._async_step_section_element` sur les tuiles
+# ($defs/bouton), verifie contre `agencement.modes` TEL QUE DEJA PERSISTE.
+ERREUR_RECETTE_SANS_MODE = "recette_sans_mode"
+
+# Le budget verifie MODE PAR MODE (config_flow.py,
+# EcranSubentryFlow.async_step_agencement) : la tache 5 ne pouvait juger que
+# le mode "defaut" (le moins cher), faute de donnee — ici, `agencement.modes`
+# existe enfin. Refuse sur le MODE LE PLUS COUTEUX des modes saisis, et le
+# NOMME dans `description_placeholders` ("mode") en plus du debordement
+# ("debordement") : « cet ecran deborde de X px » n'indique pas quoi
+# changer, « le mode minuteur deborde de X px » si. Code DISTINCT de
+# ERREUR_BUDGET_INTENABLE (l'identite ne verifie qu'un seul mode fixe,
+# "defaut" ; ici, plusieurs modes sont en jeu et celui qui echoue doit etre
+# nomme) — les deux messages different donc necessairement.
+ERREUR_BUDGET_INTENABLE_MODE = "budget_intenable_mode"

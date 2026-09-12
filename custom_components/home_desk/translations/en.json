@@ -37,7 +37,12 @@
             "ambiances": "Ambiance row",
             "extrasMaison": "\"House extras\" tiles",
             "ouvrants": "Openings",
-            "synthese": "Summary line"
+            "synthese": "Summary line",
+            "sources": "Media sources",
+            "minuteurs": "Timers",
+            "etiquettesMinuteur": "Timer labels",
+            "agencement": "Blocks and modes",
+            "voiture": "Car"
           }
         },
         "commandes": {
@@ -151,6 +156,89 @@
             "note": "Note",
             "geste": "Action"
           }
+        },
+        "sources": {
+          "title": "Media sources",
+          "description": "Pick an existing source to edit, move or remove it, or check \"Add\" for a new one.",
+          "data": {
+            "choix": "Existing source",
+            "nouveau": "Add a new source"
+          }
+        },
+        "sources_element": {
+          "title": "Media source",
+          "description": "One step per source: this version of Home Assistant does not offer a collapsible section inside a flow form.",
+          "data": {
+            "nom": "Name",
+            "titre": "Title entities",
+            "sousTitre": "Subtitle entities",
+            "affiche": "Cover art entities",
+            "progression": "Progress entities",
+            "transport": "Transport entities",
+            "volume": "Volume entities",
+            "allumee_entite": "\"On\" entity (optional)",
+            "allumee_etats": "\"On\" states, comma-separated",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "minuteurs": {
+          "title": "Timers",
+          "description": "Pick an existing slot to edit, move or remove it, or check \"Add\" for a new one.",
+          "data": {
+            "choix": "Existing slot",
+            "nouveau": "Add a new slot"
+          }
+        },
+        "minuteurs_element": {
+          "title": "Timer slot",
+          "data": {
+            "timer": "Timer entity",
+            "nom": "Displayed name entity",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "etiquettesMinuteur": {
+          "title": "Timer labels",
+          "description": "Pick an existing label to edit, move or remove it, or check \"Add\" for a new one.",
+          "data": {
+            "choix": "Existing label",
+            "nouveau": "Add a new label"
+          }
+        },
+        "etiquettesMinuteur_element": {
+          "title": "Timer label",
+          "data": {
+            "etiquette": "Label",
+            "geste": "Action"
+          }
+        },
+        "agencement": {
+          "title": "Blocks and modes",
+          "description": "Zones and modes are ordered the way you select them below.",
+          "data": {
+            "blocDefaut": "Default block",
+            "zones": "Zones (in the order shown)",
+            "modes": "Modes (in priority order)",
+            "modulateurs": "Modulators",
+            "note": "Note"
+          }
+        },
+        "voiture": {
+          "title": "Car",
+          "description": "Check \"No car\" to remove this section entirely, rather than leaving fields empty.",
+          "data": {
+            "sans_voiture": "No car",
+            "batterie": "Battery",
+            "autonomie": "Range",
+            "branchee": "Plugged in",
+            "enCharge": "Charging",
+            "clim": "Air conditioning (state)",
+            "demarrerClim": "Start air conditioning",
+            "arreterClim": "Stop air conditioning",
+            "note": "Note"
+          }
         }
       },
       "error": {
@@ -170,7 +258,11 @@
         "champ_inconnu": "This field is not recognized.",
         "champ_vide": "This field cannot be empty.",
         "selection_manquante": "Check \"Add\" for a new item; if the list isn't empty, you can also pick an existing one.",
-        "service_incomplet": "Fill in both service fields, or clear them both."
+        "service_incomplet": "Fill in both service fields, or clear them both.",
+        "allumee_incomplet": "Fill in both the \"on\" entity and its states, or clear them both.",
+        "champ_element_requis": "This list must contain a value the screen requires (\"commandes\" for zones, \"defaut\" for modes).",
+        "recette_sans_mode": "This tile opens the Recipe view, but the \"recette\" mode is not in the screen's modes (\"Blocks and modes\" section): the mode would never engage and the tile would stay inert. Add the \"recette\" mode in \"Blocks and modes\" before saving this tile.",
+        "budget_intenable_mode": "The {mode} mode overflows by {debordement} px with these zones. Increase the usable height, remove a zone, or remove this mode."
       }
     }
   }

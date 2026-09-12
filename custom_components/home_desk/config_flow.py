@@ -103,6 +103,10 @@ from .const import (
 from .formulaire import reafficher
 from .listes import SectionsListeMixin
 from .listes_champs import SECTIONS
+# Tache 7 : les deux sections « objet » (Blocs et modes, Voiture) vivent
+# dans leur PROPRE mixin, `objets.py` — extrait de ce module pour rester
+# sous 500 lignes (meme couture que `listes.py`/`listes_champs.py`).
+from .objets import SectionsObjetMixin
 
 # `temperature` ($defs/entite) : le capteur que l'ecran affiche en bandeau.
 # Ronde 1 de relecture (tache 6) : c'etait un champ RACINE requis du contrat
@@ -199,18 +203,18 @@ class HomeDeskConfigFlow(ConfigFlow, domain=DOMAIN):
         return {SOUS_ENTREE_ECRAN: EcranSubentryFlow}
 
 
-class EcranSubentryFlow(SectionsListeMixin, ConfigSubentryFlow):
+class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFlow):
     """Une sous-entree, un ecran. `async_step_user` (tache 5) cree la
     sous-entree avec sa seule section « Identite et budget ». Une fois creee,
     on y REVIENT par `async_step_reconfigure` (source `SOURCE_RECONFIGURE`,
-    cf. listes.py) : c'est la que vivent les sections « liste » de la
-    tache 6, et celles des taches suivantes.
+    cf. listes.py) : c'est la que vivent les sections « liste » (listes.py)
+    et « objet » (objets.py, tache 7).
 
-    Ronde 1 de relecture : le mixin vient EN PREMIER dans les bases (et non
-    en dernier, l'ordre precedent) — convention Python standard pour un
+    Ronde 1 de relecture : les mixins viennent EN PREMIER dans les bases (et
+    non en dernier, l'ordre precedent) — convention Python standard pour un
     mixin, qui doit apparaitre avant la classe fonctionnelle de base pour
     pouvoir la surcharger via le MRO. Sans effet observable ici (aucune des
-    deux classes ne definit de nom en commun aujourd'hui), mais c'est
+    trois classes ne definit de nom en commun aujourd'hui), mais c'est
     l'inverse qui aurait ete un piege pour la prochaine surcharge."""
 
     async def async_step_user(
@@ -298,19 +302,37 @@ class EcranSubentryFlow(SectionsListeMixin, ConfigSubentryFlow):
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Point d'entree d'une sous-entree EXISTANTE. Un menu vers les
-        sections « liste » deja livrees (`listes_champs.SECTIONS` : tuiles de
-        commande, rangee d'ambiance, extras maison, ouvrants, ligne de
-        synthese) ; les sections manquantes (Sources media, Blocs et modes,
-        Minuteurs, Voiture) etendent ce MEME menu aux taches suivantes."""
-        return self.async_show_menu(step_id="reconfigure", menu_options=list(SECTIONS))
+        """Point d'entree d'une sous-entree EXISTANTE. Un menu vers les huit
+        sections « liste » de `listes_champs.SECTIONS` (tuiles de commande,
+        rangee d'ambiance, extras maison, ouvrants, ligne de synthese,
+        sources media, slots de minuteur, etiquettes de minuteur — les trois
+        dernieres ajoutees a la tache 7), plus les DEUX sections « objet »
+        de cette meme tache (`agencement` — « Blocs et modes » — et
+        `voiture`), qui n'ont pas leur place dans `SECTIONS` : ce ne sont
+        pas des collections d'elements choisis un par un, mais un objet
+        unique par ecran.
 
-    # Les DIX relais (5 sections x 2 steps) qu'exige `listes.
+        Ronde de tache 7 (a rapporter, pas a taire) : le brief decrit QUATRE
+        nouvelles lignes de menu (Sources media, Blocs et modes, Minuteurs,
+        Voiture). Ce menu en ajoute CINQ : les slots de minuteur et les
+        etiquettes proposees (`etiquettesMinuteur`, un champ RACINE distinct
+        du contrat) sont deux sections DIFFERENTES au sens du contrat, et
+        les fusionner sous une seule ligne « Minuteurs » aurait exige un
+        sous-menu dedie — une divergence entre le mecanisme generique
+        (`SECTIONS`, un menu = une cle) et un cas particulier, pour un gain
+        cosmetique qu'aucun test n'exige. Chaque ligne reste directement
+        tracable a UNE cle du contrat, ce qui a paru preferable."""
+        return self.async_show_menu(
+            step_id="reconfigure", menu_options=[*SECTIONS, "agencement", "voiture"]
+        )
+
+    # Les SEIZE relais (8 sections x 2 steps, depuis que la tache 7 porte
+    # sources/minuteurs/etiquettesMinuteur a huit) qu'exige `listes.
     # SectionsListeMixin` : HA appelle un step par SON NOM (`getattr(flow,
     # f"async_step_{step_id}")`), donc pas de facon generique de les eviter
     # — mais chacun ne fait qu'UN appel, et c'est `_async_step_section`/
     # `_async_step_section_element` qui portent toute la logique, une seule
-    # fois, pour les cinq sections.
+    # fois, pour les huit sections.
     async def async_step_commandes(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
@@ -360,3 +382,36 @@ class EcranSubentryFlow(SectionsListeMixin, ConfigSubentryFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         return await self._async_step_section_element("ouvrants", user_input)
+
+    # Tache 7 : les TROIS sections « liste » qu'elle ajoute (sources media,
+    # slots de minuteur, etiquettes de minuteur) reutilisent le MEME
+    # squelette, six relais de plus.
+    async def async_step_sources(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return await self._async_step_section("sources", user_input)
+
+    async def async_step_sources_element(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return await self._async_step_section_element("sources", user_input)
+
+    async def async_step_minuteurs(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return await self._async_step_section("minuteurs", user_input)
+
+    async def async_step_minuteurs_element(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return await self._async_step_section_element("minuteurs", user_input)
+
+    async def async_step_etiquettesMinuteur(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return await self._async_step_section("etiquettesMinuteur", user_input)
+
+    async def async_step_etiquettesMinuteur_element(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return await self._async_step_section_element("etiquettesMinuteur", user_input)

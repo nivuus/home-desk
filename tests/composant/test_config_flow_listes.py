@@ -12,7 +12,6 @@ sous 500 lignes chacun — jamais a un compte de lignes arbitraire, la meme
 couture que le code lui-meme.
 """
 import pytest
-import voluptuous as vol
 from homeassistant import data_entry_flow
 
 from conftest import (
@@ -195,13 +194,19 @@ def test_listes_ne_reexporte_plus_SECTIONS_ni_Section():
     assert "Section" not in listes.__all__
 
 
-def test_sections_declare_les_cinq_sections_attendues():
-    """Ronde 1 (Important I2) : `ambiances` n'etait exercee par AUCUN test —
-    la retirer de `SECTIONS` laissait la suite verte. Assertion STATIQUE en
-    plus du test parametre ci-dessous : retirer une section change le nombre
-    de tests COLLECTES (signal faible), mais fait tomber CELLE-CI (signal
-    fort)."""
-    assert set(SECTIONS) == {"commandes", "ambiances", "extrasMaison", "ouvrants", "synthese"}
+def test_sections_declare_les_huit_sections_attendues():
+    """Ronde 1 (Important I2, tache 6) : `ambiances` n'etait exercee par
+    AUCUN test — la retirer de `SECTIONS` laissait la suite verte. Assertion
+    STATIQUE en plus du test parametre ci-dessous : retirer une section
+    change le nombre de tests COLLECTES (signal faible), mais fait tomber
+    CELLE-CI (signal fort).
+
+    Tache 7 : `sources`, `minuteurs` et `etiquettesMinuteur` rejoignent les
+    cinq premieres — HUIT sections desormais, jamais cinq."""
+    assert set(SECTIONS) == {
+        "commandes", "ambiances", "extrasMaison", "ouvrants", "synthese",
+        "sources", "minuteurs", "etiquettesMinuteur",
+    }
 
 
 @pytest.mark.parametrize("cle", sorted(SECTIONS))
@@ -272,23 +277,21 @@ async def test_monter_descendre_supprimer_fonctionnent_sur_les_cinq_sections(has
 # ---------------------------------------------------------------------------
 
 
-async def test_apres_temperature_extrasmaison_ouvrants_seul_sources_manque_encore(hass, entree):
+async def test_remplir_les_huit_sections_rend_l_ecran_entierement_validable(hass, entree):
     """Le plan ne portait de ligne de menu ni pour `temperature`, ni pour
     `extrasMaison`, ni pour `ouvrants` — trois champs RACINE requis du
     contrat qu'AUCUNE tache ne couvrait, la sous-entree ne serait donc
-    JAMAIS devenue validable. Cette tache les ajoute (`temperature` dans
-    l'identite, `extrasMaison`/`ouvrants` comme sections « liste »).
+    JAMAIS devenue validable. La tache 6 les a ajoutes (`temperature` dans
+    l'identite, `extrasMaison`/`ouvrants` comme sections « liste »), mais
+    laissait `sources` ($defs/source) comme SEULE piece manquante — hors de
+    son perimetre.
 
-    Preuve EXECUTABLE plutot que promesse en prose : remplir tout ce que ce
-    squelette couvre desormais ne suffit PAS encore — `sources`
-    ($defs/source, une forme entierement differente, hors du perimetre de
-    cette tache et du plan) reste requis et absent. `schema.valider()` leve
-    UNE SEULE regle manquante, exactement celle-la.
-
-    Ce test REMPLIT les cinq sections avant de verifier — il ne prouve donc
-    RIEN sur un ecran dont une section n'a jamais ete ouverte (ronde 3 de
-    relecture, Important 1, ci-dessous) : deux tests complementaires, pas
-    substituables l'un a l'autre."""
+    Tache 7 : `sources` rejoint `SECTIONS`. Preuve EXECUTABLE plutot que
+    promesse en prose : remplir les HUIT sections desormais couvertes par ce
+    squelette (les cinq de la tache 6, plus sources/minuteurs/
+    etiquettesMinuteur) ne laisse PLUS AUCUNE regle manquante —
+    `schema.valider()` NE LEVE PLUS DU TOUT, la ou il levait encore
+    `": required"` (sources) a la fin de la tache 6."""
     subentry_id = await _creer_ecran(hass, entree)
     for cle, donnee in ELEMENTS_VALIDES.items():
         flow = await _init_reconfigure(hass, entree, subentry_id)
@@ -298,44 +301,32 @@ async def test_apres_temperature_extrasmaison_ouvrants_seul_sources_manque_encor
         await hass.config_entries.subentries.async_configure(flow["flow_id"], donnee)
 
     subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
-    with pytest.raises(vol.Invalid) as excinfo:
-        schema.valider(dict(subentry.data))
-    # `motif()` retire le DERNIER segment du chemin pour "required" (le
-    # champ manquant voyage a part, comme ajv le fait avec missingProperty)
-    # — pour un champ RACINE manquant, le chemin devient vide : ": required",
-    # sans nom de champ ni slash. Verifie en executant, pas suppose.
-    assert schema.motif(excinfo.value) == ": required"
-
-    donnees = dict(subentry.data)
-    donnees["sources"] = []
-    schema.valider(donnees)  # ne leve plus : "sources" etait la seule piece manquante
+    schema.valider(dict(subentry.data))  # ne leve plus : les huit sections suffisent
 
 
 async def test_un_ecran_dont_aucune_section_n_a_jamais_ete_ouverte_est_deja_validable(
     hass, entree
 ):
-    """Ronde 3 de relecture, Important 1 : une section jamais ouverte ne
-    persistait RIEN — la cle restait ABSENTE, pas vide, alors que le contrat
-    exige les cinq cles de liste a la RACINE (`vol.Required` dans
+    """Ronde 3 de relecture (tache 6), Important 1 : une section jamais
+    ouverte ne persistait RIEN — la cle restait ABSENTE, pas vide, alors que
+    le contrat exige les cinq cles de liste a la RACINE (`vol.Required` dans
     schema.py). Les vrais ecrans du depot le prouvent : `salon` ne porte
     JAMAIS `ambiances`/`extrasMaison`, `bureau` ne porte JAMAIS
     `ouvrants`/`extrasMaison`. MEME faute de classe que le Critique de la
-    ronde 1 (un champ absent du formulaire disparaissait de la donnee) — et
-    le test ci-dessus la MASQUAIT en remplissant les cinq sections avant de
-    verifier. Celui-ci n'ouvre AUCUNE section : seule l'identite est saisie."""
+    ronde 1 (un champ absent du formulaire disparaissait de la donnee).
+
+    Tache 7 : `sources` (la seule piece qui manquait encore a la fin de la
+    tache 6, cf. `schema.motif() == ": required"` qu'un test voisin levait
+    alors) rejoint desormais `SECTIONS` — un ecran FRAICHEMENT CREE, dont
+    AUCUNE section n'a jamais ete ouverte, est donc deja ENTIEREMENT
+    validable : `schema.valider()` ne leve plus rien du tout."""
     subentry_id = await _creer_ecran(hass, entree)
     subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
     for cle in SECTIONS:
         assert subentry.data[cle] == [], (
             f"{cle!r} doit exister, VIDE, des la creation — jamais absente")
 
-    with pytest.raises(vol.Invalid) as excinfo:
-        schema.valider(dict(subentry.data))
-    assert schema.motif(excinfo.value) == ": required"  # "sources", seule piece manquante
-
-    donnees = dict(subentry.data)
-    donnees["sources"] = []
-    schema.valider(donnees)  # ne leve plus : les cinq sections, vides, suffisent
+    schema.valider(dict(subentry.data))  # ne leve plus : les huit sections, vides, suffisent
 
 
 # ---------------------------------------------------------------------------
@@ -357,15 +348,30 @@ async def test_soumettre_le_menu_de_section_sans_choix_refuse_explicitement(hass
     assert resultat["errors"]["nouveau"] == ERREUR_SELECTION_MANQUANTE
 
 
-@pytest.mark.parametrize("cle", sorted(SECTIONS))
+# Tache 7 : le champ valide par $defs/entite ne s'appelle PAS toujours
+# "entite" — `sources` le porte sur `titre` (une LISTE d'entites),
+# `minuteurs` sur `timer` (un scalaire, comme "entite" partout ailleurs).
+# `etiquettesMinuteur` n'a AUCUN champ valide par $defs/entite (son unique
+# champ, `etiquette`, est une chaine LIBRE sans contrainte de format —
+# voir listes_champs_minuteurs.py) : elle est exclue de ce test, qui sonde
+# specifiquement le refus d'un FORMAT d'entite invalide, une regle qui ne
+# s'applique pas a elle.
+_CHAMP_ENTITE_PAR_SECTION = {
+    "commandes": "entite", "ambiances": "entite", "extrasMaison": "entite",
+    "synthese": "entite", "ouvrants": "entite",
+    "sources": "titre", "minuteurs": "timer",
+}
+
+
+@pytest.mark.parametrize("cle", sorted(_CHAMP_ENTITE_PAR_SECTION))
 async def test_un_refus_reaffiche_la_saisie_sur_TOUTES_les_sections(hass, entree, cle):
     """Point 4 de la ronde 2 : l'idiome « reaffiche user_input, jamais les
     valeurs stockees » ne doit plus vivre qu'UNE fois (`formulaire.
-    reafficher`) — verifie ici sur les CINQ sections, pas seulement synthese
+    reafficher`) — verifie ici sur les SEPT sections qui portent un champ
+    $defs/entite, pas seulement synthese
     (`test_un_refus_reaffiche_la_saisie_pas_les_valeurs_stockees`,
-    test_config_flow_champs.py). Un `entite` qui ne respecte pas le motif du
-    contrat refuse partout, quelle que soit la section : c'est le seul champ
-    commun aux cinq.
+    test_config_flow_champs.py). Une valeur qui ne respecte pas le motif du
+    contrat refuse partout, quelle que soit la section.
 
     La valeur invalide doit passer le `selector.EntitySelector` de HA (son
     propre format, `cv.entity_id` : chiffres AUTORISES dans le domaine) tout
@@ -385,9 +391,16 @@ async def test_un_refus_reaffiche_la_saisie_sur_TOUTES_les_sections(hass, entree
     await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {"next_step_id": cle})
     await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
-    invalide = {**ELEMENTS_VALIDES[cle], "entite": "a1.pas_une_entite_valide"}
+    champ = _CHAMP_ENTITE_PAR_SECTION[cle]
+    valeur_invalide = "a1.pas_une_entite_valide"
+    en_liste = isinstance(ELEMENTS_VALIDES[cle][champ], list)
+    invalide = {
+        **ELEMENTS_VALIDES[cle],
+        champ: [valeur_invalide] if en_liste else valeur_invalide,
+    }
     resultat = await hass.config_entries.subentries.async_configure(flow["flow_id"], invalide)
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["entite"] == ERREUR_CHAMP_FORMAT_INVALIDE
+    assert resultat["errors"][champ] == ERREUR_CHAMP_FORMAT_INVALIDE
     marqueurs = {str(c): c for c in resultat["data_schema"].schema}
-    assert marqueurs["entite"].description == {"suggested_value": "a1.pas_une_entite_valide"}
+    attendu = [valeur_invalide] if en_liste else valeur_invalide
+    assert marqueurs[champ].description == {"suggested_value": attendu}

@@ -16,13 +16,16 @@ import pathlib
 import pytest
 from homeassistant import config_entries, data_entry_flow
 
-from conftest import IDENTITE_MINIMALE
+from conftest import ELEMENTS_VALIDES, IDENTITE_MINIMALE, _creer_ecran, _init_reconfigure
 from custom_components.home_desk.budget import BUDGET
 from custom_components.home_desk.config_flow import EcranSubentryFlow
 from custom_components.home_desk.const import (
     DOMAIN,
+    ERREUR_ALLUMEE_INCOMPLETE,
     ERREUR_BUDGET_INTENABLE,
+    ERREUR_BUDGET_INTENABLE_MODE,
     ERREUR_CHAMP_DOUBLON,
+    ERREUR_CHAMP_ELEMENT_REQUIS,
     ERREUR_CHAMP_FORMAT_INVALIDE,
     ERREUR_CHAMP_INCONNU,
     ERREUR_CHAMP_INVALIDE,
@@ -36,6 +39,7 @@ from custom_components.home_desk.const import (
     ERREUR_CHAMP_VIDE,
     ERREUR_HAUTEUR_HORS_BORNES,
     ERREUR_NOM_VIDE,
+    ERREUR_RECETTE_SANS_MODE,
     ERREUR_SELECTION_MANQUANTE,
     ERREUR_SERVICE_INCOMPLET,
     SOUS_ENTREE_ECRAN,
@@ -43,6 +47,7 @@ from custom_components.home_desk.const import (
 )
 from custom_components.home_desk.listes import SectionsListeMixin
 from custom_components.home_desk.listes_champs import SECTIONS
+from custom_components.home_desk.objets import SCHEMA_AGENCEMENT, SCHEMA_VOITURE
 from custom_components.home_desk.schema import HAUTEUR_MAX, HAUTEUR_MIN
 from homeassistant.config_entries import ConfigSubentryFlow
 
@@ -105,6 +110,14 @@ def _cles_attendues() -> set[str]:
         f"/config_subentries/ecran/error/{ERREUR_NOM_VIDE}",
         f"/config_subentries/ecran/error/{ERREUR_SELECTION_MANQUANTE}",
         f"/config_subentries/ecran/error/{ERREUR_SERVICE_INCOMPLET}",
+        # Tache 7 : les deux regles hors-schema, et les deux refus qui
+        # etaient jusque-la un FILET non exerce (`allumee_incomplet`,
+        # `champ_element_requis` — voir listes._ERREUR_PAR_MOT_CLE et
+        # listes_champs_sources.AllumeeIncomplete).
+        f"/config_subentries/ecran/error/{ERREUR_ALLUMEE_INCOMPLETE}",
+        f"/config_subentries/ecran/error/{ERREUR_CHAMP_ELEMENT_REQUIS}",
+        f"/config_subentries/ecran/error/{ERREUR_RECETTE_SANS_MODE}",
+        f"/config_subentries/ecran/error/{ERREUR_BUDGET_INTENABLE_MODE}",
         "/selector/geste/options/enregistrer",
         "/selector/geste/options/monter",
         "/selector/geste/options/descendre",
@@ -117,6 +130,16 @@ def _cles_attendues() -> set[str]:
         cles.add(f"/config_subentries/ecran/step/{cle}/data/nouveau")
         for champ in SECTIONS[cle].construire_schema(True).schema:
             cles.add(f"/config_subentries/ecran/step/{cle}_element/data/{champ}")
+    # Tache 7 : les DEUX sections « objet » (agencement, voiture) ne sont
+    # PAS dans SECTIONS (ce ne sont pas des listes d'elements) — leurs cles
+    # de traduction sont donc ajoutees ICI, derivees de leurs schemas
+    # (SCHEMA_AGENCEMENT/SCHEMA_VOITURE, objets.py) plutot que recopiees a
+    # la main.
+    for cle, schema_form in (("agencement", SCHEMA_AGENCEMENT), ("voiture", SCHEMA_VOITURE)):
+        cles.add(f"/config_subentries/ecran/step/reconfigure/menu_options/{cle}")
+        cles.add(f"/config_subentries/ecran/step/{cle}/title")
+        for champ in schema_form.schema:
+            cles.add(f"/config_subentries/ecran/step/{cle}/data/{champ}")
     return cles
 
 
@@ -273,6 +296,107 @@ async def test_note_vide_n_est_pas_persistee(hass, entree):
         flow["flow_id"], {**IDENTITE_MINIMALE, "note": ""})
     assert resultat["type"] is data_entry_flow.FlowResultType.CREATE_ENTRY
     assert "note" not in resultat["data"]
+
+
+# ---------------------------------------------------------------------------
+# Tache 7 : les DEUX regles hors-schema. Les quatre sections « objet »
+# (sources, blocs et modes, minuteurs, voiture) sont du remplissage de
+# champs, deja couvert d'office par les tests parametres sur SECTIONS
+# (test_config_flow_listes.py) pour les sections « liste » qui les rejoignent
+# (sources, minuteurs, etiquettesMinuteur). Ce qui merite un test ICI, ce
+# sont les DEUX regles que le schema NE PEUT PAS porter.
+# ---------------------------------------------------------------------------
+
+
+async def test_le_TROISIEME_invariant_croise_est_refuse_a_la_saisie(hass, entree_peuplee):
+    """Legue par le plan 2, nomme et deliberement NON mis dans le schema.
+
+    Une tuile `vue: '#recette'` sur un ecran dont `agencement.modes` ne
+    contient pas `recette` : la tuile ouvrirait la vue, le mode ne
+    s'engagerait jamais. Un bouton qui a l'air vivant et ne fait rien —
+    exactement le « bouton mort » que ce projet s'interdit partout.
+
+    Il n'est pas dans le schema JSON a dessein : le schema juge un ecran
+    FINI, le formulaire juge une saisie EN COURS — et lui seul peut proposer
+    le remede, ce qu'un if/then JSON Schema ne sait pas faire.
+
+    `entree_peuplee` n'a jamais configure d'agencement : `agencement.modes`
+    est donc vide, et TOUTE tuile `vue: '#recette'` y est refusee — le cas le
+    plus simple ou la tuile serait la plus inerte."""
+    entry = hass.config_entries.async_entries(DOMAIN)[0]
+    subentry_id = next(iter(entry.subentries))
+    flow = await _init_reconfigure(hass, entree_peuplee, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "commandes"})
+    await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"],
+        {
+            "libelle": "Recette",
+            "icone": "book",
+            "entite": "sensor.home_stock_next_meal",
+            "vue": "#recette",
+        },
+    )
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+    assert resultat["errors"]["base"] == ERREUR_RECETTE_SANS_MODE
+    # Le message doit dire POURQUOI (le mode ne s'engagerait jamais) et OU
+    # remedier (la section « Blocs et modes ») — sonde de bout en bout, en
+    # francais et en anglais, le texte que l'utilisateur verrait reellement.
+    fr = json.loads((CHEMIN_TRADUCTIONS / "fr.json").read_text(encoding="utf-8"))
+    message_fr = fr["config_subentries"][SOUS_ENTREE_ECRAN]["error"][ERREUR_RECETTE_SANS_MODE]
+    assert "recette" in message_fr.lower()
+    assert "blocs et modes" in message_fr.lower()
+    en = json.loads((CHEMIN_TRADUCTIONS / "en.json").read_text(encoding="utf-8"))
+    message_en = en["config_subentries"][SOUS_ENTREE_ECRAN]["error"][ERREUR_RECETTE_SANS_MODE]
+    assert "recette" in message_en.lower()
+    assert "blocks and modes" in message_en.lower()
+
+
+async def test_le_budget_est_verifie_MODE_PAR_MODE_et_nomme_le_pire(hass, entree):
+    """La tache 5 ne verifiait que le mode `defaut`, le moins cher : a ce
+    moment-la l'ecran n'avait ni tuiles, ni modes, ni zones. Ici la donnee
+    existe enfin, donc la verification peut etre complete.
+
+    Et le refus doit nommer LE MODE le plus couteux, pas seulement un
+    chiffre : « cet ecran deborde de 45 px » n'indique pas quoi changer,
+    « le mode minuteur deborde de X px » si — X est verifie par execution
+    ci-dessous, PAS retape de memoire (le brief nomme "45" a cet endroit,
+    et prevrevient explicitement que cette valeur est FAUSSE :
+    `verifier_budget('minuteur', True, 585)` rend 0 ; le cas mesure qui
+    deborde reellement est `('minuteur', True, 500)` = 58).
+
+    Ecran a 500 px (`verifier_budget('defaut', True, 500)` = 0, donc la
+    creation n'est PAS refusee) avec une rangee d'ambiance REELLE (une
+    tuile d'ambiance persistee, pas un placeholder) : `rangee_ambiance`
+    devient vrai, exactement la formule de app/src/demarrage.ts
+    (`piece.ambiances.length > 0 || ...`). Le mode `minuteur` y deborde de
+    58 px, le mode `defaut` tient (0) : le refus doit nommer `minuteur`."""
+    subentry_id = await _creer_ecran(hass, entree, hauteurUtile=500)
+
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "ambiances"})
+    await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], ELEMENTS_VALIDES["ambiances"])
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "agencement"})
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"],
+        {"zones": ["synthese", "blocCentral", "ambiances", "commandes"], "modes": ["defaut", "minuteur"]},
+    )
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+    assert resultat["errors"]["base"] == ERREUR_BUDGET_INTENABLE_MODE
+    assert "minuteur" in str(resultat["description_placeholders"])
+    assert "58" in str(resultat["description_placeholders"])
+
+    entry = hass.config_entries.async_get_entry(entree.entry_id)
+    assert entry.subentries[subentry_id].data.get("agencement") is None, (
+        "un refus ne doit RIEN persister")
 
 
 # ---------------------------------------------------------------------------
