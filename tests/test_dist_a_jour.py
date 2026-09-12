@@ -37,10 +37,13 @@ if build.returncode != 0:
     print("le build a echoue :\n" + build.stderr)
     sys.exit(1)
 
-ecarts = subprocess.run(["git", "-C", str(REPO), "status", "--porcelain", "dist"],
+# `contrat/` est produit par le meme build que `dist/` (npm run contrats), et il est lu par
+# l'integration Home Assistant. Un contrat perime est pire qu'un bundle perime : il ferait
+# proposer a l'operateur des icones que l'application ne sait plus dessiner.
+ecarts = subprocess.run(["git", "-C", str(REPO), "status", "--porcelain", "dist", "contrat"],
                         capture_output=True, text=True, check=True).stdout.strip()
 if ecarts:
-    print("dist/ commite ne correspond PAS a app/src/ commite.\n"
+    print("dist/ ou contrat/ ne correspond PAS a app/src/ commite.\n"
           "Le build vient de produire un resultat different de ce qui est\n"
           "versionne. Reconstruire et committer dist/ :\n"
           "    cd app && npm run build && cd .. && git add dist && git commit\n"
