@@ -29,27 +29,26 @@ from .const import ACTION_DESCENDRE, ACTION_ENREGISTRER, ACTION_MONTER, ACTION_S
 CHEMIN_ICONES = pathlib.Path(__file__).parent / "contrat" / "icones.json"
 _ICONES_OPTIONS: list[str] = json.loads(CHEMIN_ICONES.read_text(encoding="utf-8"))["icones"]
 
-# $defs/bouton (tuiles de commande, rangee d'ambiance, extras maison) :
-# AUCUNE restriction de domaine — corrige apres verification directe sur les
-# trois ecrans reels (app/src/ecran.ts). Une premiere version restreignait
-# "entite"/"cible" a light/cover/lock/switch ; l'inventaire REEL des trois
-# ecrans dement ce choix : `commandes` porte aussi binary_sensor, climate,
-# fan, sensor, todo (ex. `climate.radiateur`, un chauffage) ; `ambiances`
-# porte fan et vacuum ; `extrasMaison` ne porte QUE du sensor (le Scanner,
-# `sensor.home_stock_next_meal`) — aucun n'aurait ete saisissable derriere
-# cette liste. Le contrat lui-meme ($defs/entite) ne restreint aucun domaine
-# (un motif d'entity_id generique) : une liste blanche ici aurait ete une
-# contrainte INVENTEE, pas une regle du contrat — et une contrainte inventee
-# qui rend des ecrans REELS non reproductibles rate exactement le but de
-# cette tache (migrer les trois ecrans hors du depot).
-# $defs/synthese (ligne de synthese) : ce qu'une synthese resume est un ETAT
-# a lire, jamais un service a appeler — verifie de la meme facon sur les
-# trois ecrans reels (binary_sensor, cover, lock, sensor, todo).
-_DOMAINES_SYNTHESE = ["sensor", "binary_sensor", "todo", "lock", "cover"]
-# `ouvrants` (racine du contrat) : verifie sur les trois ecrans reels
-# (app/src/ecran.ts, ex. `binary_sensor.porte_balcon_s_ouverture`) — toujours
-# un capteur binaire d'ouverture, jamais un `cover`.
-_DOMAINES_OUVRANT = ["binary_sensor"]
+# AUCUNE section « liste » ne restreint le domaine de ses entites — corrige
+# EN DEUX TEMPS apres verification directe sur les ecrans reels
+# (app/src/ecran.ts). $defs/bouton (commandes, ambiances, extrasMaison) l'a
+# ete des la ronde 1 : une premiere version restreignait "entite"/"cible" a
+# light/cover/lock/switch, alors que l'inventaire REEL deborde largement
+# cette liste (`commandes` porte aussi binary_sensor, climate, fan, sensor,
+# todo ; `ambiances` porte fan et vacuum ; `extrasMaison` ne porte QUE du
+# sensor, le Scanner `sensor.home_stock_next_meal`) — et `cible` est
+# `script.*` dans les CINQ tuiles reelles qui la portent, un domaine qu'AUCUNE
+# des deux listes envisagees n'aurait couvert.
+#
+# `_DOMAINES_SYNTHESE` (sensor/binary_sensor/todo/lock/cover) et
+# `_DOMAINES_OUVRANT` (binary_sensor) semblaient, eux, valides par le meme
+# inventaire — mais ce n'etait qu'une COINCIDENCE : le contrat ($defs/entite)
+# ne restreint LUI-MEME aucun domaine, ces deux listes n'etaient donc
+# soutenues par AUCUN test qui les aurait empechees de diverger du reel, et
+# le brief ne demande de restriction nulle part. Ronde 2 de relecture : les
+# retirer, exactement comme la ronde 1 l'avait deja fait pour $defs/bouton —
+# une contrainte non tenue par un test est une contrainte INVENTEE, quelle
+# que soit la plausibilite de sa premiere justification.
 
 _ACTIONS_EDITION = [ACTION_ENREGISTRER, ACTION_MONTER, ACTION_DESCENDRE, ACTION_SUPPRIMER]
 
@@ -62,15 +61,13 @@ def _selecteur_icone() -> selector.SelectSelector:
     )
 
 
-def _selecteur_entite(domaines: list[str] | None = None) -> selector.EntitySelector:
-    """`domaines=None` (bouton) : aucune restriction, voir la note ci-dessus.
-    Un domaine fourni (synthese, ouvrants) reste une vraie contrainte,
-    verifiee sur les trois ecrans reels — jamais une liste ecrite au
-    jugement."""
-    config: dict[str, Any] = {}
-    if domaines:
-        config["domain"] = domaines
-    return selector.EntitySelector(selector.EntitySelectorConfig(**config))
+def _selecteur_entite() -> selector.EntitySelector:
+    """Aucune restriction de domaine, sur AUCUNE section — voir la note
+    ci-dessus. Le parametre `domaines` a disparu en ronde 2 (les deux seuls
+    appelants qui le fournissaient encore, synthese et ouvrants, n'etaient
+    couverts par aucun test) plutot que d'etre laisse en place, invitant
+    silencieusement une future section a en reintroduire un."""
+    return selector.EntitySelector(selector.EntitySelectorConfig())
 
 
 def _selecteur_geste() -> selector.SelectSelector:
@@ -146,6 +143,17 @@ def _schema_bouton(editable: bool) -> vol.Schema:
 
 
 def _construire_donnee_bouton(user_input: dict[str, Any], existant: dict | None) -> dict:
+    """Ronde 2 de relecture : `service_domaine`/`service_action`, une paire a
+    demi remplie, etait auparavant abandonnee EN SILENCE — ni ecrite, ni
+    refusee. En EDITION, ce silence effacait un `service` deja stocke des que
+    l'utilisateur touchait un seul des deux champs texte (une faute de
+    frappe dans "service_action" suffisait a rendre une tuile de commande
+    muette, le bouton mort que ce depot s'interdit). `schema.paire_service()`
+    est desormais REJOUEE ici sur toute paire non vide : elle leve si elle
+    n'a pas exactement deux elements, avec le MEME motif ("minItems"/
+    "maxItems") que schema.BOUTON appliquerait a un `service` a un seul
+    element — l'appelant (listes.py, ACTION_ENREGISTRER) capture ce refus
+    exactement comme celui de `section.valider`."""
     donnee: dict[str, Any] = {}
     for champ in _CHAMPS_TEXTE_BOUTON:
         valeur = user_input.get(champ)
@@ -155,7 +163,9 @@ def _construire_donnee_bouton(user_input: dict[str, Any], existant: dict | None)
         donnee["epingle"] = True
     domaine = (user_input.get("service_domaine") or "").strip()
     action = (user_input.get("service_action") or "").strip()
-    if domaine and action:
+    paire = [v for v in (domaine, action) if v]
+    if paire:
+        schema.paire_service()(paire)
         donnee["service"] = [domaine, action]
     return _fusionner(CHAMPS_BOUTON, existant, donnee)
 
@@ -200,7 +210,7 @@ def _schema_synthese(editable: bool) -> vol.Schema:
     incompatible (`<` avec "chaud") — nomme par `motif()`, jamais un
     « valeur invalide » muet."""
     champs: dict[Any, Any] = {
-        vol.Required("entite"): _selecteur_entite(_DOMAINES_SYNTHESE),
+        vol.Required("entite"): _selecteur_entite(),
         vol.Required("texte"): str,
         vol.Required("operateur"): selector.SelectSelector(
             selector.SelectSelectorConfig(
@@ -264,7 +274,7 @@ def _afficher_tel_quel(valeur: dict | None) -> dict:
 # --------------------------------------------------------------------------
 
 def _schema_ouvrant(editable: bool) -> vol.Schema:
-    champs: dict[Any, Any] = {vol.Required("entite"): _selecteur_entite(_DOMAINES_OUVRANT)}
+    champs: dict[Any, Any] = {vol.Required("entite"): _selecteur_entite()}
     if editable:
         champs[vol.Optional("geste", default=ACTION_ENREGISTRER)] = _selecteur_geste()
     return vol.Schema(champs)

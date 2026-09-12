@@ -91,7 +91,7 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from . import schema
-from .budget import verifier_budget
+from .budget import BUDGET, verifier_budget
 from .const import (
     DOMAIN,
     ERREUR_BUDGET_INTENABLE,
@@ -100,7 +100,9 @@ from .const import (
     SOUS_ENTREE_ECRAN,
     VERSION_CONFIG,
 )
-from .listes import SECTIONS, SectionsListeMixin
+from .formulaire import reafficher
+from .listes import SectionsListeMixin
+from .listes_champs import SECTIONS
 
 # `temperature` ($defs/entite) : le capteur que l'ecran affiche en bandeau.
 # Ronde 1 de relecture (tache 6) : c'etait un champ RACINE requis du contrat
@@ -108,7 +110,12 @@ from .listes import SECTIONS, SectionsListeMixin
 # portaient encore — aucune tache du plan ne le couvrait, sans quoi la
 # sous-entree n'aurait jamais pu passer schema.valider(). Il appartient a
 # l'identite (config_flow.py), pas a listes.py : ce n'est pas une liste.
-_DOMAINES_TEMPERATURE = ["sensor"]
+#
+# Ronde 2 de relecture : AUCUNE restriction de domaine — retiree pour la MEME
+# raison que $defs/bouton (listes_champs.py) : "sensor" semblait plausible
+# mais n'etait tenu par aucun test, et le contrat ($defs/entite) ne restreint
+# lui-meme aucun domaine. Une contrainte non tenue par un test est une
+# contrainte INVENTEE.
 
 # La section « Identite et budget » seule ; les sections « liste » (tuiles de
 # commande, rangee d'ambiance, ligne de synthese) sont dans listes.py depuis
@@ -127,13 +134,23 @@ _DOMAINES_TEMPERATURE = ["sensor"]
 # step lui-meme — c'est la seule facon d'obtenir un formulaire reaffiche avec
 # erreurs plutot qu'une exception (listes.py, meme raison pour les sections
 # « liste »).
+#
+# Ronde 2 de relecture : `hauteurUtile` reste `vol.Required` ICI, alors que
+# le contrat la porte `Optional` ($defs/ecran, schema.py) — ECART ASSUME,
+# jamais une lecture fautive du contrat. Un ecran ne peut refuser un budget
+# intenable A LA SAISIE (le but meme de `async_step_user` ci-dessous) que
+# s'il connait une hauteur CONCRETE ; laisser le champ vide interdirait cette
+# verification precoce, pas la contourner. Les trois ecrans reels
+# (app/src/ecran.ts) ne declarent d'ailleurs JAMAIS `hauteurUtile` — le champ
+# est donc PRE-REMPLI avec `BUDGET["hauteurUtileParDefaut"]` (585, les
+# Fire 7), lu depuis le contrat, jamais retape a la main : un utilisateur qui
+# ne touche pas ce champ obtient exactement la valeur que l'application
+# suppose deja en son absence (`budget.py`, `combien()`).
 SCHEMA_IDENTITE = vol.Schema(
     {
         vol.Required("nom"): str,
-        vol.Required("hauteurUtile"): int,
-        vol.Required("temperature"): selector.EntitySelector(
-            selector.EntitySelectorConfig(domain=_DOMAINES_TEMPERATURE)
-        ),
+        vol.Required("hauteurUtile", default=BUDGET["hauteurUtileParDefaut"]): int,
+        vol.Required("temperature"): selector.EntitySelector(selector.EntitySelectorConfig()),
         vol.Optional("note"): str,
     }
 )
@@ -206,8 +223,10 @@ class EcranSubentryFlow(SectionsListeMixin, ConfigSubentryFlow):
         basse). Les bornes ne sont donc la seule garde atteignable que pour
         une hauteur EXCESSIVE, au-dela de ce que le budget peut jamais
         signaler. `temperature` n'a besoin d'aucun controle manuel : un
-        `EntitySelector` filtre deja son domaine (`sensor`), et le format
-        d'un `entity_id` reel satisfait toujours `schema.ENTITE`."""
+        `entity_id` reel satisfait toujours le format attendu par
+        `schema.ENTITE` — et son `EntitySelector` ne filtre plus AUCUN
+        domaine depuis la ronde 2 de relecture (voir la note pres de
+        `SCHEMA_IDENTITE`)."""
         errors: dict[str, str] = {}
         description_placeholders: dict[str, str] = {}
 
@@ -244,21 +263,18 @@ class EcranSubentryFlow(SectionsListeMixin, ConfigSubentryFlow):
                         donnee["version"] = VERSION_CONFIG
                         return self.async_create_entry(title=donnee["nom"], data=donnee)
 
-        return self.async_show_form(
-            step_id="user",
-            # Reaffiche la saisie precedente (nom, note) apres un refus : sans
-            # cette ligne, un budget intenable effacerait aussi ce que
-            # l'utilisateur avait deja correctement rempli.
-            data_schema=self.add_suggested_values_to_schema(SCHEMA_IDENTITE, user_input),
-            errors=errors,
-            description_placeholders=description_placeholders,
-        )
+        # Reaffiche la saisie precedente (nom, note) apres un refus : sans ce
+        # pre-remplissage, un budget intenable effacerait aussi ce que
+        # l'utilisateur avait deja correctement rempli. `reafficher`
+        # (formulaire.py) est le SEUL endroit qui ecrit ce geste, ronde 2 de
+        # relecture — plus jamais retape a la main ici ni dans listes.py.
+        return reafficher(self, "user", SCHEMA_IDENTITE, user_input, errors, description_placeholders)
 
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         """Point d'entree d'une sous-entree EXISTANTE. Un menu vers les
-        sections « liste » deja livrees (`listes.SECTIONS` : tuiles de
+        sections « liste » deja livrees (`listes_champs.SECTIONS` : tuiles de
         commande, rangee d'ambiance, extras maison, ouvrants, ligne de
         synthese) ; les sections manquantes (Sources media, Blocs et modes,
         Minuteurs, Voiture) etendent ce MEME menu aux taches suivantes."""

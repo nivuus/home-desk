@@ -42,10 +42,6 @@ _DEFS = _SCHEMA_JSON["$defs"]
 
 _ICONES = frozenset(_DEFS["bouton"]["properties"]["icone"]["enum"])
 _OPERATEURS = frozenset(_DEFS["synthese"]["properties"]["operateur"]["enum"])
-_ZONES = frozenset(_DEFS["agencement"]["properties"]["zones"]["items"]["enum"])
-_BLOC_DEFAUT = frozenset(_DEFS["agencement"]["properties"]["blocDefaut"]["enum"])
-_MODES = frozenset(_DEFS["agencement"]["properties"]["modes"]["items"]["enum"])
-_MODULATEURS = frozenset(_DEFS["agencement"]["properties"]["modulateurs"]["items"]["enum"])
 
 _ENTITE_PATTERN = re.compile(_DEFS["entite"]["pattern"])
 _VUE_PATTERN = re.compile(_DEFS["bouton"]["properties"]["vue"]["pattern"])
@@ -67,6 +63,22 @@ HAUTEUR_MAX = _SCHEMA_JSON["properties"]["hauteurUtile"]["maximum"]
 # relecture de la tache 6. La liste vient du JSON directement, jamais de
 # l'ensemble prive derive pour la validation membership.
 OPERATEURS: list[str] = list(_DEFS["synthese"]["properties"]["operateur"]["enum"])
+
+# Publiques pour la MEME raison qu'OPERATEURS : ZONES, BLOC_DEFAUT, MODES et
+# MODULATEURS restent des `frozenset` PRIVES tant qu'aucun formulaire ne les
+# consomme (`_zones`/`_bloc_defaut`/`_modes`/`_modulateurs` ci-dessous, pour
+# la seule validation d'appartenance) -- mais la tache "Blocs et modes"
+# (apres la tache 6) leur donnera un SelectSelector, exactement comme
+# OPERATEURS pour la ligne de synthese. Correction PREVENTIVE, ronde 2 de
+# relecture de la tache 6 : ecrire ces quatre listes en frozenset aujourd'hui
+# et les decouvrir non ordonnees ce jour-la serait la MEME dette qu'OPERATEURS
+# portait avant la ronde 1, repoussee d'une tache pour rien. Listes, jamais
+# les ensembles prives : le meme ordre que le contrat, garanti stable d'un
+# processus Python a l'autre.
+ZONES: list[str] = list(_DEFS["agencement"]["properties"]["zones"]["items"]["enum"])
+BLOC_DEFAUT: list[str] = list(_DEFS["agencement"]["properties"]["blocDefaut"]["enum"])
+MODES: list[str] = list(_DEFS["agencement"]["properties"]["modes"]["items"]["enum"])
+MODULATEURS: list[str] = list(_DEFS["agencement"]["properties"]["modulateurs"]["items"]["enum"])
 
 
 # --------------------------------------------------------------------------
@@ -158,7 +170,7 @@ def _motif_chaine(regex: re.Pattern, min_len: int = 0):
     return valider
 
 
-def _enum(valeurs: frozenset):
+def _enum(valeurs):
     def valider(valeur):
         if valeur not in valeurs:
             raise _FauteEnum(f"doit etre parmi {sorted(valeurs)}")
@@ -192,14 +204,22 @@ def hauteur_utile(valeur):
     return valeur
 
 
-def _paire_service():
+def paire_service():
     """Le pendant de `"service": {"minItems": 2, "maxItems": 2, "items":
     {"type": "string", "minLength": 1}}`. Ecrit a la main plutot qu'avec
     `vol.Length` : ce dernier ne distingue pas minItems de maxItems dans sa
     classe, et son message ("length must be...") ne survivrait pas plus que
     error_type au passage dans un dict — la meme fragilite qui a motive
     `_Faute` ci-dessus, appliquee ici puisque le cout marginal est nul une
-    fois la hierarchie en place."""
+    fois la hierarchie en place.
+
+    Publique (sans prefixe, ronde 2 de relecture de la tache 6) :
+    `listes_champs._construire_donnee_bouton` la REUTILISE pour refuser une
+    paire service_domaine/service_action a demi remplie, plutot que
+    d'ecrire une seconde regle "il en faut exactement deux" a cote de celle-
+    ci -- le meme motif ("minItems"/"maxItems") nomme le refus des DEUX
+    cotes (formulaire ET validation finale de schema.BOUTON), jamais deux
+    regles qui pourraient diverger."""
     chaine_non_vide = _chaine(1)
 
     def valider(valeur):
@@ -216,7 +236,7 @@ def _paire_service():
 
 def _uniques():
     """Le pendant de `"uniqueItems": true`. Remplace `vol.Unique()` pour la
-    meme raison que `_paire_service` remplace `vol.Length` : rester dans notre
+    meme raison que `paire_service` remplace `vol.Length` : rester dans notre
     propre hierarchie d'exceptions plutot que dans le vocabulaire interne de
     voluptuous."""
 
@@ -244,7 +264,7 @@ BOUTON = vol.Schema(
         vol.Required("icone"): vol.All(_chaine(1), _enum(_ICONES)),
         vol.Required("entite"): ENTITE,
         vol.Optional("cible"): ENTITE,
-        vol.Optional("service"): _paire_service(),
+        vol.Optional("service"): paire_service(),
         vol.Optional("lien"): _chaine(1),
         vol.Optional("vue"): _motif_chaine(_VUE_PATTERN),
         vol.Optional("epingle"): _const(True),
@@ -335,13 +355,13 @@ VOITURE = vol.Schema(
 AGENCEMENT = vol.Schema(
     {
         vol.Required("zones"): vol.All(
-            [_enum(_ZONES)], _uniques(), vol.Contains("commandes")
+            [_enum(frozenset(ZONES))], _uniques(), vol.Contains("commandes")
         ),
-        vol.Optional("blocDefaut"): _enum(_BLOC_DEFAUT),
+        vol.Optional("blocDefaut"): _enum(frozenset(BLOC_DEFAUT)),
         vol.Required("modes"): vol.All(
-            [_enum(_MODES)], _uniques(), vol.Contains("defaut")
+            [_enum(frozenset(MODES))], _uniques(), vol.Contains("defaut")
         ),
-        vol.Required("modulateurs"): vol.All([_enum(_MODULATEURS)], _uniques()),
+        vol.Required("modulateurs"): vol.All([_enum(frozenset(MODULATEURS))], _uniques()),
         vol.Optional("note"): _chaine(),
     },
     extra=vol.PREVENT_EXTRA,

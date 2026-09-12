@@ -16,17 +16,22 @@ import pytest
 from homeassistant import config_entries, data_entry_flow
 
 from conftest import IDENTITE_MINIMALE
+from custom_components.home_desk.budget import BUDGET
+from custom_components.home_desk.config_flow import EcranSubentryFlow
 from custom_components.home_desk.const import (
     DOMAIN,
     ERREUR_BUDGET_INTENABLE,
     ERREUR_CHAMP_INVALIDE,
     ERREUR_HAUTEUR_HORS_BORNES,
     ERREUR_NOM_VIDE,
+    ERREUR_SELECTION_MANQUANTE,
     SOUS_ENTREE_ECRAN,
     VERSION_CONFIG,
 )
+from custom_components.home_desk.listes import SectionsListeMixin
 from custom_components.home_desk.listes_champs import SECTIONS
 from custom_components.home_desk.schema import HAUTEUR_MAX, HAUTEUR_MIN
+from homeassistant.config_entries import ConfigSubentryFlow
 
 CHEMIN_TRADUCTIONS = (
     pathlib.Path(__file__).resolve().parents[2] / "custom_components" / "home_desk" / "translations"
@@ -74,6 +79,7 @@ def _cles_attendues() -> set[str]:
         f"/config_subentries/ecran/error/{ERREUR_BUDGET_INTENABLE}",
         f"/config_subentries/ecran/error/{ERREUR_CHAMP_INVALIDE}",
         f"/config_subentries/ecran/error/{ERREUR_NOM_VIDE}",
+        f"/config_subentries/ecran/error/{ERREUR_SELECTION_MANQUANTE}",
         "/selector/geste/options/enregistrer",
         "/selector/geste/options/monter",
         "/selector/geste/options/descendre",
@@ -173,6 +179,41 @@ async def test_nom_vide_est_refuse_a_la_saisie(hass, entree):
         flow["flow_id"], {**IDENTITE_MINIMALE, "nom": "   "})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
     assert resultat["errors"]["nom"] == ERREUR_NOM_VIDE
+
+
+def test_ecransubentryflow_porte_le_mixin_EN_PREMIER_dans_son_mro():
+    """Ronde 2 de relecture : la ronde 1 avait deja corrige l'ordre des
+    bases (le mixin doit apparaitre AVANT ConfigSubentryFlow, convention
+    Python pour pouvoir le surcharger via le MRO) mais sans le figer par un
+    test — un renversement de cet ordre restait invisible tant qu'aucune des
+    deux classes ne definit de nom en commun aujourd'hui, exactement le piege
+    que la ronde 1 decrivait dans sa propre docstring (config_flow.py)."""
+    mro = EcranSubentryFlow.__mro__
+    assert mro.index(SectionsListeMixin) < mro.index(ConfigSubentryFlow)
+
+
+async def test_hauteurUtile_est_preremplie_du_budget_par_defaut(hass, entree):
+    """Ronde 2 de relecture : `hauteurUtile` reste `Required` dans
+    SCHEMA_IDENTITE (ecart assume au contrat, ou elle est Optional) mais les
+    trois ecrans reels (app/src/ecran.ts) ne la declarent JAMAIS. Le champ
+    doit donc etre PRE-REMPLI avec `BUDGET["hauteurUtileParDefaut"]` (585,
+    les Fire 7), lu depuis le contrat — jamais un 585 retape a la main qui
+    pourrait diverger du budget en silence."""
+    flow = await hass.config_entries.subentries.async_init(
+        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        context={"source": config_entries.SOURCE_USER})
+    marqueurs = {str(cle): cle for cle in flow["data_schema"].schema}
+    assert marqueurs["hauteurUtile"].default() == BUDGET["hauteurUtileParDefaut"]
+
+
+def test_temperature_n_impose_aucun_domaine():
+    """Ronde 2 de relecture : `_DOMAINES_TEMPERATURE = ["sensor"]` n'etait
+    tenu par aucun test — retire pour la meme raison que le domaine de
+    $defs/bouton (listes_champs.py) : une contrainte non verifiee est une
+    contrainte inventee, le contrat ($defs/entite) n'en pose aucune."""
+    from custom_components.home_desk.config_flow import SCHEMA_IDENTITE
+    marqueurs = {str(cle): sel for cle, sel in SCHEMA_IDENTITE.schema.items()}
+    assert "domain" not in marqueurs["temperature"].config
 
 
 async def test_note_vide_n_est_pas_persistee(hass, entree):

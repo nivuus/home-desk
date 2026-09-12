@@ -50,6 +50,13 @@ ERREUR_CHAMP_INVALIDE = "champ_invalide"
 # SAISIE, meme regle que les deux erreurs au-dessus.
 ERREUR_NOM_VIDE = "nom_vide"
 
+# Ronde 2 de relecture (tache 6) : soumettre le menu d'une section « liste »
+# (listes.py, `_async_step_section`) sans cocher "nouveau" NI choisir un
+# element existant reaffichait le formulaire EN SILENCE, sans dire pourquoi
+# rien ne s'etait passe -- le meme genre de refus muet que les trois erreurs
+# ci-dessus existent pour eviter, ici manquant depuis la ronde 1.
+ERREUR_SELECTION_MANQUANTE = "selection_manquante"
+
 # Les quatre gestes d'un element de section « liste » (listes.py) — un
 # element deja choisi. Ajouter un element VIERGE n'en est pas un : c'est la
 # case a cocher "nouveau" du formulaire de section, pas une valeur de geste

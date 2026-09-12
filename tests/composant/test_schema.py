@@ -90,3 +90,25 @@ def test_schema_lit_reellement_son_contrat_embarque(monkeypatch):
         assert chemin.resolve().is_relative_to(composant_dir), (
             f"schema.py a lu {chemin}, hors de {composant_dir} : "
             "nommer le contrat embarque sans le lire ne suffit pas.")
+
+
+def test_zones_modes_modulateurs_blocdefaut_sont_des_listes_ordonnees_selon_le_contrat():
+    """Ronde 2 de relecture : correction PREVENTIVE, mise en place avant
+    qu'aucun formulaire ne consomme ces quatre vocabulaires — exactement la
+    dette qu'`OPERATEURS` portait avant la ronde 1
+    (`test_operateurs_est_une_liste_ordonnee_selon_le_contrat`,
+    test_config_flow_listes.py). Un `frozenset` (ordre non garanti d'un
+    processus Python a l'autre, mesure lors de la ronde 1) redeviendrait
+    invisible tant qu'aucun `SelectSelector` ne les affiche encore."""
+    assert _module_schema.ZONES == ["synthese", "blocCentral", "ambiances", "commandes"]
+    assert _module_schema.BLOC_DEFAUT == ["voiture", "repas", "agenda"]
+    assert _module_schema.MODES == [
+        "alerte", "recette", "minuteur", "menage", "cinema", "media", "aeration",
+        "voiture", "defaut",
+    ]
+    assert _module_schema.MODULATEURS == ["invites", "chaleur", "delorean"]
+    for valeurs in (
+        _module_schema.ZONES, _module_schema.BLOC_DEFAUT,
+        _module_schema.MODES, _module_schema.MODULATEURS,
+    ):
+        assert isinstance(valeurs, list)

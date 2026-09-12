@@ -105,10 +105,20 @@ from .const import (
     ACTION_MONTER,
     ACTION_SUPPRIMER,
     ERREUR_CHAMP_INVALIDE,
+    ERREUR_SELECTION_MANQUANTE,
 )
+from .formulaire import reafficher
+# `SECTIONS`/`Section` restent importes ICI pour l'usage INTERNE de ce module
+# (`_async_step_section*` ci-dessous), mais ne sont plus re-exportes depuis
+# la ronde 2 de relecture : deux adresses valables pour le meme objet
+# (`from .listes import SECTIONS` ET `from .listes_champs import SECTIONS`)
+# sont une divergence en attente — le jour ou l'une des deux copies bouge
+# sans l'autre (un `__all__` qui oublie de suivre un renommage, par exemple),
+# rien ne le signale. `listes_champs.py` EST leur definition : c'est donc la
+# SEULE adresse canonique, y compris pour config_flow.py.
 from .listes_champs import SECTIONS, Section
 
-__all__ = ["SECTIONS", "Section", "SectionsListeMixin"]
+__all__ = ["SectionsListeMixin"]
 
 
 def _schema_choix(elements: list, section: Section) -> vol.Schema:
@@ -153,6 +163,7 @@ class SectionsListeMixin:
         section = SECTIONS[cle]
         subentry = self._get_reconfigure_subentry()
         elements = self._elements(subentry, cle)
+        errors: dict[str, str] = {}
 
         if user_input is not None:
             if user_input.get("nouveau"):
@@ -162,9 +173,13 @@ class SectionsListeMixin:
             if choisi is not None:
                 self._index_courant = int(choisi)
                 return await getattr(self, f"async_step_{cle}_element")()
-            # Ni "nouveau" coche, ni element choisi : reaffiche, rien a faire.
+            # Ronde 2 de relecture : ni "nouveau" coche, ni element choisi —
+            # reaffichait EN SILENCE, sans dire pourquoi rien ne s'etait
+            # passe. Refus EXPLICITE desormais, meme regime que les refus
+            # metier d'EcranSubentryFlow.async_step_user (config_flow.py).
+            errors["nouveau"] = ERREUR_SELECTION_MANQUANTE
 
-        return self.async_show_form(step_id=cle, data_schema=_schema_choix(elements, section))
+        return reafficher(self, cle, _schema_choix(elements, section), user_input, errors)
 
     async def _async_step_section_element(self, cle: str, user_input: dict[str, Any] | None):
         """Le formulaire d'un element, plus ses quatre gestes (`geste`,
@@ -212,9 +227,15 @@ class SectionsListeMixin:
             # schema.ENTITE, LA MEME validation que schema.valider() sur
             # l'ecran complet — deux validateurs pour une regle serait la
             # divergence que schema.py existe pour empecher.
+            #
+            # Ronde 2 de relecture : `construire_donnee` peut desormais lever
+            # elle-meme (`_construire_donnee_bouton`, une paire service_*
+            # a demi remplie) — DANS ce meme bloc `try`, jamais avant : sinon
+            # ce refus remonterait comme une exception non rattrapee plutot
+            # que comme un formulaire reaffiche avec erreurs.
             valeurs_affichees = user_input
-            candidat = section.construire_donnee(user_input, existant)
             try:
+                candidat = section.construire_donnee(user_input, existant)
                 valide = section.valider(candidat)
             except vol.Invalid as err:
                 brut = err.errors[0] if isinstance(err, vol.MultipleInvalid) else err
@@ -229,11 +250,11 @@ class SectionsListeMixin:
                 self._index_courant = None
                 return await self._async_step_section(cle, None)
 
-        return self.async_show_form(
-            step_id=f"{cle}_element",
-            data_schema=self.add_suggested_values_to_schema(
-                section.construire_schema(index is not None), valeurs_affichees
-            ),
-            errors=errors,
-            description_placeholders=description_placeholders,
+        return reafficher(
+            self,
+            f"{cle}_element",
+            section.construire_schema(index is not None),
+            valeurs_affichees,
+            errors,
+            description_placeholders,
         )

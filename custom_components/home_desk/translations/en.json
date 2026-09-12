@@ -157,7 +157,8 @@
         "nom_vide": "The name cannot be empty.",
         "hauteur_hors_bornes": "The usable height must be between {min} and {max} px.",
         "budget_intenable": "This screen overflows by {debordement} px. Increase the usable height, or remove a zone in \"Blocks and modes\".",
-        "champ_invalide": "This field is not valid: {motif}."
+        "champ_invalide": "This field is not valid: {motif}.",
+        "selection_manquante": "Check \"Add\" for a new item, or pick an existing item to edit."
       }
     }
   }
