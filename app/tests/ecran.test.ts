@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { ECRANS, type Ecran, type Bouton } from '../src/ecran';
+import { ECRANS, type Ecran, type Bouton, type EntreeSynthese } from '../src/ecran';
 
 /** Tous les fichiers de `src/`, récursivement. Une assertion sur le RÉPERTOIRE, pas sur une liste
  *  de fichiers : une liste de fichiers ne voit pas celui qu'on a oublié d'y mettre. */
@@ -346,9 +346,13 @@ describe('les champs ouverts par la configuration', () => {
       hauteurUtile: 585,
     };
     const b: Bouton = { libelle: 'X', icone: 'bulb', entite: 'light.x', note: 'pourquoi X' };
+    const s: EntreeSynthese = {
+      entite: 'sensor.x', texte: 'x', operateur: '>', valeur: 0, note: 'pourquoi cette entrée',
+    };
     expect(e.note).toContain('épinglée');
     expect(e.hauteurUtile).toBe(585);
     expect(b.note).toBe('pourquoi X');
+    expect(s.note).toBe('pourquoi cette entrée');
   });
 
   it('laisse les trois écrans actuels sans note ni hauteur — les deux champs sont facultatifs',
