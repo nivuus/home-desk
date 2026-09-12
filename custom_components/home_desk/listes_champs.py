@@ -142,18 +142,33 @@ def _schema_bouton(editable: bool) -> vol.Schema:
     return vol.Schema(champs)
 
 
+class ServiceIncomplet(Exception):
+    """Leve par `_construire_donnee_bouton` quand `service_domaine`/
+    `service_action` sont a demi remplis. Ronde 3 de relecture : la ronde 2
+    rejouait `schema.paire_service()` pour ce refus, qui leve avec un chemin
+    VIDE (un validateur FEUILLE, jamais imbrique dans un dict au moment ou
+    il est appele ici) — le message reellement affiche etait "Ce champ n'est
+    pas valide : : minItems.", un mot-cle JSON Schema destine au corpus ajv,
+    jamais a un humain, pose sur "base" (aucun champ surligne). Une
+    exception DEDIEE, portant le nom du champ REELLEMENT vide, permet a
+    `_async_step_section_element` de poser un message qui nomme le geste a
+    faire plutot qu'un vocabulaire de validateur."""
+
+    def __init__(self, champ_vide: str) -> None:
+        self.champ_vide = champ_vide
+        super().__init__(champ_vide)
+
+
 def _construire_donnee_bouton(user_input: dict[str, Any], existant: dict | None) -> dict:
     """Ronde 2 de relecture : `service_domaine`/`service_action`, une paire a
     demi remplie, etait auparavant abandonnee EN SILENCE — ni ecrite, ni
     refusee. En EDITION, ce silence effacait un `service` deja stocke des que
     l'utilisateur touchait un seul des deux champs texte (une faute de
     frappe dans "service_action" suffisait a rendre une tuile de commande
-    muette, le bouton mort que ce depot s'interdit). `schema.paire_service()`
-    est desormais REJOUEE ici sur toute paire non vide : elle leve si elle
-    n'a pas exactement deux elements, avec le MEME motif ("minItems"/
-    "maxItems") que schema.BOUTON appliquerait a un `service` a un seul
-    element — l'appelant (listes.py, ACTION_ENREGISTRER) capture ce refus
-    exactement comme celui de `section.valider`."""
+    muette, le bouton mort que ce depot s'interdit). Refuse desormais en
+    levant `ServiceIncomplet(champ_vide)` — voir sa docstring pour pourquoi
+    ce n'est plus `schema.paire_service()` qui porte ce refus depuis la
+    ronde 3."""
     donnee: dict[str, Any] = {}
     for champ in _CHAMPS_TEXTE_BOUTON:
         valeur = user_input.get(champ)
@@ -163,9 +178,11 @@ def _construire_donnee_bouton(user_input: dict[str, Any], existant: dict | None)
         donnee["epingle"] = True
     domaine = (user_input.get("service_domaine") or "").strip()
     action = (user_input.get("service_action") or "").strip()
-    paire = [v for v in (domaine, action) if v]
-    if paire:
-        schema.paire_service()(paire)
+    if domaine and not action:
+        raise ServiceIncomplet("service_action")
+    if action and not domaine:
+        raise ServiceIncomplet("service_domaine")
+    if domaine and action:
         donnee["service"] = [domaine, action]
     return _fusionner(CHAMPS_BOUTON, existant, donnee)
 
@@ -288,6 +305,28 @@ def _afficher_ouvrant(valeur: Any) -> dict:
     return {"entite": valeur} if valeur else {}
 
 
+def _valider_ouvrant(valeur: Any) -> Any:
+    """`schema.ENTITE` est un validateur FEUILLE : applique ici DIRECTEMENT
+    (jamais imbrique dans un `vol.Schema({...})` comme pour $defs/bouton ou
+    $defs/synthese), une entite invalide leve avec un chemin VIDE — la MEME
+    classe de defaut de vocabulaire que la ronde 3 de relecture a corrigee
+    pour `service` (schema.py, `_FauteMinItems` sans `path`). `ouvrants` est
+    la SEULE section dont le formulaire n'a qu'un champ ("entite") : on
+    attribue nous-memes ce chemin plutot que de laisser
+    `_async_step_section_element` retomber sur "base" (aucun champ
+    surligne) quand `brut.path` est vide."""
+    try:
+        return schema.ENTITE(valeur)
+    except vol.Invalid as err:
+        # `path` est en LECTURE SEULE sur vol.Invalid (et sur son equivalent
+        # probatio, cf. schema.motif() sur ce meme point) : on ne peut pas la
+        # modifier en place, on releve une instance de la MEME classe (donc
+        # le MEME `mot_cle`) portant le chemin voulu.
+        if not err.path:
+            raise type(err)(str(err), path=["entite"]) from err
+        raise
+
+
 @dataclass(frozen=True)
 class Section:
     """Ce que `listes.SectionsListeMixin` a besoin de savoir sur une
@@ -325,7 +364,7 @@ SECTIONS: dict[str, Section] = {
         _construire_donnee_bouton, _afficher_bouton,
     ),
     "ouvrants": Section(
-        "ouvrants", lambda el: el, schema.ENTITE, _schema_ouvrant,
+        "ouvrants", lambda el: el, _valider_ouvrant, _schema_ouvrant,
         _construire_donnee_ouvrant, _afficher_ouvrant,
     ),
     "synthese": Section(

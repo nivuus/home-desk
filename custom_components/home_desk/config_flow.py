@@ -149,7 +149,17 @@ from .listes_champs import SECTIONS
 SCHEMA_IDENTITE = vol.Schema(
     {
         vol.Required("nom"): str,
-        vol.Required("hauteurUtile", default=BUDGET["hauteurUtileParDefaut"]): int,
+        # Ronde 3 de relecture (trou de couverture) : un `default=585` retape
+        # a la main aurait survecu au test qui compare simplement a
+        # `BUDGET[...]` (585 aujourd'hui des deux cotes). `default=` est ici
+        # un CALLABLE (voluptuous ne l'enveloppe pas, `Marker.default` reste
+        # le callable lui-meme) : il relit BUDGET a CHAQUE appel de
+        # `.default()`, jamais une seule fois a l'import — un test qui
+        # monkeypatche BUDGET prouve donc la PROVENANCE, pas seulement la
+        # valeur du jour.
+        vol.Required(
+            "hauteurUtile", default=lambda: BUDGET["hauteurUtileParDefaut"]
+        ): int,
         vol.Required("temperature"): selector.EntitySelector(selector.EntitySelectorConfig()),
         vol.Optional("note"): str,
     }
@@ -261,6 +271,21 @@ class EcranSubentryFlow(SectionsListeMixin, ConfigSubentryFlow):
                             k: v for k, v in user_input.items() if not (k == "note" and v == "")
                         }
                         donnee["version"] = VERSION_CONFIG
+                        # Ronde 3 de relecture (Important 1) : une section
+                        # jamais ouverte ne persistait RIEN — la cle restait
+                        # ABSENTE, pas vide, alors que le contrat exige les
+                        # cinq cles de liste a la RACINE (vol.Required dans
+                        # schema.py). Les vrais ecrans du depot le prouvent
+                        # (`salon` ne porte jamais ambiances/extrasMaison,
+                        # `bureau` ne porte jamais ouvrants/extrasMaison) :
+                        # MEME faute de classe que le Critique de la ronde 1
+                        # (un champ absent du formulaire disparaissait de la
+                        # donnee), ici au niveau des SECTIONS entieres plutot
+                        # que de leurs champs. Semees ICI, DERIVEES de
+                        # `SECTIONS` — jamais recopiees a la main, jamais
+                        # ecrasees si l'appelant les portait deja.
+                        for cle in SECTIONS:
+                            donnee.setdefault(cle, [])
                         return self.async_create_entry(title=donnee["nom"], data=donnee)
 
         # Reaffiche la saisie precedente (nom, note) apres un refus : sans ce
@@ -280,11 +305,12 @@ class EcranSubentryFlow(SectionsListeMixin, ConfigSubentryFlow):
         Minuteurs, Voiture) etendent ce MEME menu aux taches suivantes."""
         return self.async_show_menu(step_id="reconfigure", menu_options=list(SECTIONS))
 
-    # Les six relais qu'exige `listes.SectionsListeMixin` : HA appelle un
-    # step par SON NOM (`getattr(flow, f"async_step_{step_id}")`), donc pas
-    # de facon generique de les eviter — mais chacun ne fait qu'UN appel, et
-    # c'est `_async_step_section`/`_async_step_section_element` qui portent
-    # toute la logique, une seule fois, pour les trois sections.
+    # Les DIX relais (5 sections x 2 steps) qu'exige `listes.
+    # SectionsListeMixin` : HA appelle un step par SON NOM (`getattr(flow,
+    # f"async_step_{step_id}")`), donc pas de facon generique de les eviter
+    # — mais chacun ne fait qu'UN appel, et c'est `_async_step_section`/
+    # `_async_step_section_element` qui portent toute la logique, une seule
+    # fois, pour les cinq sections.
     async def async_step_commandes(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:

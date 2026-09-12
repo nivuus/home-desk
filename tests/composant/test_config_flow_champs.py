@@ -12,7 +12,11 @@ import json
 
 from conftest import _commandes, _creer_ecran, _init_reconfigure
 from custom_components.home_desk import listes_champs, schema
-from custom_components.home_desk.const import ACTION_ENREGISTRER, ERREUR_CHAMP_INVALIDE
+from custom_components.home_desk.const import (
+    ACTION_ENREGISTRER,
+    ERREUR_CHAMP_INVALIDE,
+    ERREUR_SERVICE_INCOMPLET,
+)
 from custom_components.home_desk.listes_champs import SECTIONS
 from custom_components.home_desk.schema import OPERATEURS
 from homeassistant import data_entry_flow
@@ -284,8 +288,14 @@ async def test_service_a_demi_rempli_est_refuse_a_l_ajout(hass, entree):
     """Avant la ronde 2, `service_domaine` sans `service_action` (ou
     l'inverse) etait abandonne EN SILENCE : ni ecrit, ni refuse — un
     utilisateur qui ne remplit qu'un des deux champs n'a AUCUN moyen de
-    savoir que sa tuile est incomplete. `_construire_donnee_bouton` rejoue
-    desormais `schema.paire_service()`, qui refuse et NOMME le motif."""
+    savoir que sa tuile est incomplete.
+
+    Ronde 3 de relecture (Important 2) : la ronde 2 refusait bien, mais via
+    `schema.paire_service()` — un motif JSON Schema ("minItems") pose sur
+    "base" (aucun champ surligne), pour un message reellement affiche
+    "Ce champ n'est pas valide : : minItems." Charabia, corrige : le refus
+    porte maintenant `ERREUR_SERVICE_INCOMPLET`, pose sur le champ
+    REELLEMENT vide (`service_action` ici)."""
     subentry_id = await _creer_ecran(hass, entree)
     flow = await _init_reconfigure(hass, entree, subentry_id)
     await hass.config_entries.subentries.async_configure(
@@ -302,8 +312,7 @@ async def test_service_a_demi_rempli_est_refuse_a_l_ajout(hass, entree):
         },
     )
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]
-    assert "minItems" in resultat["description_placeholders"]["motif"]
+    assert resultat["errors"]["service_action"] == ERREUR_SERVICE_INCOMPLET
     assert _commandes(hass) == [], "aucune tuile ne doit avoir ete ecrite"
 
 
@@ -348,6 +357,51 @@ async def test_service_a_demi_efface_est_refuse_et_ne_supprime_pas_le_service_ex
         },
     )
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]
+    assert resultat["errors"]["service_domaine"] == ERREUR_SERVICE_INCOMPLET
     assert _commandes(hass)[0]["service"] == ["cover", "open_cover"], (
         "un refus ne doit RIEN ecrire : le service existant doit survivre intact")
+
+
+async def test_vider_les_deux_champs_service_retire_le_service_existant(hass, entree):
+    """Ronde 3 de relecture (trou de couverture 3) : aucun test ne tenait le
+    retrait VOLONTAIRE d'un service existant (les deux champs texte vides a
+    la fois). Sans ce test, une sur-correction du genre « ne jamais effacer
+    un service » (par exemple `elif existant and existant.get('service'):
+    ...`) resterait invisible alors qu'elle empeche un retrait legitime —
+    exactement la sur-correction qu'un mainteneur futur pourrait ecrire le
+    jour ou quelqu'un rouvre ce fichier apres avoir lu le refus ci-dessus."""
+    subentry_id = await _creer_ecran(hass, entree)
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "commandes"})
+    await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"],
+        {
+            "libelle": "Portail",
+            "icone": "porte",
+            "entite": "cover.portail",
+            "service_domaine": "cover",
+            "service_action": "open_cover",
+        },
+    )
+    assert _commandes(hass)[0]["service"] == ["cover", "open_cover"]
+
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "commandes"})
+    await hass.config_entries.subentries.async_configure(flow["flow_id"], {"choix": "0"})
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"],
+        {
+            "libelle": "Portail",
+            "icone": "porte",
+            "entite": "cover.portail",
+            "service_domaine": "",
+            "service_action": "",
+            "geste": ACTION_ENREGISTRER,
+        },
+    )
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+    assert not resultat["errors"]
+    assert "service" not in _commandes(hass)[0]

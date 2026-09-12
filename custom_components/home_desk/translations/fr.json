@@ -158,7 +158,8 @@
         "hauteur_hors_bornes": "La hauteur utile doit être comprise entre {min} et {max} px.",
         "budget_intenable": "Cet écran déborde de {debordement} px. Augmentez la hauteur utile, ou retirez une zone dans « Blocs et modes ».",
         "champ_invalide": "Ce champ n'est pas valide : {motif}.",
-        "selection_manquante": "Cochez « Ajouter » pour un nouvel élément, ou choisissez un élément existant à modifier."
+        "selection_manquante": "Cochez « Ajouter » pour un nouvel élément ; si la liste n'est pas vide, vous pouvez aussi en choisir un existant.",
+        "service_incomplet": "Renseignez les deux champs du service, ou videz-les tous les deux."
       }
     }
   }

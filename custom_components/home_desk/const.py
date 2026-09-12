@@ -36,12 +36,13 @@ ERREUR_HAUTEUR_HORS_BORNES = "hauteur_hors_bornes"
 ERREUR_BUDGET_INTENABLE = "budget_intenable"
 
 # Refus generique d'un champ d'element de section « liste » (tuile de
-# commande, rangee d'ambiance, ligne de synthese) : la MEME validation que
-# schema.valider() applique a l'ecran complet (schema.BOUTON / schema.SYNTHESE,
-# via listes.py), rejouee champ par champ pour refuser A LA SAISIE plutot qu'a
-# l'ecriture. Meme regle de nommage que les deux erreurs ci-dessus : jamais
-# retape en dur, jamais recopie dans translations/*.json sans repercuter l'un
-# sur l'autre.
+# commande, rangee d'ambiance, tuile « extras maison », ouvrant surveille,
+# ligne de synthese — les cinq sections de `listes_champs.SECTIONS`) : la
+# MEME validation que schema.valider() applique a l'ecran complet
+# (schema.BOUTON / schema.SYNTHESE / schema.ENTITE, via listes.py), rejouee
+# champ par champ pour refuser A LA SAISIE plutot qu'a l'ecriture. Meme
+# regle de nommage que les deux erreurs ci-dessus : jamais retape en dur,
+# jamais recopie dans translations/*.json sans repercuter l'un sur l'autre.
 ERREUR_CHAMP_INVALIDE = "champ_invalide"
 
 # Ronde 1 de relecture (tache 6) : dette de la tache 5 corrigee ici. `nom`
@@ -56,6 +57,16 @@ ERREUR_NOM_VIDE = "nom_vide"
 # rien ne s'etait passe -- le meme genre de refus muet que les trois erreurs
 # ci-dessus existent pour eviter, ici manquant depuis la ronde 1.
 ERREUR_SELECTION_MANQUANTE = "selection_manquante"
+
+# Ronde 3 de relecture (tache 6) : la ronde 2 avait corrige le SILENCE d'un
+# `service_domaine`/`service_action` a demi rempli en le refusant -- mais via
+# `ERREUR_CHAMP_INVALIDE` + `schema.motif()`, qui ne nomme QUE du vocabulaire
+# JSON Schema destine au corpus ajv ("minItems"), jamais un humain : le
+# message reellement affiche etait « Ce champ n'est pas valide : : minItems. »
+# -- deux-points double, aucun champ surligne (pose sur "base"), aucun geste
+# nomme. Code dedie, pose sur le champ REELLEMENT vide, message qui dit quoi
+# faire.
+ERREUR_SERVICE_INCOMPLET = "service_incomplet"
 
 # Les quatre gestes d'un element de section « liste » (listes.py) — un
 # element deja choisi. Ajouter un element VIERGE n'en est pas un : c'est la

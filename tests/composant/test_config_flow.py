@@ -9,6 +9,7 @@ extras maison, ouvrants, ligne de synthese) est teste a part, dans
 rester sous 500 lignes chacun, jamais a un compte de lignes arbitraire :
 c'est la meme couture que `listes.py`/`listes_champs.py`.
 """
+import ast
 import json
 import pathlib
 
@@ -25,6 +26,7 @@ from custom_components.home_desk.const import (
     ERREUR_HAUTEUR_HORS_BORNES,
     ERREUR_NOM_VIDE,
     ERREUR_SELECTION_MANQUANTE,
+    ERREUR_SERVICE_INCOMPLET,
     SOUS_ENTREE_ECRAN,
     VERSION_CONFIG,
 )
@@ -80,6 +82,7 @@ def _cles_attendues() -> set[str]:
         f"/config_subentries/ecran/error/{ERREUR_CHAMP_INVALIDE}",
         f"/config_subentries/ecran/error/{ERREUR_NOM_VIDE}",
         f"/config_subentries/ecran/error/{ERREUR_SELECTION_MANQUANTE}",
+        f"/config_subentries/ecran/error/{ERREUR_SERVICE_INCOMPLET}",
         "/selector/geste/options/enregistrer",
         "/selector/geste/options/monter",
         "/selector/geste/options/descendre",
@@ -206,6 +209,28 @@ async def test_hauteurUtile_est_preremplie_du_budget_par_defaut(hass, entree):
     assert marqueurs["hauteurUtile"].default() == BUDGET["hauteurUtileParDefaut"]
 
 
+def test_hauteurUtile_par_defaut_vient_reellement_de_BUDGET(monkeypatch):
+    """Ronde 3 de relecture (trou de couverture) : le test ci-dessus compare
+    a `BUDGET[...]`, ce qui resterait VERT meme si 585 etait retape a la
+    main dans config_flow.py (BUDGET vaut aussi 585 aujourd'hui — comparer
+    des valeurs qui coincident ne prouve pas la PROVENANCE). `default=` est
+    un callable qui relit BUDGET a chaque appel de `.default()` : changer
+    BUDGET doit changer ce que le formulaire propose, sans recharger aucun
+    module.
+
+    Monkeypatche `config_flow.BUDGET` — le nom TEL QUE liE dans ce module
+    (`from .budget import BUDGET`), pas `budget.BUDGET` directement : un
+    autre test de la suite (`test_budget_lit_reellement_son_contrat_
+    embarque`) recharge `budget.py`, ce qui cree un NOUVEAU dict et laisse
+    la reference de config_flow.py pointer sur l'ANCIEN objet — muter le
+    nouveau ne se verrait pas a travers le lambda de SCHEMA_IDENTITE."""
+    from custom_components.home_desk import config_flow as _module_config_flow
+
+    marqueurs = {str(cle): cle for cle in _module_config_flow.SCHEMA_IDENTITE.schema}
+    monkeypatch.setitem(_module_config_flow.BUDGET, "hauteurUtileParDefaut", 12345)
+    assert marqueurs["hauteurUtile"].default() == 12345
+
+
 def test_temperature_n_impose_aucun_domaine():
     """Ronde 2 de relecture : `_DOMAINES_TEMPERATURE = ["sensor"]` n'etait
     tenu par aucun test — retire pour la meme raison que le domaine de
@@ -267,3 +292,29 @@ def test_les_traductions_couvrent_toutes_les_cles_exigees_par_le_code(langue):
     presentes = _toutes_les_cles(traductions)
     manquantes = _cles_attendues() - presentes
     assert not manquantes, f"{langue}: cles manquantes {sorted(manquantes)}"
+
+
+def test_formulaire_est_le_seul_module_a_appeler_async_show_form_avec_un_data_schema():
+    """Suggestion de la ronde 3 : la centralisation dans `formulaire.
+    reafficher` rend une QUATRIEME reecriture a la main de l'idiome de
+    reaffichage INUTILE (tache 7, minuteurs), pas IMPOSSIBLE ni DETECTEE.
+    Sonde le code SOURCE des modules du composant, comme
+    `test_schema_lit_reellement_son_contrat_embarque` sonde une lecture
+    reelle plutot qu'une simple coincidence de valeurs : un futur appel
+    direct a `async_show_form(..., data_schema=...)` hors de `formulaire.py`
+    fait tomber ce test."""
+    composant_dir = pathlib.Path(__file__).resolve().parents[2] / "custom_components" / "home_desk"
+    fautifs = []
+    for chemin in composant_dir.glob("*.py"):
+        if chemin.name == "formulaire.py":
+            continue
+        arbre = ast.parse(chemin.read_text(encoding="utf-8"))
+        for noeud in ast.walk(arbre):
+            if (
+                isinstance(noeud, ast.Call)
+                and isinstance(noeud.func, ast.Attribute)
+                and noeud.func.attr == "async_show_form"
+                and any(kw.arg == "data_schema" for kw in noeud.keywords)
+            ):
+                fautifs.append(chemin.name)
+    assert not fautifs, f"async_show_form(data_schema=...) hors de formulaire.py : {fautifs}"

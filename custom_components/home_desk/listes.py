@@ -106,6 +106,7 @@ from .const import (
     ACTION_SUPPRIMER,
     ERREUR_CHAMP_INVALIDE,
     ERREUR_SELECTION_MANQUANTE,
+    ERREUR_SERVICE_INCOMPLET,
 )
 from .formulaire import reafficher
 # `SECTIONS`/`Section` restent importes ICI pour l'usage INTERNE de ce module
@@ -116,7 +117,7 @@ from .formulaire import reafficher
 # sans l'autre (un `__all__` qui oublie de suivre un renommage, par exemple),
 # rien ne le signale. `listes_champs.py` EST leur definition : c'est donc la
 # SEULE adresse canonique, y compris pour config_flow.py.
-from .listes_champs import SECTIONS, Section
+from .listes_champs import SECTIONS, Section, ServiceIncomplet
 
 __all__ = ["SectionsListeMixin"]
 
@@ -237,6 +238,12 @@ class SectionsListeMixin:
             try:
                 candidat = section.construire_donnee(user_input, existant)
                 valide = section.valider(candidat)
+            except ServiceIncomplet as err:
+                # Ronde 3 de relecture (Important 2) : refus METIER lisible,
+                # pose sur le champ REELLEMENT vide — jamais le vocabulaire
+                # JSON Schema de `schema.motif()` (voir listes_champs.
+                # ServiceIncomplet pour le message que la ronde 2 affichait).
+                errors[err.champ_vide] = ERREUR_SERVICE_INCOMPLET
             except vol.Invalid as err:
                 brut = err.errors[0] if isinstance(err, vol.MultipleInvalid) else err
                 errors[str(brut.path[0]) if brut.path else "base"] = ERREUR_CHAMP_INVALIDE

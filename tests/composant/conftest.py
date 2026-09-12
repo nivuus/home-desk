@@ -15,9 +15,11 @@ pytest_plugins = "pytest_homeassistant_custom_component"
 # section pour atteindre les sections « liste ».
 IDENTITE_MINIMALE = {"nom": "Salon d essai", "hauteurUtile": 900, "temperature": "sensor.temp_salon"}
 
-# Un element VALIDE par section « liste », partage par les tests de
-# test_config_flow.py et test_config_flow_listes.py (ajout generique,
-# preuve de bout en bout que seul `sources` manque encore a schema.valider).
+# Un element VALIDE par section « liste », utilise par test_config_flow_
+# listes.py (ajout generique par section, refus generalise a toutes les
+# sections, preuve de bout en bout que seul `sources` manque encore a
+# schema.valider()). Ronde 3 de relecture : la mention de test_config_
+# flow.py etait perimee — ce fichier n'importe pas ELEMENTS_VALIDES.
 ELEMENTS_VALIDES = {
     "commandes": {"libelle": "Lampe test", "icone": "bulb", "entite": "light.test_commande"},
     "ambiances": {"libelle": "Ambiance test", "icone": "sofa", "entite": "light.test_ambiance"},

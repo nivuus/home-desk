@@ -22,6 +22,7 @@ from custom_components.home_desk.const import (
     ACTION_ENREGISTRER,
     ACTION_MONTER,
     ACTION_SUPPRIMER,
+    ERREUR_CHAMP_INVALIDE,
     ERREUR_SELECTION_MANQUANTE,
 )
 from custom_components.home_desk.listes_champs import SECTIONS, _fusionner
@@ -174,6 +175,18 @@ def test_fusionner_preserve_un_champ_que_le_formulaire_ne_gere_pas_encore():
     assert fusion == {"libelle": "Apres", "vue": "#garage", "epingle": True}
 
 
+def test_listes_ne_reexporte_plus_SECTIONS_ni_Section():
+    """Ronde 3 de relecture (trou de couverture) : le seam SECTIONS/Section
+    a deux adresses a ete resolu en ronde 2 (retire de `listes.__all__`,
+    `listes_champs.py` devenu la seule adresse canonique) — mais RIEN ne le
+    TENAIT : remettre `SECTIONS`/`Section` dans `listes.__all__` (la meme
+    regression qu'un futur renommage pourrait introduire sans y penser)
+    laissait la suite verte."""
+    from custom_components.home_desk import listes
+    assert "SECTIONS" not in listes.__all__
+    assert "Section" not in listes.__all__
+
+
 def test_sections_declare_les_cinq_sections_attendues():
     """Ronde 1 (Important I2) : `ambiances` n'etait exercee par AUCUN test —
     la retirer de `SECTIONS` laissait la suite verte. Assertion STATIQUE en
@@ -222,7 +235,12 @@ async def test_apres_temperature_extrasmaison_ouvrants_seul_sources_manque_encor
     squelette couvre desormais ne suffit PAS encore — `sources`
     ($defs/source, une forme entierement differente, hors du perimetre de
     cette tache et du plan) reste requis et absent. `schema.valider()` leve
-    UNE SEULE regle manquante, exactement celle-la."""
+    UNE SEULE regle manquante, exactement celle-la.
+
+    Ce test REMPLIT les cinq sections avant de verifier — il ne prouve donc
+    RIEN sur un ecran dont une section n'a jamais ete ouverte (ronde 3 de
+    relecture, Important 1, ci-dessous) : deux tests complementaires, pas
+    substituables l'un a l'autre."""
     subentry_id = await _creer_ecran(hass, entree)
     for cle, donnee in ELEMENTS_VALIDES.items():
         flow = await _init_reconfigure(hass, entree, subentry_id)
@@ -243,6 +261,33 @@ async def test_apres_temperature_extrasmaison_ouvrants_seul_sources_manque_encor
     donnees = dict(subentry.data)
     donnees["sources"] = []
     schema.valider(donnees)  # ne leve plus : "sources" etait la seule piece manquante
+
+
+async def test_un_ecran_dont_aucune_section_n_a_jamais_ete_ouverte_est_deja_validable(
+    hass, entree
+):
+    """Ronde 3 de relecture, Important 1 : une section jamais ouverte ne
+    persistait RIEN — la cle restait ABSENTE, pas vide, alors que le contrat
+    exige les cinq cles de liste a la RACINE (`vol.Required` dans
+    schema.py). Les vrais ecrans du depot le prouvent : `salon` ne porte
+    JAMAIS `ambiances`/`extrasMaison`, `bureau` ne porte JAMAIS
+    `ouvrants`/`extrasMaison`. MEME faute de classe que le Critique de la
+    ronde 1 (un champ absent du formulaire disparaissait de la donnee) — et
+    le test ci-dessus la MASQUAIT en remplissant les cinq sections avant de
+    verifier. Celui-ci n'ouvre AUCUNE section : seule l'identite est saisie."""
+    subentry_id = await _creer_ecran(hass, entree)
+    subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
+    for cle in SECTIONS:
+        assert subentry.data[cle] == [], (
+            f"{cle!r} doit exister, VIDE, des la creation — jamais absente")
+
+    with pytest.raises(vol.Invalid) as excinfo:
+        schema.valider(dict(subentry.data))
+    assert schema.motif(excinfo.value) == ": required"  # "sources", seule piece manquante
+
+    donnees = dict(subentry.data)
+    donnees["sources"] = []
+    schema.valider(donnees)  # ne leve plus : les cinq sections, vides, suffisent
 
 
 # ---------------------------------------------------------------------------
@@ -279,7 +324,14 @@ async def test_un_refus_reaffiche_la_saisie_sur_TOUTES_les_sections(hass, entree
     en violant `$defs/entite` du contrat (domaine `[a-z_]+`, AUCUN chiffre) —
     sans quoi HA refuserait lui-meme la saisie AVANT d'appeler notre step
     (`InvalidData`, jamais un formulaire reaffiche), pour une raison sans
-    rapport avec ce test."""
+    rapport avec ce test.
+
+    Ronde 3 de relecture : assertion ajoutee sur `resultat["errors"]["entite"]`
+    — `ouvrants` est la seule section dont `schema.ENTITE` est applique EN
+    DEHORS d'un `vol.Schema({...})` (un validateur FEUILLE, pas imbrique) ;
+    sans `listes_champs._valider_ouvrant`, un `entite` invalide y aurait leve
+    avec un chemin VIDE et serait retombe sur "base", aucun champ surligne —
+    la MEME classe de defaut que le motif de `service` corrige au point 2."""
     subentry_id = await _creer_ecran(hass, entree)
     flow = await _init_reconfigure(hass, entree, subentry_id)
     await hass.config_entries.subentries.async_configure(
@@ -288,6 +340,6 @@ async def test_un_refus_reaffiche_la_saisie_sur_TOUTES_les_sections(hass, entree
     invalide = {**ELEMENTS_VALIDES[cle], "entite": "a1.pas_une_entite_valide"}
     resultat = await hass.config_entries.subentries.async_configure(flow["flow_id"], invalide)
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]
+    assert resultat["errors"]["entite"] == ERREUR_CHAMP_INVALIDE
     marqueurs = {str(c): c for c in resultat["data_schema"].schema}
     assert marqueurs["entite"].description == {"suggested_value": "a1.pas_une_entite_valide"}

@@ -6,9 +6,12 @@ de diverger n'est pas la discipline, c'est contrat/cas-schema.json — un corpus
 que les DEUX suites rejouent, ou un cas present d'un cote et absent de l'autre
 est impossible puisque c'est le meme fichier.
 
-`motif()` rend la faute au format du corpus : `chemin: mot-cle`. Les deux
-validateurs doivent nommer le MEME endroit ; sans quoi un test negatif passe
-pour la mauvaise raison.
+`fautes.motif()` (reexportee ici) rend la faute au format du corpus :
+`chemin: mot-cle`. Les deux validateurs doivent nommer le MEME endroit ; sans
+quoi un test negatif passe pour la mauvaise raison. La hierarchie `_Faute` et
+`motif()` elle-meme vivent dans `fautes.py`, separees d'ici en ronde 3 de
+relecture (une seule et meme preoccupation — nommer une faute — pas celle de
+ce module, qui MIROITE le contrat).
 
 Le schema lu ici est celui EMBARQUE (`contrat/` sous ce module), jamais celui
 du depot : une fois installe, ce composant tourne depuis
@@ -31,6 +34,21 @@ import pathlib
 import re
 
 import voluptuous as vol
+
+from .fautes import (
+    _Faute,
+    _FauteConst,
+    _FauteEnum,
+    _FauteMaximum,
+    _FauteMaxItems,
+    _FauteMinItems,
+    _FauteMinLength,
+    _FauteMinimum,
+    _FautePattern,
+    _FauteType,
+    _FauteUniqueItems,
+    motif,
+)
 
 # Decision de la tache 3 : jamais "../../contrat", toujours relatif au module.
 # Clouee par test_schema_lit_le_contrat_embarque (tests/composant/test_schema.py).
@@ -65,16 +83,16 @@ HAUTEUR_MAX = _SCHEMA_JSON["properties"]["hauteurUtile"]["maximum"]
 OPERATEURS: list[str] = list(_DEFS["synthese"]["properties"]["operateur"]["enum"])
 
 # Publiques pour la MEME raison qu'OPERATEURS : ZONES, BLOC_DEFAUT, MODES et
-# MODULATEURS restent des `frozenset` PRIVES tant qu'aucun formulaire ne les
-# consomme (`_zones`/`_bloc_defaut`/`_modes`/`_modulateurs` ci-dessous, pour
-# la seule validation d'appartenance) -- mais la tache "Blocs et modes"
-# (apres la tache 6) leur donnera un SelectSelector, exactement comme
-# OPERATEURS pour la ligne de synthese. Correction PREVENTIVE, ronde 2 de
-# relecture de la tache 6 : ecrire ces quatre listes en frozenset aujourd'hui
-# et les decouvrir non ordonnees ce jour-la serait la MEME dette qu'OPERATEURS
-# portait avant la ronde 1, repoussee d'une tache pour rien. Listes, jamais
-# les ensembles prives : le meme ordre que le contrat, garanti stable d'un
-# processus Python a l'autre.
+# MODULATEURS sont des LISTES ordonnees des maintenant, alors qu'AUCUN
+# formulaire ne les consomme encore (elles ne servent ici qu'a la validation
+# d'appartenance, via `frozenset(...)` construit a la volee plus bas dans
+# AGENCEMENT) -- la tache "Blocs et modes" (apres la tache 6) leur donnera un
+# SelectSelector, exactement comme OPERATEURS pour la ligne de synthese.
+# Correction PREVENTIVE, ronde 2 de relecture de la tache 6 : les ecrire en
+# frozenset aujourd'hui et les decouvrir non ordonnees ce jour-la aurait ete
+# la MEME dette qu'OPERATEURS portait avant la ronde 1, repoussee d'une tache
+# pour rien. Listes, jamais des ensembles prives : le meme ordre que le
+# contrat, garanti stable d'un processus Python a l'autre.
 ZONES: list[str] = list(_DEFS["agencement"]["properties"]["zones"]["items"]["enum"])
 BLOC_DEFAUT: list[str] = list(_DEFS["agencement"]["properties"]["blocDefaut"]["enum"])
 MODES: list[str] = list(_DEFS["agencement"]["properties"]["modes"]["items"]["enum"])
@@ -82,64 +100,11 @@ MODULATEURS: list[str] = list(_DEFS["agencement"]["properties"]["modulateurs"]["
 
 
 # --------------------------------------------------------------------------
-# Validateurs feuille. Chacun leve une SOUS-CLASSE de vol.Invalid dediee au
+# Validateurs feuille. Chacun leve une des `_Faute*` de fautes.py, dediee au
 # mot-cle JSON Schema qu'il traduit ("type", "pattern", "minimum", "enum",
-# ...) — jamais un vol.Invalid generique avec error_type="...".
-#
-# Correction de la ronde 1 (Important 3) : error_type est un ATTRIBUT
-# d'instance, et les DEUX backends le reecrivent en le remontant a travers un
-# validateur de valeur imbrique dans un dict (`validate_mapping`, dans
-# voluptuous comme dans le shim probatio de Home Assistant, lui substitue un
-# message interne generique — "dictionary value" cote voluptuous nu). motif()
-# ne peut donc pas s'y fier. La CLASSE de l'exception, elle, n'est jamais
-# touchee par ce mecanisme : c'est deja pourquoi required/additionalProperties
-# /contains sont detectes par isinstance() plus bas ; les mots-cles qui
-# restent le sont desormais aussi, via `_Faute.mot_cle`.
+# ...) — jamais un vol.Invalid generique avec error_type="..." (voir
+# fautes.py pour le pourquoi de cette hierarchie).
 # --------------------------------------------------------------------------
-
-class _Faute(vol.Invalid):
-    """Le mot-cle JSON Schema vit sur la CLASSE, jamais sur `error_type`."""
-    mot_cle = "invalid"
-
-
-class _FauteType(_Faute):
-    mot_cle = "type"
-
-
-class _FautePattern(_Faute):
-    mot_cle = "pattern"
-
-
-class _FauteMinimum(_Faute):
-    mot_cle = "minimum"
-
-
-class _FauteMaximum(_Faute):
-    mot_cle = "maximum"
-
-
-class _FauteEnum(_Faute):
-    mot_cle = "enum"
-
-
-class _FauteConst(_Faute):
-    mot_cle = "const"
-
-
-class _FauteMinLength(_Faute):
-    mot_cle = "minLength"
-
-
-class _FauteMinItems(_Faute):
-    mot_cle = "minItems"
-
-
-class _FauteMaxItems(_Faute):
-    mot_cle = "maxItems"
-
-
-class _FauteUniqueItems(_Faute):
-    mot_cle = "uniqueItems"
 
 
 def _chaine(min_len: int = 0):
@@ -431,63 +396,3 @@ def valider(brut: dict) -> dict:
     conforme."""
     return ECRAN(brut)
 
-
-def motif(err: vol.Invalid) -> str:
-    """Rend la faute au format du corpus : `chemin: mot-cle`, le pendant de
-    `${instancePath}: ${keyword}` cote ajv (app/tests/cas-schema.test.ts).
-
-    - `required` et `additionalProperties` : voluptuous porte le champ
-      fautif (le manquant, ou l'inconnu) comme DERNIER segment du chemin ;
-      ajv, lui, designe l'OBJET qui porte la faute, le nom du champ voyageant
-      a part (`missingProperty` / `additionalProperty`). On retire donc ce
-      dernier segment pour les deux mots-cles — jamais pour les autres, ou le
-      chemin voluptuous et le instancePath ajv designent deja le meme point.
-    - Une `vol.MultipleInvalid` ne porte pas `.error_type` (elle ne passe
-      jamais par `Invalid.__init__`) : on lit sa premiere erreur, qui suffit
-      ici puisque chaque cas du corpus n'exerce qu'UNE seule regle a la fois.
-    - `voluptuous` est charge par ce module directement (le paquet PyPI
-      classique), mais des l'instant ou `custom_components/home_desk` importe
-      `homeassistant.core` (`__init__.py`), Home Assistant remplace
-      `sys.modules["voluptuous"]` par `probatio._vol_shim` : depuis HA
-      2026.9, `voluptuous` n'est plus qu'une facade de compatibilite au-dessus
-      de `probatio`, sa VRAIE bibliotheque de validation (verifie par
-      inspection du composant sous les deux regimes — voir le rapport de la
-      tache 3). Les deux backends different sur l'exces de champs : la
-      voluptuous classique leve un `Invalid` generique avec le message
-      "extra keys not allowed" ; le shim probatio leve un `ExtraKeysInvalid`
-      dedie avec le message "not a valid option". D'ou la double detection
-      ci-dessous plutot qu'une seule branche qui ne marcherait que sous
-      Home Assistant, ou que sous voluptuous nu.
-    - Correction de la ronde 1 (Important 3) : `err.error_type` n'est PAS
-      fiable pour nos propres validateurs non plus. Les DEUX backends le
-      reecrivent quand l'erreur remonte a travers un validateur de valeur
-      imbrique dans un dict (`validate_mapping`), avec un message interne
-      generique ("dictionary value" cote voluptuous nu) — verifie en rejouant
-      le corpus entier sous voluptuous nu (schema.py charge seul, homeassistant
-      jamais importe) : 4 cas sur 11 se trompaient de mot-cle avant cette
-      correction. Nos propres validateurs levent donc desormais des
-      sous-classes de `_Faute`, dont le mot-cle vit sur la CLASSE — jamais
-      touchee par cette reecriture, contrairement a l'attribut. `required`,
-      `additionalProperties` et `contains` restent detectes comme avant
-      (classes/messages de voluptuous ou du shim, hors de notre controle) ;
-      tout le reste passe desormais par `isinstance(err, _Faute)`.
-    """
-    if isinstance(err, vol.MultipleInvalid):
-        err = err.errors[0]
-
-    chemin_parts = list(err.path)
-    if isinstance(err, vol.RequiredFieldInvalid):
-        mot_cle = "required"
-        chemin_parts = chemin_parts[:-1]
-    elif type(err).__name__ == "ExtraKeysInvalid" or err.msg == "extra keys not allowed":
-        mot_cle = "additionalProperties"
-        chemin_parts = chemin_parts[:-1]
-    elif isinstance(err, vol.ContainsInvalid):
-        mot_cle = "contains"
-    elif isinstance(err, _Faute):
-        mot_cle = err.mot_cle
-    else:
-        mot_cle = err.error_type or "invalid"
-
-    chemin = "/" + "/".join(str(p) for p in chemin_parts) if chemin_parts else ""
-    return f"{chemin}: {mot_cle}"

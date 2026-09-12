@@ -97,7 +97,7 @@ def test_zones_modes_modulateurs_blocdefaut_sont_des_listes_ordonnees_selon_le_c
     qu'aucun formulaire ne consomme ces quatre vocabulaires — exactement la
     dette qu'`OPERATEURS` portait avant la ronde 1
     (`test_operateurs_est_une_liste_ordonnee_selon_le_contrat`,
-    test_config_flow_listes.py). Un `frozenset` (ordre non garanti d'un
+    test_config_flow_champs.py). Un `frozenset` (ordre non garanti d'un
     processus Python a l'autre, mesure lors de la ronde 1) redeviendrait
     invisible tant qu'aucun `SelectSelector` ne les affiche encore."""
     assert _module_schema.ZONES == ["synthese", "blocCentral", "ambiances", "commandes"]
