@@ -37,9 +37,14 @@ if build.returncode != 0:
     print("le build a echoue :\n" + build.stderr)
     sys.exit(1)
 
-# `contrat/` est produit par le meme build que `dist/` (npm run contrats), et il est lu par
-# l'integration Home Assistant. Un contrat perime est pire qu'un bundle perime : il ferait
-# proposer a l'operateur des icones que l'application ne sait plus dessiner.
+# `contrat/icones.json`, et depuis peu le champ icone de `contrat/ecran.schema.json`, sont
+# produits par ce meme build (npm run contrats) et lus par l'integration Home Assistant.
+# `contrat/budget.json` et le reste de `ecran.schema.json` sont ecrits a la main : ce build ne
+# les regenere jamais (cf. contrat/README.md). On surveille quand meme les DEUX repertoires ici,
+# pour la meme raison qu'on surveille `dist` : un oubli de `git add` sur l'un ou l'autre laisse
+# un fichier commite en retard sur ce que `app/src/` decrit. Un contrat perime (icones) est pire
+# qu'un bundle perime : il ferait proposer a l'operateur des icones que l'application ne sait
+# plus dessiner.
 ecarts = subprocess.run(["git", "-C", str(REPO), "status", "--porcelain", "dist", "contrat"],
                         capture_output=True, text=True, check=True).stdout.strip()
 if ecarts:
