@@ -46,7 +46,7 @@ import { rendreMinuteurs, rendreReglageMinuteur, tuileMinuteur, brancherMinuteur
 import { rendreVoiture, brancherVoiture, type EnVolClim } from './rendu/voiture';
 // Tâche 14 : les deux blocs qui remplacent les six prochaines heures en cuisine et au bureau —
 // fonctions de présentation pures, comme `rendreVoiture` ci-dessus. `demarrage.ts` leur fournit
-// leurs données (`repas`/`evenements`, ci-dessous) selon `piece.blocDefaut` (`ecran.ts`).
+// leurs données (`repas`/`evenements`, ci-dessous) selon `agencement.blocDefaut` (`agencement.ts`).
 // Tâche 17 : `rendreEntretien` est le REPLI des deux précédents (l'un comme l'autre rendent
 // `undefined` le plus clair du temps sur cette installation) — même contrat, mêmes données déjà
 // chargées (`taches[ENTITE_ENTRETIEN]`, cf. `chargerTaches`).
@@ -258,6 +258,14 @@ export async function demarrer(
   let initialise = false;
   let essai = 0;
 
+  // Tâche 3 du plan 2 : résolu UNE SEULE fois, même raison exactement que `listesPiece`
+  // ci-dessous — `piece` ne change jamais pour la durée de vie de la page, et `resoudreAgencement`
+  // est pure. Calculé ici, avant `tenter()`, pour que les lecteurs qui vivent hors de `dessiner()`
+  // (le filet de rechargement de l'entretien, l'intervalle de repli des tâches, plus bas) y aient
+  // accès sans le résoudre une seconde fois — un second point de résolution serait un second
+  // défaut susceptible de diverger, exactement le défaut que `resoudreAgencement` existe pour
+  // proscrire (cf. son docstring, `agencement.ts`).
+  const agencement = resoudreAgencement(piece);
   // Tâche 18 : listes `todo.*` de cette pièce (synthèse + `extrasMaison`, cf. `cochage.ts`) —
   // calculées une seule fois : `piece` ne change jamais pour la durée de vie de la page.
   const listesPiece = listesTachesPiece(piece);
@@ -710,7 +718,7 @@ export async function demarrer(
         // Gardé aux deux pièces qui rendent réellement ce bloc, même règle exactement que le
         // rappel périodique plus bas : le salon (bloc voiture en toutes circonstances) ne rend
         // jamais ces libellés, et sa vue « Tâches » se recharge déjà à chaque entrée.
-        const rechargerSurEtatEntretien = piece.blocDefaut === 'repas' || piece.blocDefaut === 'agenda';
+        const rechargerSurEtatEntretien = agencement.blocDefaut === 'repas' || agencement.blocDefaut === 'agenda';
         cx.surChangement((e) => {
           const avant = etat.lire(e.entity_id)?.etat;
           etat.appliquer(e);
@@ -1223,7 +1231,7 @@ export async function demarrer(
       // bloc central est la voiture en toutes circonstances, n'y a rien à gagner : une commande
       // websocket de plus toutes les 15 min sur une Fire 7 à 130 Mo de libre, pour un résultat
       // qu'il ne rend jamais.
-      if (piece.blocDefaut === 'repas' || piece.blocDefaut === 'agenda') {
+      if (agencement.blocDefaut === 'repas' || agencement.blocDefaut === 'agenda') {
         d.intervalFn(chargerTaches, 15 * 60_000);
       }
       dessiner();
@@ -1349,7 +1357,6 @@ export async function demarrer(
   }
 
   function dessiner() {
-    const agencement = resoudreAgencement(piece);
     const maintenant = d.maintenant();
     const soleil = etat.lire('sun.sun')?.etat === 'above_horizon';
     const moment = momentDuJour(maintenant.getHours(), soleil);
@@ -1425,11 +1432,11 @@ export async function demarrer(
       // une recette RÉDUITE (hash vide) est justement l'état où ce mode doit primer, pour que
       // l'accueil garde le point de reprise de la cuisson même quand un minuteur tourne.
       recetteEnCours: recetteUid !== null,
-      // Tâche 14 : reprend tel quel `piece.blocDefaut` (ecran.ts) — UNE SEULE façon de déclarer
+      // Tâche 14 : reprend tel quel `agencement.blocDefaut` (agencement.ts) — UNE SEULE façon de déclarer
       // quel bloc par défaut la pièce utilise, remplace l'ancien `piece.voiture !== undefined`
       // (un test de présence que le repas/l'agenda n'auraient pas pu réutiliser sans un second
       // mécanisme parallèle, cf. le docstring de ce champ sur `ContexteModes`, `modes.ts`).
-      blocDefaut: piece.blocDefaut,
+      blocDefaut: agencement.blocDefaut,
       // 2026-08-29 : déduit de la déclaration, jamais du nom de la pièce — le salon a renoncé à sa
       // rangée « Ambiance », et c'est ce fait-là, pas son identité, qui lui rend les ~100 px de la
       // deuxième rangée de commandes (cf. `combien`, `modes.ts`). Une pièce qui reprendrait des
@@ -1728,7 +1735,7 @@ export async function demarrer(
     // le propriétaire n'a pas arbitré autre chose — mieux vaut un fond nu qu'une liste de piles à
     // changer étalée devant des invités.
     const entretienPerso = piece.synthese.some((e) => e.entite === ENTITE_ENTRETIEN && e.perso);
-    const replEntretien = (piece.blocDefaut === 'repas' || piece.blocDefaut === 'agenda')
+    const replEntretien = (agencement.blocDefaut === 'repas' || agencement.blocDefaut === 'agenda')
       && !(ctx.modeInvites && entretienPerso)
       // Tâche 17 bis (relecture, défaut D2) : le MÊME chemin que la vue « Tâches »
       // (`aplatirTaches`, `cochage.ts`), donc le même retrait optimiste — jamais le cache brut.
@@ -1768,15 +1775,15 @@ export async function demarrer(
       : mode === 'aeration' ? rendreAeration(etat, piece.ouvrants)
       : mode === 'voiture' && piece.voiture ? rendreVoiture(etat, piece.voiture, climEnVol)
       // Tâche 14 : le mode `defaut` (ex-`previsions`) n'a plus rien à calculer lui-même —
-      // `piece.blocDefaut` dit QUEL contenu (repas, agenda, rien) lui revient ; `rendreRepasSuivant`/
+      // `agencement.blocDefaut` dit QUEL contenu (repas, agenda, rien) lui revient ; `rendreRepasSuivant`/
       // `rendreProchainRdv` (`rendu/defaut.ts`) rendent `undefined` si rien à montrer (plan de
       // repas vide, plus de rendez-vous aujourd'hui), et `blocCentral` reste alors `undefined` —
       // exactement le même contrat que tous les autres modes ci-dessus.
       // Tâche 17 : le repas et le rendez-vous GARDENT la priorité — l'entretien (`replEntretien`
       // ci-dessus) ne prend que la place qu'ils laissent vide, ce qui, sur cette installation, est
       // le cas le plus courant : planning de repas vide en permanence, agenda vide dès le soir.
-      : piece.blocDefaut === 'repas' ? rendreRepasSuivant(repasCourant()) ?? replEntretien
-      : piece.blocDefaut === 'agenda' ? rendreProchainRdv(evenements, maintenant) ?? replEntretien
+      : agencement.blocDefaut === 'repas' ? rendreRepasSuivant(repasCourant()) ?? replEntretien
+      : agencement.blocDefaut === 'agenda' ? rendreProchainRdv(evenements, maintenant) ?? replEntretien
       : undefined;
 
     // Revue tâche 15 (I1) : l'ancre du rail est posée UNIQUEMENT quand la carte média est
@@ -1789,7 +1796,7 @@ export async function demarrer(
       ? ancrerProgression(source!.progression, maintenantMs, horlogeMonotone())
       : null;
 
-    // Tâche 14, ronde de correction 1 : `piece.blocDefaut === 'agenda'` (bureau) affiche déjà le
+    // Tâche 14, ronde de correction 1 : `agencement.blocDefaut === 'agenda'` (bureau) affiche déjà le
     // prochain rendez-vous EN GRAND dans le bloc central (`rendreProchainRdv`) — la pastille cède
     // sa place sur cette seule donnée (`masquerRdv`), jamais l'anniversaire du jour, que le bloc
     // ne montre pas. Vrai qu'un mode plus prioritaire (alerte, minuteur...) occupe le bloc central
@@ -1797,7 +1804,7 @@ export async function demarrer(
     // même, cohérent avec « cette pièce montre ses rendez-vous ailleurs qu'au coin du bandeau »,
     // pas avec « ce mode précis est affiché maintenant ».
     const pastille = pastilleBandeau(evenements, jours, maintenant, modulateurs.includes('invites'),
-                                     piece.blocDefaut === 'agenda');
+                                     agencement.blocDefaut === 'agenda');
 
     // Revue tâche 15, mineur M4 : le contexte donné au CORPS décrit l'écran RÉELLEMENT rendu, pas
     // celui que le mode aurait produit. Sous `horsLigne`, le bloc central n'est plus la carte
@@ -1857,7 +1864,7 @@ export async function demarrer(
                           ${rendreBandeau(etat, momentRendu, maintenant, piece.temperature, pastille)}
                           ${rendreCorps(etat, piece, blocCentral, ctxCorps, tuile, entretienAffiche,
                                         (repasCourant()?.recetteId ?? null) !== null
-                                          || recetteUid !== null)}
+                                          || recetteUid !== null, agencement)}
                         </div>
                         ${survol()}`);
   }

@@ -17,9 +17,33 @@ import { rendreCorps, ligneSynthese, rendreAlerte, etiquette } from '../src/rend
 import { rendreMaison } from '../src/rendu/maison';
 import type { Alerte } from '../src/contexte';
 import type { ContexteModes } from '../src/modes';
+import { AGENCEMENT_DEFAUT, type Agencement } from '../src/agencement';
+import type { Ecran } from '../src/ecran';
 
 const ev = (id: string, etat: string, attributes: Record<string, unknown> = {}) =>
   ({ entity_id: id, state: etat, attributes });
+
+/** Un bloc central minimal, marqué comme le sont tous les vrais gabarits de mode (media.ts,
+ *  modes.ts, defaut.ts, minuteur.ts, voiture.ts, corps.ts) — cf. correction 3 de la tâche 3 du
+ *  plan 2 (« les blocs centraux portent déjà leur marqueur », rendreCorps ne l'ajoute pas). Sert
+ *  aux tests d'assembleur ci-dessous : sans lui, `rendreCorps` ne recevant jamais de bloc central
+ *  de sa propre initiative (il est toujours fourni par `demarrage.ts`), la zone `blocCentral`
+ *  resterait `undefined` et disparaîtrait du DOM comme n'importe quelle zone sans rien à montrer
+ *  — ce qui rendrait le premier test ci-dessous incapable de vérifier l'ordre à quatre zones
+ *  qu'il annonce. Seul son marqueur data-zone compte ici, jamais son contenu. */
+const BLOC_CENTRAL_FACTICE = html`<div class="mode-bloc" data-zone="blocCentral"></div>`;
+
+/** Tâche 3 du plan 2 : monte `rendreCorps` avec un état vide et sans contexte de mode, pour la
+ *  seule chose que les tests d'assembleur ci-dessous vérifient — la PRÉSENCE et l'ORDRE des
+ *  `data-zone`, pas les libellés ni les états des commandes. Reprend le patron déjà utilisé
+ *  partout dans ce fichier (`new Etat()` + `render(rendreCorps(...), div)`), sans en inventer un
+ *  second. */
+function rendreDans(ecran: Ecran, agencement?: Agencement): HTMLElement {
+  const racine = document.createElement('div');
+  render(rendreCorps(new Etat(), ecran, BLOC_CENTRAL_FACTICE, undefined, undefined, false, false,
+                     agencement), racine);
+  return racine;
+}
 
 /** État où les cinq commandes déclarées au salon (`ECRANS.salon.commandes`, cf. `ecran.ts`) sont
  *  toutes utilisables — sert les tests de rangée de commandes (tâche 9) ci-dessous, qui ont
@@ -1178,5 +1202,45 @@ describe('absence nommée', () => {
         absenceNommee: 'Garde-manger non installé' } as EntreeSynthese,
     ]);
     expect(s.ecarts).toContain('Garde-manger non installé');
+  });
+});
+
+/** Lit l'ordre des zones REELLEMENT rendues dans le DOM, par leur attribut `data-zone`.
+ *  On ignore `bandeau` (rendu ailleurs), `etiquetteAmbiance` (titre de la zone `ambiances`,
+ *  qui voyage avec elle) et `touteLaMaison` (fixe en bas, collée par `margin-top: auto`). */
+function zonesRendues(racine: HTMLElement): string[] {
+  const mobiles = ['synthese', 'blocCentral', 'ambiances', 'commandes'];
+  return Array.from(racine.querySelectorAll('[data-zone]'))
+    .map((e) => e.getAttribute('data-zone')!)
+    .map((z) => (z === 'rangeeAmbiance' ? 'ambiances' : z))
+    .filter((z) => mobiles.includes(z));
+}
+
+describe('rendreCorps — assembleur de zones', () => {
+  it('rend les zones dans l ordre du defaut quand rien n est declare', () => {
+    // La cuisine rend les quatre zones mobiles : trois ambiances, un bloc central (repas),
+    // quatre commandes, une synthèse à cinq entrées. Ordre vérifié dans le gabarit (`corps.ts`,
+    // 2026-09-12) : ambiances, PUIS commandes, PUIS le bloc central, PUIS la synthèse — pas
+    // l'ordre qu'une première lecture du brief de cette tâche annonçait.
+    expect(zonesRendues(rendreDans(ECRANS.cuisine)))
+      .toEqual(['ambiances', 'commandes', 'blocCentral', 'synthese']);
+  });
+
+  it('rend la synthese EN TETE quand l agencement le demande', () => {
+    const racine = rendreDans(ECRANS.cuisine,
+      { ...AGENCEMENT_DEFAUT, zones: ['synthese', 'ambiances', 'blocCentral', 'commandes'] });
+    expect(zonesRendues(racine)[0]).toBe('synthese');
+  });
+
+  it('omet entierement une zone absente de la liste', () => {
+    const racine = rendreDans(ECRANS.cuisine,
+      { ...AGENCEMENT_DEFAUT, zones: ['blocCentral', 'commandes'] });
+    expect(zonesRendues(racine)).not.toContain('synthese');
+    expect(zonesRendues(racine)).not.toContain('ambiances');
+  });
+
+  it('garde le bandeau et Toute la maison hors de l ordre reglable', () => {
+    const racine = rendreDans(ECRANS.cuisine, { ...AGENCEMENT_DEFAUT, zones: ['commandes'] });
+    expect(racine.querySelector('[data-zone="touteLaMaison"]')).not.toBeNull();
   });
 });

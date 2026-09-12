@@ -46,12 +46,6 @@ describe('les trois ecrans declarent ce qui etait deduit', () => {
     }
   });
 
-  it('le blocDefaut de l agencement reprend celui de la racine', () => {
-    for (const [nom, e] of Object.entries(ECRANS)) {
-      expect(resoudreAgencement(e).blocDefaut, nom).toBe(e.blocDefaut);
-    }
-  });
-
   it('tout mode declare est un mode que modes.ts connait', () => {
     const connus = ['alerte', 'recette', 'minuteur', 'menage', 'cinema', 'media',
                     'aeration', 'voiture', 'defaut'];

@@ -92,15 +92,21 @@ describe('contrat/ecran.schema.json', () => {
     refusePour(casse, { instancePath: '/commandes/0/icone', keyword: 'enum' });
   });
 
-  it('refuse blocDefaut: "entretien" a la racine', () => {
-    refusePour({ ...ECRANS.salon, blocDefaut: 'entretien' },
-      { instancePath: '/blocDefaut', keyword: 'enum', params: { allowedValues: ['voiture', 'repas', 'agenda'] } });
+  // Tâche 3 du plan 2 (2026-09-12) : `blocDefaut` n'existe plus DU TOUT à la racine — la tâche 1
+  // avait prouvé l'équivalence avec `agencement.blocDefaut`, ce qui a permis à cette tâche de
+  // retirer la copie racine (schéma compris). Un `blocDefaut` posé à la racine est donc désormais
+  // un champ INCONNU, refusé par `additionalProperties: false` au même titre que n'importe quel
+  // autre — plus par son `enum`, qui a disparu avec la propriété elle-même.
+  it('refuse blocDefaut a la racine — le champ n\'existe plus que dans agencement', () => {
+    refusePour({ ...ECRANS.salon, blocDefaut: 'voiture' },
+      { instancePath: '', keyword: 'additionalProperties', params: { additionalProperty: 'blocDefaut' } });
   });
 
-  // Symétrique du test précédent : la restriction de `blocDefaut` à la racine ne doit pas
-  // déteindre sur `agencement.blocDefaut`, qui reste prospectif (cinq valeurs, plan 2). Sans ce
-  // test, quelqu'un restreignant `$defs/agencement` par erreur casserait exactement ce que la
-  // correction ci-dessus visait à garantir, et rien ne le verrait.
+  // Symétrique du test précédent : l'absence de `blocDefaut` à la racine ne doit pas déteindre sur
+  // `agencement.blocDefaut`, qui reste prospectif (cinq valeurs, plan 2) et bien réel. Sans ce
+  // test, quelqu'un retirant `blocDefaut` de `$defs/agencement` par erreur en même temps que la
+  // racine casserait exactement ce que la correction ci-dessus visait à garantir, et rien ne le
+  // verrait.
   it('accepte blocDefaut: "entretien" dans agencement (prospectif, distinct de la racine)', () => {
     const annote = { ...ECRANS.salon, agencement: { blocDefaut: 'entretien' } };
     expect(valider(annote), JSON.stringify(valider.errors)).toBe(true);

@@ -31,9 +31,9 @@ consignées ici parce que le seul lecteur futur de ces fichiers est
 l'implémenteur Python du plan 3, et qu'un journal de travail ne part pas
 avec le dépôt :
 
-- **`blocDefaut: "voiture"` n'exige pas l'objet `voiture`.** Un écran peut
-  déclarer `blocDefaut: "voiture"` à la racine sans déclarer `voiture` du
-  tout ; rien dans le schéma ne relie les deux.
+- **`agencement.blocDefaut: "voiture"` n'exige pas l'objet `voiture`.** Un
+  écran peut déclarer `blocDefaut: "voiture"` dans son `agencement` sans
+  déclarer `voiture` du tout ; rien dans le schéma ne relie les deux.
 - **`"minuteur"` dans `agencement.modes` n'exige pas `minuteurs` non vide.**
   Un agencement peut lister le mode `minuteur` sans qu'aucun minuteur ne
   soit déclaré pour l'écran.

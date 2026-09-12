@@ -1112,7 +1112,7 @@ describe('bloc par défaut : repas et agenda', () => {
   // fenêtre de 3 h de la pastille (`FENETRE_MS`, `agenda.ts`) — c'est le cas le plus courant,
   // celui qui a exactement révélé la duplication au premier passage de cette tâche (le bloc ET la
   // pastille montraient « Réunion client » en même temps). `.pastille` doit donc rester ABSENTE de
-  // cette donnée : `masquerRdv` (posé dans `demarrage.ts` sur `piece.blocDefaut === 'agenda'`)
+  // cette donnée : `masquerRdv` (posé dans `demarrage.ts` sur `agencement.blocDefaut === 'agenda'`)
   // fait céder la pastille sur les rendez-vous, jamais le bloc central, qui reste seul propriétaire
   // de cette information sur cet écran.
   it('bureau : affiche le rendez-vous dans le bloc central, jamais aussi dans la pastille', async () => {

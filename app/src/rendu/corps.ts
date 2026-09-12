@@ -7,6 +7,7 @@ import { icone } from './icones';
 import { ENTITE_ENTRETIEN } from './defaut';
 import { descripteurJauge, fractionJauge } from '../jauge';
 import { ordreCommandes, type ContexteModes } from '../modes';
+import { AGENCEMENT_DEFAUT, type Agencement, type Zone } from '../agencement';
 
 /** Tâche 8 bis : `alerteActive` (`contexte.ts`) existe et est testée depuis la tâche 2, mais rien
  *  ne l'appelait — cette fonction rend ce que `demarrage.ts` calcule dans le même gabarit `.t`/`.v`
@@ -345,6 +346,12 @@ export function brancherGeste(fn: typeof geste) { geste = fn; }
  *                          connaître le vocabulaire du budget ;
  *    `synthese`          — la ligne de synthèse, permanente, plus bas dans ce fichier ;
  *    `touteLaMaison`     — le grand bouton `.xl` du pied, présent dans tous les modes. */
+/** Une zone mobile, rendue. `undefined` = la zone n'a rien à montrer sur cet écran (le salon sans
+ *  rangée d'ambiance, un mode sans bloc central) et disparaît COMPLÈTEMENT — pas un `.groupe`
+ *  vide, qui resterait un enfant de la colonne flex et coûterait une gouttière de 8 px que le
+ *  budget n'a pas. C'est la règle posée le 2026-08-29 pour la rangée d'ambiance, ici généralisée. */
+type RenduZone = TemplateResult | undefined;
+
 export function rendreCorps(
   etat: Etat, piece: Ecran,
   // Renommé depuis `enTete` (tâche 9, 2026-08-02) : ce bloc n'a jamais été un en-tête, c'est le
@@ -377,7 +384,7 @@ export function rendreCorps(
   // le bloc central — plus grand, plus lisible, et seul à porter le détail.
   //
   // Décidé par `demarrage.ts` sur ce qui est RÉELLEMENT rendu, jamais sur la pièce (contrairement
-  // à `masquerRdv`, posé lui sur `piece.blocDefaut === 'agenda'`) : un soir où un plat est planifié, ou
+  // à `masquerRdv`, posé lui sur `agencement.blocDefaut === 'agenda'`) : un soir où un plat est planifié, ou
   // pendant qu'un mode prioritaire confisque le bloc, l'entretien n'est affiché nulle part et la
   // synthèse doit le reprendre. Optionnel et en dernière position comme `ctx`/`tuileMinuteur` :
   // sans lui, comportement d'avant cette tâche, à l'identique.
@@ -386,6 +393,11 @@ export function rendreCorps(
   // ouvrir. Décidé par `demarrage.ts` sur ce qui est RÉELLEMENT disponible (une note du plan de
   // repas n'a pas de recette), jamais sur la pièce — même patron que `masquerEntretien`.
   recetteOuvrable = false,
+  // Tâche 3 du plan 2 : l'ORDRE des zones mobiles vient de l'agencement de l'écran. Facultatif et
+  // en dernière position, comme `ctx`/`tuileMinuteur`/`masquerEntretien`/`recetteOuvrable` avant
+  // lui : sans lui, l'ordre est celui d'`AGENCEMENT_DEFAUT`, c'est-à-dire exactement celui que ce
+  // gabarit écrivait en dur. Les tests de rendu existants restent donc verts sans être réécrits.
+  agencement?: Agencement,
 ): TemplateResult {
   // Modulateur `invites` : les écarts marqués `perso` (voiture, entretien) disparaissent — ils ne
   // regardent que Maxime. La porte déverrouillée, elle, reste : c'est une information de sécurité
@@ -408,28 +420,26 @@ export function rendreCorps(
     ? utilisables
     : utilisables.filter((c) => c.vue !== '#recette' || !etat.estUtilisable(c.entite));
   const commandes = ctx ? ordreCommandes(affichables, ctx) : affichables;
-  return html`
-    <!-- La marque data-mvt="vue:accueil" N'EST PLUS ICI (2026-08-28) : elle vit sur .ecran
-         (demarrage.ts), la racine qui contient le bandeau ET ce corps. Une traversée ne fait
-         glisser que l'élément marqué et ne garde en fond que son clone — tant que la marque était
-         posée sur .corps seul, le bandeau, son frère, était retiré sec par lit et l'heure
-         disparaissait au premier quart de seconde de chaque ouverture de sous-vue.
-         (Pas de guillemet oblique dans ce commentaire : il vit DANS un template literal.) -->
-    <div class="corps">
-      <!-- 2026-08-29 : la rangée entière — étiquette comprise — disparaît quand la pièce n'a rien
-           à y mettre (le salon, qui a rendu ses trois scènes pour financer ses quatre commandes
-           permanentes, cf. ecran.ts). Le retrait doit être COMPLET, exactement pour la même
-           raison que la rangée de commandes du mode minuteur juste en dessous : .corps est une
-           colonne flex à gouttière de 8 px, donc un .groupe vide n'aurait aucune hauteur propre
-           mais resterait un enfant à part entière — une gouttière de plus que rien ne comble,
-           dans un budget qui n'a pas 8 px à perdre. Et une étiquette Ambiance seule au-dessus du
-           vide serait un titre orphelin.
-           La condition regarde AUSSI tuileMinuteur : une pièce sans ambiance déclarée à qui
-           demarrage.ts passe quand même la tuile d'entrée du minuteur garde bien sa rangée.
-           Aucune pièce n'est dans ce cas aujourd'hui — la condition le prévoit plutôt que de le
-           laisser se découvrir un jour à l'écran.
-           (Pas de guillemet oblique dans ce commentaire : il vit DANS un template literal.) -->
-      ${piece.ambiances.length || tuileMinuteur ? html`
+
+  // Les quatre zones mobiles, extraites du gabarit unique qu'elles formaient avant cette tâche —
+  // chacune rend EXACTEMENT ce que ce gabarit rendait pour elle, commentaires HTML compris (ils
+  // voyagent avec leur zone et disparaissent donc avec elle, cf. `RenduZone` ci-dessus). Le seul
+  // déplacé qui ne l'est pas verbatim est `blocCentral` : voir son commentaire dans la table
+  // `ZONES` plus bas — il n'a jamais eu de gabarit propre ici, seulement une place.
+  const RENDU_AMBIANCES = html`
+        <!-- 2026-08-29 : la rangée entière — étiquette comprise — disparaît quand la pièce n'a rien
+             à y mettre (le salon, qui a rendu ses trois scènes pour financer ses quatre commandes
+             permanentes, cf. ecran.ts). Le retrait doit être COMPLET, exactement pour la même
+             raison que la rangée de commandes du mode minuteur juste en dessous : .corps est une
+             colonne flex à gouttière de 8 px, donc un .groupe vide n'aurait aucune hauteur propre
+             mais resterait un enfant à part entière — une gouttière de plus que rien ne comble,
+             dans un budget qui n'a pas 8 px à perdre. Et une étiquette Ambiance seule au-dessus du
+             vide serait un titre orphelin.
+             La condition regarde AUSSI tuileMinuteur : une pièce sans ambiance déclarée à qui
+             demarrage.ts passe quand même la tuile d'entrée du minuteur garde bien sa rangée.
+             Aucune pièce n'est dans ce cas aujourd'hui — la condition le prévoit plutôt que de le
+             laisser se découvrir un jour à l'écran.
+             (Pas de guillemet oblique dans ce commentaire : il vit DANS un template literal.) -->
         <div class="etiquette" data-zone="etiquetteAmbiance">Ambiance</div>
         <!-- Tâche 3 : --ambiances porte le compte RÉEL de tuiles, la tuile minuteur comprise —
              c'est cette variable que .groupe (base.css) lit pour son nombre de colonnes
@@ -452,78 +462,107 @@ export function rendreCorps(
                  @pointerdown=${() => appuyer(etat, a)}>
               ${icone(a.icone)}<span>${a.libelle}</span></div>`)}
           ${tuileMinuteur ?? ''}
-        </div>` : ''}
-      <!-- repeat CLÉ PAR ENTITÉ, jamais un simple .map : sans clé, lit réutilise les nœuds DOM DANS
-           L'ORDRE et se contente de réécrire leur contenu. Une tuile qui change de rang
-           deviendrait alors un nœud qui change de texte — et le FLIP de mouvement.ts animerait
-           un déplacement qui n'a pas eu lieu, en laissant le vrai changement se faire par un saut
-           de contenu. Avec la clé, lit DÉPLACE le nœud, et FLIP a quelque chose de réel à animer.
+        </div>`;
+  const RENDU_COMMANDES = html`
+        <!-- repeat CLÉ PAR ENTITÉ, jamais un simple .map : sans clé, lit réutilise les nœuds DOM DANS
+             L'ORDRE et se contente de réécrire leur contenu. Une tuile qui change de rang
+             deviendrait alors un nœud qui change de texte — et le FLIP de mouvement.ts animerait
+             un déplacement qui n'a pas eu lieu, en laissant le vrai changement se faire par un saut
+             de contenu. Avec la clé, lit DÉPLACE le nœud, et FLIP a quelque chose de réel à animer.
 
-           Tâche 10 bis : la rangée de commandes n'est rendue QUE si combien(mode) en laisse au
-           moins une (mode minuteur, cf. modes.ts) — un conteneur vide n'aurait aucune hauteur
-           propre, mais resterait un enfant à part entière de .corps en flex/gap 8px, ce qui
-           ajouterait un intervalle de plus (8px) que rien ne viendrait combler : une rangée vide
-           qui laisse un trou, exactement ce que ce budget de hauteur ne peut pas se permettre de
-           gaspiller. -->
-      <!-- C2 (revue finale) — role ligne:commandes, PAS bloc:commandes : le rôle bloc entre dans
-           l'appariement du croisement de diff.ts (« un bloc central qui en remplace un autre »),
-           à la seule condition de MÊME POSITION entre une sortie et une entrée. .corps est une
-           colonne flex et .commandes précède immédiatement le bloc central : retirer un enfant
-           d'une colonne flex donne à son successeur exactement son offsetTop — arithmétique, pas
-           un cas rare. Résultat mesuré : bloc:commandes à [16, 202] avant un minuteur lancé en
-           cuisine, bloc:minuteur-solo au MÊME [16, 202] après — comparer() les appariait donc en
-           un seul croisement, fondant le clone de la rangée de commandes par-dessus le minuteur
-           entrant pendant que le vrai bloc remplacé partait en sortie sèche à côté. Le rôle ligne
-           a exactement le comportement voulu ici (entrée/sortie/déplacement, cf. jouer() dans
-           moteur.ts) sans jamais entrer dans cet appariement, réservé au seul rôle bloc. -->
-      ${commandes.length ? html`
+             Tâche 10 bis : la rangée de commandes n'est rendue QUE si combien(mode) en laisse au
+             moins une (mode minuteur, cf. modes.ts) — un conteneur vide n'aurait aucune hauteur
+             propre, mais resterait un enfant à part entière de .corps en flex/gap 8px, ce qui
+             ajouterait un intervalle de plus (8px) que rien ne viendrait combler : une rangée vide
+             qui laisse un trou, exactement ce que ce budget de hauteur ne peut pas se permettre de
+             gaspiller. -->
+        <!-- C2 (revue finale) — role ligne:commandes, PAS bloc:commandes : le rôle bloc entre dans
+             l'appariement du croisement de diff.ts (« un bloc central qui en remplace un autre »),
+             à la seule condition de MÊME POSITION entre une sortie et une entrée. .corps est une
+             colonne flex et .commandes précède immédiatement le bloc central : retirer un enfant
+             d'une colonne flex donne à son successeur exactement son offsetTop — arithmétique, pas
+             un cas rare. Résultat mesuré : bloc:commandes à [16, 202] avant un minuteur lancé en
+             cuisine, bloc:minuteur-solo au MÊME [16, 202] après — comparer() les appariait donc en
+             un seul croisement, fondant le clone de la rangée de commandes par-dessus le minuteur
+             entrant pendant que le vrai bloc remplacé partait en sortie sèche à côté. Le rôle ligne
+             a exactement le comportement voulu ici (entrée/sortie/déplacement, cf. jouer() dans
+             moteur.ts) sans jamais entrer dans cet appariement, réservé au seul rôle bloc.
+             (Note tâche 3 du plan 2 : cette mesure suppose l'agencement PAR DÉFAUT, où commandes
+             précède effectivement blocCentral. Un agencement personnalisé qui inverserait les deux
+             n'est pas revisité ici — hors périmètre de cette tâche.) -->
         <div class="commandes" data-zone="commandes" data-mvt="ligne:commandes">
           ${repeat(commandes, (c) => c.entite,
                    (c) => bouton(etat, c, etat.estUtilisable(c.entite)
                      && commandeActive(c.entite, etat.lire(c.entite)!.etat), 'commande'))}
-        </div>` : ''}
-      <!-- blocCentral est le SEUL bloc central depuis la tâche 14 : ce fichier ne calcule plus
-           rien lui-même pour cet emplacement (l'ancien repli « prévisions horaires », .prevision,
-           a disparu avec le mode previsions, cf. modes.ts/rendu/defaut.ts). Absent (undefined) →
-           rien ne s'affiche ici et l'écran se resserre d'autant, exactement comme un mode sans
-           rien à montrer (plan de repas vide, plus de rendez-vous aujourd'hui, cf.
-           rendu/defaut.ts) ; fourni → il remplace, jamais en plus, sinon le budget de hauteur
-           saute.
-           Tâche 9, correction 1 (coordinateur, 2026-08-02) : « Demain » n'a JAMAIS sa place ici —
-           la pastille du bandeau (agenda.ts, pastilleBandeau, tâche 8) retombe déjà sur « Demain »
-           + phraseDemain(demain) en permanence dès qu'il n'y a ni anniversaire ni rendez-vous
-           proche. Le corps ne connaît donc plus demain du tout (paramètre retiré de la
-           signature) : le bandeau en est seul propriétaire, jamais deux fois la même donnée sur
-           la même tablette. -->
-      ${blocCentral ?? ''}
-      <!-- Tâche 18 : la ligne de synthèse ouvre la vue Tâches (rendu/taches.ts) — demande
-           explicite du propriétaire (« appuyer dessus pour voir la liste »). Toujours active,
-           même quand aucun écart n'est affiché ou que l'écart montré n'est pas une tâche (porte
-           déverrouillée, rideau ouvert...) : ce que ce tap ouvre, ce sont TOUJOURS les listes
-           todo.* de la pièce (cf. listesTachesPiece, cochage.ts), jamais l'écart affiché au
-           moment précis du contact — les trois pièces ont chacune au moins une liste, l'accès
-           reste donc toujours pertinent.
+        </div>`;
+  const RENDU_SYNTHESE = html`
+        <!-- Tâche 18 : la ligne de synthèse ouvre la vue Tâches (rendu/taches.ts) — demande
+             explicite du propriétaire (« appuyer dessus pour voir la liste »). Toujours active,
+             même quand aucun écart n'est affiché ou que l'écart montré n'est pas une tâche (porte
+             déverrouillée, rideau ouvert...) : ce que ce tap ouvre, ce sont TOUJOURS les listes
+             todo.* de la pièce (cf. listesTachesPiece, cochage.ts), jamais l'écart affiché au
+             moment précis du contact — les trois pièces ont chacune au moins une liste, l'accès
+             reste donc toujours pertinent.
 
-           Ronde de correction 1 (tâche 10 bis) : le texte est maintenant enveloppé dans
-           synthese-texte, borné à 2 lignes (-webkit-line-clamp, base.css) — sans lui, cette
-           ligne grandit SANS PLAFOND avec le nombre d'écarts réellement actifs en même temps
-           (porte déverrouillée, rideau ouvert, voiture à brancher, tâches d'entretien : jusqu'à
-           quatre, un jour ordinaire de rideau ouvert et de liste d'entretien non vide) — mesuré à
-           +16 px par ligne supplémentaire, largement responsable du dépassement du mode voiture
-           découvert en relecture (574 → 590 px). .synthese elle-même reste la ligne tapable en
-           flex (icône + bloc de texte), inchangée.
+             Ronde de correction 1 (tâche 10 bis) : le texte est maintenant enveloppé dans
+             synthese-texte, borné à 2 lignes (-webkit-line-clamp, base.css) — sans lui, cette
+             ligne grandit SANS PLAFOND avec le nombre d'écarts réellement actifs en même temps
+             (porte déverrouillée, rideau ouvert, voiture à brancher, tâches d'entretien : jusqu'à
+             quatre, un jour ordinaire de rideau ouvert et de liste d'entretien non vide) — mesuré à
+             +16 px par ligne supplémentaire, largement responsable du dépassement du mode voiture
+             découvert en relecture (574 → 590 px). .synthese elle-même reste la ligne tapable en
+             flex (icône + bloc de texte), inchangée.
 
-           Marques (2026-08-25) : ces deux éléments ne changent jamais de forme, mais ils
-           CHANGENT DE PLACE — le bloc central au-dessus d'eux apparaît, disparaît et change de
-           hauteur d'un mode à l'autre, ce qui les décale tous les deux. Sans marque, ce
-           glissement était un saut sec, et verifier-rendu.mjs le signalait (8 éléments sur la
-           page cuisine, en comptant les enfants de .synthese). Marquer .synthese couvre
-           .synthese-texte et .ecart, qui sont ses descendants : la règle d'imbrication veut
-           un ancêtre STRICT qui bouge dans la même différence, pas une marque sur chaque nœud. -->
-      <div class="synthese" data-zone="synthese" data-mvt="ligne:synthese"
-           @pointerdown=${() => (location.hash = '#taches')}>${icone('lock')}
-        <div class="synthese-texte">${s.texte} <span class="ecart">${s.ecarts.join(', ')}</span></div>
-      </div>
+             Marques (2026-08-25) : ces deux éléments ne changent jamais de forme, mais ils
+             CHANGENT DE PLACE — le bloc central au-dessus d'eux apparaît, disparaît et change de
+             hauteur d'un mode à l'autre, ce qui les décale tous les deux. Sans marque, ce
+             glissement était un saut sec, et verifier-rendu.mjs le signalait (8 éléments sur la
+             page cuisine, en comptant les enfants de .synthese). Marquer .synthese couvre
+             .synthese-texte et .ecart, qui sont ses descendants : la règle d'imbrication veut
+             un ancêtre STRICT qui bouge dans la même différence, pas une marque sur chaque nœud. -->
+        <div class="synthese" data-zone="synthese" data-mvt="ligne:synthese"
+             @pointerdown=${() => (location.hash = '#taches')}>${icone('lock')}
+          <div class="synthese-texte">${s.texte} <span class="ecart">${s.ecarts.join(', ')}</span></div>
+        </div>`;
+
+  // Table zone -> rendu, construite ICI pour capturer les variables locales ci-dessus (piece,
+  // tuileMinuteur, commandes, blocCentral, RENDU_*). L'ORDRE d'itération vient de l'agencement,
+  // jamais de l'ordre des clés de cet objet.
+  const ZONES: Record<Zone, () => RenduZone> = {
+    ambiances: () => (piece.ambiances.length || tuileMinuteur ? RENDU_AMBIANCES : undefined),
+    // blocCentral n'a jamais eu de gabarit à LUI dans ce fichier : ce paramètre porte déjà son
+    // propre data-zone="blocCentral" (media.ts, modes.ts, defaut.ts, minuteur.ts, voiture.ts, ce
+    // fichier pour alerte/hors-ligne) depuis la tâche 14. Placé TEL QUEL, jamais enveloppé ni
+    // remarqué — envelopper casserait le couplage data-zone/data-mvt que porte déjà chaque
+    // gabarit de mode, et briserait l'appariement de mouvement.ts qui s'attend à ce marqueur en
+    // position de racine du bloc. Absent (undefined) → rien ne s'affiche ici et l'écran se
+    // resserre d'autant, exactement comme un mode sans rien à montrer ; fourni → il remplace,
+    // jamais en plus, sinon le budget de hauteur saute.
+    //
+    // Tâche 9, correction 1 (coordinateur, 2026-08-02) : « Demain » n'a JAMAIS sa place ici — la
+    // pastille du bandeau (agenda.ts, pastilleBandeau, tâche 8) retombe déjà sur « Demain » +
+    // phraseDemain(demain) en permanence dès qu'il n'y a ni anniversaire ni rendez-vous proche.
+    // Le corps ne connaît donc plus demain du tout : le bandeau en est seul propriétaire, jamais
+    // deux fois la même donnée sur la même tablette.
+    blocCentral: () => blocCentral,
+    commandes: () => (commandes.length ? RENDU_COMMANDES : undefined),
+    synthese: () => RENDU_SYNTHESE,
+  };
+  const zones = (agencement ?? AGENCEMENT_DEFAUT).zones;
+  return html`
+    <!-- La marque data-mvt="vue:accueil" N'EST PLUS ICI (2026-08-28) : elle vit sur .ecran
+         (demarrage.ts), la racine qui contient le bandeau ET ce corps. Une traversée ne fait
+         glisser que l'élément marqué et ne garde en fond que son clone — tant que la marque était
+         posée sur .corps seul, le bandeau, son frère, était retiré sec par lit et l'heure
+         disparaissait au premier quart de seconde de chaque ouverture de sous-vue.
+         (Pas de guillemet oblique dans ce commentaire : il vit DANS un template literal.) -->
+    <div class="corps">
+      <!-- Tâche 3 du plan 2 : l'ORDRE de ces zones vient de agencement.zones, jamais plus écrit en
+           dur ici. Le filter est INDISPENSABLE, pas cosmétique : lit rendrait un undefined comme
+           un nœud vide, mais chaque enfant de cette colonne flex coûte une gouttière de 8 px
+           (base.css), et le budget de hauteur n'a que 3 px de marge — cf. le commentaire du type
+           RenduZone plus haut. -->
+      ${zones.map((z) => ZONES[z]()).filter((t) => t !== undefined)}
       <div class="xl" data-zone="touteLaMaison" data-mvt="tuile:toute-la-maison"
            @pointerdown=${() => (location.href = '#maison')}>
         ${icone('home')}Toute la maison</div>

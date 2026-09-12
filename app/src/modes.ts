@@ -41,14 +41,14 @@ export type ContexteModes = {
    *  sauf l'alerte : le mode `minuteur` n'affiche AUCUNE commande (630 px mesurés), donc sans cette
    *  préséance, lancer un minuteur ferait disparaître le seul point de reprise de la recette. */
   recetteEnCours: boolean;
-  /** Tâche 14 (2026-08-03) : reprend tel quel `Ecran.blocDefaut` (`ecran.ts`) — UNE SEULE façon
-   *  de déclarer quel bloc central occupe la pièce par défaut, remplace l'ancien
+  /** Tâche 14 (2026-08-03) : reprend tel quel `Agencement.blocDefaut` (`agencement.ts`) — UNE
+   *  SEULE façon de déclarer quel bloc central occupe la pièce par défaut, remplace l'ancien
    *  `voitureDeclaree: boolean` (qui déduisait ce fait de la simple présence de `piece.voiture`,
    *  un mécanisme que le repas/l'agenda n'auraient pas pu réutiliser sans en écrire un second en
    *  parallèle). Seule la valeur `'voiture'` change le MODE ci-dessous (`voiture` a un gabarit
    *  plus haut, cf. `combien`) ; `'repas'`/`'agenda'`/`undefined` retombent tous sur `defaut` —
-   *  c'est `demarrage.ts`, qui seul connaît `piece.blocDefaut` en clair, qui choisit ENSUITE quel
-   *  contenu (repas, agenda, rien) remplit ce bloc, cf. `rendu/defaut.ts`. */
+   *  c'est `demarrage.ts`, qui seul connaît `agencement.blocDefaut` en clair, qui choisit ENSUITE
+   *  quel contenu (repas, agenda, rien) remplit ce bloc, cf. `rendu/defaut.ts`. */
   blocDefaut?: 'voiture' | 'repas' | 'agenda';
   /** 2026-08-29 : la pièce affiche-t-elle une rangée « Ambiance » ? Le nombre de commandes n'est
    *  plus une propriété du seul MODE — il dépend aussi de ce que la pièce dépense ailleurs sur les

@@ -157,27 +157,12 @@ export type Ecran = {
    *  (cf. rapport de tâche 12) — d'où une SUBSTITUTION plutôt qu'un ajout. Absent partout ailleurs
    *  : `TOUTE_LA_MAISON` y garde alors son entrée par défaut, comme avant cette tâche. */
   aspirateurMaison?: Bouton;
-  /** Données de la voiture — présentes au salon seulement. `blocDefaut` ci-dessous décide QUAND
+  /** Données de la voiture — présentes au salon seulement. `agencement.blocDefaut` décide QUAND
    *  cette donnée occupe le bloc central ; ce champ ne porte plus cette décision lui-même (tâche
-   *  14, cf. son docstring) — un renommage/retrait de `voiture` sans toucher `blocDefaut`
+   *  14, cf. son docstring) — un renommage/retrait de `voiture` sans toucher `agencement.blocDefaut`
    *  laisserait `rendreVoiture` appelée sur `undefined`, donc l'appelant (`demarrage.ts`) garde
    *  malgré tout la garde `piece.voiture &&`, défensive plutôt que redondante. */
   voiture?: Voiture;
-  /** Tâche 14 (2026-08-03, blocs par défaut) : UNE SEULE façon de déclarer quel bloc occupe le centre de l'écran
-   *  quand rien de plus prioritaire ne se passe (mode `defaut`/`voiture`, cf. `modes.ts`) — avant
-   *  cette tâche, la voiture du salon était détectée par la simple PRÉSENCE du champ `voiture`
-   *  ci-dessus (`piece.voiture !== undefined`), un mécanisme implicite que le repas/l'agenda
-   *  n'auraient pas pu réutiliser sans en inventer un second en parallèle. `blocDefaut` remplace
-   *  ce test de présence : le salon le porte maintenant explicitement (`'voiture'`), à côté de son
-   *  objet `voiture` toujours nécessaire comme DONNÉE (les six entités à lire).
-   *  - `'voiture'` (salon) : `rendreVoiture` (`rendu/voiture.ts`), bloc plus haut que la normale
-   *    (2 commandes au lieu de 4, cf. `combien`, `modes.ts`).
-   *  - `'repas'` (cuisine) : `rendreRepasSuivant` (`rendu/defaut.ts`), le repas suivant lu dans les
-   *    attributs de `sensor.home_stock_next_meal` (cf. `src/garde-manger.ts`).
-   *  - `'agenda'` (bureau) : `rendreProchainRdv` (`rendu/defaut.ts`), le prochain rendez-vous du
-   *    jour.
-   *  Absent → aucun bloc par défaut (n'arrive à aucune des trois pièces déclarées aujourd'hui). */
-  blocDefaut?: 'voiture' | 'repas' | 'agenda';
   /** La scène DeLorean joue-t-elle sur cet écran ? Salon seulement (décision du propriétaire,
    *  2026-08-21) : le modèle réduit est posé là, la voiture s'anime et l'écran juste à côté
    *  bascule au même instant. Déclaré ici plutôt que testé sur `nom` dans `demarrage.ts` — un
@@ -309,7 +294,6 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {
     ],
     extrasMaison: [],
     listesTachesExtra: [],
-    blocDefaut: 'voiture',
     delorean: true,
     voiture: {
       batterie: 'sensor.peugeot_e208_batterie_niveau',
@@ -397,15 +381,15 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {
     ],
     extrasMaison: [],
     listesTachesExtra: [],
-    // Tâche 14 (2026-08-03, blocs par défaut) : le prochain rendez-vous du jour (rendreProchainRdv, rendu/defaut.ts), à la
-    // place des six prochaines heures — c'est au bureau qu'on regarde son agenda.
-    blocDefaut: 'agenda',
     agencement: {
       zones: ['ambiances', 'commandes', 'blocCentral', 'synthese'],
       // Ni minuteur, ni recette, ni voiture, ni DeLorean. `aeration` retiré aussi : `ouvrants`
       // est vide, la condition ne peut pas se déclencher.
       modes: ['alerte', 'menage', 'cinema', 'media', 'defaut'],
       modulateurs: ['invites', 'chaleur'],
+      // Tâche 14 (2026-08-03, blocs par défaut) : le prochain rendez-vous du jour
+      // (rendreProchainRdv, rendu/defaut.ts), à la place des six prochaines heures — c'est au
+      // bureau qu'on regarde son agenda.
       blocDefaut: 'agenda',
       note: 'C\'est au bureau qu\'on regarde son agenda.',
     },
@@ -553,14 +537,13 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {
     // ni avec la tuile « Cuisine » (lumière) déjà présente dans cette même grille.
     aspirateurMaison: { libelle: 'Aspirer ici', icone: 'aspirateur', entite: 'vacuum.aspirateur_cuisine',
       service: ['script', 'turn_on'], cible: 'script.aspirateur_cuisine' },
-    // Tâche 14 (2026-08-03, blocs par défaut) : ce qui est prévu à manger (rendreRepasSuivant,
-    // rendu/defaut.ts), à la place des six prochaines heures — c'est en cuisine qu'on cuisine.
-    blocDefaut: 'repas',
     agencement: {
       zones: ['ambiances', 'commandes', 'blocCentral', 'synthese'],
       // La seule pièce où l'on fait cuire quelque chose : seule à porter `minuteur` et `recette`.
       modes: ['alerte', 'recette', 'minuteur', 'menage', 'cinema', 'media', 'aeration', 'defaut'],
       modulateurs: ['invites', 'chaleur'],
+      // Tâche 14 (2026-08-03, blocs par défaut) : ce qui est prévu à manger (rendreRepasSuivant,
+      // rendu/defaut.ts), à la place des six prochaines heures — c'est en cuisine qu'on cuisine.
       blocDefaut: 'repas',
       note: 'C\'est en cuisine qu\'on cuisine.',
     },

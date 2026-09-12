@@ -51,7 +51,6 @@
         "note": { "type": "string" }
       }
     },
-    "blocDefaut": { "enum": ["voiture", "repas", "agenda"] },
     "delorean": { "const": true },
     "agencement": { "$ref": "#/$defs/agencement" }
   },

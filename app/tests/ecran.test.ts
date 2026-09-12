@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { ECRANS, type Ecran, type Bouton, type EntreeSynthese } from '../src/ecran';
+import { resoudreAgencement } from '../src/agencement';
 
 /** Tous les fichiers de `src/`, récursivement. Une assertion sur le RÉPERTOIRE, pas sur une liste
  *  de fichiers : une liste de fichiers ne voit pas celui qu'on a oublié d'y mettre. */
@@ -113,11 +114,15 @@ describe('déclarations des pièces', () => {
   // une pièce par défaut — le salon garde son objet `voiture` (la donnée), mais c'est bien
   // `blocDefaut: 'voiture'` qui décide du mode (`modes.ts`), jamais la simple présence de
   // `piece.voiture`. Un mécanisme, jamais deux en parallèle pour la même décision.
+  //
+  // Tâche 3 du plan 2 (2026-09-12) : le champ a déménagé sur `agencement.blocDefaut` (la
+  // racine d'`Ecran` l'a perdu, cf. son docstring) — lu ici via `resoudreAgencement`, la seule
+  // façon prescrite d'y accéder (`agencement.ts`).
   it('chaque pièce déclare exactement le bloc par défaut attendu', () => {
-    expect(ECRANS.salon.blocDefaut).toBe('voiture');
+    expect(resoudreAgencement(ECRANS.salon).blocDefaut).toBe('voiture');
     expect(ECRANS.salon.voiture).toBeDefined();
-    expect(ECRANS.cuisine.blocDefaut).toBe('repas');
-    expect(ECRANS.bureau.blocDefaut).toBe('agenda');
+    expect(resoudreAgencement(ECRANS.cuisine).blocDefaut).toBe('repas');
+    expect(resoudreAgencement(ECRANS.bureau).blocDefaut).toBe('agenda');
   });
 });
 
@@ -234,7 +239,7 @@ describe('tâche 19 — les quatre commandes ajoutées à la cuisine et au burea
     expect(ECRANS.salon.listesTachesExtra).toEqual([]);
     expect(ECRANS.salon.commandes.map((c) => c.entite))
       .not.toContain('sensor.home_stock_next_meal');
-    expect(ECRANS.salon.blocDefaut).toBe('voiture');
+    expect(resoudreAgencement(ECRANS.salon).blocDefaut).toBe('voiture');
   });
 
   it("le bureau n'a aucune entité home_stock", () => {

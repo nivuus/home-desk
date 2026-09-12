@@ -25,8 +25,8 @@ import type { Ecran } from './ecran';
  *  (`outils/mesurer-hauteurs.mjs`) et non à les ordonner. */
 export type Zone = 'synthese' | 'blocCentral' | 'ambiances' | 'commandes';
 
-/** Trois valeurs, comme `Ecran.blocDefaut`. Le schéma en accepte cinq sur `agencement.blocDefaut`
- *  (`entretien`, `previsions`) : prospectives, le rendu ne sait pas encore les produire. */
+/** Trois valeurs. Le schéma en accepte cinq sur `agencement.blocDefaut` (`entretien`,
+ *  `previsions`) : prospectives, le rendu ne sait pas encore les produire. */
 export type BlocDefaut = 'voiture' | 'repas' | 'agenda';
 
 export type Agencement = {
@@ -39,6 +39,24 @@ export type Agencement = {
   /** Modulateurs actifs. Cumulatifs, donc SANS ordre significatif — ils ne prennent le bloc de
    *  personne, ils réordonnent, masquent ou survolent. */
   modulateurs: Modulateur[];
+  /** Tâche 14 du plan 1 (2026-08-03) : UNE SEULE façon de déclarer quel bloc occupe le centre de
+   *  l'écran quand rien de plus prioritaire ne se passe (mode `defaut`/`voiture`, cf. `modes.ts`)
+   *  — avant cette tâche, la voiture du salon était détectée par la simple PRÉSENCE du champ
+   *  `Ecran.voiture` (`piece.voiture !== undefined`), un mécanisme implicite que le repas/l'agenda
+   *  n'auraient pas pu réutiliser sans en inventer un second en parallèle. `blocDefaut` remplace
+   *  ce test de présence : le salon le porte maintenant explicitement (`'voiture'`), à côté de son
+   *  objet `voiture` (`ecran.ts`) toujours nécessaire comme DONNÉE (les six entités à lire).
+   *  - `'voiture'` (salon) : `rendreVoiture` (`rendu/voiture.ts`), bloc plus haut que la normale
+   *    (2 commandes au lieu de 4, cf. `combien`, `modes.ts`).
+   *  - `'repas'` (cuisine) : `rendreRepasSuivant` (`rendu/defaut.ts`), le repas suivant lu dans les
+   *    attributs de `sensor.home_stock_next_meal` (cf. `src/garde-manger.ts`).
+   *  - `'agenda'` (bureau) : `rendreProchainRdv` (`rendu/defaut.ts`), le prochain rendez-vous du
+   *    jour.
+   *  Absent → aucun bloc par défaut (n'arrive à aucune des trois pièces déclarées aujourd'hui).
+   *
+   *  Tâche 3 du plan 2 (2026-09-12) : ce champ vivait aussi sur la racine d'`Ecran`, en double —
+   *  la tâche 1 a prouvé l'équivalence des deux copies, ce qui a permis à cette tâche de retirer
+   *  la copie racine. Il n'existe plus qu'ici. */
   blocDefaut?: BlocDefaut;
   note?: string;
 };
