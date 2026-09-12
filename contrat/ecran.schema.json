@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nivuus.dev/contrat/ecran/1",
+  "title": "Un ecran mural",
+  "type": "object",
+  "required": ["nom", "temperature", "ambiances", "commandes", "synthese",
+               "extrasMaison", "sources", "ouvrants"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "nom": { "type": "string", "minLength": 1 },
+    "note": { "type": "string" },
+    "hauteurUtile": { "type": "integer", "minimum": 320, "maximum": 4000 },
+    "temperature": { "$ref": "#/$defs/entite" },
+    "ambiances": { "type": "array", "items": { "$ref": "#/$defs/bouton" } },
+    "commandes": { "type": "array", "items": { "$ref": "#/$defs/bouton" } },
+    "extrasMaison": { "type": "array", "items": { "$ref": "#/$defs/bouton" } },
+    "aspirateurMaison": { "$ref": "#/$defs/bouton" },
+    "synthese": { "type": "array", "items": { "$ref": "#/$defs/synthese" } },
+    "sources": { "type": "array", "items": { "$ref": "#/$defs/source" } },
+    "ouvrants": { "type": "array", "items": { "$ref": "#/$defs/entite" } },
+    "aspirateur": { "$ref": "#/$defs/entite" },
+    "listesTachesExtra": { "type": "array", "items": { "$ref": "#/$defs/entite" } },
+    "minuteurs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["timer", "nom"],
+        "additionalProperties": false,
+        "properties": {
+          "timer": { "$ref": "#/$defs/entite" },
+          "nom": { "$ref": "#/$defs/entite" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "etiquettesMinuteur": { "type": "array", "items": { "type": "string" } },
+    "voiture": {
+      "type": "object",
+      "required": ["batterie", "autonomie", "branchee", "enCharge", "clim",
+                   "demarrerClim", "arreterClim"],
+      "additionalProperties": false,
+      "properties": {
+        "batterie": { "$ref": "#/$defs/entite" },
+        "autonomie": { "$ref": "#/$defs/entite" },
+        "branchee": { "$ref": "#/$defs/entite" },
+        "enCharge": { "$ref": "#/$defs/entite" },
+        "clim": { "$ref": "#/$defs/entite" },
+        "demarrerClim": { "$ref": "#/$defs/entite" },
+        "arreterClim": { "$ref": "#/$defs/entite" },
+        "note": { "type": "string" }
+      }
+    },
+    "blocDefaut": { "enum": ["voiture", "repas", "agenda", "entretien", "previsions"] },
+    "delorean": { "const": true },
+    "agencement": { "$ref": "#/$defs/agencement" }
+  },
+  "$defs": {
+    "entite": {
+      "type": "string",
+      "pattern": "^[a-z_]+\\.[a-z0-9_]+$",
+      "description": "Un entity_id Home Assistant : domaine.objet, minuscules."
+    },
+    "bouton": {
+      "type": "object",
+      "required": ["libelle", "icone", "entite"],
+      "additionalProperties": false,
+      "properties": {
+        "libelle": { "type": "string", "minLength": 1 },
+        "icone": { "type": "string", "minLength": 1 },
+        "entite": { "$ref": "#/$defs/entite" },
+        "cible": { "$ref": "#/$defs/entite" },
+        "service": {
+          "type": "array", "minItems": 2, "maxItems": 2,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "lien": { "type": "string" },
+        "vue": { "type": "string", "pattern": "^#" },
+        "epingle": { "const": true },
+        "absenceNommee": { "type": "string" },
+        "note": { "type": "string" }
+      }
+    },
+    "synthese": {
+      "type": "object",
+      "required": ["entite", "texte", "operateur", "valeur"],
+      "additionalProperties": false,
+      "properties": {
+        "entite": { "$ref": "#/$defs/entite" },
+        "texte": { "type": "string", "minLength": 1 },
+        "operateur": { "enum": ["==", "!=", "<", ">"] },
+        "valeur": {},
+        "perso": { "const": true },
+        "horsTaches": { "const": true },
+        "note": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "operateur": { "enum": ["<", ">"] } }, "required": ["operateur"] },
+          "then": { "properties": { "valeur": { "type": "number" } } }
+        },
+        {
+          "if": { "properties": { "operateur": { "enum": ["==", "!="] } }, "required": ["operateur"] },
+          "then": { "properties": { "valeur": { "type": ["string", "number"] } } }
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "required": ["nom", "titre", "sousTitre", "affiche", "progression", "transport", "volume"],
+      "additionalProperties": false,
+      "properties": {
+        "nom": { "type": "string", "minLength": 1 },
+        "titre": { "type": "array", "items": { "$ref": "#/$defs/entite" } },
+        "sousTitre": { "type": "array", "items": { "$ref": "#/$defs/entite" } },
+        "affiche": { "type": "array", "items": { "$ref": "#/$defs/entite" } },
+        "progression": { "type": "array", "items": { "$ref": "#/$defs/entite" } },
+        "transport": { "type": "array", "items": { "$ref": "#/$defs/entite" } },
+        "volume": { "type": "array", "items": { "$ref": "#/$defs/entite" } },
+        "allumee": {
+          "type": "object",
+          "required": ["entite", "etats"],
+          "additionalProperties": false,
+          "properties": {
+            "entite": { "$ref": "#/$defs/entite" },
+            "etats": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "note": { "type": "string" }
+      }
+    },
+    "agencement": {
+      "description": "Facultatif tant que le plan 2 ne l'a pas porte dans la donnee. La resolution cote integration le remplit par defaut.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "zones": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["synthese", "blocCentral", "ambiances", "commandes"] },
+          "contains": { "const": "commandes" }
+        },
+        "blocDefaut": { "enum": ["voiture", "repas", "agenda", "entretien", "previsions"] },
+        "modes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": ["alerte", "recette", "minuteur", "menage", "cinema",
+                     "media", "aeration", "voiture", "defaut"]
+          },
+          "contains": { "const": "defaut" }
+        },
+        "modulateurs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["invites", "chaleur", "delorean"] }
+        },
+        "note": { "type": "string" }
+      }
+    }
+  }
+}
