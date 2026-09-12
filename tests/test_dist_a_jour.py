@@ -49,9 +49,13 @@ ecarts = subprocess.run(["git", "-C", str(REPO), "status", "--porcelain", "dist"
                         capture_output=True, text=True, check=True).stdout.strip()
 if ecarts:
     print("dist/ ou contrat/ ne correspond PAS a app/src/ commite.\n"
-          "Le build vient de produire un resultat different de ce qui est\n"
-          "versionne. Reconstruire et committer dist/ :\n"
-          "    cd app && npm run build && cd .. && git add dist && git commit\n"
+          "Soit le build vient de produire un resultat different de ce qui est\n"
+          "versionne (dist/, ou la part generee de contrat/ : icones.json et le\n"
+          "champ icone de ecran.schema.json), soit un changement a la main dans\n"
+          "budget.json ou ecran.schema.json n'a pas ete committe — ce test ne\n"
+          "distingue pas les deux, il verifie seulement qu'il ne reste rien en\n"
+          "ecart. Reconstruire et tout committer :\n"
+          "    cd app && npm run build && cd .. && git add dist contrat && git commit\n"
           "\nFichiers en ecart :\n" + ecarts)
     sys.exit(1)
 
