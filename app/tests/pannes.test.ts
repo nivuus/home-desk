@@ -25,7 +25,7 @@ import { vider } from './aides';
 // Le brief illustre `ligneSynthese` avec une seconde liste de simples chaînes
 // (`['todo.maintenance', 'lock.inexistante', ...]`) : c'était le bon type à la tâche 6, avant sa
 // ronde de correction 2, qui a introduit l'union discriminée `EntreeSynthese`
-// (`entite`/`operateur`/`valeur`/`texte`, cf. `pieces.ts` et le docstring de `ligneSynthese`
+// (`entite`/`operateur`/`valeur`/`texte`, cf. `ecran.ts` et le docstring de `ligneSynthese`
 // dans `rendu/corps.ts`) pour distinguer les comparaisons numériques des textuelles. Le brief
 // n'a pas suivi cette évolution ; ces trois tests gardent son intention (entité disparue, entité
 // muette, rien à signaler) mais avec la forme réelle du type, sans quoi ils ne compileraient

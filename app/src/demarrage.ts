@@ -45,7 +45,7 @@ import { rendreMinuteurs, rendreReglageMinuteur, tuileMinuteur, brancherMinuteur
 import { rendreVoiture, brancherVoiture, type EnVolClim } from './rendu/voiture';
 // Tâche 14 : les deux blocs qui remplacent les six prochaines heures en cuisine et au bureau —
 // fonctions de présentation pures, comme `rendreVoiture` ci-dessus. `demarrage.ts` leur fournit
-// leurs données (`repas`/`evenements`, ci-dessous) selon `piece.blocDefaut` (`pieces.ts`).
+// leurs données (`repas`/`evenements`, ci-dessous) selon `piece.blocDefaut` (`ecran.ts`).
 // Tâche 17 : `rendreEntretien` est le REPLI des deux précédents (l'un comme l'autre rendent
 // `undefined` le plus clair du temps sur cette installation) — même contrat, mêmes données déjà
 // chargées (`taches[ENTITE_ENTRETIEN]`, cf. `chargerTaches`).
@@ -1209,7 +1209,7 @@ export async function demarrer(
       // « n'arrive par AUCUN chemin poussé » : c'était FAUX. `todo/item/list` n'a effectivement pas
       // d'équivalent dans `subscribe_events`, et l'état poussé ne porte qu'un compteur, jamais les
       // libellés — mais ce compteur est bien poussé (il est consommé trois lignes plus bas par la
-      // ligne de synthèse, `{etat}`, cf. `pieces.ts`), et il suffit comme SIGNAL pour aller
+      // ligne de synthèse, `{etat}`, cf. `ecran.ts`), et il suffit comme SIGNAL pour aller
       // rechercher les libellés.
       //
       // Ce rappel de 15 min RESTE, en filet, pour le seul cas que le signal ne couvre pas :
@@ -1423,7 +1423,7 @@ export async function demarrer(
       // une recette RÉDUITE (hash vide) est justement l'état où ce mode doit primer, pour que
       // l'accueil garde le point de reprise de la cuisson même quand un minuteur tourne.
       recetteEnCours: recetteUid !== null,
-      // Tâche 14 : reprend tel quel `piece.blocDefaut` (pieces.ts) — UNE SEULE façon de déclarer
+      // Tâche 14 : reprend tel quel `piece.blocDefaut` (ecran.ts) — UNE SEULE façon de déclarer
       // quel bloc par défaut la pièce utilise, remplace l'ancien `piece.voiture !== undefined`
       // (un test de présence que le repas/l'agenda n'auraient pas pu réutiliser sans un second
       // mécanisme parallèle, cf. le docstring de ce champ sur `ContexteModes`, `modes.ts`).
@@ -1709,7 +1709,7 @@ export async function demarrer(
     //
     // Tâche 17 bis (relecture, défaut D4) : le bloc obéit au modulateur `invites` comme la ligne
     // de synthèse qu'il remplace. `todo.maintenance` est déclaré `perso: true` dans les trois
-    // pièces (`pieces.ts`) et son écart disparaît donc sous `input_boolean.mode_invites`
+    // pièces (`ecran.ts`) et son écart disparaît donc sous `input_boolean.mode_invites`
     // (`rendu/corps.ts`) — le bloc central, lui, l'affichait EN GRAND et EN DÉTAIL au milieu de
     // l'écran : exactement la donnée que ce modulateur existe pour cacher, et plus bavarde
     // qu'avant la tâche 17. Régression, corrigée ici.

@@ -2,7 +2,7 @@
 //
 // Tâche 14 : les deux blocs qui remplacent les six prochaines heures en cuisine et au bureau
 // (demande du propriétaire, 2026-08-03 — les prévisions horaires disparaissent partout, cf.
-// `pieces.ts`, champ `Ecran.blocDefaut`). Fonctions de présentation pures, même discipline que
+// `ecran.ts`, champ `Ecran.blocDefaut`). Fonctions de présentation pures, même discipline que
 // `tests/rendu-modes.test.ts` (ménage/aération) : aucun état HA lu directement, tout arrive en
 // paramètre.
 import { describe, it, expect, beforeEach } from 'vitest';

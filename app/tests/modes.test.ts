@@ -32,7 +32,7 @@ const ctx = (overrides: Partial<ContexteModes> = {}): ContexteModes => ({ ...CAL
 const COMMANDES: Bouton[] = [
   { libelle: 'Lumières', icone: 'bulb', entite: 'light.lumiere_salon', service: ['light', 'toggle'] },
   { libelle: 'Chauffage', icone: 'flame', entite: 'climate.radiateur' },
-  // `epingle` comme dans la déclaration réelle du salon (`pieces.ts`) : ce tableau de laboratoire
+  // `epingle` comme dans la déclaration réelle du salon (`ecran.ts`) : ce tableau de laboratoire
   // sert justement à exercer les modes du salon, il doit porter la même marque.
   { libelle: 'Porte', icone: 'porte', entite: 'lock.serrure', service: ['script', 'turn_on'],
     epingle: true },
@@ -295,7 +295,7 @@ describe('ordreCommandes', () => {
  *  `ordreCommandes` coupe à `combien(mode)` APRÈS avoir remonté certains libellés : le risque
  *  n'est donc pas la tuile ajoutée, c'est celle qui pourrait tomber hors coupe à cause d'elle,
  *  dans les modes à deux commandes. Exercé sur les VRAIES déclarations (`ECRANS`) et non sur un
- *  tableau de laboratoire : c'est le contenu réel de `pieces.ts` qui décide ici. */
+ *  tableau de laboratoire : c'est le contenu réel de `ecran.ts` qui décide ici. */
 describe('ordreCommandes — cuisine et bureau à quatre commandes (tâche 19)', () => {
   const noms = (b: Bouton[]) => b.map((x) => x.libelle);
 
@@ -363,7 +363,7 @@ describe('ordreCommandes — cuisine et bureau à quatre commandes (tâche 19)',
  *  le temps, à part la nuit » sur la tablette salon. La nuit n'a rien à exercer ici — l'écran de
  *  nuit ne rend aucune commande, `rendreNuit` ne consulte même pas `ordreCommandes` — donc les
  *  tests portent sur les modes du jour, ceux qui coupaient la porte hors de la vue.
- *  Exercé sur les VRAIES déclarations (`ECRANS.salon`) : c'est `pieces.ts` qui décide quelle
+ *  Exercé sur les VRAIES déclarations (`ECRANS.salon`) : c'est `ecran.ts` qui décide quelle
  *  commande est épinglée, ce fichier ne fait que vérifier la conséquence. */
 describe('ordreCommandes — commande épinglée (salon, 2026-08-04)', () => {
   const noms = (b: Bouton[]) => b.map((x) => x.libelle);

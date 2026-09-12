@@ -52,7 +52,7 @@ export function dernierMouvement(etat: Etat): number {
  *    capteur IKEA PARASOLL, pas un moteur). C'est Maxime qui ouvre à la main, sur cette
  *    suggestion — l'état qui en résulte est donc voulu et peut durer des heures (vérifié :
  *    ouverte depuis 1h30 au moment de cette ronde) tout autant que si un automate l'avait fait.
- *    Elle reste dans `ligneSynthese` (`pieces.ts`/`rendu/corps.ts`), sa place : une information
+ *    Elle reste dans `ligneSynthese` (`ecran.ts`/`rendu/corps.ts`), sa place : une information
  *    qu'on lit, pas un premier plan qui confisque l'écran.
  *  - TRAITABLE EN QUELQUES MINUTES exclut ce qui dure par nature (la batterie de la e208 —
  *    brancher une voiture ne se fait pas depuis la maison, et la recharge prend des heures — a

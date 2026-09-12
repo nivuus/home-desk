@@ -9,11 +9,11 @@ Home Assistant depuis `config/www/wallpanel/`.
 Ce n'est pas une base paramétrable, et ce n'est pas un oubli.
 
 - `app/src/` cite **66 `entity_id` en dur**, répartis en 18 domaines.
-- `app/src/ecran.ts` déclare `PIECES: Record<'salon' | 'bureau' | 'cuisine', Piece>` —
+- `app/src/ecran.ts` déclare `ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran>` —
   les trois pièces sont un **type TypeScript**, pas une donnée de configuration.
 
 Installé ailleurs, il affiche un écran d'entités inexistantes. La
-paramétrisation coûterait une refonte de `pieces.ts`, `modes.ts` et des 41
+paramétrisation coûterait une refonte de `ecran.ts`, `modes.ts` et des 41
 fichiers de tests, pour zéro bénéfice sur l'unique installation existante
 (décision 4 de la spec).
 

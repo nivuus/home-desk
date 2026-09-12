@@ -37,7 +37,7 @@ export type ContexteModes = {
    *  sauf l'alerte : le mode `minuteur` n'affiche AUCUNE commande (630 px mesurés), donc sans cette
    *  préséance, lancer un minuteur ferait disparaître le seul point de reprise de la recette. */
   recetteEnCours: boolean;
-  /** Tâche 14 (2026-08-03) : reprend tel quel `Ecran.blocDefaut` (`pieces.ts`) — UNE SEULE façon
+  /** Tâche 14 (2026-08-03) : reprend tel quel `Ecran.blocDefaut` (`ecran.ts`) — UNE SEULE façon
    *  de déclarer quel bloc central occupe la pièce par défaut, remplace l'ancien
    *  `voitureDeclaree: boolean` (qui déduisait ce fait de la simple présence de `piece.voiture`,
    *  un mécanisme que le repas/l'agenda n'auraient pas pu réutiliser sans en écrire un second en
@@ -55,7 +55,7 @@ export type ContexteModes = {
    *
    *  FACULTATIF, et « oui » quand il est absent : les deux autres pièces gardent leur rangée, et
    *  aucun appelant existant n'a une ligne à changer. Comme `blocDefaut`, il est repris tel quel
-   *  d'une donnée de `pieces.ts` par `demarrage.ts` — ce module ne lit jamais une pièce lui-même. */
+   *  d'une donnée de `ecran.ts` par `demarrage.ts` — ce module ne lit jamais une pièce lui-même. */
   rangeeAmbiance?: boolean;
 };
 
@@ -147,7 +147,7 @@ function remonter(commandes: Bouton[], libelles: string[]): Bouton[] {
 }
 
 /** Coupe à `n`, mais sans jamais laisser tomber les commandes épinglées de la pièce
- *  (`Bouton.epingle`, déclaré dans `pieces.ts` — le salon y épingle « Porte » depuis le
+ *  (`Bouton.epingle`, déclaré dans `ecran.ts` — le salon y épingle « Porte » depuis le
  *  2026-08-04, et « Rideau » depuis le 2026-08-29). Elles prennent alors les DERNIÈRES places
  *  visibles : les remontées de mode ci-dessous gardent ainsi la main sur la première,
  *  celle qui répond au besoin du moment (l'Ambilight pendant un film, les Lumières pendant la

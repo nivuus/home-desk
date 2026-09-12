@@ -221,12 +221,12 @@ const PIECES = ['salon', 'bureau', 'cuisine'];
  *
  *  `pages` (tâche 10, DÉCISION D'ARCHITECTURE non prévue par le brief — signalée dans le rapport
  *  de tâche) : absent = testé au SALON, comme les six modes d'origine (`pageDuMode`, plus bas).
- *  Jusqu'à la tâche 9 bis, mesurer les six modes au salon suffisait : `pieces.ts` n'y déclare rien
+ *  Jusqu'à la tâche 9 bis, mesurer les six modes au salon suffisait : `ecran.ts` n'y déclare rien
  *  que le salon ne possède pas. Deux faits changent la donne :
  *    - `minuteur` n'existe QU'en cuisine (seule pièce à déclarer `piece.minuteurs`) — le salon ne
  *      peut structurellement jamais rendre `.minuteurs`, quel que soit l'état injecté ;
  *    - `voiture` a pris la place PAR DÉFAUT du salon (`piece.blocDefaut` est un fait STATIQUE de
- *      `pieces.ts`, jamais dérivé d'un état HA) : `.prevision` n'y apparaîtra donc plus JAMAIS,
+ *      `ecran.ts`, jamais dérivé d'un état HA) : `.prevision` n'y apparaîtra donc plus JAMAIS,
  *      quoi qu'on injecte — d'ailleurs `.prevision` n'existe plus DU TOUT depuis la tâche 14
  *      (les six prochaines heures ont disparu partout). Mesurer `repas`/`agenda` (son successeur,
  *      cf. `MODES`) au salon serait un « mode non atteint » permanent, pas une régression
@@ -487,7 +487,7 @@ const MODES = [
   {
     nom: 'cinema',
     etats: [
-      // `allumee` du salon (`pieces.ts`) : c'est CETTE entité, et elle seule, qui allume le mode.
+      // `allumee` du salon (`ecran.ts`) : c'est CETTE entité, et elle seule, qui allume le mode.
       ['media_player.televiseur_salon_3', 'on', { app_name: 'Plex', supported_features: 153529 }],
       ['media_player.plex_plex_for_android_tv_uhd_google_tv_stick', 'playing', {
         media_title: 'Les trois Mousquetaires : Milady', media_series_title: 'Ash vs Evil Dead',
@@ -576,7 +576,7 @@ const MODES = [
     // `rendu/defaut.ts`) — PREMIÈRE fois que ce tableau visite le bureau (les six modes d'origine
     // se mesurent au salon, `previsions`/`minuteur` en cuisine). `etats` engage les TROIS écarts
     // de `.synthese` du bureau (todo.travail, qualité de l'air, entretien) — son plafond réel,
-    // pas 3 sur 4 comme cuisine/salon : le bureau n'en déclare que trois au total (`pieces.ts`).
+    // pas 3 sur 4 comme cuisine/salon : le bureau n'en déclare que trois au total (`ecran.ts`).
     //
     // `evenementsInjecte` : même raison que `repasInjecte` ci-dessus — un rendez-vous n'arrive
     // jamais par un état HA (`chargerAgenda` fait une requête REST `/api/calendars/...`), posé via
@@ -629,7 +629,7 @@ const MODES = [
     // toute façon masqué » — un raisonnement qui se mordait la queue et qui MESURAIT UN ÉTAT
     // IMPOSSIBLE : cet écran affiche trois tâches d'entretien, donc l'entité vaut trois, pas zéro.
     // Conséquence directe : `verifierSyntheseSansEntretien` était TAUTOLOGIQUE — avec l'entité à
-    // `0` et un seuil `> 0` (`pieces.ts`), l'écart ne pouvait structurellement pas apparaître, et
+    // `0` et un seuil `> 0` (`ecran.ts`), l'écart ne pouvait structurellement pas apparaître, et
     // le contrôle ressortait vert que `masquerEntretien` (`rendu/corps.ts`) fonctionne, soit
     // retiré, ou soit câblé à l'envers. Il ne peut réellement échouer qu'à partir d'ici.
     // La hauteur mesurée ne bouge pas pour autant (le masquage retire cet écart du rendu) : c'est
@@ -733,7 +733,7 @@ function pageDuMode(mode) {
  *  Tâche 10 — trois entrées CUISINE ajoutées, indispensables depuis que `previsions` (devenu
  *  `repas` à la tâche 14) et `minuteur` s'y mesurent réellement (`pages: ['cuisine']`, cf.
  *  `MODES`) :
- *    - `binary_sensor.fenetre_c_ouverture` : l'ouvrant de la cuisine (`pieces.ts`). Sans lui,
+ *    - `binary_sensor.fenetre_c_ouverture` : l'ouvrant de la cuisine (`ecran.ts`). Sans lui,
  *      une fenêtre RÉELLEMENT ouverte plus de 10 min ferait basculer `repas` sur `aeration`
  *      à la mesure — même raison que les deux portes du salon juste au-dessus.
  *    - `timer.cuisine`/`_2`/`_3` à `idle` : sans eux, un minuteur RÉELLEMENT actif dans la vraie
@@ -748,7 +748,7 @@ function pageDuMode(mode) {
  *  `todo.maintenance` — NI L'UNE NI L'AUTRE ne décide d'un MODE (`modePrincipal`, `modes.ts` n'en
  *  lit aucune des deux), donc rien ici ne les neutralisait avant cette ronde : elles alimentent
  *  UNIQUEMENT `.synthese` (`ligneSynthese`, `rendu/corps.ts`), lue en direct sur la vraie maison
- *  pour TOUS les modes mesurés au salon/bureau/cuisine (« partout », cf. `pieces.ts`). Sans elles,
+ *  pour TOUS les modes mesurés au salon/bureau/cuisine (« partout », cf. `ecran.ts`). Sans elles,
  *  chaque exécution mesurait un `.synthese` de hauteur différente selon l'état réel du rideau et
  *  de la liste d'entretien AU MOMENT PRÉCIS du contrôle — un budget qui change d'une exécution à
  *  l'autre sans qu'aucun code n'ait changé, exactement le défaut qui a laissé passer `voiture` à
@@ -2201,7 +2201,7 @@ async function injecter(page, etats) {
 
 const neutraliser = (page) => injecter(page, NEUTRE);
 
-/** Redessine sans rien changer d'observable : une entité que ni `pieces.ts` ni aucune règle ne
+/** Redessine sans rien changer d'observable : une entité que ni `ecran.ts` ni aucune règle ne
  *  consulte. `Etat.appliquer` notifie ses abonnés, donc `dessiner()` repasse — c'est tout ce
  *  qu'on veut quand seule l'horloge a bougé. */
 const forcerRedessin = (page) =>
@@ -2596,7 +2596,7 @@ async function verifierPastilleLongue(page) {
  *
  *  Ronde de correction (relecture, défaut D3) : CE CONTRÔLE ÉTAIT TAUTOLOGIQUE. Les deux seuls
  *  modes qui l'appellent laissaient `todo.maintenance` à `'0'` (`NEUTRE`) ; l'entrée de synthèse
- *  déclarant `operateur: '>' valeur: 0` (`pieces.ts`), l'écart ne pouvait STRUCTURELLEMENT pas
+ *  déclarant `operateur: '>' valeur: 0` (`ecran.ts`), l'écart ne pouvait STRUCTURELLEMENT pas
  *  apparaître, et l'assertion « la synthèse ne parle pas d'entretien » ressortait verte que
  *  `masquerEntretien` marche, soit retiré, ou soit câblé à l'envers — précisément l'angle mort que
  *  la docstring ci-dessus revendiquait d'être seule à voir. Corrigé en injectant `'3'` dans les
@@ -3006,7 +3006,7 @@ async function verifierModes(nav, HA_URL, jetons, bundle) {
     if (!accord) fautes++;
 
     // --- Point de mesure 3 : le bandeau quand `.phrase` est absente ---
-    // `sensor.capteur_humain_temperature` (le capteur intérieur du salon, `pieces.ts`) tombe
+    // `sensor.capteur_humain_temperature` (le capteur intérieur du salon, `ecran.ts`) tombe
     // régulièrement en `unavailable` sur cette installation : `.phrase` disparaît alors et la
     // colonne gauche cesse de dominer la hauteur du bandeau, qui redevient dépendante du nombre
     // de lignes de la pastille en face. Dette ancienne, pas une régression de cette tâche : on la

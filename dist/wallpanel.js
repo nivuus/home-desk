@@ -69,7 +69,7 @@
     <div class="corps">
       <!-- 2026-08-29 : la rangée entière — étiquette comprise — disparaît quand la pièce n'a rien
            à y mettre (le salon, qui a rendu ses trois scènes pour financer ses quatre commandes
-           permanentes, cf. pieces.ts). Le retrait doit être COMPLET, exactement pour la même
+           permanentes, cf. ecran.ts). Le retrait doit être COMPLET, exactement pour la même
            raison que la rangée de commandes du mode minuteur juste en dessous : .corps est une
            colonne flex à gouttière de 8 px, donc un .groupe vide n'aurait aucune hauteur propre
            mais resterait un enfant à part entière — une gouttière de plus que rien ne comble,

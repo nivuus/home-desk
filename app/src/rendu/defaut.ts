@@ -1,7 +1,7 @@
 /** Les deux blocs par défaut de la cuisine et du bureau, à la place des six prochaines heures
  *  (demande du propriétaire, 2026-08-03 — le salon les avait déjà perdues au profit de la voiture
  *  à la tâche 9 bis). Quelle pièce reçoit quel bloc est écrit une seule fois, sur `Ecran.blocDefaut`
- *  (`pieces.ts`) ; ces deux fonctions n'en savent rien, elles reçoivent leurs données déjà
+ *  (`ecran.ts`) ; ces deux fonctions n'en savent rien, elles reçoivent leurs données déjà
  *  choisies par `demarrage.ts`, exactement comme `rendreVoiture` (`rendu/voiture.ts`) qu'elles
  *  rejoignent au même emplacement (le bloc central du mode `defaut`, `modes.ts`).
  *
@@ -100,7 +100,7 @@ export function rendreRecetteReduite(
  *  de `chargerTaches` pour remplir le bloc ci-dessous, et `rendu/corps.ts` retire l'entrée de
  *  synthèse qui porte cette même entité quand le bloc l'affiche (`masquerEntretien`). Trois
  *  littéraux `'todo.maintenance'` disséminés se seraient désynchronisés au premier renommage, et
- *  le seul symptôme aurait été un doublon silencieux à l'écran. `pieces.ts` garde le sien : c'est
+ *  le seul symptôme aurait été un doublon silencieux à l'écran. `ecran.ts` garde le sien : c'est
  *  la DÉCLARATION de la ligne de synthèse (une donnée de configuration de pièce), pas une
  *  référence à cette liste-ci. */
 export const ENTITE_ENTRETIEN = 'todo.maintenance';
@@ -115,7 +115,7 @@ export const ENTITE_ENTRETIEN = 'todo.maintenance';
  *  propriétaire : les tâches d'entretien prennent la place.
  *
  *  Source : `taches['todo.maintenance']`, déjà rempli par `chargerTaches` (`demarrage.ts`) —
- *  `todo.maintenance` est déclaré dans la `synthese` des trois pièces (`pieces.ts`), donc déjà
+ *  `todo.maintenance` est déclaré dans la `synthese` des trois pièces (`ecran.ts`), donc déjà
  *  présent dans `listesTachesPiece` (`cochage.ts`). Aucun second chemin de lecture, exactement
  *  comme `rendreRepasSuivant` reçoit le repas déjà choisi plutôt que de le déduire lui-même.
  *

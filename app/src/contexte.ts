@@ -13,7 +13,7 @@ export function momentDuJour(heure: number, soleilLeve: boolean): Moment {
 /** `sujet` (ronde de correction 2) : le mot court affiché en première ligne de `rendreAlerte`
  *  (`rendu/corps.ts`) — « Croquettes », « Fontaine », « Porte »... Porté par la règle elle-même
  *  (`alertes.ts`), jamais déduit ailleurs (ex. depuis `cle` ou le domaine de l'entité) : la même
- *  discipline que `EntreeSynthese` dans `pieces.ts`, où c'est aussi la donnée qui porte son sens,
+ *  discipline que `EntreeSynthese` dans `ecran.ts`, où c'est aussi la donnée qui porte son sens,
  *  pas une fonction qui devine à partir d'un identifiant. */
 export type Alerte = { cle: string; sujet: string; texte: string; depuis: number };
 

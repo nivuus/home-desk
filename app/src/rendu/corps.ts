@@ -101,13 +101,13 @@ function formaterTexte(texte: string, etatBrut: string): string {
 
 /** N'affiche que ce qui sort de l'ordinaire, mais reste PERMANENTE : un bloc qui disparaît
  *  laisserait un vide les jours où rien ne cloche. Se contente d'évaluer les entrées déclarées
- *  dans `piece.synthese` (voir `pieces.ts`) — aucune inférence ici. */
+ *  dans `piece.synthese` (voir `ecran.ts`) — aucune inférence ici. */
 export function ligneSynthese(etat: Etat, entites: EntreeSynthese[]): { texte: string; ecarts: string[] } {
   const ecarts: string[] = [];
   for (const entree of entites) {
     if (!etat.estUtilisable(entree.entite)) {
       // Décision 8 : une entrée qui NOMME son absence la dit, au lieu d'être
-      // sautée en silence. Cf. `absenceNommee` (`pieces.ts`).
+      // sautée en silence. Cf. `absenceNommee` (`ecran.ts`).
       if (entree.absenceNommee) ecarts.push(entree.absenceNommee);
       continue;
     }
@@ -146,7 +146,7 @@ const bouton = (etat: Etat, b: Bouton, actif: boolean, classe: string) => {
   // Tâche 13 : décidé PAR DOMAINE (`descripteurJauge`), jamais par le `Bouton` lui-même — une
   // commande « Chauffage » (`climate.radiateur`, sans `service`) obtient sa jauge exactement de
   // la même façon qu'une commande « Lumières » (`light.*`, avec `service: ['light','toggle']`) :
-  // aucune donnée à ajouter à `pieces.ts` pour ça, cf. docstring de `jauge.ts`.
+  // aucune donnée à ajouter à `ecran.ts` pour ça, cf. docstring de `jauge.ts`.
   const d = descripteurJauge(b.entite, etat);
   // Revue tâche 16 — COHÉRENCE TRANCHÉE : `jauge.ts` documente déjà, pour les lumières, qu'une
   // jauge ÉTEINTE se montre VIDE plutôt que de mentir sur un niveau qu'elle n'a plus. Le chauffage
@@ -164,7 +164,7 @@ const bouton = (etat: Etat, b: Bouton, actif: boolean, classe: string) => {
   const fraction = d && !jaugeMasquee ? fractionJauge(d) : 0;
   // Tâche 19 — RÈGLE DU PROPRIÉTAIRE : une tuile qui ne déclenche rien ne donne aucun retour au
   // doigt ; une tuile qui agit, si. Ce que fait réellement un appui est déjà décidé ailleurs, et
-  // cette ligne ne fait que le CONSTATER, sans rien ajouter à `pieces.ts` : `interaction.ts`
+  // cette ligne ne fait que le CONSTATER, sans rien ajouter à `ecran.ts` : `interaction.ts`
   // n'appelle aucun service et ne pose aucun optimisme sans `service` (et navigue avec `lien`), et
   // `geste.ts` n'entre dans sa machine à états que s'il y a une jauge à régler au glissement. Un
   // bouton sans les trois est donc inerte, et `base.css` lui retire alors la couche `:active` et
@@ -371,7 +371,7 @@ export function rendreCorps(
     ? visibles.filter((e) => e.entite !== ENTITE_ENTRETIEN) : visibles;
   const s = ligneSynthese(etat, entrees);
   // Une commande qui NOMME son absence n'est jamais filtrée : c'est tout
-  // l'intérêt du champ (cf. `absenceNommee`, `pieces.ts`).
+  // l'intérêt du champ (cf. `absenceNommee`, `ecran.ts`).
   const utilisables = piece.commandes.filter(
     (c) => etat.estUtilisable(c.entite) || c.absenceNommee !== undefined);
   // Le second filtre : la tuile `#recette` n'a de sens que s'il y a une recette
@@ -394,7 +394,7 @@ export function rendreCorps(
     <div class="corps">
       <!-- 2026-08-29 : la rangée entière — étiquette comprise — disparaît quand la pièce n'a rien
            à y mettre (le salon, qui a rendu ses trois scènes pour financer ses quatre commandes
-           permanentes, cf. pieces.ts). Le retrait doit être COMPLET, exactement pour la même
+           permanentes, cf. ecran.ts). Le retrait doit être COMPLET, exactement pour la même
            raison que la rangée de commandes du mode minuteur juste en dessous : .corps est une
            colonne flex à gouttière de 8 px, donc un .groupe vide n'aurait aucune hauteur propre
            mais resterait un enfant à part entière — une gouttière de plus que rien ne comble,

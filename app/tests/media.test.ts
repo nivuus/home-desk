@@ -3,7 +3,7 @@ import { Etat } from '../src/etat';
 import { resoudreSource, vignetter, LARGEUR_AFFICHE, type DeclarationSource } from '../src/media';
 
 /** Déclaration réelle de la source « Télévision » du salon : quatre entités, aucune ne sachant
- *  tout faire. Reproduite ici plutôt qu'importée de `pieces.ts` pour que ce test reste vrai même
+ *  tout faire. Reproduite ici plutôt qu'importée de `ecran.ts` pour que ce test reste vrai même
  *  si la déclaration du salon change. */
 const TELE: DeclarationSource = {
   nom: 'Télévision',

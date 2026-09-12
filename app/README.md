@@ -39,7 +39,7 @@ de libre.
 
 | Fichier | Contenu |
 |---------|---------|
-| `src/pieces.ts` | tuiles, commandes, entités et lignes de synthèse **par pièce** |
+| `src/ecran.ts` | tuiles, commandes, entités et lignes de synthèse **par pièce** |
 | `src/modes.ts` | mode principal exclusif (`alerte`, `minuteur`, `menage`, `cinema`, `media`, `aeration`, `voiture`, `defaut`), modulateurs cumulables (`invites`, `chaleur`, `delorean`), nombre de commandes visibles |
 | `src/rendu/*.ts` | blocs centraux (`media`, `voiture`, `taches`, `minuteur`, `nuit`, `maison`, `defaut`, `recette`…) et `icones.ts` |
 | `src/garde-manger.ts` | le repas suivant et le compte de DLC, **lus dans les attributs** de `sensor.home_stock_next_meal` et `todo.home_stock_expirations` |

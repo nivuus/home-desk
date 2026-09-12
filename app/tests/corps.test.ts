@@ -21,7 +21,7 @@ import type { ContexteModes } from '../src/modes';
 const ev = (id: string, etat: string, attributes: Record<string, unknown> = {}) =>
   ({ entity_id: id, state: etat, attributes });
 
-/** État où les cinq commandes déclarées au salon (`ECRANS.salon.commandes`, cf. `pieces.ts`) sont
+/** État où les cinq commandes déclarées au salon (`ECRANS.salon.commandes`, cf. `ecran.ts`) sont
  *  toutes utilisables — sert les tests de rangée de commandes (tâche 9) ci-dessous, qui ont
  *  besoin des cinq pour distinguer un filtrage par `ordreCommandes` (`modes.ts`) d'un simple
  *  manque de données (`Etat.estUtilisable`). */
@@ -64,7 +64,7 @@ const CTX_SALON: ContexteModes = { ...CTX_CALME, rangeeAmbiance: false };
 /** Construit un état qui satisfait la condition d'une entrée déclarée, sans rien savoir de son
  *  domaine ni de son sens — seulement de `operateur`/`valeur`. Prend l'entrée entière (pas
  *  `operateur`/`valeur` séparés) pour que la corrélation imposée par l'union discriminée de
- *  `EntreeSynthese` (voir `pieces.ts`, ronde de correction 2) reste visible ici aussi : dans la
+ *  `EntreeSynthese` (voir `ecran.ts`, ronde de correction 2) reste visible ici aussi : dans la
  *  branche `<`/`>`, TypeScript garantit que `entree.valeur` est un `number`, sans `typeof`.
  *
  *  Ronde de correction 2, angle mort n°1 : l'ancienne version calculait toujours `valeur + 1`
@@ -261,7 +261,7 @@ describe('smoke rendreCorps', () => {
   });
 
   // Ronde de correction 1 (le point le plus important, dixit le coordinateur) : rend
-  // structurellement impossible qu'une entrée déclarée dans `pieces.ts` ne soit reconnue par
+  // structurellement impossible qu'une entrée déclarée dans `ecran.ts` ne soit reconnue par
   // personne. Parcourt les 3 pièces, et pour CHAQUE entrée déclarée, construit un état qui
   // satisfait sa propre condition (`operateur`/`valeur`) — sans connaître ni son domaine ni sa
   // signification — puis vérifie qu'un écart en sort. Une entrée mal câblée (condition
@@ -284,7 +284,7 @@ describe('smoke rendreCorps', () => {
   });
 
   // Ronde de correction 2, angle mort n°1 (preuve directe, indépendante des 12 entrées réelles
-  // de `pieces.ts` — celles-ci n'emploient encore aucune égalité numérique, la tâche suivante en
+  // de `ecran.ts` — celles-ci n'emploient encore aucune égalité numérique, la tâche suivante en
   // ajoutera). Les 6 combinaisons `operateur` × type de `valeur` structurellement possibles
   // (`<`/`>` sont forcément numériques désormais, `==`/`!=` peuvent être numériques ou textuels).
   it('declencheur() couvre les 6 combinaisons operateur x type de valeur, egalite numerique comprise', () => {

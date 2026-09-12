@@ -249,7 +249,7 @@ describe('jauges a glissement — rendu vue Toute la maison (tache 13)', () => {
 // complet du RDC, `vacuum.start`) devient LOCALE à la pièce — en cuisine elle appelle le script du
 // segment cuisine (`script.aspirateur_cuisine`, segment 19) au lieu du nettoyage complet, jamais
 // une tuile de plus (le budget de 585px de cette vue était déjà plein à 10/10, cf. rapport de
-// tâche 12). Salon et bureau ne déclarent pas `aspirateurMaison` (`pieces.ts`) : ils gardent
+// tâche 12). Salon et bureau ne déclarent pas `aspirateurMaison` (`ecran.ts`) : ils gardent
 // l'entrée commune inchangée.
 describe('substitution de la tuile aspirateur par pièce (tâche 12)', () => {
   it('en cuisine, la tuile aspirateur appelle le script du segment cuisine, jamais vacuum.start', () => {

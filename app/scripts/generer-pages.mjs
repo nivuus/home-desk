@@ -18,7 +18,7 @@ const GABARIT = join(ICI, '..', 'gabarits', 'piece.html');
 const SORTIE = join(ICI, '..', '..', 'dist');
 
 /** Les trois pieces, et le titre que porte l'onglet de chacune.
- *  La liste est ici et pas dans `src/pieces.ts` a dessein : ce script tourne
+ *  La liste est ici et pas dans `src/ecran.ts` a dessein : ce script tourne
  *  sous node avant toute compilation TypeScript. */
 const PIECES = [
   { piece: 'salon', titre: 'Salon' },

@@ -32,7 +32,7 @@ function fichiersTs(dossier: string): string[] {
 
 /** Toutes les chaînes littérales de `src/`, SAUF celles du fichier de déclaration lui-même — une
  *  icône ne se référence pas elle-même. Volontairement grossier plutôt que syntaxique : les noms
- *  d'icône n'arrivent pas tous par un `icone('…')` direct (`pieces.ts` les porte en `icone: '…'`,
+ *  d'icône n'arrivent pas tous par un `icone('…')` direct (`ecran.ts` les porte en `icone: '…'`,
  *  `rendu/media.ts` les passe à `boutonTransport('pause', …)`, `rendu/taches.ts` par un
  *  ternaire). Un balayage de littéraux voit ces trois formes et toutes celles à venir, là où une
  *  liste d'appels connus serait à maintenir — et donc, un jour, fausse. Le biais assumé est du

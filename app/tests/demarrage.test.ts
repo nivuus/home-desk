@@ -594,7 +594,7 @@ describe('mouvement=aucun (URL) — câblage du moteur (ronde de correction 1, t
 });
 
 // Tâche 7 (câblage) : les tâches 1 à 6 ont construit la logique pure (`minuteur.ts`), le rendu
-// (`rendu/minuteur.ts`), la déclaration des slots (`pieces.ts`) et la priorité du mode
+// (`rendu/minuteur.ts`), la déclaration des slots (`ecran.ts`) et la priorité du mode
 // (`modes.ts`) — mais rien ne les reliait encore. Comme pour l'appui sur une commande ou le
 // cochage d'une tâche plus haut dans ce fichier, c'est le seul niveau où l'on peut prouver que
 // le geste réel sur le DOM aboutit au bon appel de service `timer.*`.
@@ -1075,7 +1075,7 @@ describe('voiture au salon', () => {
 });
 
 // Tâche 14 (2026-08-03) : les six prochaines heures disparaissent partout, remplacées par ce qui
-// est prévu à manger (cuisine) et le prochain rendez-vous du jour (bureau) — cf. `pieces.ts`
+// est prévu à manger (cuisine) et le prochain rendez-vous du jour (bureau) — cf. `ecran.ts`
 // (`blocDefaut`), `rendu/defaut.ts`. Preuve de bout en bout à travers `demarrer()`, comme
 // `describe('voiture au salon')` ci-dessus le fait pour la voiture ; le rendu pur des deux
 // fonctions est couvert par `tests/defaut.test.ts`.
@@ -1189,7 +1189,7 @@ describe('bloc par défaut : repas et agenda', () => {
 // le rendu pur du bloc est couvert par `tests/defaut.test.ts`.
 describe('repli du bloc par défaut vers l\'entretien', () => {
   /** Les tâches d'entretien telles que `chargerTaches` les charge : `todo.maintenance` est
-   *  déclaré dans la `synthese` des trois pièces (`pieces.ts`), donc présent dans
+   *  déclaré dans la `synthese` des trois pièces (`ecran.ts`), donc présent dans
    *  `listesTachesPiece` (`cochage.ts`) — aucune requête de plus à câbler, le cache est déjà là. */
   const ENTRETIEN = {
     'todo.maintenance': [
@@ -1407,7 +1407,7 @@ describe('repli du bloc par défaut vers l\'entretien', () => {
 
   // --- D4 : le bloc doit obéir au mode invités, comme la ligne de synthèse qu'il remplace ---
   //
-  // `todo.maintenance` est déclaré `perso: true` dans les trois pièces (`pieces.ts`) : sous
+  // `todo.maintenance` est déclaré `perso: true` dans les trois pièces (`ecran.ts`) : sous
   // `input_boolean.mode_invites`, son écart disparaît de la synthèse (`rendu/corps.ts`). Le bloc
   // central l'affichait pourtant EN GRAND et EN DÉTAIL au milieu de l'écran — exactement la donnée
   // que ce modulateur existe pour cacher, et davantage qu'avant la tâche 17. Conséquence assumée :

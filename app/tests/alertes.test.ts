@@ -42,7 +42,7 @@ describe('collecterAlertes', () => {
   // tout autant que si un automate l'avait fait. Elle a été retirée de `REGLES` ; ce test de
   // non-régression prouve qu'un binary_sensor de fenêtre à `on` ne produit plus jamais d'alerte,
   // quel que soit son entity_id (elle reste dans `ligneSynthese`, sa place). Sans ce test, un
-  // futur ajout pourrait la réintroduire par erreur (ex. copier-coller depuis `pieces.ts`) sans
+  // futur ajout pourrait la réintroduire par erreur (ex. copier-coller depuis `ecran.ts`) sans
   // qu'aucun test ne le remarque.
   it('ne signale JAMAIS une fenêtre ouverte : ouverte a la main sur suggestion, etat voulu et durable', () => {
     const e = new Etat();

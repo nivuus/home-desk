@@ -14,7 +14,7 @@
 import type { Etat } from './etat';
 
 /** Un emplacement de minuteur : le helper `timer` et l'`input_text` qui porte son nom. Déclarés
- *  dans `pieces.ts`, jamais devinés à partir d'un motif d'`entity_id`. */
+ *  dans `ecran.ts`, jamais devinés à partir d'un motif d'`entity_id`. */
 export type SlotMinuteur = {
   timer: string; nom: string;
   /** Cf. la docstring du même champ sur `Ecran`. */

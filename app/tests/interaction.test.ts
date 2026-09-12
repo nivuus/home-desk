@@ -32,7 +32,7 @@ describe('etatVise', () => {
 
   // Ronde de correction 1 (CRITIQUE, trouvé par le relecteur) : la première version de cette
   // liste énumérait les domaines SANS état marche/arrêt (une liste noire), ce qui laissait tout
-  // domaine oublié — dont `cover`, bien réel dans `pieces.ts` (`cover.rideau_cuisine`) — retomber
+  // domaine oublié — dont `cover`, bien réel dans `ecran.ts` (`cover.rideau_cuisine`) — retomber
   // sur le traitement générique `on`/`off`/`toggle`. Un volet n'est jamais `on` ou `off` (ses
   // états sont `open`/`closed`/`opening`/`closing`) : `etatVise('closed', ['cover', 'toggle'])`
   // visait donc `'on'`, une valeur qu'aucun `cover.*` ne prend jamais. La liste est maintenant
@@ -118,7 +118,7 @@ describe('creerAppui', () => {
     vi.useRealTimers();
   });
 
-  // Cas ajouté : une tuile purement informative (ex. `climate.radiateur`, cf. `pieces.ts`) n'a
+  // Cas ajouté : une tuile purement informative (ex. `climate.radiateur`, cf. `ecran.ts`) n'a
   // pas de champ `service` du tout. L'appui ne doit rien appeler et rien changer.
   it('un bouton sans service ne fait rien (tuile informative)', () => {
     const etat = new Etat();
@@ -274,7 +274,7 @@ describe('creerAppui', () => {
   });
 
   // Tâche 5 (2026-08-02) : Porte et Rideau du salon affichent l'état de `lock.*`/`cover.*` mais
-  // appellent un script (`pieces.ts`, champ `cible`). Le service doit viser `cible`, jamais
+  // appellent un script (`ecran.ts`, champ `cible`). Le service doit viser `cible`, jamais
   // `entite` — sans quoi HA recevrait un `turn_on` sur la serrure elle-même, qui n'a pas ce
   // service. Pas de fabrique `monterAppui`/`cx.appels` dans ce fichier : on suit le même patron
   // que les tests `creerAppui` ci-dessus (`Etat` réel + double `{ appelerService: vi.fn() }`).

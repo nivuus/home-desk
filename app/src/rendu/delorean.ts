@@ -13,7 +13,7 @@
  *  coupe la scène au premier contact pour qu'on ne tape jamais à l'aveugle.
  *
  *  SALON UNIQUEMENT — décision du propriétaire (2026-08-21) : l'effet reste attaché à la pièce où
- *  la voiture est posée. La portée est déclarée par `Ecran.delorean` (`pieces.ts`), jamais par un
+ *  la voiture est posée. La portée est déclarée par `Ecran.delorean` (`ecran.ts`), jamais par un
  *  test sur le nom de la pièce. */
 import { html, type TemplateResult } from 'lit';
 

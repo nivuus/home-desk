@@ -96,7 +96,7 @@ export function creerAppui(
     // Tâche 8 bis : un bouton `lien` (le panneau `home_stock`...) ouvre une page autonome plutôt
     // que d'appeler HA — traité avant tout le reste, avec un retour immédiat. Il n'y a jamais
     // rien à rendre optimiste ni à confirmer pour une simple navigation : ces boutons n'ont
-    // d'ailleurs pas de `service` (cf. `pieces.ts`), donc rien ne serait armé de toute façon,
+    // d'ailleurs pas de `service` (cf. `ecran.ts`), donc rien ne serait armé de toute façon,
     // mais le retour anticipé le dit explicitement plutôt que de compter sur cette coïncidence.
     if (b.lien) { location.href = b.lien; return; }
 
