@@ -1,5 +1,6 @@
 import type { DeclarationSource } from './media';
 import type { SlotMinuteur } from './minuteur';
+import type { Agencement } from './agencement';
 
 export type Bouton = {
   libelle: string; icone: string; entite: string;
@@ -194,6 +195,14 @@ export type Ecran = {
    *  plutôt qu'en constante de `modes.ts` parce qu'une autre maison n'aura pas ces tablettes —
    *  c'est la conséquence directe de la portabilité (décision 4 de la spec du 2026-09-12). */
   hauteurUtile?: number;
+  /** La COMPOSITION de cet écran : ordre des zones, modes actifs et leur priorité, modulateurs,
+   *  bloc central par défaut. Cf. `agencement.ts` pour ce qui s'y règle et ce qui n'y est
+   *  délibérément pas.
+   *
+   *  Facultatif : absent, `resoudreAgencement` rend `AGENCEMENT_DEFAUT`, qui reproduit
+   *  exactement le comportement d'avant ce plan. Une maison neuve n'a donc rien à déclarer pour
+   *  avoir un écran qui marche. */
+  agencement?: Agencement;
 };
 
 export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {
@@ -311,6 +320,17 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {
       demarrerClim: 'button.peugeot_e208_demarrer_pre_conditionnement',
       arreterClim: 'button.peugeot_e208_arreter_pre_conditionnement',
     },
+    agencement: {
+      zones: ['ambiances', 'commandes', 'blocCentral', 'synthese'],
+      // Le salon n'a pas de minuteur (aucun `minuteurs` déclaré) ni de recette : les deux modes
+      // sont retirés de la liste plutôt que laissés à une condition qui ne peut pas se déclencher.
+      // Déclarer ce que l'écran fait est plus lisible que déduire ce qu'il ne fait pas.
+      modes: ['alerte', 'menage', 'cinema', 'media', 'aeration', 'voiture', 'defaut'],
+      modulateurs: ['invites', 'chaleur', 'delorean'],
+      blocDefaut: 'voiture',
+      note: 'Écran d\'entrée. La voiture occupe le bloc central, et la scène DeLorean joue ici '
+          + 'seulement : le modèle réduit est posé à côté.',
+    },
   },
   bureau: {
     nom: 'Bureau',
@@ -380,6 +400,15 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {
     // Tâche 14 (2026-08-03, blocs par défaut) : le prochain rendez-vous du jour (rendreProchainRdv, rendu/defaut.ts), à la
     // place des six prochaines heures — c'est au bureau qu'on regarde son agenda.
     blocDefaut: 'agenda',
+    agencement: {
+      zones: ['ambiances', 'commandes', 'blocCentral', 'synthese'],
+      // Ni minuteur, ni recette, ni voiture, ni DeLorean. `aeration` retiré aussi : `ouvrants`
+      // est vide, la condition ne peut pas se déclencher.
+      modes: ['alerte', 'menage', 'cinema', 'media', 'defaut'],
+      modulateurs: ['invites', 'chaleur'],
+      blocDefaut: 'agenda',
+      note: 'C\'est au bureau qu\'on regarde son agenda.',
+    },
   },
   cuisine: {
     nom: 'Cuisine',
@@ -527,5 +556,13 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {
     // Tâche 14 (2026-08-03, blocs par défaut) : ce qui est prévu à manger (rendreRepasSuivant,
     // rendu/defaut.ts), à la place des six prochaines heures — c'est en cuisine qu'on cuisine.
     blocDefaut: 'repas',
+    agencement: {
+      zones: ['ambiances', 'commandes', 'blocCentral', 'synthese'],
+      // La seule pièce où l'on fait cuire quelque chose : seule à porter `minuteur` et `recette`.
+      modes: ['alerte', 'recette', 'minuteur', 'menage', 'cinema', 'media', 'aeration', 'defaut'],
+      modulateurs: ['invites', 'chaleur'],
+      blocDefaut: 'repas',
+      note: 'C\'est en cuisine qu\'on cuisine.',
+    },
   },
 };
