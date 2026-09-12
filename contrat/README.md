@@ -32,3 +32,16 @@ de ces fichiers est l'implémenteur Python du plan 3, et qu'un journal de
 travail ne part pas avec le dépôt :
 
 - **`version` n'est ni `required` ni lu**, voir ci-dessus.
+
+## Ce répertoire est copié dans le composant
+
+`custom_components/home_desk/contrat/` en porte un double **octet pour octet**,
+parce que le composant tourne depuis `config/custom_components/` et n'a aucun
+chemin vers ce dépôt. `make contrat` le regénère, `make test` refuse de passer
+si les deux divergent.
+
+`README.md` n'y est pas : aucune ligne de Python ne l'ouvre.
+
+**Après toute modification d'un fichier de ce répertoire : `make contrat`, et
+committez le résultat.** Sans ce geste, la mesure que vous venez de publier
+n'atteint pas le formulaire qui s'en sert pour refuser une saisie.

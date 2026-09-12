@@ -17,16 +17,27 @@
 PACKAGE_DIR := $(CURDIR)
 PYTHON ?= python3
 
-.PHONY: test test-app help
+.PHONY: test test-app contrat help
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*' $(MAKEFILE_LIST) | sed 's/:.*//' | sort
 
 test:
-	@for t in test_manifest_contract test_install_hook test_dist_portable test_dist_a_jour; do \
+	@for t in test_manifest_contract test_install_hook test_dist_portable test_dist_a_jour test_contrat_embarque; do \
 	    echo "--- $$t"; \
 	    $(PYTHON) $(PACKAGE_DIR)/tests/$$t.py || exit 1; \
 	done
 
 test-app:
 	cd $(PACKAGE_DIR)/app && npm test
+
+# Le composant embarque sa copie de contrat/ : depose dans
+# config/custom_components/, il ne voit pas le depot. `make test` verifie
+# qu'elle est identique a la source (tests/test_contrat_embarque.py).
+contrat:
+	@mkdir -p $(PACKAGE_DIR)/custom_components/home_desk/contrat
+	@for f in budget.json icones.json ecran.schema.json; do \
+	    cp $(PACKAGE_DIR)/contrat/$$f \
+	       $(PACKAGE_DIR)/custom_components/home_desk/contrat/$$f; \
+	done
+	@echo "contrat embarque : 3 fichiers"
