@@ -1,29 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { combien, ordreCommandes, BUDGET, type ContexteModes } from '../src/modes';
 import { ECRANS } from '../src/ecran';
+import { CALME } from './contextes';
 
 /** `CALME_VOITURE` : un `ContexteModes` valant `blocDefaut: 'voiture'` et rien d'autre d'actif.
- *  Repris champ à champ de la base `CALME` de `tests/modes.test.ts` (sa l. 7) plutôt que fabriqué
- *  ici — un contexte inventé testerait autre chose que ce que l'écran fait vraiment. `CALME`
- *  n'étant pas exportée par ce fichier (cette tâche ne le modifie pas), la base est dupliquée telle
- *  quelle, avec le seul champ que ce test exerce (`blocDefaut`) porté à `'voiture'`. */
-const CALME_VOITURE: ContexteModes = {
-  alerte: false,
-  aspirateurEnMarche: false,
-  ecranAllume: false,
-  sourceJoue: false,
-  ouvrantOuvertDepuisMs: 0,
-  chauffageEnMarche: false,
-  ilPleut: false,
-  serrureDeverrouillee: false,
-  temperatureExterieure: 18,
-  soleilLeve: true,
-  modeInvites: false,
-  instantDelorean: false,
-  minuteurEnCours: false,
-  recetteEnCours: false,
-  blocDefaut: 'voiture',
-};
+ *  Dérivée de la base `CALME` (`tests/contextes.ts`, partagée avec `tests/modes.test.ts`), jamais
+ *  refabriquée champ à champ ici — un contexte inventé testerait autre chose que ce que l'écran
+ *  fait vraiment, et une copie indépendante se déferait silencieusement d'un futur champ ajouté à
+ *  `ContexteModes` (c'est déjà arrivé avec `rangeeAmbiance`) sans qu'aucun typage ne le signale. */
+const CALME_VOITURE: ContexteModes = { ...CALME, blocDefaut: 'voiture' };
 
 /** La table de vérité de `combien()` AVANT cette tâche, relevée dans `modes.ts` l. 129-140.
  *  Elle ne doit pas bouger d'un chiffre : c'est tout l'objet de ce test.

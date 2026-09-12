@@ -1,26 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { modePrincipal, modulateursActifs, ordreCommandes, type ContexteModes } from '../src/modes';
 import { ECRANS, type Bouton } from '../src/ecran';
-
-/** Contexte « rien de particulier » : aucun mode, aucun modulateur. Chaque test ne modifie que
- *  le champ qu'il exerce, pour qu'un échec désigne sans ambiguïté la règle fautive. */
-const CALME: ContexteModes = {
-  alerte: false,
-  aspirateurEnMarche: false,
-  ecranAllume: false,
-  sourceJoue: false,
-  ouvrantOuvertDepuisMs: 0,
-  chauffageEnMarche: false,
-  ilPleut: false,
-  serrureDeverrouillee: false,
-  temperatureExterieure: 18,
-  soleilLeve: true,
-  modeInvites: false,
-  instantDelorean: false,
-  minuteurEnCours: false,
-  recetteEnCours: false,
-  blocDefaut: undefined,
-};
+import { CALME } from './contextes';
 
 /** Fabrique dérivée de `CALME` : chaque test du mode minuteur ne cite que le(s) champ(s) qu'il
  *  exerce, sans reconstruire un `ContexteModes` complet à la main. Cohabite volontairement avec
