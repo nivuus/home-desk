@@ -1268,6 +1268,28 @@ describe('rendreCorps — assembleur de zones', () => {
     expect(zonesRendues(rendreDans(ECRANS.cuisine, partiel))).toEqual(AGENCEMENT_DEFAUT.zones);
   });
 
+  /** Relecture finale du plan 2 (M8). La zone `commandes` ne rend son conteneur QUE s'il reste au
+   *  moins une commande affichable — `commandes: () => (commandes.length ? RENDU_COMMANDES :
+   *  undefined)`. Cette garde n'avait AUCUN test : la rendre inconditionnelle
+   *  (`commandes: () => RENDU_COMMANDES`) laissait la suite entierement verte. Or elle vaut
+   *  exactement 8 px, la gouttiere qu'un `.commandes` vide couterait comme enfant a part entiere
+   *  de la colonne flex `.corps`, dans un budget qui n'a que 3 px de marge (cf. le commentaire de
+   *  `RENDU_COMMANDES`, `rendu/corps.ts`, et celui du type `RenduZone`).
+   *
+   *  Le salon avec un `Etat` VIDE est le cas naturel : aucune de ses cinq commandes n'est
+   *  utilisable et aucune ne porte d'`absenceNommee`, donc `affichables` est vide. C'est
+   *  l'ABSENCE du conteneur qui est assertee, pas son contenu — un `.commandes` present mais sans
+   *  tuile est precisement le defaut que la garde existe pour empecher. */
+  it('n assemble pas le conteneur des commandes quand aucune n est affichable', () => {
+    const racine = document.createElement('div');
+    render(rendreCorps(new Etat(), ECRANS.salon, BLOC_CENTRAL_FACTICE), racine);
+    expect(racine.querySelectorAll('.commande')).toHaveLength(0);
+    expect(racine.querySelector('[data-zone="commandes"]')).toBeNull();
+    // Le reste de l'ecran est intact : c'est bien la seule zone retiree.
+    expect(racine.querySelector('[data-zone="blocCentral"]')).not.toBeNull();
+    expect(racine.querySelector('[data-zone="synthese"]')).not.toBeNull();
+  });
+
   it('garde le meme noeud de bloc central quand une zone amont disparait', () => {
     const racine = document.createElement('div');
     const rendre = (zones: Zone[]) => render(

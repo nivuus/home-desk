@@ -951,6 +951,51 @@ describe('minuteurs de cuisine', () => {
 // entier). Câblage réel, même niveau de preuve que les suites « minuteurs de cuisine » et
 // « appui sur une commande » plus haut dans ce fichier : ni un test unitaire de `rendreNuit`
 // seul, ni un test isolé d'un futur `armerReveil`, ne peuvent prouver que les deux sont reliés.
+/** Relecture finale du plan 2 (M7) — LE CORRECTIF AMONT DU MODE MINUTEUR, QUI N'AVAIT AUCUN TEST.
+ *
+ *  La tâche 5 a corrigé `demarrage.ts` : `rangeeAmbiance` valait `piece.ambiances.length > 0`,
+ *  alors que le gabarit garde la rangée sur `piece.ambiances.length || tuileMinuteur`
+ *  (`rendu/corps.ts`). Les deux ne disaient pas la même chose — une pièce sans ambiance déclarée
+ *  mais avec des minuteurs rendait 97 px de rangée que `combien` n'avait pas budgétés, soit
+ *  558 + 64 + 8 = 630 px dans un cadre de 585.
+ *
+ *  Ce correctif ne retenait RIEN : le ramener à `piece.ambiances.length > 0` laissait la suite
+ *  entièrement verte. Il existe pour une configuration qui n'existe pas encore — « des minuteurs
+ *  sans ambiance » — exactement le genre de cas que le commentaire de `corps.ts` avait nommé sans
+ *  que personne ne l'exerce. Ce test l'exerce, au niveau du CONTEXTE (le côté rendu, lui, est déjà
+ *  tenu par `corps.test.ts > une tuile minuteur seule suffit à garder la rangée`).
+ *
+ *  Comment il est observable, puisque `rangeeAmbiance` n'est jamais exporté : par le nombre de
+ *  commandes. En mode `media`, `combien('media', true)` rend 2 et `combien('media', false)` rend 4
+ *  (table de vérité gelée, `tests/budget.test.ts`). Une cuisine privée de ses ambiances mais qui
+ *  garde ses trois `minuteurs` doit donc rendre DEUX commandes — le nombre d'une pièce qui paie sa
+ *  rangée. Sans le correctif, elle en rendrait davantage : elle dépenserait une place que la
+ *  rangée occupe déjà à l'écran. */
+describe('minuteurs sans ambiance : le contexte budgète la rangée que le gabarit rend', () => {
+  const cuisineSansAmbiance: Ecran = { ...ECRANS.cuisine, ambiances: [] };
+
+  it('garde la rangée Ambiance pour la seule tuile minuteur, et lui fait payer sa place', async () => {
+    const m = await monterDemarrage(cuisineSansAmbiance, {
+      etats: [
+        ['light.hotte', 'off'],
+        ['cover.rideau_cuisine', 'closed', { current_position: 0 }],
+        ['todo.home_stock_shopping', '5'],
+        ['sensor.home_stock_next_meal', '2'],
+        ['media_player.musique_cuisine', 'playing',
+         { media_title: 'Blinding Lights', supported_features: 1 }],
+      ],
+    });
+    // Le gabarit rend bien la rangée, sur la seule tuile minuteur (aucune ambiance déclarée).
+    const groupe = m.racine.querySelector<HTMLElement>('.groupe');
+    expect(groupe, 'la rangée Ambiance doit exister pour la tuile minuteur seule').not.toBeNull();
+    expect(groupe!.style.getPropertyValue('--ambiances')).toBe('1');
+    expect(m.racine.querySelector('[data-minuteur-entree]')).not.toBeNull();
+    // Et le contexte l'a budgétée : mode média sous rangée d'ambiance, donc DEUX commandes.
+    expect(m.racine.querySelector('.media'), 'le mode media doit être atteint').not.toBeNull();
+    expect(m.racine.querySelectorAll('.commande')).toHaveLength(2);
+  });
+});
+
 describe('réveil de l\'écran de nuit', () => {
   const nuit = () => new Date(2026, 7, 3, 3, 14);
 

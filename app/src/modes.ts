@@ -159,56 +159,6 @@ export function modulateursActifs(c: ContexteModes): Modulateur[] {
     .filter((m) => declares.includes(m) && CONDITIONS_MODULATEURS[m](c));
 }
 
-/** Combien de commandes l'écran montre, selon le mode. La carte média est deux fois plus haute
- *  que le bloc `defaut` qu'elle remplace : la place vient de la 3e/4e commande, jamais de la rangée
- *  « Ambiance » (pendant un film, changer d'ambiance lumineuse reste le besoin courant). Jamais de
- *  rangée coupée en deux : c'est toute la rangée ou rien, sinon la grille se déséquilibre.
- *  Ces nombres n'ont PAS bougé avec l'épinglage de la porte (2026-08-04) : `epingler` réserve une
- *  des places comptées ici, il n'en ajoute jamais une — le budget de hauteur de chaque mode est
- *  strictement le même qu'avant.
- *
- *  Tâche 10 bis, chiffres MESURÉS (tâche 10) et non plus estimés : le réglage du minuteur est
- *  devenu une sous-vue plein écran (arbitrage du propriétaire, 2026-08-03), donc `minuteur` ne
- *  désigne plus ici que la LISTE des minuteurs en cours — mesurée à 630 px, 45 px au-delà du
- *  budget de 585 px. Trois lignes de 62 px ne laissent la place à AUCUNE commande : pendant une
- *  cuisson, l'écran sert au minuteur, et les commandes restent à un appui dans « Toute la
- *  maison ». `voiture`, mesuré à 648 px (−63 px), rejoint `media`/`cinema` à deux commandes,
- *  comme tout bloc central plus haut que le bloc `defaut` qu'il remplace. Tâche 14 : `repas`/
- *  `agenda` (mode `defaut` en cuisine/bureau) reprennent le même gabarit `.mode-bloc` que
- *  `menage`/`aeration` — déjà mesurés à quatre commandes — donc `defaut` reste dans la branche
- *  par défaut ci-dessous, comme `previsions` avant lui.
- *
- *  2026-09-12 : la règle et ses chiffres vivent désormais dans `contrat/budget.json`, lu aussi
- *  par l'intégration Home Assistant (plan 3) — elle doit pouvoir dire « cet écran déborde » au
- *  moment de la saisie, ce qu'elle ne peut pas faire en relisant des `if` TypeScript. Le
- *  RÉSULTAT est strictement inchangé : `tests/budget.test.ts` porte la table de vérité d'avant
- *  et la vérifie à chaque commit.
- *
- *  2026-09-12, second temps — CECI N'EST PLUS UNE TABLE, C'EST UN CALCUL. `Ecran.hauteurUtile`
- *  existe depuis la tâche 1, et une table calibrée pour 585 px ne sait pas l'honorer : elle rend
- *  le même 0/2/4 à 585 px comme à 900. Les hauteurs par zone n'avaient JAMAIS été mesurées — les
- *  commentaires ci-dessus ne donnent que des totaux d'écran (630 px, 648 px). Elles le sont
- *  maintenant, dans un vrai navigateur, au viewport de référence, par
- *  `app/outils/mesurer-hauteurs.mjs` (attribut `data-zone`, cf. `rendu/corps.ts`) : onze modes,
- *  trois écrans, et pour chaque zone le PIRE CAS retenu. Elles vivent sous `hauteurs` dans
- *  `contrat/budget.json`.
- *
- *  `combien` additionne donc la colonne `.corps` comme le moteur de rendu l'additionne — les
- *  enfants, la gouttière entre chacun, le padding, le bandeau au-dessus — et garde la plus grande
- *  composition qui tient. Le modèle a été confronté à la mesure avant d'être écrit : pour chacun
- *  des onze modes relevés, le reste qu'il prédit est EXACTEMENT le reste mesuré à l'écran (11,1 px
- *  en cuisine et au bureau, 108,1 px en mode ménage, 34,1 px en mode voiture...). Et il reproduit
- *  la table historique sans y toucher, ligne par ligne, avec 3,1 px de marge sur son cas le plus
- *  serré — c'était la condition d'acceptation de la tâche, pas un résultat espéré : un modèle qui
- *  ne l'aurait pas reproduite aurait été ANNULÉ plutôt qu'ajusté (on ne truque pas une mesure
- *  pour faire passer un test).
- *
- *  À NE PAS CONFONDRE avec la clé `mesures` du même fichier, qui reste le relevé de 2026-08-29 et
- *  compte le coût d'une zone GOUTTIÈRE COMPRISE (« rangeeCommandes : 74 px = 64 + 10 »). Les
- *  `hauteurs` lues ici sont des coûts NETS, les gouttières étant ajoutées par le calcul ci-dessous
- *  — sans quoi elles seraient comptées deux fois. Les deux relevés s'accordent, ce qui est déjà
- *  une vérification : 64 + 10 pour une rangée de commandes, 9 + 72 + 2 × 8 = 97 px pour la rangée
- *  « Ambiance » complète, contre les ~100 px estimés en août. */
 /** Ce que l'écran mesure pour `rangees` rangées de commandes, à mode, rangée d'ambiance et zones
  *  donnés. `.corps` est une COLONNE FLEX à gouttière fixe : son coût est la somme de ses enfants
  *  plus une gouttière entre chaque paire, plus son padding vertical, le bandeau venant au-dessus.
@@ -278,7 +228,64 @@ function coutEcran(mode: ModePrincipal, rangeeAmbiance: boolean, rangees: number
  *  rendu qui l'appelle, via `ordreCommandes` — un écran mal configuré aurait fait un écran blanc,
  *  ce que ce projet s'interdit au même titre que le bouton mort. Le verdict déménage dans
  *  `verifierBudget`, que le rendu n'appelle jamais et que le formulaire de l'intégration (plan 3)
- *  appellera. Le rendu dégrade, la saisie refuse. */
+ *  appellera. Le rendu dégrade, la saisie refuse.
+ *
+ *  ---- CE QUI A CONDUIT A CE CALCUL, et pourquoi il est mesure et non estime. Ce bloc
+ *  vivait au-dessus de `coutEcran`, dont la vraie docstring commencait a la ligne suivante :
+ *  deux commentaires consecutifs, dont seul le second s'attachait. Il decrit `combien`, il
+ *  vit donc avec `combien`, et dans le MEME commentaire (relecture finale du plan 2, M9).
+ *
+ *  Combien de commandes l'écran montre, selon le mode. La carte média est deux fois plus haute
+ *  que le bloc `defaut` qu'elle remplace : la place vient de la 3e/4e commande, jamais de la rangée
+ *  « Ambiance » (pendant un film, changer d'ambiance lumineuse reste le besoin courant). Jamais de
+ *  rangée coupée en deux : c'est toute la rangée ou rien, sinon la grille se déséquilibre.
+ *  Ces nombres n'ont PAS bougé avec l'épinglage de la porte (2026-08-04) : `epingler` réserve une
+ *  des places comptées ici, il n'en ajoute jamais une — le budget de hauteur de chaque mode est
+ *  strictement le même qu'avant.
+ *
+ *  Tâche 10 bis, chiffres MESURÉS (tâche 10) et non plus estimés : le réglage du minuteur est
+ *  devenu une sous-vue plein écran (arbitrage du propriétaire, 2026-08-03), donc `minuteur` ne
+ *  désigne plus ici que la LISTE des minuteurs en cours — mesurée à 630 px, 45 px au-delà du
+ *  budget de 585 px. Trois lignes de 62 px ne laissent la place à AUCUNE commande : pendant une
+ *  cuisson, l'écran sert au minuteur, et les commandes restent à un appui dans « Toute la
+ *  maison ». `voiture`, mesuré à 648 px (−63 px), rejoint `media`/`cinema` à deux commandes,
+ *  comme tout bloc central plus haut que le bloc `defaut` qu'il remplace. Tâche 14 : `repas`/
+ *  `agenda` (mode `defaut` en cuisine/bureau) reprennent le même gabarit `.mode-bloc` que
+ *  `menage`/`aeration` — déjà mesurés à quatre commandes — donc `defaut` reste dans la branche
+ *  par défaut de `coutEcran` ci-dessus, comme `previsions` avant lui.
+ *
+ *  2026-09-12 : la règle et ses chiffres vivent désormais dans `contrat/budget.json`, lu aussi
+ *  par l'intégration Home Assistant (plan 3) — elle doit pouvoir dire « cet écran déborde » au
+ *  moment de la saisie, ce qu'elle ne peut pas faire en relisant des `if` TypeScript. Le
+ *  RÉSULTAT est strictement inchangé : `tests/budget.test.ts` porte la table de vérité d'avant
+ *  et la vérifie à chaque commit.
+ *
+ *  2026-09-12, second temps — CECI N'EST PLUS UNE TABLE, C'EST UN CALCUL. `Ecran.hauteurUtile`
+ *  existe depuis la tâche 1, et une table calibrée pour 585 px ne sait pas l'honorer : elle rend
+ *  le même 0/2/4 à 585 px comme à 900. Les hauteurs par zone n'avaient JAMAIS été mesurées — les
+ *  commentaires ci-dessus ne donnent que des totaux d'écran (630 px, 648 px). Elles le sont
+ *  maintenant, dans un vrai navigateur, au viewport de référence, par
+ *  `app/outils/mesurer-hauteurs.mjs` (attribut `data-zone`, cf. `rendu/corps.ts`) : onze modes,
+ *  trois écrans, et pour chaque zone le PIRE CAS retenu. Elles vivent sous `hauteurs` dans
+ *  `contrat/budget.json`.
+ *
+ *  `combien` additionne donc la colonne `.corps` comme le moteur de rendu l'additionne — les
+ *  enfants, la gouttière entre chacun, le padding, le bandeau au-dessus — et garde la plus grande
+ *  composition qui tient. Le modèle a été confronté à la mesure avant d'être écrit : pour chacun
+ *  des onze modes relevés, le reste qu'il prédit est EXACTEMENT le reste mesuré à l'écran (11,1 px
+ *  en cuisine et au bureau, 108,1 px en mode ménage, 34,1 px en mode voiture...). Et il reproduit
+ *  la table historique sans y toucher, ligne par ligne, avec 3,1 px de marge sur son cas le plus
+ *  serré — c'était la condition d'acceptation de la tâche, pas un résultat espéré : un modèle qui
+ *  ne l'aurait pas reproduite aurait été ANNULÉ plutôt qu'ajusté (on ne truque pas une mesure
+ *  pour faire passer un test).
+ *
+ *  À NE PAS CONFONDRE avec la clé `mesures` du même fichier, qui reste le relevé de 2026-08-29 et
+ *  compte le coût d'une zone GOUTTIÈRE COMPRISE (« rangeeCommandes : 74 px = 64 + 10 »). Les
+ *  `hauteurs` lues ici sont des coûts NETS, les gouttières étant ajoutées par `coutEcran` ci-dessus
+ *  — sans quoi elles seraient comptées deux fois. Les deux relevés s'accordent, ce qui est déjà
+ *  une vérification : 64 + 10 pour une rangée de commandes, 9 + 72 + 2 × 8 = 97 px pour la rangée
+ *  « Ambiance » complète, contre les ~100 px estimés en août.
+ */
 export function combien(
   mode: ModePrincipal,
   rangeeAmbiance = true,

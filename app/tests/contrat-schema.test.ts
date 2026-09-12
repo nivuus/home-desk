@@ -141,6 +141,34 @@ describe('contrat/ecran.schema.json', () => {
     }
   });
 
+  // Relecture finale du plan 2 (M10). Les DEUX `contains` de `$defs/agencement` n'etaient gardes
+  // par personne : les retirer du schema laissait les suites entierement vertes. Ce sont pourtant
+  // les deux invariants les plus fondamentaux de l'agencement, ceux que le type ne peut pas dire
+  // (un `Zone[]` ne sait pas exiger un element precis) et que le docstring d'`Agencement` promet
+  // en toutes lettres : « `commandes` est obligatoire — un ecran sans commande n'est plus une
+  // tablette de commande » et « `defaut` est le repli et doit y figurer ».
+  //
+  // Les deux assertent le MOTIF (`keyword: 'contains'`), pas seulement le refus : sans lui,
+  // n'importe quelle autre erreur du meme objet ferait passer le test pour la mauvaise raison —
+  // c'est le ruling 10 de la tache 6, et c'est exactement le piege ici, puisque `zones` et `modes`
+  // sont desormais REQUIS et qu'une donnee mal formee produit plusieurs erreurs a la fois.
+  it('refuse un agencement dont les zones omettent les commandes', () => {
+    refusePour({ ...ECRANS.salon,
+                 agencement: { ...ECRANS.salon.agencement!,
+                               zones: ['ambiances', 'blocCentral', 'synthese'] } },
+               { instancePath: '/agencement/zones', keyword: 'contains' });
+  });
+
+  // Sans `defaut` dans la liste, `modePrincipal` n'a plus de repli DECLARE : il retombe sur le
+  // `?? 'defaut'` de sa derniere ligne (`modes.ts`), c'est-a-dire sur un mode que l'ecran a
+  // justement dit ne pas vouloir. La liste mentirait sur ce que l'ecran affiche.
+  it('refuse un agencement dont les modes omettent le repli defaut', () => {
+    refusePour({ ...ECRANS.salon,
+                 agencement: { ...ECRANS.salon.agencement!,
+                               modes: ['alerte', 'menage', 'cinema', 'media', 'voiture'] } },
+               { instancePath: '/agencement/modes', keyword: 'contains' });
+  });
+
   describe('les invariants croises', () => {
     it('refuse blocDefaut voiture sans l objet voiture', () => {
       const { voiture, ...sansVoiture } = ECRANS.salon;

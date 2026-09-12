@@ -198,7 +198,7 @@
       }
     },
     "agencement": {
-      "description": "Facultatif tant que le plan 2 ne l'a pas porte dans la donnee. La resolution cote integration le remplit par defaut.",
+      "description": "Facultatif DANS LE SCHEMA, et il le reste : un ecran qui n'en declare pas retombe sur AGENCEMENT_DEFAUT (resoudreAgencement, app/src/agencement.ts), qui reproduit exactement le gabarit d'avant le plan 2 — c'est ce qui permet a une maison neuve de ne rien declarer sans rien perdre, et il n'y a QU'UNE facon d'y acceder, sans quoi deux defauts finiraient par diverger. Le plan 2 est termine : les ecrans livres le declarent desormais tous. Present, il est COMPLET : zones, modes et modulateurs sont requis, exactement comme le type Agencement les exige — un schema plus permissif que le type declarerait valide ce que l'application ne sait pas honorer.",
       "type": "object",
       "additionalProperties": false,
       "required": ["zones", "modes", "modulateurs"],

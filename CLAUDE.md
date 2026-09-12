@@ -46,8 +46,8 @@ elle reste, inerte, et affiche son libellé. Cinq endroits le respectent, et
 
 | Fichier | Ce qu'il fait |
 |---|---|
-| `rendu/corps.ts:411` | le filtre des commandes de la pièce |
-| `rendu/corps.ts:419` | le **second** filtre (`recetteOuvrable`), qui reprenait ce que le premier venait de laisser passer |
+| `rendu/corps.ts:416` | le filtre des commandes de la pièce |
+| `rendu/corps.ts:424` | le **second** filtre (`recetteOuvrable`), qui reprenait ce que le premier venait de laisser passer |
 | `rendu/corps.ts:106` | `ligneSynthese`, qui **sautait** l'entrée |
 | `rendu/corps.ts:270` | l'étiquette, appelée **inconditionnellement** depuis |
 | `rendu/maison.ts:90` | la tuile « Scanner », qui vit dans `extrasMaison` et n'est **pas** rendue par `corps.ts` |
@@ -65,7 +65,7 @@ Trois pièces **ont l'air vivantes** et ne le sont pas depuis le 2026-08-02 :
 103-166 de `configuration.yaml`.
 
 Contrôle indépendant : `grep -rn "wallpanel_hero\|wallpanel_moment\|conseil_meteo" app/src/`
-ne rend **qu'une occurrence, en commentaire** (`app/src/modes.ts:55`). Aucune
+ne rend **qu'une occurrence, en commentaire** (`app/src/modes.ts:94`). Aucune
 ligne de l'application ne les lit.
 
 Elles **restent au socle** (décision 3) : `home-desk` ne transporte pas de code
