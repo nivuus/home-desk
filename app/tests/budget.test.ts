@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { combien, ordreCommandes, verifierBudget, BUDGET, type ContexteModes } from '../src/modes';
 import { ECRANS } from '../src/ecran';
+import { resoudreAgencement } from '../src/agencement';
 import { CALME } from './contextes';
 
 /** `CALME_VOITURE` : un `ContexteModes` valant `blocDefaut: 'voiture'` et rien d'autre d'actif.
@@ -223,7 +224,13 @@ describe('le mode minuteur paie son cout comme les autres', () => {
 describe('minuteur et rangeeAmbiance : ce que la donnee garantit', () => {
   it('tout ecran portant le mode minuteur declare des ambiances ou des minuteurs', () => {
     for (const [nom, ecran] of Object.entries(ECRANS)) {
-      if (!ecran.agencement?.modes.includes('minuteur')) continue;
+      // Relecture de la tache 5 : la garde passe par `resoudreAgencement`, PAS par
+      // `ecran.agencement?.modes`. La production ne lit jamais le champ directement
+      // (`demarrage.ts` appelle `resoudreAgencement(piece)`), et `AGENCEMENT_DEFAUT.modes`
+      // contient `minuteur` : un ecran qui perdrait son agencement explicite porterait donc le
+      // mode en pratique tout en etant SILENCIEUSEMENT saute ici. Le test resterait vert en
+      // cessant d'asserter le cas meme pour lequel il existe.
+      if (!resoudreAgencement(ecran).modes.includes('minuteur')) continue;
       const declare = ecran.ambiances.length > 0 || (ecran.minuteurs?.length ?? 0) > 0;
       expect(declare, `${nom} porte le mode minuteur sans ambiances ni minuteurs declares`)
         .toBe(true);
@@ -233,7 +240,8 @@ describe('minuteur et rangeeAmbiance : ce que la donnee garantit', () => {
   /** Corroboration : au moins un ecran porte reellement le mode minuteur aujourd'hui, sans quoi
    *  le test ci-dessus serait vide et ne garantirait rien. */
   it('au moins un ecran porte effectivement le mode minuteur', () => {
-    const porteurs = Object.values(ECRANS).filter((e) => e.agencement?.modes.includes('minuteur'));
+    const porteurs = Object.values(ECRANS)
+      .filter((e) => resoudreAgencement(e).modes.includes('minuteur'));
     expect(porteurs.length).toBeGreaterThan(0);
   });
 });

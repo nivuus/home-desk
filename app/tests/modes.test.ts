@@ -176,7 +176,8 @@ describe('rangeeAmbiance — le budget rendu par la rangée « Ambiance » suppr
     // 585 : ça tient, donc 2. La croyance d'un zéro inconditionnel venait du court-circuit que
     // cette tâche a retiré (`combien` rendait 0 pour `minuteur` avant tout calcul), jamais d'une
     // vraie mesure de ce cas — `mesures.ecranModeMinuteur` (`contrat/budget.json`, 630 px) mesure
-    // le cas AVEC rangée Ambiance, celui juste au-dessus de ce test, qui reste à 0.
+    // le cas AVEC rangée Ambiance — celui du `describe('mode minuteur')` plus haut dans ce
+    // fichier, qui reste à 0. (Le test juste au-dessus porte sur `sourceJoue`, pas sur minuteur.)
     expect(ordreCommandes(QUATRE, { ...ctx({ minuteurEnCours: true }), rangeeAmbiance: false }))
       .toHaveLength(2);
   });
