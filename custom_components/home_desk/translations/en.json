@@ -1,4 +1,14 @@
 {
+  "selector": {
+    "geste": {
+      "options": {
+        "enregistrer": "Save",
+        "monter": "Move up",
+        "descendre": "Move down",
+        "supprimer": "Delete"
+      }
+    }
+  },
   "config": {
     "step": {
       "user": {
@@ -12,10 +22,11 @@
       "step": {
         "user": {
           "title": "Identity and budget",
-          "description": "The screen's name, and the tablet's usable height, in pixels.",
+          "description": "The screen's name, the displayed temperature sensor, and the tablet's usable height, in pixels.",
           "data": {
             "nom": "Name",
             "hauteurUtile": "Usable height (px)",
+            "temperature": "Temperature sensor",
             "note": "Note"
           }
         },
@@ -24,14 +35,17 @@
           "menu_options": {
             "commandes": "Command tiles",
             "ambiances": "Ambiance row",
+            "extrasMaison": "\"House extras\" tiles",
+            "ouvrants": "Openings",
             "synthese": "Summary line"
           }
         },
         "commandes": {
           "title": "Command tiles",
-          "description": "Add a tile, or pick one to edit, move or remove it.",
+          "description": "Pick an existing tile to edit, move or remove it, or check \"Add\" for a new one.",
           "data": {
-            "choix": "Tile"
+            "choix": "Existing tile",
+            "nouveau": "Add a new tile"
           }
         },
         "commandes_element": {
@@ -41,15 +55,22 @@
             "icone": "Icon",
             "entite": "Entity",
             "cible": "Target entity",
+            "service_domaine": "Service: domain",
+            "service_action": "Service: action",
+            "lien": "Link",
+            "vue": "View (#anchor)",
+            "epingle": "Pinned",
+            "absenceNommee": "Label shown when the entity is absent",
             "note": "Note",
             "geste": "Action"
           }
         },
         "ambiances": {
           "title": "Ambiance row",
-          "description": "Add a tile, or pick one to edit, move or remove it.",
+          "description": "Pick an existing tile to edit, move or remove it, or check \"Add\" for a new one.",
           "data": {
-            "choix": "Tile"
+            "choix": "Existing tile",
+            "nouveau": "Add a new tile"
           }
         },
         "ambiances_element": {
@@ -59,15 +80,62 @@
             "icone": "Icon",
             "entite": "Entity",
             "cible": "Target entity",
+            "service_domaine": "Service: domain",
+            "service_action": "Service: action",
+            "lien": "Link",
+            "vue": "View (#anchor)",
+            "epingle": "Pinned",
+            "absenceNommee": "Label shown when the entity is absent",
             "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "extrasMaison": {
+          "title": "\"House extras\" tiles",
+          "description": "Pick an existing tile to edit, move or remove it, or check \"Add\" for a new one.",
+          "data": {
+            "choix": "Existing tile",
+            "nouveau": "Add a new tile"
+          }
+        },
+        "extrasMaison_element": {
+          "title": "\"House extras\" tile",
+          "data": {
+            "libelle": "Label",
+            "icone": "Icon",
+            "entite": "Entity",
+            "cible": "Target entity",
+            "service_domaine": "Service: domain",
+            "service_action": "Service: action",
+            "lien": "Link",
+            "vue": "View (#anchor)",
+            "epingle": "Pinned",
+            "absenceNommee": "Label shown when the entity is absent",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "ouvrants": {
+          "title": "Openings",
+          "description": "Pick an existing opening to move or remove it, or check \"Add\" for a new one.",
+          "data": {
+            "choix": "Existing opening",
+            "nouveau": "Add an opening"
+          }
+        },
+        "ouvrants_element": {
+          "title": "Opening",
+          "data": {
+            "entite": "Entity",
             "geste": "Action"
           }
         },
         "synthese": {
           "title": "Summary line",
-          "description": "Add a line, or pick one to edit, move or remove it.",
+          "description": "Pick an existing line to edit, move or remove it, or check \"Add\" for a new one.",
           "data": {
-            "choix": "Line"
+            "choix": "Existing line",
+            "nouveau": "Add a new line"
           }
         },
         "synthese_element": {
@@ -79,12 +147,14 @@
             "valeur": "Value",
             "perso": "Custom",
             "horsTaches": "Outside chores",
+            "absenceNommee": "Label shown when the entity is absent",
             "note": "Note",
             "geste": "Action"
           }
         }
       },
       "error": {
+        "nom_vide": "The name cannot be empty.",
         "hauteur_hors_bornes": "The usable height must be between {min} and {max} px.",
         "budget_intenable": "This screen overflows by {debordement} px. Increase the usable height, or remove a zone in \"Blocks and modes\".",
         "champ_invalide": "This field is not valid: {motif}."

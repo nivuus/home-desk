@@ -1,8 +1,13 @@
 """Le squelette commun des sections « liste » du menu d'un ecran : tuiles de
-commande, rangee d'ambiance, ligne de synthese. Trois sections, UNE SEULE
-forme — ajouter, choisir, modifier, monter, descendre, supprimer — ecrite ici
-une fois et reutilisee par `EcranSubentryFlow` (config_flow.py) pour les
-trois ; la tache 7 y ajoute les minuteurs de la meme facon.
+commande, rangee d'ambiance, tuiles « extras maison », ouvrants surveilles, et
+ligne de synthese. Cinq sections, UNE SEULE forme — choisir/ajouter, modifier,
+monter, descendre, supprimer — ecrite ici une fois et reutilisee par
+`EcranSubentryFlow` (config_flow.py) pour les cinq ; la tache 7 y ajoute les
+minuteurs de la meme facon. Ce que chaque section a de PARTICULIER (ses
+champs, ses selecteurs, la construction/l'affichage d'un element) vit dans
+`listes_champs.py` — separe d'ici pour rester sous 500 lignes chacun, jamais
+a un compte de lignes arbitraire : c'est la couture que la tache 6 decrit
+elle-meme (« elles different par leurs champs, pas par leur forme »).
 
 **Verifie sur les sources reelles de Home Assistant 2026.9.1** (meme demarche
 que config_flow.py, cf. son rapport de tache) :
@@ -18,28 +23,28 @@ que config_flow.py, cf. son rapport de tache) :
 - `FlowManager._async_configure` (data_entry_flow.py) : quand l'etape
   courante est un MENU et que l'utilisateur choisit une option, HA appelle
   directement `async_step_<option>(None)` — jamais avec le `user_input` du
-  menu lui-meme. Un `async_show_menu(menu_options=[...])` route donc VERS un
-  step homonyme de chaque option : les noms de section (`commandes`,
-  `ambiances`, `synthese`) sont a la fois les cles des donnees ET les noms
-  des steps qu'ils declenchent.
+  menu lui-meme (le bloc `data_schema(user_input)` decrit au point suivant
+  s'applique de toute facon, meme sur un MENU : HA construit lui-meme
+  `vol.Schema({"next_step_id": vol.In(...)})` pour le valider). Un
+  `async_show_menu(menu_options=[...])` route donc VERS un step homonyme de
+  chaque option : les noms de section (`commandes`, `ambiances`,
+  `extrasMaison`, `ouvrants`, `synthese`) sont a la fois les cles des donnees
+  ET les noms des steps qu'ils declenchent.
 - La MEME methode applique AUSSI `data_schema(user_input)` avant d'appeler le
-  step courant, des que `data_schema` est present sur l'etape (verifie en
-  lisant `data_entry_flow.py`, la boucle `_async_configure`) — contrairement
-  a ce qu'affirme la docstring de module de `config_flow.py` au sujet de
-  `SCHEMA_IDENTITE` (tache 5). Cette lecture-la etait fausse sur ce point
-  precis, sans consequence pour elle puisque `SCHEMA_IDENTITE` n'y valide que
-  des TYPES python deja corrects (un `str`, un `int`). Une violation de
-  `data_schema` (mauvais type, option hors enum) remonte donc comme une
-  EXCEPTION `InvalidData`, jamais comme un formulaire reaffiche avec erreurs :
-  la seule facon d'obtenir un refus ergonomique (`errors={...}`) est de
-  laisser `data_schema` large (types `str`, selecteurs qui n'imposent que le
-  DOMAINE d'une entite ou l'appartenance a un ENUM deja correct) et de faire
-  NOUS-MEMES le refus metier, exactement comme `EcranSubentryFlow.
-  async_step_user` le fait deja pour le budget et les bornes de hauteur.
-  `_valider_element()` ci-dessous rejoue donc `schema.BOUTON`/
-  `schema.SYNTHESE` plutot que de compter sur `data_schema` pour refuser une
-  saisie : DEUX validateurs pour une seule regle serait exactement la
-  divergence que `schema.py` existe pour empecher (sa propre docstring).
+  step courant, des que `data_schema` est present sur l'etape, QUEL QUE SOIT
+  le type de cette etape (verifie en lisant `data_entry_flow.py`, la boucle
+  `_async_configure`, lignes 355-377 : le bloc s'execute inconditionnellement
+  — un MENU fabrique lui-meme un `vol.Schema({"next_step_id": vol.In(...)})`,
+  qui passe par le meme bloc). Une violation de `data_schema` (mauvais type,
+  option hors enum) remonte donc comme une EXCEPTION `InvalidData`, jamais
+  comme un formulaire reaffiche avec erreurs : la seule facon d'obtenir un
+  refus ergonomique (`errors={...}`) est de laisser `data_schema` large
+  (types `str`, selecteurs qui n'imposent que le DOMAINE d'une entite ou
+  l'appartenance a un ENUM deja correct) et de faire NOUS-MEMES le refus
+  metier, exactement comme `EcranSubentryFlow.async_step_user` le fait deja
+  pour le budget et les bornes de hauteur. `section.valider` (schema.BOUTON /
+  schema.SYNTHESE / schema.ENTITE) est donc rejouee A LA MAIN sur le resultat
+  CONSTRUIT (`section.construire_donnee`), jamais confiee a `data_schema`.
 
 **Persistance immediate, jamais de creation en fin de parcours.** Une
 sous-entree « ecran » existe deja (creee par `async_step_user`, tache 5)
@@ -50,13 +55,43 @@ monter, descendre, supprimer) appelle `ConfigSubentryFlow._async_update`
 `async_create_entry` : celui-ci exige `self.source == SOURCE_USER`
 (`ConfigSubentryFlow.async_create_entry`) et leve sous `SOURCE_RECONFIGURE`,
 la source de CE flow.
+
+**Ronde 1 de relecture, trois corrections structurelles :**
+
+1. **Critique — un `enregistrer` ecrasait silencieusement les champs hors
+   formulaire.** `elements[index] = valide` remplacait l'element ENTIER par
+   le seul resultat valide du formulaire ; une tuile portant `service`,
+   `vue`, `epingle`, `absenceNommee` ou `lien`, editee pour son seul
+   `libelle`, perdait les cinq autres en silence — une tuile qui n'agissait
+   que par `service` devenait litteralement le bouton mort que ce depot
+   s'interdit. Deux corrections cumulatives, dans `listes_champs.py` : (a)
+   les cinq champs rejoignent desormais le formulaire — il n'y a plus de
+   champ du contrat que ce formulaire ignore ; (b) `_fusionner()` ne
+   conserve de l'existant QUE les champs que ce formulaire NE GERE PAS
+   (`CHAMPS_BOUTON`/`CHAMPS_SYNTHESE`), en defense pour un champ futur du
+   contrat que le formulaire n'aurait pas encore rattrape — jamais activee
+   en pratique aujourd'hui, puisque (a) couvre deja tout.
+2. **Important — un refus a la saisie perdait ce que l'utilisateur venait de
+   taper.** `existant` (les valeurs STOCKEES) servait de valeurs suggerees
+   MEME apres un refus : un ajout refuse (donc `existant = None`) reaffichait
+   un formulaire VIDE, pas la saisie fautive. `valeurs_affichees` distingue
+   desormais l'affichage initial (les valeurs stockees, via `section.
+   afficher`) du reaffichage apres erreur (la saisie brute de l'utilisateur,
+   `user_input`).
+3. **Important — le sentinel "ajouter" partageait le champ `choix` avec des
+   index d'elements reels**, ce qui empechait de traduire proprement son
+   option (un `SelectSelector` ne peut pas melanger des options traduites et
+   des options DONNEES sous le meme `translation_key`). Le menu de section
+   porte maintenant DEUX champs : `nouveau` (un `BooleanSelector`, traduit
+   comme n'importe quel champ via son LABEL, jamais une option) et `element`
+   (un `SelectSelector` dynamique, present seulement s'il existe deja des
+   elements, ses options etant les libelles REELS). `geste`, lui, n'a que
+   des valeurs FIXES (les quatre gestes) : `translation_key` s'y applique
+   proprement (`listes_champs._selecteur_geste`).
 """
 from __future__ import annotations
 
-import json
-import pathlib
-from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 import voluptuous as vol
 
@@ -65,147 +100,35 @@ from homeassistant.helpers import selector
 
 from . import schema
 from .const import (
-    ACTION_AJOUTER,
     ACTION_DESCENDRE,
     ACTION_ENREGISTRER,
     ACTION_MONTER,
     ACTION_SUPPRIMER,
     ERREUR_CHAMP_INVALIDE,
 )
+from .listes_champs import SECTIONS, Section
 
-# Le vocabulaire d'icones vient de contrat/icones.json, JAMAIS retape a la
-# main : une seconde copie divergerait en silence de celle deja generee dans
-# ecran.schema.json (et lue par schema.py) — exactement ce que la relecture
-# du plan 1 avait deja corrige en generant l'enum du schema depuis ce
-# fichier. Meme regle d'emplacement que schema.py/budget.py (decision de la
-# tache 3) : relatif au module, jamais "../../contrat".
-CHEMIN_ICONES = pathlib.Path(__file__).parent / "contrat" / "icones.json"
-_ICONES_OPTIONS: list[str] = json.loads(CHEMIN_ICONES.read_text(encoding="utf-8"))["icones"]
-
-# $defs/bouton (tuiles de commande et rangee d'ambiance) : light/cover/lock/
-# switch, les domaines qu'un bouton d'ecran mural actionne reellement.
-_DOMAINES_TUILE = ["light", "cover", "lock", "switch"]
-# $defs/synthese (ligne de synthese) : ce qu'une synthese resume est un ETAT
-# a lire, jamais un service a appeler.
-_DOMAINES_SYNTHESE = ["sensor", "binary_sensor", "todo", "lock", "cover"]
-
-_ACTIONS_EDITION = [ACTION_ENREGISTRER, ACTION_MONTER, ACTION_DESCENDRE, ACTION_SUPPRIMER]
+__all__ = ["SECTIONS", "Section", "SectionsListeMixin"]
 
 
-def _selecteur_icone() -> selector.SelectSelector:
-    return selector.SelectSelector(
-        selector.SelectSelectorConfig(
-            options=list(_ICONES_OPTIONS), mode=selector.SelectSelectorMode.DROPDOWN
+def _schema_choix(elements: list, section: Section) -> vol.Schema:
+    """Le menu « ajouter | choisir » du brief, sur DEUX champs plutot qu'un
+    sentinel partage (ronde 1, point 3 de la docstring de module) : `nouveau`
+    (un booleen, traduit par son LABEL — jamais une option) declenche un
+    element vierge ; `choix` (dynamique, absent si la section est encore
+    vide) choisit un element existant par son libelle reel. Nom du champ
+    aligne sur `translations/fr.json`/`en.json`
+    (`config_subentries.ecran.step.<section>.data.choix`)."""
+    champs: dict[Any, Any] = {vol.Optional("nouveau", default=False): selector.BooleanSelector()}
+    if elements:
+        options = [
+            selector.SelectOptionDict(value=str(i), label=f"{i + 1}. {section.libelle(el)}")
+            for i, el in enumerate(elements)
+        ]
+        champs[vol.Optional("choix")] = selector.SelectSelector(
+            selector.SelectSelectorConfig(options=options, mode=selector.SelectSelectorMode.LIST)
         )
-    )
-
-
-def _selecteur_entite(domaines: list[str]) -> selector.EntitySelector:
-    return selector.EntitySelector(selector.EntitySelectorConfig(domain=domaines))
-
-
-def _schema_bouton(editable: bool) -> vol.Schema:
-    """`$defs/bouton` : les champs les plus utiles a l'edition depuis
-    l'interface. `service`, `lien`, `vue`, `epingle`, `absenceNommee` restent
-    hors de ce formulaire pour cette tache (voir le rapport de tache 6, section
-    couverture du contrat) ; absents de la saisie, ils restent absents de la
-    donnee validee — jamais refuses par `schema.BOUTON`, qui les a tous en
-    `Optional`."""
-    champs: dict[Any, Any] = {
-        vol.Required("libelle"): str,
-        vol.Required("icone"): _selecteur_icone(),
-        vol.Required("entite"): _selecteur_entite(_DOMAINES_TUILE),
-        vol.Optional("cible"): _selecteur_entite(_DOMAINES_TUILE),
-        vol.Optional("note"): str,
-    }
-    if editable:
-        champs[vol.Optional("geste", default=ACTION_ENREGISTRER)] = vol.In(_ACTIONS_EDITION)
     return vol.Schema(champs)
-
-
-def _schema_synthese(editable: bool) -> vol.Schema:
-    """`$defs/synthese`. `valeur` reste un CHAMP TEXTE UNIQUE : `<`/`>`
-    exigent un nombre, `==`/`!=` acceptent aussi une chaine — l'union
-    discriminee par `operateur` que `_valider_element()` tranche en rejouant
-    `schema.SYNTHESE`, apres avoir tente de convertir une saisie numerique
-    (`_convertir_valeur`). Sans cette conversion, un champ texte unique
-    laisserait passer `{operateur: "<", valeur: "35"}` (une CHAINE) au refus
-    du schema — exactement le cas que porte le corpus partage
-    (`contrat/cas-schema.json`, rejoue par `tests/composant/test_schema.py`).
-    La conversion rend `<`/`>` utilisables sans champ dedie ; le refus, lui,
-    reste entier pour une valeur vraiment incompatible (`<` avec "chaud") —
-    nomme par `motif()`, jamais un « valeur invalide » muet."""
-    champs: dict[Any, Any] = {
-        vol.Required("entite"): _selecteur_entite(_DOMAINES_SYNTHESE),
-        vol.Required("texte"): str,
-        vol.Required("operateur"): selector.SelectSelector(
-            selector.SelectSelectorConfig(
-                options=list(schema.OPERATEURS), mode=selector.SelectSelectorMode.DROPDOWN
-            )
-        ),
-        vol.Required("valeur"): str,
-        vol.Optional("perso", default=False): bool,
-        vol.Optional("horsTaches", default=False): bool,
-        vol.Optional("note"): str,
-    }
-    if editable:
-        champs[vol.Optional("geste", default=ACTION_ENREGISTRER)] = vol.In(_ACTIONS_EDITION)
-    return vol.Schema(champs)
-
-
-def _convertir_valeur(brut: str) -> Any:
-    """Une saisie numerique (`"35"`, `"-2.5"`) devient un nombre ; le reste
-    reste une chaine. `int` avant `float` : `schema.SYNTHESE` ne distingue
-    pas les deux (`isinstance(valeur, (int, float))`), mais garder l'entier
-    entier evite d'ecrire `35.0` pour un seuil que l'utilisateur a tape
-    `35`."""
-    try:
-        return int(brut)
-    except ValueError:
-        pass
-    try:
-        return float(brut)
-    except ValueError:
-        return brut
-
-
-@dataclass(frozen=True)
-class _Section:
-    cle: str
-    champ_libelle: str
-    valider: Callable[[dict], dict]
-    construire_schema: Callable[[bool], vol.Schema]
-    champ_valeur_numerique: str | None = None
-
-
-# Le squelette est reutilise TROIS fois : les tuiles de commande et la rangee
-# d'ambiance partagent litteralement la meme forme ($defs/bouton), seule la
-# cle de donnee change. La ligne de synthese differe par ses champs
-# ($defs/synthese), pas par la forme du parcours.
-SECTIONS: dict[str, _Section] = {
-    "commandes": _Section("commandes", "libelle", schema.BOUTON, _schema_bouton),
-    "ambiances": _Section("ambiances", "libelle", schema.BOUTON, _schema_bouton),
-    "synthese": _Section("synthese", "texte", schema.SYNTHESE, _schema_synthese, "valeur"),
-}
-
-
-def _construire_donnee(section: _Section, user_input: dict[str, Any]) -> dict[str, Any]:
-    """Le geste ne fait pas partie de la donnee persistee. Un champ optionnel
-    laisse vide (chaine vide, formulaire) ou une case a cocher non cochee
-    (`False`) ne doit PAS finir dans le dict : `schema.BOUTON`/
-    `schema.SYNTHESE` les attendent ABSENTS, jamais faux ou vides
-    (`_const(True)` leve sur `False`, une chaine vide echouerait `_chaine(1)`
-    pour `libelle`/`icone` si jamais l'un d'eux l'etait)."""
-    donnee: dict[str, Any] = {}
-    for champ, valeur in user_input.items():
-        if champ == "geste" or valeur in (None, ""):
-            continue
-        if champ in ("perso", "horsTaches", "epingle") and valeur is not True:
-            continue
-        if champ == section.champ_valeur_numerique:
-            valeur = _convertir_valeur(valeur)
-        donnee[champ] = valeur
-    return donnee
 
 
 class SectionsListeMixin:
@@ -218,61 +141,48 @@ class SectionsListeMixin:
 
     _index_courant: int | None = None
 
-    def _elements(self, subentry: ConfigSubentry, cle: str) -> list[dict]:
+    def _elements(self, subentry: ConfigSubentry, cle: str) -> list:
         return list(subentry.data.get(cle, []))
 
     def _persister(
-        self, entry: ConfigEntry, subentry: ConfigSubentry, cle: str, elements: list[dict]
+        self, entry: ConfigEntry, subentry: ConfigSubentry, cle: str, elements: list
     ) -> None:
         self._async_update(entry=entry, subentry=subentry, data_updates={cle: elements})
 
     async def _async_step_section(self, cle: str, user_input: dict[str, Any] | None):
-        """`async def async_step_<section>` : le menu « ajouter | choisir »
-        du brief, fondu en UN champ `choix` (la valeur speciale ACTION_AJOUTER
-        pour ajouter, sinon l'index de l'element a editer) — un `SelectSelector`
-        plutot qu'un `async_show_menu` : le nombre d'options depend du nombre
-        d'elements, que `async_show_menu` ne saurait pas nommer un par un avec
-        leur libelle."""
         section = SECTIONS[cle]
         subentry = self._get_reconfigure_subentry()
         elements = self._elements(subentry, cle)
 
         if user_input is not None:
-            choix = user_input["choix"]
-            self._index_courant = None if choix == ACTION_AJOUTER else int(choix)
-            return await getattr(self, f"async_step_{cle}_element")()
+            if user_input.get("nouveau"):
+                self._index_courant = None
+                return await getattr(self, f"async_step_{cle}_element")()
+            choisi = user_input.get("choix")
+            if choisi is not None:
+                self._index_courant = int(choisi)
+                return await getattr(self, f"async_step_{cle}_element")()
+            # Ni "nouveau" coche, ni element choisi : reaffiche, rien a faire.
 
-        options = [selector.SelectOptionDict(value=ACTION_AJOUTER, label="Ajouter")]
-        options += [
-            selector.SelectOptionDict(value=str(i), label=f"{i + 1}. {el[section.champ_libelle]}")
-            for i, el in enumerate(elements)
-        ]
-        schema_choix = vol.Schema(
-            {
-                vol.Required("choix", default=ACTION_AJOUTER): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=options, mode=selector.SelectSelectorMode.LIST
-                    )
-                )
-            }
-        )
-        return self.async_show_form(step_id=cle, data_schema=schema_choix)
+        return self.async_show_form(step_id=cle, data_schema=_schema_choix(elements, section))
 
     async def _async_step_section_element(self, cle: str, user_input: dict[str, Any] | None):
-        """`async def async_step_<section>_element` : le formulaire d'un
-        element, plus ses quatre gestes (`geste`, champ present uniquement en
-        EDITION — ajouter un element vierge n'a rien a monter, descendre ou
-        supprimer). `monter`/`descendre` sont GARDES aux deux bords : un
-        index hors bornes ne fait rien et ne leve pas (cf. rapport, mutation
-        de l'etape 5 du brief)."""
+        """Le formulaire d'un element, plus ses quatre gestes (`geste`,
+        champ present uniquement en EDITION — ajouter un element vierge n'a
+        rien a monter, descendre ou supprimer). `monter`/`descendre` sont
+        GARDES aux deux bords : un index hors bornes ne fait rien et ne leve
+        pas (cf. rapport, mutation de l'etape 5 du brief). Un refus a
+        l'enregistrement REAFFICHE LA SAISIE (`valeurs_affichees`), jamais
+        les valeurs stockees d'avant (ronde 1, Important 2)."""
         section = SECTIONS[cle]
         entry = self._get_entry()
         subentry = self._get_reconfigure_subentry()
         elements = self._elements(subentry, cle)
         index = self._index_courant
-        existant = elements[index] if index is not None else {}
+        existant = elements[index] if index is not None else None
         errors: dict[str, str] = {}
         description_placeholders: dict[str, str] = {}
+        valeurs_affichees = section.afficher(existant)
 
         if user_input is not None:
             geste = user_input.get("geste", ACTION_ENREGISTRER)
@@ -298,13 +208,14 @@ class SectionsListeMixin:
                 self._index_courant = None
                 return await self._async_step_section(cle, None)
 
-            # ACTION_ENREGISTRER : rejoue schema.BOUTON/schema.SYNTHESE, LA
-            # MEME validation que schema.valider() sur l'ecran complet — deux
-            # validateurs pour une regle serait la divergence que schema.py
-            # existe pour empecher.
-            donnee = _construire_donnee(section, user_input)
+            # ACTION_ENREGISTRER : rejoue schema.BOUTON/schema.SYNTHESE/
+            # schema.ENTITE, LA MEME validation que schema.valider() sur
+            # l'ecran complet — deux validateurs pour une regle serait la
+            # divergence que schema.py existe pour empecher.
+            valeurs_affichees = user_input
+            candidat = section.construire_donnee(user_input, existant)
             try:
-                valide = section.valider(donnee)
+                valide = section.valider(candidat)
             except vol.Invalid as err:
                 brut = err.errors[0] if isinstance(err, vol.MultipleInvalid) else err
                 errors[str(brut.path[0]) if brut.path else "base"] = ERREUR_CHAMP_INVALIDE
@@ -321,7 +232,7 @@ class SectionsListeMixin:
         return self.async_show_form(
             step_id=f"{cle}_element",
             data_schema=self.add_suggested_values_to_schema(
-                section.construire_schema(index is not None), existant
+                section.construire_schema(index is not None), valeurs_affichees
             ),
             errors=errors,
             description_placeholders=description_placeholders,

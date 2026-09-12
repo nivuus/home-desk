@@ -44,10 +44,18 @@ ERREUR_BUDGET_INTENABLE = "budget_intenable"
 # sur l'autre.
 ERREUR_CHAMP_INVALIDE = "champ_invalide"
 
-# Les quatre gestes d'un element de section « liste » (listes.py). « ajouter »
-# n'en est pas un : c'est la valeur speciale du champ "choix" du menu de
-# section qui declenche un element VIERGE plutot qu'un index existant.
-ACTION_AJOUTER = "ajouter"
+# Ronde 1 de relecture (tache 6) : dette de la tache 5 corrigee ici. `nom`
+# vide passait (SCHEMA_IDENTITE ne declare qu'un `str`, sans borne) et etait
+# PERSISTE alors que le contrat exige `minLength: 1` — refuse desormais A LA
+# SAISIE, meme regle que les deux erreurs au-dessus.
+ERREUR_NOM_VIDE = "nom_vide"
+
+# Les quatre gestes d'un element de section « liste » (listes.py) — un
+# element deja choisi. Ajouter un element VIERGE n'en est pas un : c'est la
+# case a cocher "nouveau" du formulaire de section, pas une valeur de geste
+# (ronde 1 de relecture : l'ancien sentinel ACTION_AJOUTER partageait le
+# champ "choix" avec des index d'elements reels, ce qui empechait de
+# traduire proprement son option "Ajouter" - retire).
 ACTION_ENREGISTRER = "enregistrer"
 ACTION_MONTER = "monter"
 ACTION_DESCENDRE = "descendre"

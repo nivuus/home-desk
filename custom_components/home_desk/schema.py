@@ -58,10 +58,15 @@ _VUE_PATTERN = re.compile(_DEFS["bouton"]["properties"]["vue"]["pattern"])
 HAUTEUR_MIN = _SCHEMA_JSON["properties"]["hauteurUtile"]["minimum"]
 HAUTEUR_MAX = _SCHEMA_JSON["properties"]["hauteurUtile"]["maximum"]
 
-# Publique pour la meme raison : listes.py (tache 6) construit le
-# SelectSelector de `operateur` de la ligne de synthese sur CES quatre
-# valeurs, jamais une liste ecrite a la main a cote de _OPERATEURS.
-OPERATEURS = _OPERATEURS
+# Publique pour la meme raison : listes.py construit le SelectSelector
+# d'`operateur` de la ligne de synthese sur CES quatre valeurs, jamais une
+# liste ecrite a la main a cote de _OPERATEURS. LISTE, pas _OPERATEURS
+# (un frozenset) : un menu affiche dans l'ORDRE de ses options, et l'ordre
+# d'un frozenset n'est pas garanti stable d'un processus Python a l'autre
+# (verifie : trois lancements, trois ordres) — corrige en ronde 1 de
+# relecture de la tache 6. La liste vient du JSON directement, jamais de
+# l'ensemble prive derive pour la validation membership.
+OPERATEURS: list[str] = list(_DEFS["synthese"]["properties"]["operateur"]["enum"])
 
 
 # --------------------------------------------------------------------------

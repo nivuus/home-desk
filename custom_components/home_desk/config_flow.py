@@ -48,15 +48,20 @@ premieres. Une seconde entree detiendrait une seconde verite, et le transport
 (taches 8-9) ne saurait pas laquelle publier — d'ou le refus
 `single_instance_allowed`.
 
-Cette tache ne porte que la premiere section du menu de la sous-entree,
-« Identite et budget » : `nom`, `hauteurUtile`, `note`. Le menu a huit
-entrees, et la validation par `schema.valider` de l'ecran COMPLET, arrivent
-a la tache 6 — avant cela, `nom`/`hauteurUtile`/`note` seuls ne satisferaient
-pas les champs requis de `contrat/ecran.schema.json` (temperature, ambiances,
-commandes, ...). Le budget, lui, doit deja etre verifie ICI : c'est la seule
-donnee qui existe a cette etape, et le mode le moins cher (`defaut`,
-`rangeeAmbiance=True`) suffit a refuser un ecran qu'AUCUN mode ne pourrait
-tenir.
+La section « Identite et budget » de la sous-entree porte `nom`,
+`hauteurUtile`, `temperature`, `note`. Le budget doit deja etre verifie ICI :
+c'est la seule donnee qui existe a cette etape, et le mode le moins cher
+(`defaut`, `rangeeAmbiance=True`) suffit a refuser un ecran qu'AUCUN mode ne
+pourrait tenir.
+
+**Ronde 1 de relecture (tache 6) : `temperature` a rejoint cette section.**
+C'est un champ RACINE requis du contrat (`contrat/ecran.schema.json`,
+"required") qu'aucune tache du plan ne portait encore — ni la tache 5, ni
+le plan de la tache 6, qui couvrait les sections « liste » mais pas les
+champs scalaires du contrat. Sans lui, la sous-entree n'aurait jamais pu
+passer `schema.valider()`, quelles que soient les sections « liste »
+livrees par ailleurs. `temperature` n'est pas une liste : elle vit ici,
+dans l'identite, jamais dans `listes.py`.
 
 **Ronde 1 de relecture, second refus : `hauteurUtile` porte aussi les bornes
 du contrat** (`schema.HAUTEUR_MIN`/`HAUTEUR_MAX`, 320 et 4000 px). Le budget
@@ -83,16 +88,27 @@ from homeassistant.config_entries import (
 )
 from homeassistant.core import callback
 
+from homeassistant.helpers import selector
+
 from . import schema
 from .budget import verifier_budget
 from .const import (
     DOMAIN,
     ERREUR_BUDGET_INTENABLE,
     ERREUR_HAUTEUR_HORS_BORNES,
+    ERREUR_NOM_VIDE,
     SOUS_ENTREE_ECRAN,
     VERSION_CONFIG,
 )
 from .listes import SECTIONS, SectionsListeMixin
+
+# `temperature` ($defs/entite) : le capteur que l'ecran affiche en bandeau.
+# Ronde 1 de relecture (tache 6) : c'etait un champ RACINE requis du contrat
+# (contrat/ecran.schema.json, "required") que ni la tache 5 ni la tache 6 ne
+# portaient encore — aucune tache du plan ne le couvrait, sans quoi la
+# sous-entree n'aurait jamais pu passer schema.valider(). Il appartient a
+# l'identite (config_flow.py), pas a listes.py : ce n'est pas une liste.
+_DOMAINES_TEMPERATURE = ["sensor"]
 
 # La section « Identite et budget » seule ; les sections « liste » (tuiles de
 # commande, rangee d'ambiance, ligne de synthese) sont dans listes.py depuis
@@ -115,6 +131,9 @@ SCHEMA_IDENTITE = vol.Schema(
     {
         vol.Required("nom"): str,
         vol.Required("hauteurUtile"): int,
+        vol.Required("temperature"): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain=_DOMAINES_TEMPERATURE)
+        ),
         vol.Optional("note"): str,
     }
 )
@@ -153,51 +172,77 @@ class HomeDeskConfigFlow(ConfigFlow, domain=DOMAIN):
         return {SOUS_ENTREE_ECRAN: EcranSubentryFlow}
 
 
-class EcranSubentryFlow(ConfigSubentryFlow, SectionsListeMixin):
+class EcranSubentryFlow(SectionsListeMixin, ConfigSubentryFlow):
     """Une sous-entree, un ecran. `async_step_user` (tache 5) cree la
     sous-entree avec sa seule section « Identite et budget ». Une fois creee,
     on y REVIENT par `async_step_reconfigure` (source `SOURCE_RECONFIGURE`,
     cf. listes.py) : c'est la que vivent les sections « liste » de la
-    tache 6, et celles des taches suivantes."""
+    tache 6, et celles des taches suivantes.
+
+    Ronde 1 de relecture : le mixin vient EN PREMIER dans les bases (et non
+    en dernier, l'ordre precedent) — convention Python standard pour un
+    mixin, qui doit apparaitre avant la classe fonctionnelle de base pour
+    pouvoir la surcharger via le MRO. Sans effet observable ici (aucune des
+    deux classes ne definit de nom en commun aujourd'hui), mais c'est
+    l'inverse qui aurait ete un piege pour la prochaine surcharge."""
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Saisie de `nom`, `hauteurUtile`, `note`. Refuse AU MOMENT DE LA
-        SAISIE une hauteur ou meme le mode le moins cher ne tient pas (et dit
-        de combien), ou une hauteur hors des bornes du contrat (10 000 px ne
-        deborde jamais, mais `schema.valider()` le refuserait quand meme,
-        plus tard) — jamais « valeur invalide », qui signalerait un refus
-        sans dire quoi faire.
+        """Saisie de `nom`, `hauteurUtile`, `temperature`, `note`. Refuse AU
+        MOMENT DE LA SAISIE un nom vide, une hauteur ou meme le mode le
+        moins cher ne tient pas (et dit de combien), ou une hauteur hors des
+        bornes du contrat (10 000 px ne deborde jamais, mais
+        `schema.valider()` le refuserait quand meme, plus tard) — jamais
+        « valeur invalide », qui signalerait un refus sans dire quoi faire.
 
-        Le budget est verifie EN PREMIER : c'est la garde la plus frequente
-        (toute hauteur trop juste, meme dans les bornes, deborde), et c'est
-        elle que `test_un_ecran_qui_deborde_est_REFUSE_avec_son_chiffre`
-        exerce avec 100 px — une valeur qui, en pratique, deborde toujours
-        avant d'etre hors bornes (le cout minimal d'un ecran depasse deja
-        320 px, la borne basse). Les bornes ne sont donc la seule garde
-        atteignable que pour une hauteur EXCESSIVE, au-dela de ce que le
-        budget peut jamais signaler."""
+        `nom` est verifie EN PREMIER (ronde 1, tache 6 : dette de la tache 5,
+        `nom` vide passait). Le budget vient ensuite : c'est la garde la plus
+        frequente sur `hauteurUtile` (toute hauteur trop juste, meme dans les
+        bornes, deborde), et c'est elle que
+        `test_un_ecran_qui_deborde_est_REFUSE_avec_son_chiffre` exerce avec
+        100 px — une valeur qui, en pratique, deborde toujours avant d'etre
+        hors bornes (le cout minimal d'un ecran depasse deja 320 px, la borne
+        basse). Les bornes ne sont donc la seule garde atteignable que pour
+        une hauteur EXCESSIVE, au-dela de ce que le budget peut jamais
+        signaler. `temperature` n'a besoin d'aucun controle manuel : un
+        `EntitySelector` filtre deja son domaine (`sensor`), et le format
+        d'un `entity_id` reel satisfait toujours `schema.ENTITE`."""
         errors: dict[str, str] = {}
         description_placeholders: dict[str, str] = {}
 
         if user_input is not None:
-            deborde = verifier_budget(
-                "defaut", rangee_ambiance=True, hauteur_utile=user_input["hauteurUtile"]
-            )
-            if deborde:
-                errors["hauteurUtile"] = ERREUR_BUDGET_INTENABLE
-                description_placeholders["debordement"] = str(deborde)
+            # Ronde 1 de relecture (tache 6) : dette de la tache 5. `nom` vide
+            # passait ("str" sans borne dans SCHEMA_IDENTITE) et etait
+            # PERSISTE, alors que le contrat exige `minLength: 1` — refuse
+            # d'abord, meme regime que le budget et les bornes ci-dessous.
+            if not user_input["nom"].strip():
+                errors["nom"] = ERREUR_NOM_VIDE
             else:
-                try:
-                    schema.hauteur_utile(user_input["hauteurUtile"])
-                except vol.Invalid:
-                    errors["hauteurUtile"] = ERREUR_HAUTEUR_HORS_BORNES
-                    description_placeholders["min"] = str(schema.HAUTEUR_MIN)
-                    description_placeholders["max"] = str(schema.HAUTEUR_MAX)
+                deborde = verifier_budget(
+                    "defaut", rangee_ambiance=True, hauteur_utile=user_input["hauteurUtile"]
+                )
+                if deborde:
+                    errors["hauteurUtile"] = ERREUR_BUDGET_INTENABLE
+                    description_placeholders["debordement"] = str(deborde)
                 else:
-                    donnee = {**user_input, "version": VERSION_CONFIG}
-                    return self.async_create_entry(title=donnee["nom"], data=donnee)
+                    try:
+                        schema.hauteur_utile(user_input["hauteurUtile"])
+                    except vol.Invalid:
+                        errors["hauteurUtile"] = ERREUR_HAUTEUR_HORS_BORNES
+                        description_placeholders["min"] = str(schema.HAUTEUR_MIN)
+                        description_placeholders["max"] = str(schema.HAUTEUR_MAX)
+                    else:
+                        # Ronde 1 (tache 6) : `note` vide etait PERSISTE
+                        # ("" reste "") la ou le contrat la veut ABSENTE
+                        # (Optional, jamais une chaine vide) — meme nettoyage
+                        # que listes._construire_donnee pour les sections
+                        # « liste », applique ici a l'identite.
+                        donnee = {
+                            k: v for k, v in user_input.items() if not (k == "note" and v == "")
+                        }
+                        donnee["version"] = VERSION_CONFIG
+                        return self.async_create_entry(title=donnee["nom"], data=donnee)
 
         return self.async_show_form(
             step_id="user",
@@ -213,9 +258,10 @@ class EcranSubentryFlow(ConfigSubentryFlow, SectionsListeMixin):
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         """Point d'entree d'une sous-entree EXISTANTE. Un menu vers les
-        sections « liste » deja livrees (`listes.SECTIONS`) ; les sections
-        manquantes (Sources media, Blocs et modes, Minuteurs, Voiture)
-        etendent ce MEME menu aux taches suivantes."""
+        sections « liste » deja livrees (`listes.SECTIONS` : tuiles de
+        commande, rangee d'ambiance, extras maison, ouvrants, ligne de
+        synthese) ; les sections manquantes (Sources media, Blocs et modes,
+        Minuteurs, Voiture) etendent ce MEME menu aux taches suivantes."""
         return self.async_show_menu(step_id="reconfigure", menu_options=list(SECTIONS))
 
     # Les six relais qu'exige `listes.SectionsListeMixin` : HA appelle un
@@ -252,3 +298,23 @@ class EcranSubentryFlow(ConfigSubentryFlow, SectionsListeMixin):
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         return await self._async_step_section_element("synthese", user_input)
+
+    async def async_step_extrasMaison(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return await self._async_step_section("extrasMaison", user_input)
+
+    async def async_step_extrasMaison_element(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return await self._async_step_section_element("extrasMaison", user_input)
+
+    async def async_step_ouvrants(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return await self._async_step_section("ouvrants", user_input)
+
+    async def async_step_ouvrants_element(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        return await self._async_step_section_element("ouvrants", user_input)

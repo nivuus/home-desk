@@ -9,6 +9,25 @@ from custom_components.home_desk.const import DOMAIN, SOUS_ENTREE_ECRAN
 
 pytest_plugins = "pytest_homeassistant_custom_component"
 
+# La sous-entree minimale d'identite : `temperature` est requis (ronde 1 de
+# relecture, tache 6 — un champ racine du contrat qu'aucune tache ne portait
+# encore). Reutilisee partout ou un test doit juste franchir cette premiere
+# section pour atteindre les sections « liste ».
+IDENTITE_MINIMALE = {"nom": "Salon d essai", "hauteurUtile": 900, "temperature": "sensor.temp_salon"}
+
+# Un element VALIDE par section « liste », partage par les tests de
+# test_config_flow.py et test_config_flow_listes.py (ajout generique,
+# preuve de bout en bout que seul `sources` manque encore a schema.valider).
+ELEMENTS_VALIDES = {
+    "commandes": {"libelle": "Lampe test", "icone": "bulb", "entite": "light.test_commande"},
+    "ambiances": {"libelle": "Ambiance test", "icone": "sofa", "entite": "light.test_ambiance"},
+    "extrasMaison": {"libelle": "Extra test", "icone": "list", "entite": "switch.test_extra"},
+    "synthese": {
+        "entite": "sensor.test_synthese", "texte": "Texte test", "operateur": "==", "valeur": "ok",
+    },
+    "ouvrants": {"entite": "binary_sensor.test_ouvrant"},
+}
+
 
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations):
@@ -24,6 +43,24 @@ async def entree(hass):
         DOMAIN, context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.flow.async_configure(resultat["flow_id"], {})
     return resultat["result"]
+
+
+async def _creer_ecran(hass, entree, **overrides) -> str:
+    """Cree une sous-entree d'identite minimale (nom/hauteurUtile/temperature
+    valides), rend son `subentry_id`. Partagee par les deux fichiers de test
+    de config_flow (identite et sections « liste »)."""
+    donnee = {**IDENTITE_MINIMALE, **overrides}
+    flow = await hass.config_entries.subentries.async_init(
+        (entree.entry_id, SOUS_ENTREE_ECRAN), context={"source": config_entries.SOURCE_USER})
+    resultat = await hass.config_entries.subentries.async_configure(flow["flow_id"], donnee)
+    assert resultat["type"] is data_entry_flow.FlowResultType.CREATE_ENTRY
+    return next(iter(hass.config_entries.async_get_entry(entree.entry_id).subentries))
+
+
+async def _init_reconfigure(hass, entree, subentry_id: str):
+    return await hass.config_entries.subentries.async_init(
+        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        context={"source": config_entries.SOURCE_RECONFIGURE, "subentry_id": subentry_id})
 
 
 def _commandes(hass):
@@ -69,7 +106,7 @@ async def entree_peuplee(hass, entree):
         (entree.entry_id, SOUS_ENTREE_ECRAN),
         context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"nom": "Salon d essai", "hauteurUtile": 900})
+        flow["flow_id"], IDENTITE_MINIMALE)
     assert resultat["type"] is data_entry_flow.FlowResultType.CREATE_ENTRY
 
     entry = hass.config_entries.async_get_entry(entree.entry_id)
@@ -92,7 +129,10 @@ async def entree_peuplee(hass, entree):
         await hass.config_entries.subentries.async_configure(
             flow["flow_id"], {"next_step_id": "commandes"})
         await hass.config_entries.subentries.async_configure(
-            flow["flow_id"], {"choix": "ajouter"})
+            flow["flow_id"], {"nouveau": True})
+        # Ajout : le formulaire n'a PAS de champ "geste" (reserve a
+        # l'edition d'un element EXISTANT, cf. listes._schema_bouton) — le
+        # soumettre ferait echouer data_schema (cle inconnue).
         resultat = await hass.config_entries.subentries.async_configure(
             flow["flow_id"], tuile)
         assert resultat["type"] is data_entry_flow.FlowResultType.FORM, (

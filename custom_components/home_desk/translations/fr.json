@@ -1,4 +1,14 @@
 {
+  "selector": {
+    "geste": {
+      "options": {
+        "enregistrer": "Enregistrer",
+        "monter": "Monter",
+        "descendre": "Descendre",
+        "supprimer": "Supprimer"
+      }
+    }
+  },
   "config": {
     "step": {
       "user": {
@@ -12,10 +22,11 @@
       "step": {
         "user": {
           "title": "Identité et budget",
-          "description": "Le nom de l'écran et la hauteur utile de la tablette, en pixels.",
+          "description": "Le nom de l'écran, le capteur de température affiché, et la hauteur utile de la tablette, en pixels.",
           "data": {
             "nom": "Nom",
             "hauteurUtile": "Hauteur utile (px)",
+            "temperature": "Capteur de température",
             "note": "Note"
           }
         },
@@ -24,14 +35,17 @@
           "menu_options": {
             "commandes": "Tuiles de commande",
             "ambiances": "Rangée d'ambiance",
+            "extrasMaison": "Tuiles « Extras maison »",
+            "ouvrants": "Ouvrants",
             "synthese": "Ligne de synthèse"
           }
         },
         "commandes": {
           "title": "Tuiles de commande",
-          "description": "Ajoutez une tuile, ou choisissez-en une pour la modifier, la déplacer ou la supprimer.",
+          "description": "Choisissez une tuile existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.",
           "data": {
-            "choix": "Tuile"
+            "nouveau": "Ajouter une nouvelle tuile",
+            "choix": "Tuile existante"
           }
         },
         "commandes_element": {
@@ -41,15 +55,22 @@
             "icone": "Icône",
             "entite": "Entité",
             "cible": "Entité cible",
+            "service_domaine": "Service : domaine",
+            "service_action": "Service : action",
+            "lien": "Lien",
+            "vue": "Vue (#ancre)",
+            "epingle": "Épinglée",
+            "absenceNommee": "Libellé affiché si l'entité est absente",
             "note": "Note",
             "geste": "Action"
           }
         },
         "ambiances": {
           "title": "Rangée d'ambiance",
-          "description": "Ajoutez une tuile, ou choisissez-en une pour la modifier, la déplacer ou la supprimer.",
+          "description": "Choisissez une tuile existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.",
           "data": {
-            "choix": "Tuile"
+            "nouveau": "Ajouter une nouvelle tuile",
+            "choix": "Tuile existante"
           }
         },
         "ambiances_element": {
@@ -59,15 +80,62 @@
             "icone": "Icône",
             "entite": "Entité",
             "cible": "Entité cible",
+            "service_domaine": "Service : domaine",
+            "service_action": "Service : action",
+            "lien": "Lien",
+            "vue": "Vue (#ancre)",
+            "epingle": "Épinglée",
+            "absenceNommee": "Libellé affiché si l'entité est absente",
             "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "extrasMaison": {
+          "title": "Tuiles « Extras maison »",
+          "description": "Choisissez une tuile existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.",
+          "data": {
+            "nouveau": "Ajouter une nouvelle tuile",
+            "choix": "Tuile existante"
+          }
+        },
+        "extrasMaison_element": {
+          "title": "Tuile « Extras maison »",
+          "data": {
+            "libelle": "Libellé",
+            "icone": "Icône",
+            "entite": "Entité",
+            "cible": "Entité cible",
+            "service_domaine": "Service : domaine",
+            "service_action": "Service : action",
+            "lien": "Lien",
+            "vue": "Vue (#ancre)",
+            "epingle": "Épinglée",
+            "absenceNommee": "Libellé affiché si l'entité est absente",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "ouvrants": {
+          "title": "Ouvrants",
+          "description": "Choisissez un ouvrant existant pour le déplacer ou le supprimer, ou cochez « Ajouter » pour un nouveau.",
+          "data": {
+            "nouveau": "Ajouter un ouvrant",
+            "choix": "Ouvrant existant"
+          }
+        },
+        "ouvrants_element": {
+          "title": "Ouvrant",
+          "data": {
+            "entite": "Entité",
             "geste": "Action"
           }
         },
         "synthese": {
           "title": "Ligne de synthèse",
-          "description": "Ajoutez une ligne, ou choisissez-en une pour la modifier, la déplacer ou la supprimer.",
+          "description": "Choisissez une ligne existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.",
           "data": {
-            "choix": "Ligne"
+            "nouveau": "Ajouter une nouvelle ligne",
+            "choix": "Ligne existante"
           }
         },
         "synthese_element": {
@@ -79,12 +147,14 @@
             "valeur": "Valeur",
             "perso": "Personnalisée",
             "horsTaches": "Hors tâches",
+            "absenceNommee": "Libellé affiché si l'entité est absente",
             "note": "Note",
             "geste": "Action"
           }
         }
       },
       "error": {
+        "nom_vide": "Le nom ne peut pas être vide.",
         "hauteur_hors_bornes": "La hauteur utile doit être comprise entre {min} et {max} px.",
         "budget_intenable": "Cet écran déborde de {debordement} px. Augmentez la hauteur utile, ou retirez une zone dans « Blocs et modes ».",
         "champ_invalide": "Ce champ n'est pas valide : {motif}."
