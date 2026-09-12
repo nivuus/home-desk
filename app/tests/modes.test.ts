@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { modePrincipal, modulateursActifs, ordreCommandes, type ContexteModes } from '../src/modes';
+import { modePrincipal, modulateursActifs, ordreCommandes, CONDITIONS,
+  type ContexteModes, type ModePrincipal } from '../src/modes';
 import { ECRANS, type Bouton } from '../src/ecran';
+import { AGENCEMENT_DEFAUT } from '../src/agencement';
 import { CALME } from './contextes';
 
 /** Fabrique dérivée de `CALME` : chaque test du mode minuteur ne cite que le(s) champ(s) qu'il
@@ -485,5 +487,49 @@ describe('mode recette', () => {
       libelle: `B${n}`, icone: 'bulb', entite: `light.b${n}`,
     }));
     expect(ordreCommandes(boutons, { ...CTX, recetteEnCours: true })).toHaveLength(4);
+  });
+});
+
+describe('modePrincipal — la hierarchie devient une liste', () => {
+  /** Les neuf modes, chacun avec un contexte qui NE DECLENCHE QUE LUI, du plus prioritaire au
+   *  moins. Relevé sur la cascade de `if` d'avant cette tâche : c'est la table de vérité à ne pas
+   *  bouger. */
+  const DECLENCHEURS: [string, Partial<ContexteModes>][] = [
+    ['alerte', { alerte: true }],
+    ['recette', { recetteEnCours: true }],
+    ['minuteur', { minuteurEnCours: true }],
+    ['menage', { aspirateurEnMarche: true }],
+    ['cinema', { ecranAllume: true }],
+    ['media', { sourceJoue: true }],
+    ['aeration', { ouvrantOuvertDepuisMs: 40 * 60_000, chauffageEnMarche: true }],
+    ['voiture', { blocDefaut: 'voiture' }],
+    ['defaut', {}],
+  ];
+
+  it('chaque mode se declenche seul sur son contexte', () => {
+    for (const [mode, sur] of DECLENCHEURS) {
+      expect(modePrincipal(ctx(sur)), mode).toBe(mode);
+    }
+  });
+
+  it('la priorite est celle de la liste : un contexte qui declenche TOUT rend le premier', () => {
+    const tout = ctx(Object.assign({}, ...DECLENCHEURS.map(([, s]) => s)));
+    expect(modePrincipal(tout)).toBe('alerte');
+  });
+
+  it('un mode absent de la liste ne se declenche jamais, meme si sa condition est vraie', () => {
+    const sansMinuteur = AGENCEMENT_DEFAUT.modes.filter((m) => m !== 'minuteur');
+    expect(modePrincipal(ctx({ minuteurEnCours: true, modes: sansMinuteur }))).toBe('defaut');
+  });
+
+  it('l ordre declare prime sur l ordre par defaut', () => {
+    // Média devant le ménage, l'inverse du défaut.
+    const inverse: ModePrincipal[] = ['media', 'menage', 'defaut'];
+    expect(modePrincipal(ctx({ aspirateurEnMarche: true, sourceJoue: true, modes: inverse })))
+      .toBe('media');
+  });
+
+  it('CONDITIONS couvre les neuf modes', () => {
+    expect(Object.keys(CONDITIONS).sort()).toEqual([...AGENCEMENT_DEFAUT.modes].sort());
   });
 });

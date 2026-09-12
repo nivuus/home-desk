@@ -12,6 +12,7 @@
  *  Fonctions pures : aucune lecture d'`Etat` ici, seulement le contexte déjà réduit à des valeurs
  *  simples par l'appelant (`demarrage.ts`). C'est ce qui les rend testables sans navigateur. */
 import type { Bouton } from './ecran';
+import { AGENCEMENT_DEFAUT } from './agencement';
 import BUDGET from '../../contrat/budget.json';
 
 export { BUDGET };
@@ -60,6 +61,13 @@ export type ContexteModes = {
    *  aucun appelant existant n'a une ligne à changer. Comme `blocDefaut`, il est repris tel quel
    *  d'une donnée de `ecran.ts` par `demarrage.ts` — ce module ne lit jamais une pièce lui-même. */
   rangeeAmbiance?: boolean;
+  /** Modes actifs et leur priorité, repris de `Agencement` par `demarrage.ts` — ce module ne lit
+   *  jamais un écran lui-même. Facultatif : absent, `AGENCEMENT_DEFAUT.modes` s'applique, ce qui
+   *  reproduit la cascade de `if` d'avant le plan 2. Même patron que `blocDefaut` et
+   *  `rangeeAmbiance` avant lui. */
+  modes?: ModePrincipal[];
+  /** Modulateurs actifs, même provenance et même défaut. Sans ordre significatif. */
+  modulateurs?: Modulateur[];
 };
 
 /** Dix minutes : repris tel quel de `ouverture_problematique()`
@@ -77,38 +85,61 @@ function chaleurActive(c: ContexteModes): boolean {
   return c.temperatureExterieure > CHALEUR_C && c.soleilLeve;
 }
 
-export function modePrincipal(c: ContexteModes): ModePrincipal {
-  if (c.alerte) return 'alerte';
-  // Priorité 2, devant le minuteur : pendant une cuisson, l'écran doit pouvoir ramener à l'étape en
-  // cours. Le décompte du minuteur le plus urgent est repris dans le bloc (`rendreRecetteReduite`),
-  // donc rien n'est perdu ; la liste détaillée des trois minuteurs reste à un appui (tuile).
-  if (c.recetteEnCours) return 'recette';
-  // Priorité 3, devant le ménage et le média : une cuisson a une échéance, une playlist n'en a
-  // pas. Le mode ne dure que le temps du minuteur et rend la main de lui-même dès que les trois
-  // helpers sont au repos.
-  if (c.minuteurEnCours) return 'minuteur';
-  if (c.aspirateurEnMarche) return 'menage';
-  if (c.ecranAllume) return 'cinema';
-  if (c.sourceJoue) return 'media';
-  // `aeration` n'est PAS une alerte et ne le redevient pas : `alertes.ts` a délibérément retiré
-  // la fenêtre du rang d'alerte (un ouvrant ouvert à la main est un état voulu qui peut durer des
+/** La CONDITION de chaque mode — ce qui reste en TypeScript quand l'ORDRE part dans la donnée.
+ *
+ *  Cette frontière est délibérée (spec du 2026-09-12, « Ce qu'on ne construit pas ») : rendre les
+ *  conditions configurables, ce serait écrire un langage de règles, et la génération 1 de ces
+ *  tablettes était exactement ça — un générateur de dashboards Lovelace, mort le 2026-08-02.
+ *
+ *  `defaut` rend `true` : c'est le repli, et c'est pour ça que l'agencement exige sa présence. */
+export const CONDITIONS: Record<ModePrincipal, (c: ContexteModes) => boolean> = {
+  alerte: (c) => c.alerte,
+  // Priorité 2 par défaut, devant le minuteur : pendant une cuisson, l'écran doit pouvoir ramener
+  // à l'étape en cours. Le décompte du minuteur le plus urgent est repris dans le bloc
+  // (`rendreRecetteReduite`), donc rien n'est perdu ; la liste détaillée des trois minuteurs reste
+  // à un appui (tuile).
+  recette: (c) => c.recetteEnCours,
+  // Priorité 3 par défaut, devant le ménage et le média : une cuisson a une échéance, une playlist
+  // n'en a pas. Le mode ne dure que le temps du minuteur et rend la main de lui-même dès que les
+  // trois helpers sont au repos.
+  minuteur: (c) => c.minuteurEnCours,
+  menage: (c) => c.aspirateurEnMarche,
+  cinema: (c) => c.ecranAllume,
+  media: (c) => c.sourceJoue,
+  // `aeration` n'est PAS une alerte et ne le redevient pas : `alertes.ts` a délibérément retiré la
+  // fenêtre du rang d'alerte (un ouvrant ouvert à la main est un état voulu qui peut durer des
   // heures). Ce raisonnement n'est pas révisé ici — ce mode occupe le bloc d'information central,
   // en couleur neutre, jamais le rouge d'erreur, et ne confisque rien.
-  if (c.ouvrantOuvertDepuisMs > AERATION_MS && (c.chauffageEnMarche || c.ilPleut)) return 'aeration';
+  aeration: (c) => c.ouvrantOuvertDepuisMs > AERATION_MS && (c.chauffageEnMarche || c.ilPleut),
   // Le bloc par défaut du salon, à la place des six prochaines heures (demande du propriétaire,
-  // 2026-08-03) — plus haut que la normale (cf. `combien` ci-dessous), il garde donc son propre
-  // mode. `'repas'`/`'agenda'`/absent partagent tous le même gabarit que l'ancien `previsions`
+  // 2026-08-03) — plus haut que la normale (cf. `combien`), il garde donc son propre mode.
+  // `'repas'`/`'agenda'`/absent partagent tous le même gabarit que l'ancien `previsions`
   // (`defaut`, tâche 14) : c'est `demarrage.ts` qui choisit ensuite leur contenu respectif.
-  if (c.blocDefaut === 'voiture') return 'voiture';
-  return 'defaut';
+  voiture: (c) => c.blocDefaut === 'voiture',
+  defaut: () => true,
+};
+
+/** Le premier mode ACTIF dont la condition est vraie. L'ordre vient de l'agencement de l'écran
+ *  (`agencement.ts`), plus d'une cascade de `if` — mais le défaut reproduit cette cascade à
+ *  l'identique, et `tests/modes.test.ts` en garde la table de vérité. */
+export function modePrincipal(c: ContexteModes): ModePrincipal {
+  const actifs = c.modes ?? AGENCEMENT_DEFAUT.modes;
+  return actifs.find((m) => CONDITIONS[m](c)) ?? 'defaut';
 }
 
+export const CONDITIONS_MODULATEURS: Record<Modulateur, (c: ContexteModes) => boolean> = {
+  invites: (c) => c.modeInvites,
+  chaleur: (c) => chaleurActive(c),
+  delorean: (c) => c.instantDelorean,
+};
+
+/** Les modulateurs actifs. Cumulatifs : ils ne prennent le bloc de personne. L'ordre de la liste
+ *  déclarée n'a donc AUCUNE importance ici — on rend dans l'ordre de `CONDITIONS_MODULATEURS`
+ *  pour que la sortie reste stable d'un appel à l'autre, ce dont les tests dépendent. */
 export function modulateursActifs(c: ContexteModes): Modulateur[] {
-  const m: Modulateur[] = [];
-  if (c.modeInvites) m.push('invites');
-  if (chaleurActive(c)) m.push('chaleur');
-  if (c.instantDelorean) m.push('delorean');
-  return m;
+  const declares = c.modulateurs ?? AGENCEMENT_DEFAUT.modulateurs;
+  return (Object.keys(CONDITIONS_MODULATEURS) as Modulateur[])
+    .filter((m) => declares.includes(m) && CONDITIONS_MODULATEURS[m](c));
 }
 
 /** Combien de commandes l'écran montre, selon le mode. La carte média est deux fois plus haute

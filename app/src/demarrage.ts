@@ -8,6 +8,7 @@ import { intervalFnParDefaut, minuteurFnParDefaut } from './minuteurs';
 import { Etat } from './etat';
 import { momentDuJour, alerteActive, type Moment } from './contexte';
 import type { Ecran } from './ecran';
+import { resoudreAgencement } from './agencement';
 import { rendreBandeau } from './rendu/bandeau';
 import { rendreCorps, brancherAppui, brancherGeste, rendreAlerte, rendreHorsLigne } from './rendu/corps';
 import { rendreNuit } from './rendu/nuit';
@@ -1348,6 +1349,7 @@ export async function demarrer(
   }
 
   function dessiner() {
+    const agencement = resoudreAgencement(piece);
     const maintenant = d.maintenant();
     const soleil = etat.lire('sun.sun')?.etat === 'above_horizon';
     const moment = momentDuJour(maintenant.getHours(), soleil);
@@ -1433,6 +1435,10 @@ export async function demarrer(
       // deuxième rangée de commandes (cf. `combien`, `modes.ts`). Une pièce qui reprendrait des
       // ambiances demain retrouverait son ancien budget sans qu'on ait à y penser.
       rangeeAmbiance: piece.ambiances.length > 0,
+      // Repris tels quels de l'agencement de l'écran (`agencement.ts`) — `modes.ts` ne lit jamais
+      // un écran lui-même, exactement comme pour `blocDefaut` et `rangeeAmbiance`.
+      modes: agencement.modes,
+      modulateurs: agencement.modulateurs,
     };
     const mode = modePrincipal(ctx);
     const modulateurs = modulateursActifs(ctx);
