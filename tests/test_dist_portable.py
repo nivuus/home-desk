@@ -6,6 +6,11 @@ C'est le corollaire de la decision 2 : le bundle est versionne, donc
 Un dist/ non suivi ferait echouer l'installation en silence — le hook
 deposerait un repertoire vide.
 
+`custom_components/home_desk/` recoit la meme garde, pour la meme raison : il
+sera bientot publiable. Il est meme plus expose que dist/, puisqu'il tourne
+DANS la configuration — d'ou des motifs interdits supplementaires, propres a
+lui (home-manager, /opt/nivuus, l'adresse de l'instance).
+
 Transposition de test_compose_portable.py du package home-manager.
 
 Run: python3 tests/test_dist_portable.py
@@ -62,6 +67,23 @@ for rel in fichiers:
     for interdit in INTERDITS:
         if interdit in texte:
             failures.append(f"{rel} porte le chemin de machine {interdit}")
+
+# Le composant tourne DANS la configuration : plus expose que dist/, qui n'est
+# qu'un bundle statique depose a cote. Memes motifs que dist/, plus trois
+# specifiques a lui — home-manager et /opt/nivuus designeraient le socle par
+# son nom de package ou son chemin, l'adresse de l'instance identifierait
+# cette maison precise.
+INTERDITS_COMPOSANT = INTERDITS + ("home-manager", "/opt/nivuus", "192.168.0.1")
+
+for rel in suivis("custom_components/home_desk"):
+    chemin = REPO / rel
+    if chemin.suffix not in (".py", ".json"):
+        continue
+    texte = chemin.read_text(encoding="utf-8", errors="replace")
+    for interdit in INTERDITS_COMPOSANT:
+        if interdit in texte:
+            failures.append(f"{rel} porte le chemin ou l'adresse de cette "
+                            f"maison {interdit!r}")
 
 # Le code SUIVI de l'application ne doit plus citer l'ancien emplacement.
 for rel in suivis("app"):

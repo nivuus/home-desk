@@ -61,6 +61,7 @@ CONFIG_REL = "opt/nivuus/home-manager/config"
 OWNED_TREES = (
     ("dist", "www/wallpanel"),
     ("custom_components/vignette", "custom_components/vignette"),
+    ("custom_components/home_desk", "custom_components/home_desk"),
 )
 
 # Fichier depose dans un repertoire PARTAGE : copie seul, jamais par
@@ -223,6 +224,11 @@ def main():
               "msg": "Depose du composant de redimensionnement"})
         replace_tree(os.path.join(HERE, "custom_components/vignette"),
                      os.path.join(config_dir, "custom_components/vignette"))
+
+        emit({"event": "progress", "pct": 60,
+              "msg": "Depose de l'integration des tablettes"})
+        replace_tree(os.path.join(HERE, "custom_components/home_desk"),
+                     os.path.join(config_dir, "custom_components/home_desk"))
 
         emit({"event": "progress", "pct": 70,
               "msg": "Depose des automations des tablettes"})

@@ -61,7 +61,7 @@ with tempfile.TemporaryDirectory() as root:
     check("refus sans socle: rien de cree",
           (pathlib.Path(root) / CONFIG_REL).exists(), False)
 
-# --- 2. Il depose les trois artefacts aux bons chemins ---------------------
+# --- 2. Il depose les quatre artefacts aux bons chemins ---------------------
 with tempfile.TemporaryDirectory() as root:
     config = socle(root, "vignette:\npackages: !include_dir_named packages\n")
     r = lancer(root)
@@ -73,6 +73,10 @@ with tempfile.TemporaryDirectory() as root:
     check("vignette", (config / "custom_components" / "vignette"
                        / "__init__.py").is_file(), True)
     check("fragment", (config / "packages" / "home_desk.yaml").is_file(), True)
+    check("composant home_desk", (config / "custom_components" / "home_desk"
+                                  / "manifest.json").is_file(), True)
+    check("composant home_desk: const", (config / "custom_components" / "home_desk"
+                                         / "const.py").is_file(), True)
 
     # --- 3. Les repertoires PARTAGES sont intacts -------------------------
     check("occupants de www/ intacts", len(list((config / "www").iterdir())), 4)
@@ -80,6 +84,8 @@ with tempfile.TemporaryDirectory() as root:
           (config / "packages" / "home_stock_intents.yaml").is_file(), True)
     check("occupants de packages/ intacts",
           len(list((config / "packages").iterdir())), 2)
+    check("vignette intacte a cote de home_desk",
+          (config / "custom_components" / "vignette" / "__init__.py").is_file(), True)
 
     # --- 4. Idempotence ---------------------------------------------------
     r2 = lancer(root)

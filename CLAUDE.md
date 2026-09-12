@@ -36,6 +36,11 @@
 - **`custom_components/vignette/manifest.json` pointe vers ce dépôt.** Il
   annonçait `github.com/nivuus/vignette`, qui rend 404 (mesuré le 2026-09-05).
   Le composant n'a pas de dépôt propre : cette copie **est** l'original.
+- **`custom_components/home_desk/` s'active par l'interface, pas par
+  `configuration.yaml`.** Il porte `config_flow: true`, contrairement à
+  `vignette` qui exige une ligne que le hook signale sans l'écrire. Le hook ne
+  signale donc RIEN pour lui : un message qui réclame un geste inutile est un
+  bouton mort en prose. Il dépose l'arbre, et c'est tout.
 
 ## `absenceNommee` — les cinq points de passage
 
