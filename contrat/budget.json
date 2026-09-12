@@ -9,9 +9,10 @@
   "tuilesParRangee": 2,
   "hauteurs": {
     "_source": "app/outils/mesurer-hauteurs.mjs, viewport 343x585, mesure du 2026-09-12 sur 11 modes et 3 ecrans. Chaque valeur est le COUT NET de la zone dans la colonne .corps (sa boite plus ses marges), au PIRE CAS des modes mesures. combien() les additionne, gouttiere comprise, au lieu d'appliquer une table.",
+    "_bandeau": "121 px, INVARIANT sur les 8 etats balayes : la date du jour et la date la plus longue de 28 ans de calendrier, croisees avec une pastille a une ligne, a deux lignes (le plafond de son clamp) et celle rendue par la maison, phrase interieure presente (sans elle la colonne gauche retrecit, donc le bandeau ne peut que baisser).",
     "gouttiere": 8,
     "paddingCorps": 24,
-    "bandeau": 120.9,
+    "bandeau": 121,
     "etiquetteAmbiance": 9,
     "rangeeAmbiance": 72,
     "rangeeCommandes": 64,

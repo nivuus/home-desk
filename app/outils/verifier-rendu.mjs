@@ -149,7 +149,7 @@ const OVERFLOW_VOULUS = ['.heure'];
  *  ±120 jours autour du 2026-08-03 : 109 résumés distincts, celui-ci est le plus long à 57
  *  caractères). Injecté par `verifierPastilleLongue`, exactement comme le titre YouTube de 71
  *  caractères l'est pour la carte média : un pire cas MESURÉ, jamais un pire cas imaginé. */
-const RESUME_LONG = 'Meet-up Golf Innovation Auvergne 2026 | French Tech x CIC';
+export const RESUME_LONG = 'Meet-up Golf Innovation Auvergne 2026 | French Tech x CIC';
 
 /** Revue tâche 15, constat I2 — LE CONTRÔLE DE CIBLE NE MESURAIT QUE LA HAUTEUR, alors que le
  *  défaut historique pour lequel il a été construit agissait EN LARGEUR. Les boutons de transport
@@ -2190,7 +2190,7 @@ function budgetsTries(budgets) {
 // avant la mesure ». Cette `@keyframes` a disparu avec la branche `moteur-mouvement` — l'entrée
 // d'un bloc est désormais jouée en Web Animations API (`ENTREE_MS`, 320 ms, plus jusqu'à 120 ms de
 // cascade). La valeur reste donc juste, sa justification devait être réécrite.
-const ATTENTE_MODE_MS = 450;   // 320 ms d'entrée + la cascade, arrondis à la trame supérieure
+export const ATTENTE_MODE_MS = 450;   // 320 ms d'entrée + la cascade, arrondis à la trame supérieure
 
 async function injecter(page, etats) {
   for (const [id, valeur, attributs = {}, ilYaMs = 0] of etats) {
@@ -2204,7 +2204,7 @@ const neutraliser = (page) => injecter(page, NEUTRE);
 /** Redessine sans rien changer d'observable : une entité que ni `ecran.ts` ni aucune règle ne
  *  consulte. `Etat.appliquer` notifie ses abonnés, donc `dessiner()` repasse — c'est tout ce
  *  qu'on veut quand seule l'horloge a bougé. */
-const forcerRedessin = (page) =>
+export const forcerRedessin = (page) =>
   page.evaluate(() => window.__injecter('sensor.verificateur_de_rendu', 'ok', {}));
 
 /** Attend que l'écran soit RÉELLEMENT vivant — ni bandeau « Hors ligne », ni voile `.muet`.
@@ -2225,7 +2225,7 @@ const forcerRedessin = (page) =>
  *
  *  À noter : le bandeau (`.cap`, `.date`) est rendu dans les deux cas — les mesures de date de
  *  `pireDateRendue`/`lireBandeau` restent donc valides même pendant cette fenêtre. */
-async function attendreEcranVivant(page, limiteMs = 15_000) {
+export async function attendreEcranVivant(page, limiteMs = 15_000) {
   const debut = Date.now();
   while (Date.now() - debut < limiteMs) {
     const vivant = await page.evaluate(() =>
@@ -2318,7 +2318,7 @@ export async function poserMode(page, HA_URL, mode) {
  *  disent la même chose finissent par diverger. Le format est vérifié identique à celui rendu par
  *  l'application (`accord`, plus bas) — si un jour il cessait de l'être, on le saurait au lieu de
  *  mesurer des chaînes qui n'existent pas. */
-async function pireDateRendue(page) {
+export async function pireDateRendue(page) {
   return page.evaluate(() => {
     const ref = document.querySelector('.date');
     if (!ref) return null;
@@ -2354,7 +2354,7 @@ async function pireDateRendue(page) {
   });
 }
 
-function lireBandeau(page) {
+export function lireBandeau(page) {
   return page.evaluate(() => {
     const cap = document.querySelector('.cap');
     if (!cap) return null;
@@ -2381,7 +2381,7 @@ function lireBandeau(page) {
  *  aucune injection d'entité ne peut la piloter. On substitue donc le TEXTE dans le DOM rendu et
  *  on relit la mise en page — c'est une mesure de la vraie CSS sur le vrai gabarit, pas une
  *  estimation, mais elle est bien obtenue par substitution et pas par le chemin nominal. */
-async function hauteurAvecPastille(page, texte) {
+export async function hauteurAvecPastille(page, texte) {
   return page.evaluate((t) => {
     const pv = document.querySelector('.pastille .pv');
     if (!pv) return null;
@@ -4606,6 +4606,12 @@ async function main() {
 //
 // 2026-09-12 : `MODES`, `NEUTRE` (par `poserMode`), `JOUR_COURT`, `pageDuMode`, `AFFICHES_PNG`,
 // `lireIdentifiants` et `fabriquerJetons` sont exportés à leur tour, pour `mesurer-hauteurs.mjs`.
+// Ronde de correction 1 : `lireBandeau`, `hauteurAvecPastille`, `pireDateRendue`, `RESUME_LONG`,
+// `forcerRedessin`, `attendreEcranVivant` et `ATTENTE_MODE_MS` les rejoignent — le bandeau est la
+// SEULE hauteur du budget qui ne se dérive pas de `base.css`, et son pire cas (pastille à deux
+// lignes, date la plus longue) ne s'atteint que par les instruments déjà écrits ici. En refaire
+// une seconde paire dans l'autre outil aurait mesuré autre chose que ce que ce vérificateur
+// rapporte depuis la tâche 15.
 // Ce ne sont pas des commodités : `MODES` porte le PIRE CAS RÉEL de chaque mode (les états à
 // injecter, la page où le mode est atteignable, le marqueur qui prouve qu'il est bien rendu),
 // établi mesure après mesure depuis la tâche 13. Le recopier dans le second outil aurait donné

@@ -45,6 +45,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   MODES, JOUR_COURT, pageDuMode, poserMode, AFFICHES_PNG, lireIdentifiants, fabriquerJetons,
+  lireBandeau, hauteurAvecPastille, pireDateRendue, forcerRedessin, attendreEcranVivant,
+  RESUME_LONG, ATTENTE_MODE_MS,
 } from './verifier-rendu.mjs';
 
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -56,9 +58,16 @@ const { largeur: LARGEUR, hauteur: HAUTEUR } = BUDGET.viewportReference;
  *  coûte plus cher qu'une mesure absente — chaque échec doit se lire sans ambiguïté. */
 const SORTIE = { DIST: 3, INTERCEPTION: 4, INJECTEUR: 5, ZONES: 6, MODES: 7 };
 
-function echouer(code, ...lignes) {
+/** Ronde de correction 1 : le navigateur est fermé AVANT la sortie. `process.exit()` appelé
+ *  depuis le `try` saute le `finally`, et laissait un Chromium orphelin derrière chaque sortie
+ *  4/5/6 — un outil qui dénonce les mesures fausses n'a pas le droit de laisser des processus
+ *  vivants sur le poste de celui qui le relance. `nav` est déclaré plus bas et vaut `undefined`
+ *  tant que le navigateur n'est pas lancé (sorties 3, les plus précoces). */
+let nav;
+async function echouer(code, ...lignes) {
   console.error('');
   for (const l of lignes) console.error(`✗ ${l}`);
+  if (nav) await nav.close();
   process.exit(code);
 }
 
@@ -68,7 +77,7 @@ const CHEMIN_JS = join(DIST, 'wallpanel.js');
 const CHEMIN_CSS = join(DIST, 'wallpanel.css');
 for (const f of [CHEMIN_JS, CHEMIN_CSS]) {
   if (!existsSync(f)) {
-    echouer(SORTIE.DIST, `${f} est absent.`,
+    await echouer(SORTIE.DIST, `${f} est absent.`,
       'Lancer `cd app && npm run build` avant de mesurer : c\'est ce bundle qui est servi.');
   }
 }
@@ -77,7 +86,7 @@ const BUNDLE = { js: readFileSync(CHEMIN_JS, 'utf8'), css: readFileSync(CHEMIN_C
 // pas `data-zone`, il date d'avant cette tâche : le mesurer donnerait « aucune zone trouvée » et
 // ferait chercher le défaut à l'endroit où il n'est pas.
 if (!BUNDLE.js.includes('data-zone')) {
-  echouer(SORTIE.DIST, 'dist/wallpanel.js ne contient AUCUN `data-zone`.',
+  await echouer(SORTIE.DIST, 'dist/wallpanel.js ne contient AUCUN `data-zone`.',
     'Le bundle du dépôt est antérieur au marquage des zones — relancer `cd app && npm run build`.');
 }
 
@@ -86,7 +95,7 @@ if (!BUNDLE.js.includes('data-zone')) {
 const { url: HA_URL, token } = lireIdentifiants();
 const jetons = fabriquerJetons(HA_URL, token);
 
-const nav = await chromium.launch({ headless: true });
+nav = await chromium.launch({ headless: true });
 const ctx = await nav.newContext({ viewport: { width: LARGEUR, height: HAUTEUR } });
 await ctx.addInitScript((j) => { localStorage.setItem('hassTokens', JSON.stringify(j)); }, jetons);
 
@@ -209,29 +218,95 @@ const familleDuBloc = (nom) => {
 };
 
 const releves = [];
+// Declares hors du `try` : ils sont lus apres le `finally`, quand le navigateur est deja ferme.
+let balayage = [];
 let code = 0;
 try {
   await page.goto(`${HA_URL}/local/wallpanel/salon.html?essai=1`, { waitUntil: 'load', timeout: 20000 });
   await page.waitForTimeout(3500);
 
   if (!servis.js || !servis.css) {
-    echouer(SORTIE.INTERCEPTION,
+    await echouer(SORTIE.INTERCEPTION,
       `L'interception du bundle NE S'EST PAS DÉCLENCHÉE (js: ${servis.js}, css: ${servis.css}).`,
       'La page a donc chargé le bundle DÉPLOYÉ, qui ne porte pas `data-zone` : toute mesure',
       'publiée ici serait fausse. Vérifier le motif des routes contre les balises de la page',
       '(`/local/wallpanel/wallpanel.js?v=…`).');
   }
   if (!await page.evaluate(() => typeof window.__injecter === 'function')) {
-    echouer(SORTIE.INJECTEUR, '`window.__injecter` est absent : le bundle servi n\'expose pas le',
+    await echouer(SORTIE.INJECTEUR, '`window.__injecter` est absent : le bundle servi n\'expose pas le',
       'point d\'injection (`?essai=1`, `demarrage.ts`). Aucun mode n\'est posable.');
   }
   const zonesVues = await page.evaluate(() => document.querySelectorAll('[data-zone]').length);
   if (zonesVues === 0) {
-    echouer(SORTIE.ZONES, 'Aucun élément `[data-zone]` dans la page rendue,',
+    await echouer(SORTIE.ZONES, 'Aucun élément `[data-zone]` dans la page rendue,',
       'alors que le bundle servi en contient — la page ne rend pas l\'accueil attendu.');
   }
   console.error(`bundle servi depuis dist/ : ${servis.js} × js, ${servis.css} × css — `
     + `${zonesVues} zones marquées à l'écran`);
+  console.error('');
+
+  /* --- Le bandeau, et lui seul, se balaie ---------------------------------------------------
+   *
+   *  Ronde de correction 1. Toutes les autres hauteurs de ce budget se dérivent de `base.css`
+   *  (`.xl { height: 62px }`, `.commande { height: 64px }`, `.corps { gap: 8px }`…) : elles ne
+   *  dépendent d'aucun contenu. Le bandeau, si — il vaut `max(colonne gauche, colonne droite)`,
+   *  et sa colonne droite est la PASTILLE, dont le texte vient des calendriers et de la météo.
+   *  Le mesurer dans l'état du moment aurait publié un MEILLEUR cas, et l'intégration du plan 3
+   *  aurait alors accepté des compositions qui débordent sur une vraie tablette.
+   *
+   *  Deux axes, et rien d'autre ne fait bouger cette boîte : la DATE (colonne gauche) et le
+   *  nombre de lignes de la PASTILLE (colonne droite). La date la plus longue est DÉRIVÉE par
+   *  balayage de 28 ans de calendrier (`pireDateRendue`), jamais affirmée ; les textes de
+   *  pastille sont substitués dans le DOM rendu (`hauteurAvecPastille`) — la pastille ne se
+   *  pilote par aucune entité. Les deux instruments sont ceux de `verifier-rendu.mjs`, importés.
+   *
+   *  `.phrase` doit être PRÉSENTE pendant ce balayage : sans elle la colonne gauche rétrécit,
+   *  donc `max(gauche, droite)` ne peut que baisser. Mesurer sans phrase publierait un plancher
+   *  déguisé en plafond — d'où le contrôle explicite plus bas plutôt qu'une confiance. */
+  const PASTILLES = [
+    ['pastille rendue par la maison', null],
+    ['pastille courte (une ligne)', 'Demain'],
+    ['pastille longue (prevision meteo)', '29° et des passages nuageux en fin de journée'],
+    ['pastille longue (le plus long resume de rendez-vous releve)', RESUME_LONG],
+  ];
+  const balayerBandeau = async (nomDate) => {
+    const b = await lireBandeau(page);
+    const lignes = [];
+    for (const [nom, texte] of PASTILLES) {
+      lignes.push({
+        etat: `${nomDate} + ${nom}`,
+        cap: texte === null ? b?.cap : await hauteurAvecPastille(page, texte),
+        phrase: b?.phrase ?? null,
+      });
+    }
+    return lignes;
+  };
+
+  balayage = await balayerBandeau('date du jour');
+  const pireDate = await pireDateRendue(page);
+  if (pireDate) {
+    const [an, mois, quantieme] = pireDate.quand;
+    await page.clock.setFixedTime(new Date(an, mois, quantieme, 14, 0, 0));
+    await forcerRedessin(page);
+    await page.waitForTimeout(ATTENTE_MODE_MS);
+    // Changer l'heure figée fait bondir `Date.now()` de plusieurs mois : `Connexion` y lit un
+    // silence de plusieurs mois et l'écran passe « Hors ligne » le temps d'un tic. Mesurer le
+    // bandeau d'un écran de panne serait une mesure fausse de plus (cf. `attendreEcranVivant`).
+    await attendreEcranVivant(page);
+    balayage = balayage.concat(await balayerBandeau(`date la plus longue (« ${pireDate.texte} »)`));
+    await page.clock.setFixedTime(JOUR_COURT);
+    await forcerRedessin(page);
+    await page.waitForTimeout(ATTENTE_MODE_MS);
+    await attendreEcranVivant(page);
+  }
+  for (const l of balayage) console.error(`· bandeau  ${String(l.cap).padStart(6)} px  ${l.etat}`);
+  if (!balayage.some((l) => l.phrase)) {
+    await echouer(SORTIE.ZONES,
+      'La phrase intérieure (« Il fait … ici ») est absente de tout le balayage du bandeau :',
+      'la colonne gauche est plus courte qu\'elle ne l\'est en marche normale, donc le pire cas',
+      'du bandeau N\'EST PAS couvert. Publier cette hauteur serait publier un plancher déguisé',
+      'en plafond. Reprendre quand le capteur intérieur de l\'écran mesuré répond.');
+  }
   console.error('');
 
   for (const mode of MODES) {
@@ -261,7 +336,7 @@ try {
 }
 
 if (releves.length === 0) {
-  echouer(SORTIE.MODES, 'Aucun mode n\'a pu être mesuré — rien à publier.');
+  await echouer(SORTIE.MODES, 'Aucun mode n\'a pu être mesuré — rien à publier.');
 }
 
 // --- 4. Le pire cas, zone par zone ----------------------------------------------------------
@@ -271,6 +346,18 @@ const maxZone = (nom, filtre = () => true) => {
   return vus.length ? Math.max(...vus) : null;
 };
 const maxBloc = (famille) => maxZone('blocCentral', (r) => r.famille === famille);
+
+const capMax = Math.max(0, ...balayage.map((l) => l.cap ?? 0));
+const exAequo = balayage.filter((l) => (l.cap ?? 0) === capMax);
+const pireBandeau = {
+  cap: capMax,
+  // Un « pire cas » atteint par UN état se nomme ; atteint par TOUS, c'est une invariance, et
+  // c'est une information bien plus forte pour le prochain lecteur — elle dit que le contenu ne
+  // peut pas faire gonfler cette boîte, pas seulement qu'on a regardé.
+  quoi: exAequo.length === balayage.length
+    ? `INVARIANT sur les ${balayage.length} etats balayes`
+    : `pire des ${balayage.length} etats balayes (${exAequo[0]?.etat ?? 'aucun'})`,
+};
 
 const grilles = releves.map((r) => r.commandes).filter(Boolean);
 const constante = (nom, valeurs) => {
@@ -285,14 +372,29 @@ const constante = (nom, valeurs) => {
 const hauteurs = {
   // Les PIÈCES ne sont pas nommées ici, seulement comptées : ce fichier part chez toutes les
   // maisons (cf. `contrat/README.md`), et un nom de pièce y serait une donnée de celle-ci.
+  //
+  // Ronde de correction 1 : la phrase sur les gouttières était ajoutée À LA MAIN dans le JSON
+  // après coup — la prochaine exécution l'aurait écrasée en silence, et le champ de provenance
+  // aurait cessé de dire ce que le fichier contient. Tout ce que `_source` doit porter s'écrit
+  // donc ICI, et le JSON se recopie verbatim.
   _source: `app/outils/mesurer-hauteurs.mjs, viewport ${LARGEUR}x${HAUTEUR}, `
     + `mesure du ${new Date().toISOString().slice(0, 10)} sur ${releves.length} modes `
     + `et ${new Set(releves.map((r) => r.piece)).size} ecrans. Chaque valeur est le COUT NET `
-    + 'de la zone dans la colonne .corps (boite + marges), au PIRE CAS des modes mesures.',
+    + 'de la zone dans la colonne .corps (sa boite plus ses marges), au PIRE CAS des modes '
+    + 'mesures. combien() les additionne, gouttiere comprise, au lieu d\'appliquer une table.',
+  // Le bandeau est la seule hauteur qui ne se derive pas de base.css : elle depend du contenu
+  // (date, pastille). Le pire cas est donc CONSTRUIT, et l'etat qui le produit est nomme ici —
+  // sans quoi le prochain lecteur ne saurait pas ce qui a ete couvert.
+  _bandeau: `${pireBandeau.cap} px, ${pireBandeau.quoi} : la date du jour et la date la plus `
+    + 'longue de 28 ans de calendrier, croisees avec une pastille a une ligne, a deux lignes (le '
+    + 'plafond de son clamp) et celle rendue par la maison, phrase interieure presente (sans '
+    + 'elle la colonne gauche retrecit, donc le bandeau ne peut que baisser).',
   gouttiere: constante('la gouttière de .corps', releves.map((r) => r.corps.gouttiere)),
   paddingCorps: constante('le padding vertical de .corps',
     releves.map((r) => r.corps.paddingHaut + r.corps.paddingBas)),
-  bandeau: maxZone('bandeau'),
+  // Le maximum du BALAYAGE (pire cas construit) et des onze modes (état réel de la maison) :
+  // deux chemins, un seul plafond.
+  bandeau: Math.max(maxZone('bandeau') ?? 0, ...balayage.map((l) => l.cap ?? 0)),
   etiquetteAmbiance: maxZone('etiquetteAmbiance'),
   rangeeAmbiance: maxZone('rangeeAmbiance'),
   rangeeCommandes: constante('la hauteur d\'une tuile de commande',
@@ -308,9 +410,10 @@ const hauteurs = {
 
 console.error('');
 for (const [nom, v] of Object.entries(hauteurs)) {
-  if (nom !== '_source') console.error(`  ${nom.padEnd(20)} ${v === null ? 'NON MESURÉ' : `${v} px`}`);
+  if (!nom.startsWith('_')) console.error(`  ${nom.padEnd(20)} ${v === null ? 'NON MESURÉ' : `${v} px`}`);
 }
-const manquantes = Object.entries(hauteurs).filter(([, v]) => v === null).map(([k]) => k);
+const manquantes = Object.entries(hauteurs)
+  .filter(([k, v]) => !k.startsWith('_') && v === null).map(([k]) => k);
 if (manquantes.length) {
   console.error('');
   console.error(`! zones NON MESURÉES : ${manquantes.join(', ')} — le bloc ci-dessous est `
