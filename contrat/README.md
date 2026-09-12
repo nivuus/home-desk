@@ -24,17 +24,11 @@ avant, et pas ici.
 
 `ecran.schema.json` prouve la FORME d'un écran, pas toutes ses dépendances
 entre champs. JSON Schema sait exprimer ce genre de règle (`if`/`then`,
-comme `synthese.allOf` le fait déjà pour `operateur`/`valeur`), mais chacune
-des trois ci-dessous demande un travail de conception à part — elles
-appartiennent au plan suivant, pas à celui-ci. Ce sont de vraies dettes,
-consignées ici parce que le seul lecteur futur de ces fichiers est
-l'implémenteur Python du plan 3, et qu'un journal de travail ne part pas
-avec le dépôt :
+comme `synthese.allOf` le fait déjà pour `operateur`/`valeur`) — c'est ce que
+l'`allOf` racine fait désormais pour `blocDefaut: "voiture"` → `voiture` et
+pour `modes` contenant `"minuteur"` → `minuteurs` non vide (plan 2, tâche 6).
+Il reste une dette de ce genre, consignée ici parce que le seul lecteur futur
+de ces fichiers est l'implémenteur Python du plan 3, et qu'un journal de
+travail ne part pas avec le dépôt :
 
-- **`agencement.blocDefaut: "voiture"` n'exige pas l'objet `voiture`.** Un
-  écran peut déclarer `blocDefaut: "voiture"` dans son `agencement` sans
-  déclarer `voiture` du tout ; rien dans le schéma ne relie les deux.
-- **`"minuteur"` dans `agencement.modes` n'exige pas `minuteurs` non vide.**
-  Un agencement peut lister le mode `minuteur` sans qu'aucun minuteur ne
-  soit déclaré pour l'écran.
 - **`version` n'est ni `required` ni lu**, voir ci-dessus.

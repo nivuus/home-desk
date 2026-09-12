@@ -111,4 +111,37 @@ describe('contrat/ecran.schema.json', () => {
     const annote = { ...ECRANS.salon, agencement: { blocDefaut: 'entretien' } };
     expect(valider(annote), JSON.stringify(valider.errors)).toBe(true);
   });
+
+  describe('les invariants croises', () => {
+    it('refuse blocDefaut voiture sans l objet voiture', () => {
+      const { voiture, ...sansVoiture } = ECRANS.salon;
+      refusePour({ ...sansVoiture,
+                   agencement: { ...ECRANS.salon.agencement!, blocDefaut: 'voiture' } },
+                 { instancePath: '', keyword: 'required', params: { missingProperty: 'voiture' } });
+    });
+
+    it('accepte blocDefaut voiture quand l objet voiture est la', () => {
+      expect(valider(ECRANS.salon), JSON.stringify(valider.errors)).toBe(true);
+    });
+
+    it('refuse le mode minuteur sans slots de minuteur', () => {
+      const { minuteurs, ...sansSlots } = ECRANS.cuisine;
+      refusePour(sansSlots,
+        { instancePath: '', keyword: 'required', params: { missingProperty: 'minuteurs' } });
+    });
+
+    it('refuse le mode minuteur avec des slots vides', () => {
+      refusePour({ ...ECRANS.cuisine, minuteurs: [] },
+        { instancePath: '/minuteurs', keyword: 'minItems' });
+    });
+
+    it('accepte le mode minuteur quand les slots sont la', () => {
+      expect(valider(ECRANS.cuisine), JSON.stringify(valider.errors)).toBe(true);
+    });
+
+    it('accepte un ecran sans agencement du tout, et sans voiture', () => {
+      const { agencement, voiture, ...reste } = ECRANS.salon;
+      expect(valider(reste), JSON.stringify(valider.errors)).toBe(true);
+    });
+  });
 });

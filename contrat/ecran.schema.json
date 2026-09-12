@@ -54,6 +54,35 @@
     "delorean": { "const": true },
     "agencement": { "$ref": "#/$defs/agencement" }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "agencement": {
+            "properties": { "blocDefaut": { "const": "voiture" } },
+            "required": ["blocDefaut"]
+          }
+        },
+        "required": ["agencement"]
+      },
+      "then": { "required": ["voiture"] }
+    },
+    {
+      "if": {
+        "properties": {
+          "agencement": {
+            "properties": { "modes": { "contains": { "const": "minuteur" } } },
+            "required": ["modes"]
+          }
+        },
+        "required": ["agencement"]
+      },
+      "then": {
+        "required": ["minuteurs"],
+        "properties": { "minuteurs": { "minItems": 1 } }
+      }
+    }
+  ],
   "$defs": {
     "entite": {
       "type": "string",
