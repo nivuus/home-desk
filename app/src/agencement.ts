@@ -92,10 +92,31 @@ export const AGENCEMENT_DEFAUT: Agencement = {
   modulateurs: ['invites', 'chaleur', 'delorean'],
 };
 
-/** L'agencement d'un écran, ou le défaut. Une SEULE façon d'y accéder : aucun appelant ne doit
+/** L'agencement d'un écran, COMPLÉTÉ. Une SEULE façon d'y accéder : aucun appelant ne doit
  *  écrire `ecran.agencement ?? QUELQUE_CHOSE` de son côté, sans quoi deux défauts finiraient par
  *  diverger — c'est exactement ce qui était arrivé à `blocDefaut`, détecté par la présence du
- *  champ `voiture` avant la tâche 14. */
+ *  champ `voiture` avant la tâche 14.
+ *
+ *  Le repli est PAR CHAMP, pas par objet. Il l'a été par objet jusqu'à la re-relecture finale du
+ *  plan 2, et c'était un piège : un agencement PARTIEL n'est pas `undefined`, donc `?? DEFAUT` ne
+ *  se déclenchait pas et `agencement.zones` valait `undefined`. Les deux gardes de `demarrage.ts`
+ *  qui lisent `zones.includes('blocCentral')` levaient alors un `TypeError` — un ÉCRAN BLANC, ce
+ *  que ce projet s'interdit au même titre que le bouton mort, et la règle même que la tâche 4
+ *  venait de poser en sortant la levée de `combien()`. Le rendu dégrade, la saisie refuse.
+ *
+ *  Le type dit ces trois champs obligatoires, et le schéma les exige depuis la ronde finale
+ *  (`contrat/ecran.schema.json`, `$defs/agencement.required`) — mais la donnée vient de Home
+ *  Assistant au plan 3, pas du compilateur. C'est ici, au SEUIL, qu'on cesse de lui faire
+ *  confiance : au-delà, tout le monde peut lire `agencement.zones` sans se demander s'il existe.
+ *  D'où le repli ici ET dans `rendreCorps`, qui reçoit son `agencement` en paramètre et garde donc
+ *  sa propre frontière. */
 export function resoudreAgencement(ecran: Ecran): Agencement {
-  return ecran.agencement ?? AGENCEMENT_DEFAUT;
+  const declare = ecran.agencement;
+  if (declare === undefined) return AGENCEMENT_DEFAUT;
+  return {
+    ...declare,
+    zones: declare.zones ?? AGENCEMENT_DEFAUT.zones,
+    modes: declare.modes ?? AGENCEMENT_DEFAUT.modes,
+    modulateurs: declare.modulateurs ?? AGENCEMENT_DEFAUT.modulateurs,
+  };
 }

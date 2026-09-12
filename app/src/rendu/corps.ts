@@ -391,8 +391,9 @@ export function rendreCorps(
   // tâche 3 a fait de la composition une donnée — que le bloc central calculé soit bien celui de
   // l'entretien, ET que `agencement.zones` contienne la zone `blocCentral`, faute de quoi ce
   // gabarit ne place rien. `demarrage.ts` vérifie désormais les deux ; il ne vérifiait que la
-  // première, et la synthèse pouvait taire une mention que rien n'affichait. Optionnel et en dernière position comme `ctx`/`tuileMinuteur` :
-  // sans lui, comportement d'avant cette tâche, à l'identique.
+  // première, et la synthèse pouvait taire une mention que rien n'affichait.
+  // Optionnel et en dernière position comme `ctx`/`tuileMinuteur` : sans lui, comportement d'avant
+  // cette tâche, à l'identique.
   masquerEntretien = false,
   // Tâche 6 (2026-08-17) : la tuile qui ouvre `#recette` n'a de sens que s'il y a une recette à
   // ouvrir. Décidé par `demarrage.ts` sur ce qui est RÉELLEMENT disponible (une note du plan de

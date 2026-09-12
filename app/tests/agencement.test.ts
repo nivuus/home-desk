@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AGENCEMENT_DEFAUT, resoudreAgencement } from '../src/agencement';
+import { AGENCEMENT_DEFAUT, resoudreAgencement, type Agencement } from '../src/agencement';
 import { ECRANS } from '../src/ecran';
 import { ecranVide } from './aides';
 
@@ -21,6 +21,34 @@ describe('resoudreAgencement', () => {
 
   it('rend la declaration de l ecran quand il en porte une', () => {
     expect(resoudreAgencement(ECRANS.salon)).toEqual(ECRANS.salon.agencement);
+  });
+
+  /** Re-relecture finale du plan 2. Le repli etait PAR OBJET (`ecran.agencement ?? DEFAUT`), et
+   *  c'etait un piege : un agencement PARTIEL n'est pas `undefined`, donc le repli ne se
+   *  declenchait pas et `agencement.zones` valait `undefined`. Les deux gardes de `demarrage.ts`
+   *  qui lisent `zones.includes('blocCentral')` levaient alors un `TypeError` — un ECRAN BLANC,
+   *  400 lignes AVANT `rendreCorps`, dont le repli par champ ne pouvait donc rien pour elles.
+   *
+   *  Le type dit ces trois champs obligatoires et le schema les exige desormais, mais la donnee
+   *  viendra de Home Assistant au plan 3, pas du compilateur : c'est ici, au seuil, qu'on cesse de
+   *  lui faire confiance. Le `as Agencement` est deliberé — il fabrique exactement la donnee que
+   *  TypeScript interdit et que le monde reel produira. */
+  it('complete CHAMP PAR CHAMP un agencement partiel, sans ecraser ce qui est declare', () => {
+    const partiel = { ...ecranVide, agencement: { blocDefaut: 'repas' } as Agencement };
+    const resolu = resoudreAgencement(partiel);
+    expect(resolu.zones).toEqual(AGENCEMENT_DEFAUT.zones);
+    expect(resolu.modes).toEqual(AGENCEMENT_DEFAUT.modes);
+    expect(resolu.modulateurs).toEqual(AGENCEMENT_DEFAUT.modulateurs);
+    // Ce que l'ecran declarait survit : completer n'est pas remplacer.
+    expect(resolu.blocDefaut).toBe('repas');
+  });
+
+  it('ne complete QUE le champ manquant quand un seul l est', () => {
+    const partiel = { ...ecranVide,
+                      agencement: { zones: ['commandes'], blocDefaut: 'agenda' } as Agencement };
+    const resolu = resoudreAgencement(partiel);
+    expect(resolu.zones).toEqual(['commandes']);
+    expect(resolu.modes).toEqual(AGENCEMENT_DEFAUT.modes);
   });
 });
 

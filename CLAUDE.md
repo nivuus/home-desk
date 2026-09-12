@@ -46,8 +46,8 @@ elle reste, inerte, et affiche son libellé. Cinq endroits le respectent, et
 
 | Fichier | Ce qu'il fait |
 |---|---|
-| `rendu/corps.ts:416` | le filtre des commandes de la pièce |
-| `rendu/corps.ts:424` | le **second** filtre (`recetteOuvrable`), qui reprenait ce que le premier venait de laisser passer |
+| `rendu/corps.ts:417` | le filtre des commandes de la pièce |
+| `rendu/corps.ts:425` | le **second** filtre (`recetteOuvrable`), qui reprenait ce que le premier venait de laisser passer |
 | `rendu/corps.ts:106` | `ligneSynthese`, qui **sautait** l'entrée |
 | `rendu/corps.ts:270` | l'étiquette, appelée **inconditionnellement** depuis |
 | `rendu/maison.ts:90` | la tuile « Scanner », qui vit dans `extrasMaison` et n'est **pas** rendue par `corps.ts` |

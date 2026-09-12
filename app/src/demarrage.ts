@@ -1811,9 +1811,18 @@ export async function demarrer(
     // Relecture finale du plan 2 (I4) : `agencement.zones.includes('blocCentral')` en tête. Depuis
     // que la tâche 3 a fait de la composition une DONNÉE, « le bloc central est calculé » ne veut
     // plus dire « le bloc central est rendu » : un agencement qui omet la zone `blocCentral` ne
-    // rend rien du tout, et `rendreCorps` ne place même pas le `TemplateResult` reçu. Poser l'ancre
-    // du rail dans ce cas, c'est exactement le risque que ce commentaire nomme depuis la tâche 15 —
-    // faire écrire `--progression` par le tic « sur un `.media` qui n'existe pas ».
+    // rend rien du tout, et `rendreCorps` ne place même pas le `TemplateResult` reçu.
+    //
+    // Re-relecture finale, HONNÊTETÉ SUR CETTE GARDE : elle est aujourd'hui INOBSERVABLE, et aucun
+    // test ne la tient. `ancreProgression` n'est lu qu'à un seul endroit, dans `tictacProgression`,
+    // qui sort déjà sur `if (!carte) return;` ; et `agencement` est résolu une fois pour la vie de
+    // la page, donc un écran qui omet `blocCentral` n'a de `.media` à AUCUN instant — y compris
+    // dans le cas « celui d'un rendu précédent encore dans l'arbre » nommé plus haut, qui ne naît
+    // que d'un changement de MODE, déjà couvert par le terme `cinema`/`media`. On la garde quand
+    // même : elle rend l'invariant LOCAL au lieu de le faire dépendre d'un `return` distant, et
+    // elle coûte une comparaison. Mais elle ne protège de rien qu'on sache provoquer, et le dire
+    // vaut mieux que lui prêter un danger qui n'existe pas — c'est la troisième fois dans ce
+    // fichier qu'un commentaire promet plus que le code ne fait.
     const carteMediaAffichee = agencement.zones.includes('blocCentral')
       && blocCentral !== undefined && !horsLigne
       && (mode === 'cinema' || mode === 'media') && source !== null;

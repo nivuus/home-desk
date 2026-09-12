@@ -230,12 +230,12 @@ function coutEcran(mode: ModePrincipal, rangeeAmbiance: boolean, rangees: number
  *  `verifierBudget`, que le rendu n'appelle jamais et que le formulaire de l'intégration (plan 3)
  *  appellera. Le rendu dégrade, la saisie refuse.
  *
- *  ---- CE QUI A CONDUIT A CE CALCUL, et pourquoi il est mesure et non estime. Ce bloc
- *  vivait au-dessus de `coutEcran`, dont la vraie docstring commencait a la ligne suivante :
- *  deux commentaires consecutifs, dont seul le second s'attachait. Il decrit `combien`, il
- *  vit donc avec `combien`, et dans le MEME commentaire (relecture finale du plan 2, M9).
+ *  ---- CE QUI A CONDUIT À CE CALCUL, et pourquoi il est mesuré et non estimé. Ce bloc vivait
+ *  au-dessus de `coutEcran`, dont la vraie docstring commençait à la ligne suivante : deux
+ *  commentaires consécutifs, dont seul le second s'attachait. Il décrit `combien`, il vit donc
+ *  avec `combien`, et dans le MÊME commentaire (relecture finale du plan 2, M9).
  *
- *  Combien de commandes l'écran montre, selon le mode. La carte média est deux fois plus haute
+ *  La carte média est deux fois plus haute
  *  que le bloc `defaut` qu'elle remplace : la place vient de la 3e/4e commande, jamais de la rangée
  *  « Ambiance » (pendant un film, changer d'ambiance lumineuse reste le besoin courant). Jamais de
  *  rangée coupée en deux : c'est toute la rangée ou rien, sinon la grille se déséquilibre.
