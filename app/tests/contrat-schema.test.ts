@@ -38,4 +38,27 @@ describe('contrat/ecran.schema.json', () => {
   it('refuse une entite qui n\'a pas la forme domaine.objet', () => {
     expect(valider({ ...ECRANS.salon, temperature: 'pas_un_entity_id' })).toBe(false);
   });
+
+  it('accepte absenceNommee sur une entree de synthese', () => {
+    const annote = {
+      ...ECRANS.salon,
+      synthese: [
+        { entite: 'sensor.x', texte: 'y', operateur: '>', valeur: 0,
+          absenceNommee: 'Non installé' },
+      ],
+    };
+    expect(valider(annote), JSON.stringify(valider.errors)).toBe(true);
+  });
+
+  it('refuse un champ inconnu sur un bouton', () => {
+    const casse = {
+      ...ECRANS.salon,
+      commandes: [{ ...ECRANS.salon.commandes[0], couleur: 'rouge' }],
+    };
+    expect(valider(casse)).toBe(false);
+  });
+
+  it('refuse blocDefaut: "entretien" a la racine', () => {
+    expect(valider({ ...ECRANS.salon, blocDefaut: 'entretien' })).toBe(false);
+  });
 });

@@ -51,7 +51,7 @@
         "note": { "type": "string" }
       }
     },
-    "blocDefaut": { "enum": ["voiture", "repas", "agenda", "entretien", "previsions"] },
+    "blocDefaut": { "enum": ["voiture", "repas", "agenda"] },
     "delorean": { "const": true },
     "agencement": { "$ref": "#/$defs/agencement" }
   },
@@ -92,6 +92,7 @@
         "valeur": {},
         "perso": { "const": true },
         "horsTaches": { "const": true },
+        "absenceNommee": { "type": "string" },
         "note": { "type": "string" }
       },
       "allOf": [
