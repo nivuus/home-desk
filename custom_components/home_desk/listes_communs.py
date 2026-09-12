@@ -3,19 +3,28 @@ le selecteur d'entite commun, le selecteur de geste, la fusion d'un
 element edite avec l'existant (`_fusionner`), les deux exceptions de refus
 metier (`ServiceIncomplet`, `ChampVide`) et la forme `Section` elle-meme.
 
-Extrait de `listes_champs.py` a la tache 7 : ce dernier restait la SEULE
-adresse canonique de `SECTIONS`, mais les DEUX sections que la tache 7
-ajoute a sa propre famille (ouvrants deja present, etiquettesMinuteur en
-plus) l'auraient fait franchir les 500 lignes — la meme dette que
-`test_config_flow_champs.py` porte cote tests. La couture choisie ici est
-celle que le brief suggere lui-meme (« une section = un fichier ») : ce
-module porte ce qui est VRAIMENT commun aux DEUX familles (bouton/synthese/
-ouvrant d'un cote, sources/minuteurs/etiquettes de l'autre), `listes_champs.
-py` garde la premiere famille et assemble `SECTIONS`, `listes_champs_
-sources.py`/`listes_champs_minuteurs.py` portent la seconde. Sans ce
-partage, `_fusionner`/`ChampVide`/`ServiceIncomplet` auraient eu deux copies
-a diverger en silence — exactement ce que ce chantier s'interdit partout
-ailleurs (schema.py, budget.py).
+Extrait de `listes_champs.py` a la tache 7 — troisieme version de ce
+paragraphe, troisieme inexactitude corrigee en ronde 2 de relecture (« ecris
+ce qui EST, pas ce que tu voulais faire ») : la tache 7 n'ajoute AUCUNE
+section a la famille bouton/synthese/ouvrant de `listes_champs.py`
+elle-meme (`ouvrants` datait deja de la tache 6 ; `etiquettesMinuteur` ne
+vit d'ailleurs PAS dans ce module, mais dans `listes_champs_minuteurs.py`,
+une famille distincte). Ce que la tache 7 ajoute, ce sont TROIS sections
+d'une famille SEPAREE (`sources`, `minuteurs`, `etiquettesMinuteur`), dans
+DEUX nouveaux modules (`listes_champs_sources.py`, `listes_champs_
+minuteurs.py`) qui ont besoin des MEMES primitives que `listes_champs.py`
+(`_fusionner`, `ChampVide`, `ServiceIncomplet`, `Section`, un selecteur
+d'entite, un selecteur de geste). `listes_champs.py` etait DEJA pres des
+500 lignes depuis la tache 6 (427/500) : y ajouter ces primitives, plutot
+que de les extraire ICI pour que les TROIS modules les importent, l'aurait
+fait franchir la limite. La couture choisie est celle que le brief suggere
+lui-meme (« une section = un fichier ») : ce module porte ce qui est
+VRAIMENT commun aux DEUX familles, `listes_champs.py` garde la premiere et
+assemble `SECTIONS` (toujours la SEULE adresse canonique), les deux modules
+de la tache 7 portent la seconde. Sans ce partage, `_fusionner`/
+`ChampVide`/`ServiceIncomplet` auraient eu deux copies a diverger en
+silence — exactement ce que ce chantier s'interdit partout ailleurs
+(schema.py, budget.py).
 
 Ronde 1 de relecture (re-export) : le vocabulaire d'icones
 (`CHEMIN_ICONES`/`_ICONES_OPTIONS`/`_selecteur_icone`) et le selecteur

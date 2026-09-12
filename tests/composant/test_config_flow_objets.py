@@ -2,6 +2,8 @@
 `voiture`) et les DEUX regles hors-schema de la tache 7. Separe de
 `test_config_flow.py` en ronde 1 de relecture (ce dernier approchait 500
 lignes) — meme couture que `listes.py`/`listes_champs.py` a la tache 6.
+`sources` (I5) est parti dans son propre fichier en ronde 2, pour la meme
+raison (voir `test_config_flow_sources.py`).
 
 Les formulaires de ces deux sections sont du remplissage de champs ; ce qui
 merite un test, ce sont les regles qu'AUCUN test parametre sur `SECTIONS`
@@ -13,15 +15,16 @@ invalide) — leur MECANISME est teste directement dans
 `test_garde_ecran.py`, ces trois-ci en sont la preuve DE BOUT EN BOUT, par
 le flow reel.
 """
+import ast
 import json
 import pathlib
 
 from homeassistant import data_entry_flow
 
-from conftest import ELEMENTS_VALIDES, _creer_ecran, _init_reconfigure
+from conftest import ELEMENTS_VALIDES, _creer_ecran, _geste, _init_reconfigure
 from custom_components.home_desk.const import (
+    ACTION_SUPPRIMER,
     DOMAIN,
-    ERREUR_ALLUMEE_INCOMPLETE,
     ERREUR_BUDGET_INTENABLE_MODE,
     ERREUR_CHAMP_ELEMENT_REQUIS,
     ERREUR_CHAMP_REQUIS,
@@ -151,7 +154,10 @@ async def test_le_budget_nomme_le_PIRE_mode_pas_le_premier_qui_deborde(hass, ent
     assert resultat["errors"]["base"] == ERREUR_BUDGET_INTENABLE_MODE
     # "cinema" est SOUMIS AVANT "minuteur" : un bug "premier qui deborde"
     # nommerait cinema (29 px). Le PIRE est minuteur (82 px).
-    assert resultat["description_placeholders"]["mode"] == "minuteur"
+    # Ronde 2 de relecture (point 3) : {mode} est desormais TRADUIT
+    # ("Timer", le libelle EN du selecteur "mode"), plus l'identifiant
+    # brut du contrat ("minuteur").
+    assert resultat["description_placeholders"]["mode"] == "Timer"
     assert resultat["description_placeholders"]["debordement"] == "82"
 
     entry = hass.config_entries.async_get_entry(entree.entry_id)
@@ -201,7 +207,9 @@ async def test_le_budget_suit_rangee_ambiance_REELLEMENT_persistee(hass, entree)
         flow["flow_id"], {"zones": zones, "modes": modes})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
     assert resultat["errors"]["base"] == ERREUR_BUDGET_INTENABLE_MODE
-    assert resultat["description_placeholders"]["mode"] == "cinema"
+    # Ronde 2 de relecture (point 3) : libelle traduit ("Cinema"), pas
+    # l'identifiant brut ("cinema").
+    assert resultat["description_placeholders"]["mode"] == "Cinema"
     assert resultat["description_placeholders"]["debordement"] == "29"
 
 
@@ -269,7 +277,11 @@ async def test_agencement_mode_minuteur_sans_slot_est_refuse_ecran_de_la_cuisine
         flow["flow_id"], {"zones": ["commandes"], "modes": ["defaut", "minuteur"]})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
     assert resultat["errors"]["base"] == ERREUR_ECRAN_DEVIENDRAIT_INVALIDE
-    assert resultat["description_placeholders"]["section"] == "minuteurs"
+    # Ronde 2 de relecture (point 3) : libelle traduit ("Timers"), pas
+    # l'identifiant brut ("minuteurs") — l'utilisateur EST dans
+    # "agencement" ici, "minuteurs" (la section MANQUANTE) reste la
+    # bonne reponse, jamais redirigee.
+    assert resultat["description_placeholders"]["section"] == "Timers"
     subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
     assert subentry.data.get("agencement") is None, "un refus ne doit RIEN persister"
 
@@ -287,7 +299,9 @@ async def test_agencement_blocDefaut_voiture_sans_objet_est_refuse_ecran_du_salo
     )
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
     assert resultat["errors"]["base"] == ERREUR_ECRAN_DEVIENDRAIT_INVALIDE
-    assert resultat["description_placeholders"]["section"] == "voiture"
+    # Ronde 2 de relecture (point 3) : libelle traduit ("Car"), pas
+    # l'identifiant brut ("voiture").
+    assert resultat["description_placeholders"]["section"] == "Car"
 
 
 async def test_retirer_la_voiture_alors_que_blocDefaut_l_exige_encore_est_refuse(hass, entree):
@@ -318,9 +332,53 @@ async def test_retirer_la_voiture_alors_que_blocDefaut_l_exige_encore_est_refuse
         flow["flow_id"], {"sans_voiture": True})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
     assert resultat["errors"]["base"] == ERREUR_ECRAN_DEVIENDRAIT_INVALIDE
-    assert resultat["description_placeholders"]["section"] == "voiture"
+    # Ronde 2 de relecture (point 3) : nomme desormais "Blocks and modes"
+    # (le libelle EN d'"agencement"), jamais "voiture" — la section ou
+    # l'utilisateur se trouve DEJA (il vient d'y essayer le retrait),
+    # ou il n'y a plus rien a corriger. Le remede reel est dans
+    # « Blocs et modes ».
+    assert resultat["description_placeholders"]["section"] == "Blocks and modes"
     subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
     assert subentry.data["voiture"] == VOITURE_COMPLETE, "un refus ne doit RIEN changer"
+
+
+async def test_supprimer_le_dernier_minuteur_alors_que_le_mode_minuteur_est_actif_est_refuse(
+    hass, entree
+):
+    """Ronde 2 de relecture, point 1 : le rapport de la ronde 1 NOMMAIT ce
+    scenario (docstring de `_persister_si_valide`, listes.py) sans jamais
+    l'exercer de bout en bout — seul son PENDANT (ajouter le mode sans
+    slot, `test_agencement_mode_minuteur_sans_slot_est_refuse_ecran_de_la_
+    cuisine`) l'etait. Ici : un slot EXISTE, le mode "minuteur" est deja
+    actif, l'ecran EST valide — puis on supprime ce slot UNIQUE (le geste
+    "supprimer" d'une section « liste », pas un objet « voiture »/
+    "agencement" cette fois). Refuse, et nomme "agencement" (le SEUL
+    remede reel : retirer le mode "minuteur"), jamais "minuteurs" (ou
+    l'utilisateur vient d'essayer la suppression)."""
+    subentry_id = await _creer_ecran(hass, entree)
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "minuteurs"})
+    await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], ELEMENTS_VALIDES["minuteurs"])
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "agencement"})
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"zones": ["commandes"], "modes": ["defaut", "minuteur"]})
+    assert resultat["type"] is data_entry_flow.FlowResultType.MENU, resultat.get("errors")
+
+    resultat = await _geste(hass, "minuteurs", 0, ACTION_SUPPRIMER)
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+    assert resultat["errors"]["base"] == ERREUR_ECRAN_DEVIENDRAIT_INVALIDE
+    assert resultat["description_placeholders"]["section"] == "Blocks and modes"
+
+    entry = hass.config_entries.async_get_entry(entree.entry_id)
+    assert len(entry.subentries[subentry_id].data["minuteurs"]) == 1, (
+        "un refus ne doit RIEN persister")
 
 
 # ---------------------------------------------------------------------------
@@ -382,79 +440,51 @@ async def test_cocher_sans_voiture_retire_la_cle_entierement(hass, entree):
 
 
 # ---------------------------------------------------------------------------
-# I5 : les six champs multi-entites de `sources` etaient Required SANS
-# default — une soumission qui n'en touche aucun levait InvalidData.
+# I5 (les six champs multi-entites de `sources`, Required SANS default) et
+# les deux mineurs de `sources` vivent dans test_config_flow_sources.py,
+# separe d'ici en ronde 2 de relecture (ce fichier approchait 500 lignes) —
+# meme couture que `listes_champs_sources.py` : « une section = un fichier ».
 # ---------------------------------------------------------------------------
 
 
-async def test_source_dont_un_seul_champ_multi_entite_est_touche_est_acceptee(hass, entree):
-    """I5, ronde 1 de relecture : mesure AVANT correction, une soumission
-    qui ne touche pas `titre` (par exemple) levait `InvalidData` — une
-    EXCEPTION, jamais un formulaire reaffiche. Le contrat n'impose aucun
-    `minItems` sur ces six tableaux : les laisser vides est deja valide."""
-    subentry_id = await _creer_ecran(hass, entree)
-    flow = await _init_reconfigure(hass, entree, subentry_id)
-    await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "sources"})
-    await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"],
-        {
-            "nom": "Salon TV",
-            "affiche": ["media_player.tv"],
-            "transport": ["media_player.tv"],
-            "volume": ["media_player.tv"],
-            # "titre", "sousTitre", "progression" volontairement absents.
-        },
+# ---------------------------------------------------------------------------
+# Mineur (ronde 1) / point 5 (ronde 2) : les translation_key, gardes par
+# aucun test.
+# ---------------------------------------------------------------------------
+
+
+def test_tous_les_selectselectorconfig_d_objets_py_portent_un_translation_key():
+    """Ronde 2 de relecture (point 5) : les quatre `translation_key`
+    ajoutes en ronde 1 (bloc_defaut/zone/mode/modulateur) n'etaient GARDES
+    par AUCUN test — retirer UN SEUL, ou les QUATRE, laissait `make test-
+    composant` entierement vert (`_cles_attendues`, test_config_flow.py,
+    ne prouve que le JSON PORTE ces cles, jamais que les selecteurs les
+    DEMANDENT).
+
+    Generalise au FICHIER (AST, pas aux quatre noms en dur) : TOUT
+    `SelectSelectorConfig` d'`objets.py` doit porter un `translation_key` —
+    un cinquieme selecteur, ajoute demain a ce module SANS lui, fait
+    tomber ce test aussi, pas seulement les quatre d'aujourd'hui.
+
+    Scope deliberement limite a `objets.py` (pas tout le paquet) : trois
+    AUTRES `SelectSelectorConfig` existent ailleurs (`_selecteur_icone` et
+    l'"operateur" de synthese, `listes_champs.py` ; les options DYNAMIQUES
+    de `_schema_choix`, `listes.py`, qui portent deja leur propre libelle
+    via `SelectOptionDict` et n'ont donc rien a traduire) — dette anterieure
+    a cette tache, non fermee ici (voir le rapport)."""
+    chemin = (
+        pathlib.Path(__file__).resolve().parents[2] / "custom_components" / "home_desk" / "objets.py"
     )
-    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
-    assert subentry.data["sources"][0]["titre"] == []
-    assert subentry.data["sources"][0]["affiche"] == ["media_player.tv"]
-
-
-async def test_source_allumee_incomplete_est_refusee(hass, entree):
-    """Mineur de la ronde 1 : `AllumeeIncomplete` n'etait asserte nulle
-    part (mutation verte : supprimer le `raise` laissait tout vert)."""
-    subentry_id = await _creer_ecran(hass, entree)
-    flow = await _init_reconfigure(hass, entree, subentry_id)
-    await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "sources"})
-    await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"],
-        {"nom": "Salon TV", "allumee_entite": "binary_sensor.tv_allumee"},
-    )
-    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["allumee_etats"] == ERREUR_ALLUMEE_INCOMPLETE
-    subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
-    assert subentry.data["sources"] == [], "un refus ne doit RIEN persister"
-
-
-async def test_source_avec_allumee_se_reedite_avec_les_deux_champs_preremplis(hass, entree):
-    """Mineur de la ronde 1 : la recomposition `_afficher_source` (l'inverse
-    de la construction, pour l'objet `allumee`) n'etait exercee par AUCUN
-    aller-retour d'edition."""
-    subentry_id = await _creer_ecran(hass, entree)
-    flow = await _init_reconfigure(hass, entree, subentry_id)
-    await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "sources"})
-    await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
-    await hass.config_entries.subentries.async_configure(
-        flow["flow_id"],
-        {
-            "nom": "Salon TV",
-            "allumee_entite": "binary_sensor.tv_allumee",
-            "allumee_etats": "on, playing",
-        },
-    )
-
-    flow = await _init_reconfigure(hass, entree, subentry_id)
-    await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "sources"})
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"choix": "0"})
-    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    marqueurs = {str(c): c for c in resultat["data_schema"].schema}
-    assert marqueurs["allumee_entite"].description == {"suggested_value": "binary_sensor.tv_allumee"}
-    assert marqueurs["allumee_etats"].description == {"suggested_value": "on, playing"}
+    arbre = ast.parse(chemin.read_text(encoding="utf-8"))
+    appels = [
+        noeud for noeud in ast.walk(arbre)
+        if isinstance(noeud, ast.Call)
+        and isinstance(noeud.func, ast.Attribute)
+        and noeud.func.attr == "SelectSelectorConfig"
+    ]
+    assert len(appels) >= 4, "moins de SelectSelectorConfig que prevu : ce test ne verifie plus rien"
+    sans_translation_key = [
+        n for n in appels if not any(kw.arg == "translation_key" for kw in n.keywords)
+    ]
+    assert not sans_translation_key, (
+        f"{len(sans_translation_key)} SelectSelectorConfig sans translation_key dans objets.py")

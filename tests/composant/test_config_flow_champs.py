@@ -15,6 +15,7 @@ from conftest import _commandes, _creer_ecran, _init_reconfigure
 from custom_components.home_desk import listes_champs, schema
 from custom_components.home_desk.const import (
     ACTION_ENREGISTRER,
+    ERREUR_CHAMP_REQUIS,
     ERREUR_CHAMP_TYPE_INVALIDE,
     ERREUR_SERVICE_INCOMPLET,
     SOUS_ENTREE_ECRAN,
@@ -430,4 +431,36 @@ async def test_vider_les_deux_champs_service_retire_le_service_existant(hass, en
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
     assert not resultat["errors"]
     assert "service" not in _commandes(hass)[0]
+
+
+# ---------------------------------------------------------------------------
+# Ronde 2 de relecture (point 2) : `listes.py` portait le MEME defaut de
+# troncature que `garde_ecran.py` corrigeait deja pour agencement/voiture —
+# un champ REQUIS omis de la donnee CONSTRUITE retombait sur "base" via
+# `schema.localiser()`. `valeur` (SYNTHESE) est la SEULE des quatre formes
+# mesurees par le relecteur atteignable par le FLOW REEL (les trois autres
+# sont des champs `EntitySelector`/`ChampVide`, deja interceptes avant ce
+# module — verifie par execution) : voir `test_localiser_champ_ne_tronque_
+# aucune_des_quatre_formes` (test_garde_ecran.py) pour les trois autres,
+# testees directement sur le MECANISME.
+# ---------------------------------------------------------------------------
+
+
+async def test_valeur_vide_sur_une_ligne_de_synthese_nomme_le_champ_pas_base(hass, entree):
+    """Meme defaut, mesure sur une SECONDE forme ($defs/synthese) : `valeur`
+    n'est pas dans `_CHAMPS_TEXTE_SYNTHESE`, donc une soumission vide
+    l'omet aussi du candidat construit — la meme troncature s'y appliquait
+    identiquement avant cette ronde."""
+    subentry_id = await _creer_ecran(hass, entree)
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "synthese"})
+    await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"],
+        {"entite": "sensor.x", "texte": "Texte", "operateur": "==", "valeur": ""},
+    )
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+    assert resultat["errors"]["valeur"] == ERREUR_CHAMP_REQUIS
+    assert "base" not in resultat["errors"]
 

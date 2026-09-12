@@ -103,8 +103,10 @@ from .const import (
 from .formulaire import reafficher
 # Ronde 1 de relecture (Critique) : verifie l'ecran COMPLET avant tout
 # persist — voir garde_ecran.py. `async_step_identite` (I4, meme ronde) en
-# a besoin au meme titre que listes.py/objets.py.
-from .garde_ecran import verifier_ecran_complet
+# a besoin au meme titre que listes.py/objets.py. Ronde 2 : importe comme
+# MODULE — `garde_ecran.persister_si_valide` est LE site d'ecriture unique
+# du paquet, ce module ne nomme plus `_async_update` lui-meme.
+from . import garde_ecran
 from .listes import SectionsListeMixin
 from .listes_champs import SECTIONS
 # Tache 7 : les deux sections « objet » (Blocs et modes, Voiture) vivent
@@ -357,13 +359,19 @@ class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFl
         """Reconfigure `nom`/`hauteurUtile`/`temperature`/`note` d'une
         sous-entree EXISTANTE — I4, ronde 1 de relecture. Rejoue les MEMES
         trois gardes que la creation (`_valider_identite`), PUIS
-        `verifier_ecran_complet` (ronde 1, Critique) : changer la hauteur
-        utile ne peut aujourd'hui casser aucun invariant croise du contrat,
-        mais l'appliquer ICI AUSSI, uniformement avec chaque autre step qui
+        `garde_ecran.persister_si_valide` (ronde 1, Critique ; ronde 2, LE
+        site d'ecriture unique) : changer la hauteur utile ne peut
+        aujourd'hui casser aucun invariant croise du contrat, mais
+        l'appliquer ICI AUSSI, uniformement avec chaque autre step qui
         persiste, coute une ligne et evite d'avoir a s'en souvenir le jour
-        ou une regle future en ajouterait un qui le pourrait. Persiste via
-        `_async_update` (jamais `async_create_entry`, reserve a
-        `SOURCE_USER`)."""
+        ou une regle future en ajouterait un qui le pourrait.
+
+        Ronde 2 de relecture (point 4) : `titre=nouvelles_donnees["nom"]`
+        — mesure, `_async_update` etait appele SANS `title=` ; renommer un
+        ecran (`nom`) laissait le TITRE de la sous-entree (celui que la
+        page d'integration liste, pose par `async_step_user` a la
+        creation) inchange, les deux divergeant des la premiere
+        reconfiguration."""
         entry = self._get_entry()
         subentry = self._get_reconfigure_subentry()
         errors: dict[str, str] = {}
@@ -382,12 +390,10 @@ class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFl
                 nouvelles_donnees.update(donnee)
                 if "note" not in donnee:
                     nouvelles_donnees.pop("note", None)
-                errors_ecran, placeholders_ecran = verifier_ecran_complet(nouvelles_donnees)
-                if errors_ecran:
-                    errors.update(errors_ecran)
-                    description_placeholders.update(placeholders_ecran)
-                else:
-                    self._async_update(entry=entry, subentry=subentry, data=nouvelles_donnees)
+                if garde_ecran.persister_si_valide(
+                    self, entry, subentry, nouvelles_donnees, errors, description_placeholders,
+                    section_courante="identite", titre=nouvelles_donnees["nom"],
+                ):
                     return await self.async_step_reconfigure()
 
         return reafficher(

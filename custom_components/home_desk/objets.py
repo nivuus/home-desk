@@ -20,7 +20,7 @@ import voluptuous as vol
 from homeassistant.config_entries import SubentryFlowResult
 from homeassistant.helpers import selector
 
-from . import schema
+from . import libelles, schema
 from .budget import BUDGET, verifier_budget
 from .const import ERREUR_BUDGET_INTENABLE_MODE, ERREUR_CHAMP_INVALIDE
 from .formulaire import reafficher
@@ -29,38 +29,23 @@ from .formulaire import reafficher
 # `async_step_voiture` en avaient besoin au MEME titre que listes.py
 # (`blocDefaut: voiture` sans objet voiture, ou le retrait de la voiture
 # pendant que blocDefaut la reclame encore, persistaient en silence avant
-# ce correctif).
-from .garde_ecran import verifier_ecran_complet
+# ce correctif). Ronde 2 : importe comme MODULE — `garde_ecran.
+# persister_si_valide` est LE site d'ecriture unique du paquet, ce module
+# ne nomme plus `_async_update` lui-meme.
+from . import garde_ecran
 # Meme mecanisme que `listes.py` (schema.* -> vol.Invalid -> fautes.localiser
 # -> code d'erreur dedie), rejoue ici sur un objet UNIQUE plutot que sur un
-# element de section « liste » : reutiliser CETTE table plutot qu'en ecrire
-# une seconde copie, la meme regle que ce chantier applique partout
-# ailleurs (schema.py, budget.py).
-from .listes import _ERREUR_PAR_MOT_CLE
-
-
-def _localiser_champ(err: vol.Invalid) -> tuple[str, str]:
-    """Le CHAMP et le mot-cle d'une faute sur un candidat LOCAL (agencement
-    ou voiture) — jamais `fautes.localiser()` seul, dont la troncature
-    agv-parity (retirer le DERNIER segment pour "required"/
-    "additionalProperties", voir sa propre docstring) est juste pour
-    `motif()` et le corpus, hors de propos ici.
-
-    Mutation trouvee en ronde 1 de relecture (Important I1) : soumettre un
-    objet voiture auquel il manque UN SEUL champ (`clim`, par exemple) leve
-    un `RequiredFieldInvalid` dont `err.path` est `["clim"]` — UN SEUL
-    segment. `fautes.localiser()` le tronque a `[]` (la meme troncature que
-    `garde_ecran.py` documente et evite, pour la meme raison), et
-    `async_step_voiture` attribuait alors le refus a "base" au lieu de
-    "clim" : un test qui soumettait une voiture incomplete voyait bien un
-    FORM, mais sur le MAUVAIS champ — aucun test ne l'avait jamais lu avant
-    cette ronde. `err.path[0]` directement, comme `garde_ecran.
-    verifier_ecran_complet`, porte toujours le bon nom."""
-    if isinstance(err, vol.MultipleInvalid):
-        err = err.errors[0]
-    _, mot_cle = schema.localiser(err)
-    champ = str(err.path[0]) if err.path else "base"
-    return champ, mot_cle
+# element de section « liste » : reutiliser CETTE table (et `_localiser_
+# champ`, meme raison) plutot qu'en ecrire une seconde copie, la meme regle
+# que ce chantier applique partout ailleurs (schema.py, budget.py).
+#
+# Ronde 2 de relecture : `_localiser_champ` vivait ICI seule jusqu'a cette
+# ronde — la ronde 1 avait corrige la troncature de `fautes.localiser()`
+# pour agencement/voiture en la croyant limitee a ces deux formes, alors
+# que `listes.py` portait EXACTEMENT le meme defaut pour les huit sections
+# « liste » (voir sa propre docstring pour la mesure). Une seule
+# implementation desormais, definie dans `listes.py`, importee ICI.
+from .listes import _ERREUR_PAR_MOT_CLE, _localiser_champ
 
 # Tache 7 : « Blocs et modes » (agencement) n'est PAS une section « liste »
 # (listes.py) — un OBJET unique par ecran, jamais une collection d'elements
@@ -203,7 +188,12 @@ class SectionsObjetMixin:
                         pire_mode = mode
                 if pire_mode is not None:
                     errors["base"] = ERREUR_BUDGET_INTENABLE_MODE
-                    description_placeholders["mode"] = pire_mode
+                    # Ronde 2 de relecture (point 3) : {mode} interpolait
+                    # l'identifiant BRUT du contrat ("minuteur"), jamais
+                    # traduit — alors que le SelectSelector correspondant
+                    # (translation_key="mode", ronde 1) publie deja "Minuteur"
+                    # / "Timer". `libelles.mode` relit la MEME table.
+                    description_placeholders["mode"] = libelles.mode(self.hass, pire_mode)
                     description_placeholders["debordement"] = str(pire_debordement)
                 else:
                     # Ronde 1 de relecture (Critique) : schema.AGENCEMENT
@@ -212,13 +202,13 @@ class SectionsObjetMixin:
                     # l'ecran (`blocDefaut: voiture` sans objet voiture,
                     # `minuteur` dans les modes sans slot de minuteur) —
                     # mesure : persistait en silence avant ce correctif.
+                    # Ronde 2 : delegue a `garde_ecran.persister_si_valide`,
+                    # LE site d'ecriture unique (voir sa docstring).
                     donnees = {**subentry.data, "agencement": valide}
-                    errors_ecran, placeholders_ecran = verifier_ecran_complet(donnees)
-                    if errors_ecran:
-                        errors.update(errors_ecran)
-                        description_placeholders.update(placeholders_ecran)
-                    else:
-                        self._async_update(entry=entry, subentry=subentry, data=donnees)
+                    if garde_ecran.persister_si_valide(
+                        self, entry, subentry, donnees, errors, description_placeholders,
+                        section_courante="agencement",
+                    ):
                         return await self.async_step_reconfigure()
 
         return reafficher(
@@ -245,7 +235,18 @@ class SectionsObjetMixin:
         MOT (la docstring nommait deja `schema._invariants_croises`
         juste au-dessus, sans jamais l'appeler). Les DEUX branches qui
         persistent (retrait, ajout/edition) passent desormais par
-        `verifier_ecran_complet` avant d'ecrire."""
+        `garde_ecran.persister_si_valide` avant d'ecrire.
+
+        Ronde 2 de relecture (point 3) : le refus de la branche `sans_
+        voiture` nommait "voiture" — la section ou l'utilisateur se trouve
+        DEJA, ou il n'y a plus rien a corriger (il vient d'en sortir). Le
+        seul remede reel est dans « Blocs et modes » (retirer `blocDefaut:
+        voiture`). `section_courante="voiture"` permet a `garde_ecran.
+        verifier_ecran_complet` de rediriger vers "agencement" quand la
+        section fautive EST celle d'ou vient l'ecriture — jamais dans la
+        branche d'ajout/edition ci-dessous, ou "voiture" reste la bonne
+        reponse (l'utilisateur n'y est pas deja s'il vient de `blocDefaut:
+        voiture` choisi depuis l'agencement)."""
         entry = self._get_entry()
         subentry = self._get_reconfigure_subentry()
         errors: dict[str, str] = {}
@@ -258,12 +259,10 @@ class SectionsObjetMixin:
             if user_input.get("sans_voiture"):
                 donnees = dict(subentry.data)
                 donnees.pop("voiture", None)
-                errors_ecran, placeholders_ecran = verifier_ecran_complet(donnees)
-                if errors_ecran:
-                    errors.update(errors_ecran)
-                    description_placeholders.update(placeholders_ecran)
-                else:
-                    self._async_update(entry=entry, subentry=subentry, data=donnees)
+                if garde_ecran.persister_si_valide(
+                    self, entry, subentry, donnees, errors, description_placeholders,
+                    section_courante="voiture",
+                ):
                     return await self.async_step_reconfigure()
             else:
                 candidat = {
@@ -280,12 +279,10 @@ class SectionsObjetMixin:
                     errors[champ] = _ERREUR_PAR_MOT_CLE.get(mot_cle, ERREUR_CHAMP_INVALIDE)
                 else:
                     donnees = {**subentry.data, "voiture": valide}
-                    errors_ecran, placeholders_ecran = verifier_ecran_complet(donnees)
-                    if errors_ecran:
-                        errors.update(errors_ecran)
-                        description_placeholders.update(placeholders_ecran)
-                    else:
-                        self._async_update(entry=entry, subentry=subentry, data=donnees)
+                    if garde_ecran.persister_si_valide(
+                        self, entry, subentry, donnees, errors, description_placeholders,
+                        section_courante="voiture",
+                    ):
                         return await self.async_step_reconfigure()
 
         return reafficher(

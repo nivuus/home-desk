@@ -5,16 +5,26 @@ Les cas particuliers (via le flow reel) vivent dans
 `test_config_flow_objets.py` ; ce fichier tient le MECANISME qui les rend
 tous vrais a la fois.
 
-Le relecteur : « sept des neuf mutations survivantes portent sur une regle
-que ton code ou ton rapport affirme tenir. Tu les as toutes verifiees par
-des sondes jetables, et tu n'en as transforme aucune en test. » Ce module
-et son complement structurel plus bas repondent a ce constat : le
-MECANISME, pas seulement ses trois manifestations mesurees.
-"""
+Le relecteur (ronde 1) : « sept des neuf mutations survivantes portent sur
+une regle que ton code ou ton rapport affirme tenir. Tu les as toutes
+verifiees par des sondes jetables, et tu n'en as transforme aucune en
+test. » Ce module et son complement structurel plus bas repondent a ce
+constat : le MECANISME, pas seulement ses trois manifestations mesurees.
+
+Ronde 2 de relecture : le complement structurel de la ronde 1 (« chaque
+`_async_update` est appaire d'un `verifier_ecran_complet` ») COMPTAIT les
+appels par fichier plutot que de verifier une UNICITE globale — un
+`_persister(...)` qui ecrivait EN SAUTANT la garde laissait le compte tomber
+a zero des DEUX cotes a la fois, donc rester VERT. Remplace par
+`test_garde_ecran_est_le_seul_module_a_appeler__async_update`, sur le MEME
+idiome que `test_formulaire_est_le_seul_module_a_appeler_async_show_form_
+avec_un_data_schema` (test_config_flow.py) : une EXISTENCE, jamais une
+egalite de comptage."""
 import ast
 import pathlib
 
 from custom_components.home_desk import garde_ecran
+from custom_components.home_desk.const import ERREUR_ECRAN_DEVIENDRAIT_INVALIDE
 
 _ECRAN_BASE = {
     "nom": "x",
@@ -40,13 +50,17 @@ def test_mode_minuteur_sans_slot_est_refuse_et_nomme_minuteurs():
     """LE cas mesure par le relecteur (l'agencement reel de la cuisine,
     `app/src/ecran.ts`) : `agencement.modes` contient "minuteur",
     `minuteurs` est present mais VIDE — jamais absent, depuis que
-    `listes_champs.SECTIONS` l'initialise a la creation."""
+    `listes_champs.SECTIONS` l'initialise a la creation.
+
+    Ronde 2 de relecture (mineur) : la constante `ERREUR_ECRAN_
+    DEVIENDRAIT_INVALIDE` est importee ICI, jamais retapee en dur — la
+    regle vaut aussi pour les tests, pas seulement pour le code."""
     ecran = {
         **_ECRAN_BASE,
         "agencement": {"zones": ["commandes"], "modes": ["defaut", "minuteur"], "modulateurs": []},
     }
     errors, placeholders = garde_ecran.verifier_ecran_complet(ecran)
-    assert errors == {"base": "ecran_deviendrait_invalide"}
+    assert errors == {"base": ERREUR_ECRAN_DEVIENDRAIT_INVALIDE}
     assert placeholders == {"section": "minuteurs"}
 
 
@@ -73,7 +87,7 @@ def test_blocDefaut_voiture_sans_objet_voiture_est_refuse_et_nomme_voiture():
         },
     }
     errors, placeholders = garde_ecran.verifier_ecran_complet(ecran)
-    assert errors == {"base": "ecran_deviendrait_invalide"}
+    assert errors == {"base": ERREUR_ECRAN_DEVIENDRAIT_INVALIDE}
     assert placeholders == {"section": "voiture"}
 
 
@@ -107,43 +121,154 @@ def test_le_nom_de_section_n_est_jamais_tronque_contrairement_a_fautes_localiser
         assert list(err.path) == ["voiture"], "err.path, lui, porte le nom du champ"
 
 
+def test_section_courante_egale_a_la_section_fautive_redirige_vers_agencement():
+    """Ronde 2 de relecture (point 3) : retirer la voiture DEPUIS la
+    section "voiture" pendant que `blocDefaut` l'exige encore nommait
+    "voiture" — la section ou l'utilisateur se trouve DEJA, sans rien a y
+    corriger. Le seul remede reel est dans "agencement" (« Blocs et
+    modes »). `section_courante` porte la section D'OU L'ON ECRIT ; quand
+    elle egale la section fautive, la garde redirige vers "agencement"."""
+    ecran = {
+        **_ECRAN_BASE,
+        "agencement": {
+            "zones": ["commandes"], "modes": ["defaut"], "modulateurs": [], "blocDefaut": "voiture",
+        },
+    }
+    errors, placeholders = garde_ecran.verifier_ecran_complet(ecran, section_courante="voiture")
+    assert errors == {"base": ERREUR_ECRAN_DEVIENDRAIT_INVALIDE}
+    assert placeholders == {"section": "agencement"}
+
+
+def test_section_courante_differente_de_la_section_fautive_ne_redirige_pas():
+    """Le pendant : depuis "agencement" lui-meme (l'utilisateur vient d'y
+    choisir `blocDefaut: voiture` sans que l'objet existe), la section
+    fautive ("voiture") N'EST PAS celle d'ou l'on ecrit — aucune
+    redirection, "voiture" reste la bonne reponse (l'utilisateur n'y est
+    pas deja)."""
+    ecran = {
+        **_ECRAN_BASE,
+        "agencement": {
+            "zones": ["commandes"], "modes": ["defaut"], "modulateurs": [], "blocDefaut": "voiture",
+        },
+    }
+    errors, placeholders = garde_ecran.verifier_ecran_complet(ecran, section_courante="agencement")
+    assert errors == {"base": ERREUR_ECRAN_DEVIENDRAIT_INVALIDE}
+    assert placeholders == {"section": "voiture"}
+
+
+def test_hass_fourni_traduit_la_section_en_libelle_humain():
+    """Point 3 de la ronde 2 (deuxieme moitie) : `{section}` interpolait
+    l'identifiant BRUT du contrat ("minuteurs"), jamais traduit — la meme
+    faute que le mineur 6 de la ronde 1 fermait deja pour les options de
+    `SelectSelector`. Sans `hass`, le MECANISME reste testable seul
+    (l'identifiant brut, comme avant) ; avec un `hass` (ici un objet
+    minimal portant `config.language`), la section rendue est le libelle
+    HUMAIN du menu de reconfiguration."""
+    class _ConfigFactice:
+        language = "en"
+
+    class _HassFactice:
+        config = _ConfigFactice()
+
+    ecran = {
+        **_ECRAN_BASE,
+        "agencement": {"zones": ["commandes"], "modes": ["defaut", "minuteur"], "modulateurs": []},
+    }
+    errors, placeholders = garde_ecran.verifier_ecran_complet(ecran, hass=_HassFactice())
+    assert errors == {"base": ERREUR_ECRAN_DEVIENDRAIT_INVALIDE}
+    assert placeholders == {"section": "Timers"}, "le libelle EN du menu, jamais l'identifiant brut"
+
+
 # ---------------------------------------------------------------------------
-# Le complement STRUCTUREL : chaque site qui persiste (`_async_update`) dans
-# listes.py/objets.py doit etre APPAIRE d'un appel a verifier_ecran_complet.
-# Une regle mecanique, pas une intuition : si un futur geste ajoute un
-# `_async_update` de plus sans le garder, ce test tombe — meme si personne
-# n'a encore ecrit le cas particulier qu'il rendrait possible.
+# Le complement STRUCTUREL : `garde_ecran.py` est le SEUL module a appeler
+# `_async_update` — jamais une egalite de comptage par fichier (ronde 1),
+# qu'un contournement local (un second site d'ecriture qui saute la garde)
+# laissait vert des DEUX cotes a la fois.
 # ---------------------------------------------------------------------------
 
 
-def _compter_appels(chemin: pathlib.Path, nom_fonction: str) -> int:
-    arbre = ast.parse(chemin.read_text(encoding="utf-8"))
-    return sum(
-        1
-        for noeud in ast.walk(arbre)
-        if isinstance(noeud, ast.Call)
-        and (
-            (isinstance(noeud.func, ast.Attribute) and noeud.func.attr == nom_fonction)
-            or (isinstance(noeud.func, ast.Name) and noeud.func.id == nom_fonction)
-        )
-    )
+def test_garde_ecran_est_le_seul_module_a_appeler__async_update():
+    """Ronde 2 de relecture (le clou qui n'etait pas le bon) : le test
+    precedent comptait `_async_update` face a `verifier_ecran_complet`,
+    PAR FICHIER — un `_persister(...)` qui ecrivait en SAUTANT la garde
+    (mesure : faire ecrire les QUATRE gestes de `listes.py` par un
+    `_async_update` nu, `_persister_si_valide` devenant du code mort)
+    laissait ce compte EGAL (zero des deux cotes), donc VERT. Meme faille
+    dans la liste de FICHIERS EN DUR : un module neuf portant un
+    `_async_update` nu n'y apparaissait jamais.
 
-
-def test_chaque_persist_est_appaire_d_une_verification_de_l_ecran_complet():
-    """`self._async_update(...)` (le SEUL point d'ecriture, ConfigSubentryFlow)
-    et `verifier_ecran_complet(...)` doivent apparaitre le MEME nombre de
-    fois dans listes.py et dans objets.py : la structure de ce chantier
-    fait passer CHAQUE ecriture par un appel prealable a la garde
-    (`_persister_si_valide` dans listes.py ; inline dans objets.py). Un
-    futur geste qui ajoute un `_async_update` sans l'appairer fait tomber
-    CE test, meme avant qu'un scenario concret ne le revele."""
+    Ce test-ci, sur le MEME idiome que `test_formulaire_est_le_seul_
+    module_a_appeler_async_show_form_avec_un_data_schema`
+    (test_config_flow.py) : un `glob("*.py")` sur TOUT le paquet, une
+    EXISTENCE (pas un compte) — `garde_ecran.py` est le SEUL fichier ou
+    `_async_update` apparait. `garde_ecran.persister_si_valide` (le seul
+    appelant) est donc, structurellement, le SEUL site d'ecriture du
+    paquet entier."""
     composant_dir = pathlib.Path(__file__).resolve().parents[2] / "custom_components" / "home_desk"
-    for nom_fichier in ("listes.py", "objets.py", "config_flow.py"):
-        chemin = composant_dir / nom_fichier
-        n_update = _compter_appels(chemin, "_async_update")
-        n_garde = _compter_appels(chemin, "verifier_ecran_complet")
-        assert n_update == n_garde, (
-            f"{nom_fichier} : {n_update} appel(s) a _async_update pour "
-            f"{n_garde} a verifier_ecran_complet — un site d'ecriture "
-            "n'est pas garde")
-        assert n_update > 0, f"{nom_fichier} : aucun _async_update trouve (le test ne verifie rien)"
+    fautifs = []
+    for chemin in composant_dir.glob("*.py"):
+        if chemin.name == "garde_ecran.py":
+            continue
+        arbre = ast.parse(chemin.read_text(encoding="utf-8"))
+        for noeud in ast.walk(arbre):
+            if (
+                isinstance(noeud, ast.Call)
+                and isinstance(noeud.func, ast.Attribute)
+                and noeud.func.attr == "_async_update"
+            ):
+                fautifs.append(chemin.name)
+    assert not fautifs, f"_async_update() hors de garde_ecran.py : {fautifs}"
+
+    # Preuve que ce test verifie bien QUELQUE CHOSE (garde_ecran.py
+    # contient au moins un appel) plutot que de passer a vide.
+    arbre_garde = ast.parse((composant_dir / "garde_ecran.py").read_text(encoding="utf-8"))
+    n_garde = sum(
+        1
+        for noeud in ast.walk(arbre_garde)
+        if isinstance(noeud, ast.Call)
+        and isinstance(noeud.func, ast.Attribute)
+        and noeud.func.attr == "_async_update"
+    )
+    assert n_garde > 0, "garde_ecran.py ne contient plus aucun appel a _async_update"
+
+
+# ---------------------------------------------------------------------------
+# Point 2 de la ronde 2 : `listes._localiser_champ` (le meme mecanisme que
+# `garde_ecran.verifier_ecran_complet`, applique cette fois aux HUIT
+# sections « liste ») ne tronque plus le nom du champ pour "required".
+# ---------------------------------------------------------------------------
+
+
+def test_localiser_champ_ne_tronque_aucune_des_quatre_formes():
+    """Mesure sur les QUATRE formes que le relecteur a nommees. Trois
+    d'entre elles (BOUTON/entite, SOURCE/nom, MINUTEUR_SLOT/nom) ne sont
+    PAS atteignables par le flow reel (`entite`/`timer`/`nom` sont des
+    `EntitySelector` que `data_schema` refuse deja en `InvalidData` avant
+    ce module ; `nom` de SOURCE est intercepte par `ChampVide` — verifie
+    par execution) : la SEULE facon de les eprouver est directement, sur
+    le MECANISME, avec un dict CONSTRUIT a la main — exactement la forme
+    qu'un champ omis par une future construction (pas seulement une
+    saisie utilisateur) prendrait. La quatrieme (SYNTHESE/valeur, un `str`
+    NU plutot qu'un selecteur) EST atteignable par le flow reel : voir
+    `test_valeur_vide_sur_une_ligne_de_synthese_nomme_le_champ_pas_base`
+    (test_config_flow_champs.py)."""
+    import voluptuous as vol
+    from custom_components.home_desk import schema
+    from custom_components.home_desk.listes import _localiser_champ
+
+    cas = (
+        ("BOUTON/entite", schema.BOUTON, {"libelle": "x", "icone": "bulb"}, "entite"),
+        ("SOURCE/nom", schema.SOURCE, {
+            "titre": [], "sousTitre": [], "affiche": [], "progression": [],
+            "transport": [], "volume": [],
+        }, "nom"),
+        ("MINUTEUR_SLOT/nom", schema.MINUTEUR_SLOT, {"timer": "timer.t"}, "nom"),
+    )
+    for nom, valider, candidat, champ_attendu in cas:
+        try:
+            valider(candidat)
+            assert False, f"{nom} : ce candidat doit lever"
+        except vol.Invalid as err:
+            champ, mot_cle = _localiser_champ(err)
+            assert champ == champ_attendu, f"{nom} : {champ!r} != {champ_attendu!r} (mot_cle={mot_cle!r})"
+            assert mot_cle == "required"

@@ -125,8 +125,11 @@ from .const import (
 from .formulaire import reafficher
 # Ronde 1 de relecture (Critique) : verifie l'ecran COMPLET avant tout
 # persist — voir garde_ecran.py pour les trois chemins que son absence
-# laissait passer en silence.
-from .garde_ecran import verifier_ecran_complet
+# laissait passer en silence. Ronde 2 : `garde_ecran.persister_si_valide`
+# est aussi devenu LE site d'ecriture unique du paquet — importe comme
+# MODULE (pas seulement une fonction) pour que ce module n'ait plus jamais
+# a nommer `_async_update` lui-meme.
+from . import garde_ecran
 # `SECTIONS`/`Section` restent importes ICI pour l'usage INTERNE de ce module
 # (`_async_step_section*` ci-dessous), mais ne sont plus re-exportes depuis
 # la ronde 2 de relecture : deux adresses valables pour le meme objet
@@ -188,6 +191,29 @@ _ERREUR_PAR_MOT_CLE: dict[str, str] = {
 __all__ = ["SectionsListeMixin"]
 
 
+def _localiser_champ(err: vol.Invalid) -> tuple[str, str]:
+    """Le CHAMP et le mot-cle d'une faute sur l'element LOCAL qu'un
+    formulaire de section « liste » vient de construire — jamais
+    `fautes.localiser()` seul, dont la troncature agv-parity (retirer le
+    DERNIER segment pour "required"/"additionalProperties", voir sa propre
+    docstring) est pensee pour `motif()` et le corpus, pas pour attribuer
+    un refus a un CHAMP de formulaire.
+
+    Ronde 2 de relecture : la ronde 1 avait corrige EXACTEMENT cette meme
+    troncature dans `objets.py` (`_localiser_champ`, alors defini LA-BAS)
+    en la croyant propre a l'agencement/la voiture — mesure : `entite`
+    omis d'une tuile de commande (`$defs/bouton`), `valeur` omise d'une
+    ligne de synthese (`$defs/synthese`) et `nom` omis d'une source
+    (`$defs/source`) retombaient ICI, dans `listes.py`, sur "base" — le
+    MEME defaut, jamais ferme a la racine. Desormais partagee : `objets.py`
+    l'importe d'ICI plutot que d'en garder une seconde copie."""
+    if isinstance(err, vol.MultipleInvalid):
+        err = err.errors[0]
+    _, mot_cle = schema.localiser(err)
+    champ = str(err.path[0]) if err.path else "base"
+    return champ, mot_cle
+
+
 def _schema_choix(elements: list, section: Section) -> vol.Schema:
     """Le menu « ajouter | choisir » du brief, sur DEUX champs plutot qu'un
     sentinel partage (ronde 1, point 3 de la docstring de module) : `nouveau`
@@ -221,11 +247,6 @@ class SectionsListeMixin:
     def _elements(self, subentry: ConfigSubentry, cle: str) -> list:
         return list(subentry.data.get(cle, []))
 
-    def _persister(
-        self, entry: ConfigEntry, subentry: ConfigSubentry, cle: str, elements: list
-    ) -> None:
-        self._async_update(entry=entry, subentry=subentry, data_updates={cle: elements})
-
     def _persister_si_valide(
         self,
         entry: ConfigEntry,
@@ -244,15 +265,25 @@ class SectionsListeMixin:
         desormais par ICI : persiste et rend True si `schema.valider()`
         accepte l'ecran complet candidat ; sinon peuple ERRORS/
         DESCRIPTION_PLACEHOLDERS (la section fautive) et rend False, SANS
-        RIEN ECRIRE."""
-        candidat_ecran = {**subentry.data, cle: elements}
-        errors_ecran, placeholders_ecran = verifier_ecran_complet(candidat_ecran)
-        if errors_ecran:
-            errors.update(errors_ecran)
-            description_placeholders.update(placeholders_ecran)
-            return False
-        self._persister(entry, subentry, cle, elements)
-        return True
+        RIEN ECRIRE.
+
+        Ronde 2 de relecture : cette methode ne PERSISTE plus elle-meme —
+        elle delegue integralement a `garde_ecran.persister_si_valide`, LE
+        site d'ecriture unique du paquet. Avant cette ronde, `_persister`
+        (un second appel a `_async_update`, juste a cote) restait un
+        contournement a une ligne : un mutant qui faisait ecrire
+        `ACTION_SUPPRIMER` (ou les QUATRE gestes) directement via
+        `_persister`, en sautant la garde, laissait `_persister_si_valide`
+        devenir du code MORT — et le test d'alors (qui COMPTAIT les appels a
+        `_async_update` face a ceux de `verifier_ecran_complet`, PAR
+        FICHIER) restait vert, puisque le compte des DEUX cotes tombait a
+        zero ensemble. Il ne peut plus exister de second site : `_persister`
+        a disparu, et ce module ne contient plus AUCUN `_async_update`."""
+        return garde_ecran.persister_si_valide(
+            self, entry, subentry, {**subentry.data, cle: elements},
+            errors, description_placeholders,
+            section_courante=cle, data_updates={cle: elements},
+        )
 
     async def _async_step_section(self, cle: str, user_input: dict[str, Any] | None):
         section = SECTIONS[cle]
@@ -389,13 +420,22 @@ class SectionsListeMixin:
                     # autres chemins ("Ce champ n'est pas valide : :
                     # required.", sur un champ REMPLI d'une chaine vide,
                     # entre autres). Chaque mot-cle devient desormais un
-                    # code d'erreur DEDIE (`_ERREUR_PAR_MOT_CLE`), et le
-                    # champ fautif est TOUJOURS celui que
-                    # `fautes.localiser()` designe — plus de "base" quand le
-                    # chemin est connu. `description_placeholders` ne porte
-                    # plus AUCUN motif brut.
-                    chemin, mot_cle = schema.localiser(err)
-                    champ = str(chemin[0]) if chemin else "base"
+                    # code d'erreur DEDIE (`_ERREUR_PAR_MOT_CLE`).
+                    #
+                    # Ronde 2 de relecture (correction d'un COMMENTAIRE
+                    # FAUX laisse par la ronde 4 : celui-ci affirmait ici
+                    # « le champ fautif est TOUJOURS celui que fautes.
+                    # localiser() designe — plus de "base" quand le chemin
+                    # est connu ». Faux pour "required" : `localiser()`
+                    # tronque expres le DERNIER segment (parite ajv, voir sa
+                    # docstring), et un champ REQUIS omis d'une tuile
+                    # (`entite`), d'une ligne de synthese (`valeur`) ou
+                    # d'une source (`nom`) retombait donc sur "base" — un
+                    # message ecrit pour UN CHAMP, affiche sur tout le
+                    # formulaire. `_localiser_champ` (definie plus haut dans
+                    # ce module, reutilisee par `objets.py`) lit `err.path`
+                    # directement, jamais tronque.
+                    champ, mot_cle = _localiser_champ(err)
                     errors[champ] = _ERREUR_PAR_MOT_CLE.get(mot_cle, ERREUR_CHAMP_INVALIDE)
                 else:
                     # Tache 7, le TROISIEME invariant croise (legue par le

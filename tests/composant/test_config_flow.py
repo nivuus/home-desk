@@ -16,7 +16,7 @@ import pathlib
 import pytest
 from homeassistant import config_entries, data_entry_flow
 
-from conftest import IDENTITE_MINIMALE, _creer_ecran, _init_reconfigure
+from conftest import IDENTITE_MINIMALE
 from custom_components.home_desk.budget import BUDGET
 from custom_components.home_desk.config_flow import EcranSubentryFlow
 from custom_components.home_desk.const import (
@@ -327,65 +327,10 @@ async def test_note_vide_n_est_pas_persistee(hass, entree):
 # ---------------------------------------------------------------------------
 # Tache 7 : les sections « objet » (agencement, voiture) et les deux regles
 # hors-schema vivent dans test_config_flow_objets.py, separe d'ici en ronde 1
-# de relecture (ce fichier approchait 500 lignes).
+# de relecture (ce fichier approchait 500 lignes). I4 (reconfigurer
+# l'identite) vit dans test_config_flow_identite.py, separe en ronde 2 pour
+# la meme raison.
 # ---------------------------------------------------------------------------
-
-# I4, ronde 1 de relecture : reconfigurer l'identite d'une sous-entree
-# EXISTANTE. Avant cette ronde, `nom`/`hauteurUtile`/`temperature`/`note`
-# etaient immuables a vie une fois la sous-entree creee.
-
-
-async def test_reconfigurer_l_identite_change_le_nom_et_la_hauteur(hass, entree):
-    subentry_id = await _creer_ecran(hass, entree)
-    flow = await _init_reconfigure(hass, entree, subentry_id)
-    await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "identite"})
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"],
-        {**IDENTITE_MINIMALE, "nom": "Salon renomme", "hauteurUtile": 900, "note": "Renomme"},
-    )
-    assert resultat["type"] is data_entry_flow.FlowResultType.MENU
-    subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
-    assert subentry.data["nom"] == "Salon renomme"
-    assert subentry.data["hauteurUtile"] == 900
-    assert subentry.data["note"] == "Renomme"
-
-
-async def test_reconfigurer_l_identite_refuse_un_nom_vide(hass, entree):
-    subentry_id = await _creer_ecran(hass, entree)
-    flow = await _init_reconfigure(hass, entree, subentry_id)
-    await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "identite"})
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {**IDENTITE_MINIMALE, "nom": "   "})
-    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["nom"] == ERREUR_NOM_VIDE
-    subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
-    assert subentry.data["nom"] == IDENTITE_MINIMALE["nom"], "un refus ne doit RIEN persister"
-
-
-async def test_reconfigurer_l_identite_refuse_une_hauteur_qui_deborde(hass, entree):
-    subentry_id = await _creer_ecran(hass, entree)
-    flow = await _init_reconfigure(hass, entree, subentry_id)
-    await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "identite"})
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {**IDENTITE_MINIMALE, "hauteurUtile": 100})
-    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["hauteurUtile"] == ERREUR_BUDGET_INTENABLE
-    subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
-    assert subentry.data["hauteurUtile"] == IDENTITE_MINIMALE["hauteurUtile"]
-
-
-async def test_reconfigurer_l_identite_preremplit_les_valeurs_stockees(hass, entree):
-    subentry_id = await _creer_ecran(hass, entree, note="Une note")
-    flow = await _init_reconfigure(hass, entree, subentry_id)
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "identite"})
-    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    marqueurs = {str(cle): cle for cle in resultat["data_schema"].schema}
-    assert marqueurs["nom"].description == {"suggested_value": IDENTITE_MINIMALE["nom"]}
-    assert marqueurs["note"].description == {"suggested_value": "Une note"}
 
 
 # ---------------------------------------------------------------------------
