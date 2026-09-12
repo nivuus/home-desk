@@ -1,25 +1,32 @@
 """Les primitives PARTAGEES par toutes les familles de sections « liste » :
-les selecteurs (icone, entite, entite multiple, geste), la fusion d'un
+le selecteur d'entite commun, le selecteur de geste, la fusion d'un
 element edite avec l'existant (`_fusionner`), les deux exceptions de refus
 metier (`ServiceIncomplet`, `ChampVide`) et la forme `Section` elle-meme.
 
 Extrait de `listes_champs.py` a la tache 7 : ce dernier restait la SEULE
-adresse canonique de `SECTIONS`, mais les quatre sections « objet » de cette
-tache (sources, minuteurs, etiquettes de minuteur) l'auraient fait franchir
-les 500 lignes — la meme dette que `test_config_flow_champs.py` porte cote
-tests. La couture choisie ici est celle que le brief suggere lui-meme
-(« une section = un fichier ») : ce module porte ce qui est VRAIMENT commun
-aux DEUX familles (bouton/synthese/ouvrant d'un cote, sources/minuteurs de
-l'autre), `listes_champs.py` garde la premiere famille et assemble
-`SECTIONS`, `listes_champs_sources.py`/`listes_champs_minuteurs.py` portent
-la seconde. Sans ce partage, `_fusionner`/`ChampVide`/`ServiceIncomplet`
-auraient eu deux copies a diverger en silence — exactement ce que ce
-chantier s'interdit partout ailleurs (schema.py, budget.py).
+adresse canonique de `SECTIONS`, mais les DEUX sections que la tache 7
+ajoute a sa propre famille (ouvrants deja present, etiquettesMinuteur en
+plus) l'auraient fait franchir les 500 lignes — la meme dette que
+`test_config_flow_champs.py` porte cote tests. La couture choisie ici est
+celle que le brief suggere lui-meme (« une section = un fichier ») : ce
+module porte ce qui est VRAIMENT commun aux DEUX familles (bouton/synthese/
+ouvrant d'un cote, sources/minuteurs/etiquettes de l'autre), `listes_champs.
+py` garde la premiere famille et assemble `SECTIONS`, `listes_champs_
+sources.py`/`listes_champs_minuteurs.py` portent la seconde. Sans ce
+partage, `_fusionner`/`ChampVide`/`ServiceIncomplet` auraient eu deux copies
+a diverger en silence — exactement ce que ce chantier s'interdit partout
+ailleurs (schema.py, budget.py).
+
+Ronde 1 de relecture (re-export) : le vocabulaire d'icones
+(`CHEMIN_ICONES`/`_ICONES_OPTIONS`/`_selecteur_icone`) et le selecteur
+d'entite MULTIPLE (`_selecteur_entite_multiple`) sont revenus vivre dans
+leur SEUL consommateur respectif (`listes_champs.py`, `listes_champs_
+sources.py`) : les avoir laisses ici n'etait qu'un re-export pour ne rien
+casser au deplacement, exactement l'anti-motif que la tache 6 avait deja
+corrige pour `SECTIONS` — jamais partages par une DEUXIEME famille.
 """
 from __future__ import annotations
 
-import json
-import pathlib
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -29,21 +36,7 @@ from homeassistant.helpers import selector
 
 from .const import ACTION_DESCENDRE, ACTION_ENREGISTRER, ACTION_MONTER, ACTION_SUPPRIMER
 
-# Le vocabulaire d'icones vient de contrat/icones.json, JAMAIS retape a la
-# main : voir la note originale de listes_champs.py (ronde de relecture de la
-# tache 6, inchangee au deplacement).
-CHEMIN_ICONES = pathlib.Path(__file__).parent / "contrat" / "icones.json"
-_ICONES_OPTIONS: list[str] = json.loads(CHEMIN_ICONES.read_text(encoding="utf-8"))["icones"]
-
 _ACTIONS_EDITION = [ACTION_ENREGISTRER, ACTION_MONTER, ACTION_DESCENDRE, ACTION_SUPPRIMER]
-
-
-def _selecteur_icone() -> selector.SelectSelector:
-    return selector.SelectSelector(
-        selector.SelectSelectorConfig(
-            options=list(_ICONES_OPTIONS), mode=selector.SelectSelectorMode.DROPDOWN
-        )
-    )
 
 
 def _selecteur_entite() -> selector.EntitySelector:
@@ -51,14 +44,6 @@ def _selecteur_entite() -> selector.EntitySelector:
     trois ecrans reels, cf. rapport de tache 6) : le parametre `domaines`
     n'a jamais ete reintroduit depuis son retrait en ronde 2."""
     return selector.EntitySelector(selector.EntitySelectorConfig())
-
-
-def _selecteur_entite_multiple() -> selector.EntitySelector:
-    """Le pendant a plusieurs valeurs, pour les six jeux d'entites de
-    `$defs/source` (titre, sousTitre, affiche, progression, transport,
-    volume) — chacun un TABLEAU d'entites dans le contrat, jamais une
-    seule. Meme absence de restriction de domaine que `_selecteur_entite`."""
-    return selector.EntitySelector(selector.EntitySelectorConfig(multiple=True))
 
 
 def _selecteur_geste() -> selector.SelectSelector:

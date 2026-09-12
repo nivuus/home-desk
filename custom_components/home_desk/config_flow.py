@@ -101,6 +101,10 @@ from .const import (
     VERSION_CONFIG,
 )
 from .formulaire import reafficher
+# Ronde 1 de relecture (Critique) : verifie l'ecran COMPLET avant tout
+# persist — voir garde_ecran.py. `async_step_identite` (I4, meme ronde) en
+# a besoin au meme titre que listes.py/objets.py.
+from .garde_ecran import verifier_ecran_complet
 from .listes import SectionsListeMixin
 from .listes_champs import SECTIONS
 # Tache 7 : les deux sections « objet » (Blocs et modes, Voiture) vivent
@@ -168,6 +172,43 @@ SCHEMA_IDENTITE = vol.Schema(
         vol.Optional("note"): str,
     }
 )
+
+
+def _valider_identite(user_input: dict[str, Any]) -> tuple[dict[str, str], dict[str, str], dict[str, Any] | None]:
+    """Les trois gardes communes a la CREATION (`EcranSubentryFlow.
+    async_step_user`) et a la RECONFIGURATION (`async_step_identite`, ronde 1
+    de relecture — Important I4) de l'identite : nom non vide, budget du
+    mode le moins cher, bornes de hauteur. Extraite ici pour que les DEUX
+    chemins rejouent EXACTEMENT la meme regle plutot que d'en ecrire une
+    seconde copie qui pourrait diverger.
+
+    Rend `(errors, description_placeholders, donnee)` : `donnee` est le
+    fragment nettoye (`nom`/`hauteurUtile`/`temperature`, `note` seulement
+    si non vide) si les trois gardes passent, `None` sinon — l'appelant
+    n'a alors qu'a verifier `donnee is not None` avant de persister."""
+    errors: dict[str, str] = {}
+    description_placeholders: dict[str, str] = {}
+    if not user_input["nom"].strip():
+        errors["nom"] = ERREUR_NOM_VIDE
+        return errors, description_placeholders, None
+    deborde = verifier_budget(
+        "defaut", rangee_ambiance=True, hauteur_utile=user_input["hauteurUtile"]
+    )
+    if deborde:
+        errors["hauteurUtile"] = ERREUR_BUDGET_INTENABLE
+        description_placeholders["debordement"] = str(deborde)
+        return errors, description_placeholders, None
+    try:
+        schema.hauteur_utile(user_input["hauteurUtile"])
+    except vol.Invalid:
+        errors["hauteurUtile"] = ERREUR_HAUTEUR_HORS_BORNES
+        description_placeholders["min"] = str(schema.HAUTEUR_MIN)
+        description_placeholders["max"] = str(schema.HAUTEUR_MAX)
+        return errors, description_placeholders, None
+    # Ronde 1 (tache 6) : `note` vide etait PERSISTE ("" reste "") la ou le
+    # contrat la veut ABSENTE (Optional, jamais une chaine vide).
+    donnee = {k: v for k, v in user_input.items() if not (k == "note" and v == "")}
+    return errors, description_placeholders, donnee
 
 
 class HomeDeskConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -245,52 +286,25 @@ class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFl
         description_placeholders: dict[str, str] = {}
 
         if user_input is not None:
-            # Ronde 1 de relecture (tache 6) : dette de la tache 5. `nom` vide
-            # passait ("str" sans borne dans SCHEMA_IDENTITE) et etait
-            # PERSISTE, alors que le contrat exige `minLength: 1` — refuse
-            # d'abord, meme regime que le budget et les bornes ci-dessous.
-            if not user_input["nom"].strip():
-                errors["nom"] = ERREUR_NOM_VIDE
-            else:
-                deborde = verifier_budget(
-                    "defaut", rangee_ambiance=True, hauteur_utile=user_input["hauteurUtile"]
-                )
-                if deborde:
-                    errors["hauteurUtile"] = ERREUR_BUDGET_INTENABLE
-                    description_placeholders["debordement"] = str(deborde)
-                else:
-                    try:
-                        schema.hauteur_utile(user_input["hauteurUtile"])
-                    except vol.Invalid:
-                        errors["hauteurUtile"] = ERREUR_HAUTEUR_HORS_BORNES
-                        description_placeholders["min"] = str(schema.HAUTEUR_MIN)
-                        description_placeholders["max"] = str(schema.HAUTEUR_MAX)
-                    else:
-                        # Ronde 1 (tache 6) : `note` vide etait PERSISTE
-                        # ("" reste "") la ou le contrat la veut ABSENTE
-                        # (Optional, jamais une chaine vide) — meme nettoyage
-                        # que listes._construire_donnee pour les sections
-                        # « liste », applique ici a l'identite.
-                        donnee = {
-                            k: v for k, v in user_input.items() if not (k == "note" and v == "")
-                        }
-                        donnee["version"] = VERSION_CONFIG
-                        # Ronde 3 de relecture (Important 1) : une section
-                        # jamais ouverte ne persistait RIEN — la cle restait
-                        # ABSENTE, pas vide, alors que le contrat exige les
-                        # cinq cles de liste a la RACINE (vol.Required dans
-                        # schema.py). Les vrais ecrans du depot le prouvent
-                        # (`salon` ne porte jamais ambiances/extrasMaison,
-                        # `bureau` ne porte jamais ouvrants/extrasMaison) :
-                        # MEME faute de classe que le Critique de la ronde 1
-                        # (un champ absent du formulaire disparaissait de la
-                        # donnee), ici au niveau des SECTIONS entieres plutot
-                        # que de leurs champs. Semees ICI, DERIVEES de
-                        # `SECTIONS` — jamais recopiees a la main, jamais
-                        # ecrasees si l'appelant les portait deja.
-                        for cle in SECTIONS:
-                            donnee.setdefault(cle, [])
-                        return self.async_create_entry(title=donnee["nom"], data=donnee)
+            errors, description_placeholders, donnee = _valider_identite(user_input)
+            if donnee is not None:
+                donnee["version"] = VERSION_CONFIG
+                # Ronde 3 de relecture (Important 1) : une section
+                # jamais ouverte ne persistait RIEN — la cle restait
+                # ABSENTE, pas vide, alors que le contrat exige les
+                # cinq cles de liste a la RACINE (vol.Required dans
+                # schema.py). Les vrais ecrans du depot le prouvent
+                # (`salon` ne porte jamais ambiances/extrasMaison,
+                # `bureau` ne porte jamais ouvrants/extrasMaison) :
+                # MEME faute de classe que le Critique de la ronde 1
+                # (un champ absent du formulaire disparaissait de la
+                # donnee), ici au niveau des SECTIONS entieres plutot
+                # que de leurs champs. Semees ICI, DERIVEES de
+                # `SECTIONS` — jamais recopiees a la main, jamais
+                # ecrasees si l'appelant les portait deja.
+                for cle in SECTIONS:
+                    donnee.setdefault(cle, [])
+                return self.async_create_entry(title=donnee["nom"], data=donnee)
 
         # Reaffiche la saisie precedente (nom, note) apres un refus : sans ce
         # pre-remplissage, un budget intenable effacerait aussi ce que
@@ -321,9 +335,63 @@ class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFl
         sous-menu dedie — une divergence entre le mecanisme generique
         (`SECTIONS`, un menu = une cle) et un cas particulier, pour un gain
         cosmetique qu'aucun test n'exige. Chaque ligne reste directement
-        tracable a UNE cle du contrat, ce qui a paru preferable."""
+        tracable a UNE cle du contrat, ce qui a paru preferable.
+
+        Ronde 1 de relecture (Important I4) : `"identite"` rejoint ce menu.
+        Avant cette ronde, `nom`/`hauteurUtile`/`temperature`/`note`
+        n'etaient saisis QU'A LA CREATION (`async_step_user`) — aucune
+        entree de ce menu n'y ramenait jamais, les rendant IMMUABLES a vie.
+        Le message de `budget_intenable_mode` recommandait pourtant
+        « augmentez la hauteur utile » : un remede qui n'avait aucune porte
+        d'entree dans l'interface. `async_step_identite` reutilise
+        `SCHEMA_IDENTITE` et les memes trois gardes que la creation
+        (`_valider_identite`)."""
         return self.async_show_menu(
-            step_id="reconfigure", menu_options=[*SECTIONS, "agencement", "voiture"]
+            step_id="reconfigure",
+            menu_options=["identite", *SECTIONS, "agencement", "voiture"],
+        )
+
+    async def async_step_identite(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Reconfigure `nom`/`hauteurUtile`/`temperature`/`note` d'une
+        sous-entree EXISTANTE — I4, ronde 1 de relecture. Rejoue les MEMES
+        trois gardes que la creation (`_valider_identite`), PUIS
+        `verifier_ecran_complet` (ronde 1, Critique) : changer la hauteur
+        utile ne peut aujourd'hui casser aucun invariant croise du contrat,
+        mais l'appliquer ICI AUSSI, uniformement avec chaque autre step qui
+        persiste, coute une ligne et evite d'avoir a s'en souvenir le jour
+        ou une regle future en ajouterait un qui le pourrait. Persiste via
+        `_async_update` (jamais `async_create_entry`, reserve a
+        `SOURCE_USER`)."""
+        entry = self._get_entry()
+        subentry = self._get_reconfigure_subentry()
+        errors: dict[str, str] = {}
+        description_placeholders: dict[str, str] = {}
+        valeurs_affichees = {
+            cle: subentry.data[cle]
+            for cle in ("nom", "hauteurUtile", "temperature", "note")
+            if cle in subentry.data
+        }
+
+        if user_input is not None:
+            valeurs_affichees = user_input
+            errors, description_placeholders, donnee = _valider_identite(user_input)
+            if donnee is not None:
+                nouvelles_donnees = dict(subentry.data)
+                nouvelles_donnees.update(donnee)
+                if "note" not in donnee:
+                    nouvelles_donnees.pop("note", None)
+                errors_ecran, placeholders_ecran = verifier_ecran_complet(nouvelles_donnees)
+                if errors_ecran:
+                    errors.update(errors_ecran)
+                    description_placeholders.update(placeholders_ecran)
+                else:
+                    self._async_update(entry=entry, subentry=subentry, data=nouvelles_donnees)
+                    return await self.async_step_reconfigure()
+
+        return reafficher(
+            self, "identite", SCHEMA_IDENTITE, valeurs_affichees, errors, description_placeholders
         )
 
     # Les SEIZE relais (8 sections x 2 steps, depuis que la tache 7 porte

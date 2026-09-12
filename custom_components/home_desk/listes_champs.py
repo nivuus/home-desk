@@ -13,17 +13,24 @@ etiquettes de minuteur) portent chacun LEUR famille de sections, mais leurs
 dictionnaires sont fusionnes ICI dans `SECTIONS` — jamais consommes
 directement par `listes.py` ou `config_flow.py`, qui continuent de
 n'importer QUE `listes_champs.SECTIONS`. Les primitives VRAIMENT partagees
-entre les trois modules (selecteurs, `_fusionner`, `ChampVide`,
-`ServiceIncomplet`, `Section`) ont ete extraites dans `listes_communs.py` a
-la meme occasion : sans ce partage, les avoir recopiees aurait ete la
-divergence silencieuse que ce chantier s'interdit partout ailleurs
-(schema.py, budget.py). Elles restent accessibles comme
-`listes_champs.CHEMIN_ICONES`, `listes_champs._selecteur_geste`, etc. — les
-imports ci-dessous les rendent attributs de ce module, exactement comme
-avant le partage, pour ne rien casser des tests qui les lisent par ce nom.
+entre les trois modules (`_selecteur_entite`, `_selecteur_geste`,
+`_fusionner`, `ChampVide`, `ServiceIncomplet`, `Section`) ont ete extraites
+dans `listes_communs.py` a la meme occasion : sans ce partage, les avoir
+recopiees aurait ete la divergence silencieuse que ce chantier s'interdit
+partout ailleurs (schema.py, budget.py).
+
+Ronde 1 de relecture (re-export) : `CHEMIN_ICONES`/`_ICONES_OPTIONS`/
+`_selecteur_icone`, eux, vivent directement ICI — jamais dans
+`listes_communs.py` — puisque ce module en est le SEUL consommateur (le
+vocabulaire d'icones ne sert qu'a $defs/bouton). Un re-export depuis
+`listes_communs.py` n'aurait servi qu'a ne rien casser au premier
+deplacement, exactement l'anti-motif que la tache 6 avait deja corrige pour
+`SECTIONS`.
 """
 from __future__ import annotations
 
+import json
+import pathlib
 from typing import Any
 
 import voluptuous as vol
@@ -33,20 +40,31 @@ from homeassistant.helpers import selector
 from . import schema
 from .const import ACTION_ENREGISTRER
 from .listes_communs import (
-    CHEMIN_ICONES,
     ChampVide,
     Section,
     ServiceIncomplet,
-    _ICONES_OPTIONS,
     _fusionner,
     _selecteur_entite,
     _selecteur_geste,
-    _selecteur_icone,
 )
 from .listes_champs_minuteurs import SECTIONS as _SECTIONS_MINUTEURS
 from .listes_champs_sources import SECTIONS as _SECTIONS_SOURCES
 
 __all__ = ["SECTIONS", "Section", "ChampVide", "ServiceIncomplet"]
+
+# Le vocabulaire d'icones vient de contrat/icones.json, JAMAIS retape a la
+# main. Ronde 1 de relecture : ramene ici depuis `listes_communs.py`, dont
+# c'etait le seul consommateur (voir la docstring de module ci-dessus).
+CHEMIN_ICONES = pathlib.Path(__file__).parent / "contrat" / "icones.json"
+_ICONES_OPTIONS: list[str] = json.loads(CHEMIN_ICONES.read_text(encoding="utf-8"))["icones"]
+
+
+def _selecteur_icone() -> selector.SelectSelector:
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=list(_ICONES_OPTIONS), mode=selector.SelectSelectorMode.DROPDOWN
+        )
+    )
 
 # --------------------------------------------------------------------------
 # $defs/bouton (commandes, ambiances, extrasMaison) : DIX proprietes dans le

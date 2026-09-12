@@ -13,6 +13,13 @@ n'offre AUCUNE section repliable a l'interieur d'UN step (`data_schema` est
 un formulaire plat, pas un accordeon) : le repli retenu est donc UNE etape
 par source, ses six champs poses a plat comme des selecteurs d'entites
 MULTIPLES — exactement le repli que le brief autorise explicitement.
+
+Ronde 1 de relecture (re-export) : `_selecteur_entite_multiple` vit
+directement ICI, jamais dans `listes_communs.py` — ce module en est le SEUL
+consommateur (les six jeux d'entites de $defs/source). Un re-export
+depuis `listes_communs.py` n'aurait servi qu'a ne rien casser au premier
+deplacement, exactement l'anti-motif que la tache 6 avait deja corrige pour
+`SECTIONS`.
 """
 from __future__ import annotations
 
@@ -20,15 +27,26 @@ from typing import Any
 
 import voluptuous as vol
 
+from homeassistant.helpers import selector
+
 from . import schema
 from .const import ACTION_ENREGISTRER
-from .listes_communs import ChampVide, Section, _fusionner, _selecteur_entite, _selecteur_entite_multiple, _selecteur_geste
+from .listes_communs import ChampVide, Section, _fusionner, _selecteur_entite, _selecteur_geste
 
 CHAMPS_SOURCE = frozenset(
     {"nom", "titre", "sousTitre", "affiche", "progression", "transport", "volume", "allumee", "note"}
 )
 
 _CHAMPS_MULTI_ENTITES = ("titre", "sousTitre", "affiche", "progression", "transport", "volume")
+
+
+def _selecteur_entite_multiple() -> selector.EntitySelector:
+    """Le pendant a plusieurs valeurs de `listes_communs._selecteur_entite`,
+    pour les six jeux d'entites de `$defs/source` (titre, sousTitre,
+    affiche, progression, transport, volume) — chacun un TABLEAU d'entites
+    dans le contrat, jamais une seule. Meme absence de restriction de
+    domaine."""
+    return selector.EntitySelector(selector.EntitySelectorConfig(multiple=True))
 
 
 class AllumeeIncomplete(Exception):
@@ -48,14 +66,27 @@ class AllumeeIncomplete(Exception):
 
 
 def _schema_source(editable: bool) -> vol.Schema:
+    """Ronde 1 de relecture (Important I5) : les six champs multi-entites
+    etaient `vol.Required(...)` SANS `default` — la MEME faute que la
+    docstring d'`objets.py` decrit en toutes lettres pour `zones`/`modes`/
+    `modulateurs` (« un champ jamais touche doit quand meme soumettre une
+    LISTE VIDE, jamais une cle absente ») sans que ce module la suive.
+    Mesure : soumettre une source sans toucher `titre` (un selecteur
+    d'entites MULTIPLE, zero selection = zero cle dans le payload) levait
+    `InvalidData` — une EXCEPTION non rattrapee, jamais un formulaire
+    reaffiche avec erreurs. Le contrat ($defs/source) n'impose d'ailleurs
+    AUCUN `minItems` sur ces six tableaux : une source dont un seul jeu
+    d'entites est renseigne (le reste laisse vide) est deja VALIDE au sens
+    du contrat — `default=list` ne fait qu'assumer ce que le contrat
+    autorise deja, jamais une contrainte inventee de plus."""
     champs: dict[Any, Any] = {
         vol.Required("nom"): str,
-        vol.Required("titre"): _selecteur_entite_multiple(),
-        vol.Required("sousTitre"): _selecteur_entite_multiple(),
-        vol.Required("affiche"): _selecteur_entite_multiple(),
-        vol.Required("progression"): _selecteur_entite_multiple(),
-        vol.Required("transport"): _selecteur_entite_multiple(),
-        vol.Required("volume"): _selecteur_entite_multiple(),
+        vol.Optional("titre", default=list): _selecteur_entite_multiple(),
+        vol.Optional("sousTitre", default=list): _selecteur_entite_multiple(),
+        vol.Optional("affiche", default=list): _selecteur_entite_multiple(),
+        vol.Optional("progression", default=list): _selecteur_entite_multiple(),
+        vol.Optional("transport", default=list): _selecteur_entite_multiple(),
+        vol.Optional("volume", default=list): _selecteur_entite_multiple(),
         vol.Optional("allumee_entite"): _selecteur_entite(),
         vol.Optional("allumee_etats"): str,
         vol.Optional("note"): str,
@@ -68,10 +99,13 @@ def _schema_source(editable: bool) -> vol.Schema:
 def _construire_donnee_source(user_input: dict[str, Any], existant: dict | None) -> dict:
     """`allumee_etats` est saisi comme une liste separee par des virgules :
     le contrat n'a pas d'equivalent HA a nombre variable d'entrees pour un
-    `list[str]` court, et la ligne de synthese (`schema.py`, `_ALLUMEE`)
-    n'impose aucune contrainte de format sur chaque etat au-dela d'etre une
-    chaine — un champ texte unique, decoupe sur la virgule, ne perd donc
-    aucune expressivite du contrat."""
+    `list[str]` court. Ronde 1 de relecture (Mineur) : ce decoupage a DEUX
+    limites reelles, ni inventees ni corrigees ici (la premiere serait un
+    changement de format de saisie, la seconde une divergence avec le
+    contrat qui n'exige pas d'etat non vide) — un etat contenant lui-meme
+    une virgule ne peut pas se saisir (aucun etat HA reel n'en porte, a ce
+    jour) ; un segment VIDE entre deux virgules (double virgule, virgule en
+    tete/en fin) est silencieusement ELIMINE plutot que refuse."""
     if not (user_input.get("nom") or "").strip():
         raise ChampVide("nom")
     donnee: dict[str, Any] = {"nom": user_input["nom"]}

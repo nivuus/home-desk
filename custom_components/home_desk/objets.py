@@ -24,12 +24,43 @@ from . import schema
 from .budget import BUDGET, verifier_budget
 from .const import ERREUR_BUDGET_INTENABLE_MODE, ERREUR_CHAMP_INVALIDE
 from .formulaire import reafficher
+# Ronde 1 de relecture (Critique) : verifie l'ecran COMPLET avant tout
+# persist — voir garde_ecran.py. `async_step_agencement` et
+# `async_step_voiture` en avaient besoin au MEME titre que listes.py
+# (`blocDefaut: voiture` sans objet voiture, ou le retrait de la voiture
+# pendant que blocDefaut la reclame encore, persistaient en silence avant
+# ce correctif).
+from .garde_ecran import verifier_ecran_complet
 # Meme mecanisme que `listes.py` (schema.* -> vol.Invalid -> fautes.localiser
 # -> code d'erreur dedie), rejoue ici sur un objet UNIQUE plutot que sur un
 # element de section « liste » : reutiliser CETTE table plutot qu'en ecrire
 # une seconde copie, la meme regle que ce chantier applique partout
 # ailleurs (schema.py, budget.py).
 from .listes import _ERREUR_PAR_MOT_CLE
+
+
+def _localiser_champ(err: vol.Invalid) -> tuple[str, str]:
+    """Le CHAMP et le mot-cle d'une faute sur un candidat LOCAL (agencement
+    ou voiture) — jamais `fautes.localiser()` seul, dont la troncature
+    agv-parity (retirer le DERNIER segment pour "required"/
+    "additionalProperties", voir sa propre docstring) est juste pour
+    `motif()` et le corpus, hors de propos ici.
+
+    Mutation trouvee en ronde 1 de relecture (Important I1) : soumettre un
+    objet voiture auquel il manque UN SEUL champ (`clim`, par exemple) leve
+    un `RequiredFieldInvalid` dont `err.path` est `["clim"]` — UN SEUL
+    segment. `fautes.localiser()` le tronque a `[]` (la meme troncature que
+    `garde_ecran.py` documente et evite, pour la meme raison), et
+    `async_step_voiture` attribuait alors le refus a "base" au lieu de
+    "clim" : un test qui soumettait une voiture incomplete voyait bien un
+    FORM, mais sur le MAUVAIS champ — aucun test ne l'avait jamais lu avant
+    cette ronde. `err.path[0]` directement, comme `garde_ecran.
+    verifier_ecran_complet`, porte toujours le bon nom."""
+    if isinstance(err, vol.MultipleInvalid):
+        err = err.errors[0]
+    _, mot_cle = schema.localiser(err)
+    champ = str(err.path[0]) if err.path else "base"
+    return champ, mot_cle
 
 # Tache 7 : « Blocs et modes » (agencement) n'est PAS une section « liste »
 # (listes.py) — un OBJET unique par ecran, jamais une collection d'elements
@@ -45,24 +76,41 @@ from .listes import _ERREUR_PAR_MOT_CLE
 # trois (`vol.Required`).
 SCHEMA_AGENCEMENT = vol.Schema(
     {
+        # Ronde 1 de relecture (Mineur) : les quatre `SelectSelector`
+        # ci-dessous portent desormais un `translation_key` — meme mecanique
+        # que "geste" (`listes_communs._selecteur_geste`). Avant cette
+        # ronde, aucun n'en avait : l'utilisateur lisait les identifiants
+        # BRUTS du contrat ("blocCentral", "aeration", "delorean",
+        # "extrasMaison" via zones/modes/modulateurs), jamais un libelle.
         vol.Optional("blocDefaut"): selector.SelectSelector(
             selector.SelectSelectorConfig(
-                options=list(schema.BLOC_DEFAUT), mode=selector.SelectSelectorMode.DROPDOWN
+                options=list(schema.BLOC_DEFAUT),
+                mode=selector.SelectSelectorMode.DROPDOWN,
+                translation_key="bloc_defaut",
             )
         ),
         vol.Optional("zones", default=list): selector.SelectSelector(
             selector.SelectSelectorConfig(
-                options=list(schema.ZONES), multiple=True, mode=selector.SelectSelectorMode.LIST
+                options=list(schema.ZONES),
+                multiple=True,
+                mode=selector.SelectSelectorMode.LIST,
+                translation_key="zone",
             )
         ),
         vol.Optional("modes", default=list): selector.SelectSelector(
             selector.SelectSelectorConfig(
-                options=list(schema.MODES), multiple=True, mode=selector.SelectSelectorMode.LIST
+                options=list(schema.MODES),
+                multiple=True,
+                mode=selector.SelectSelectorMode.LIST,
+                translation_key="mode",
             )
         ),
         vol.Optional("modulateurs", default=list): selector.SelectSelector(
             selector.SelectSelectorConfig(
-                options=list(schema.MODULATEURS), multiple=True, mode=selector.SelectSelectorMode.LIST
+                options=list(schema.MODULATEURS),
+                multiple=True,
+                mode=selector.SelectSelectorMode.LIST,
+                translation_key="modulateur",
             )
         ),
         vol.Optional("note"): str,
@@ -129,8 +177,7 @@ class SectionsObjetMixin:
             try:
                 valide = schema.AGENCEMENT(candidat)
             except vol.Invalid as err:
-                chemin, mot_cle = schema.localiser(err)
-                champ = str(chemin[0]) if chemin else "base"
+                champ, mot_cle = _localiser_champ(err)
                 errors[champ] = _ERREUR_PAR_MOT_CLE.get(mot_cle, ERREUR_CHAMP_INVALIDE)
             else:
                 # rangee_ambiance : MEME formule que app/src/demarrage.ts
@@ -159,10 +206,20 @@ class SectionsObjetMixin:
                     description_placeholders["mode"] = pire_mode
                     description_placeholders["debordement"] = str(pire_debordement)
                 else:
-                    donnees = dict(subentry.data)
-                    donnees["agencement"] = valide
-                    self._async_update(entry=entry, subentry=subentry, data=donnees)
-                    return await self.async_step_reconfigure()
+                    # Ronde 1 de relecture (Critique) : schema.AGENCEMENT
+                    # rejoue plus haut ne voit que L'AGENCEMENT lui-meme,
+                    # jamais les invariants CROISES avec le reste de
+                    # l'ecran (`blocDefaut: voiture` sans objet voiture,
+                    # `minuteur` dans les modes sans slot de minuteur) —
+                    # mesure : persistait en silence avant ce correctif.
+                    donnees = {**subentry.data, "agencement": valide}
+                    errors_ecran, placeholders_ecran = verifier_ecran_complet(donnees)
+                    if errors_ecran:
+                        errors.update(errors_ecran)
+                        description_placeholders.update(placeholders_ecran)
+                    else:
+                        self._async_update(entry=entry, subentry=subentry, data=donnees)
+                        return await self.async_step_reconfigure()
 
         return reafficher(
             self, "agencement", SCHEMA_AGENCEMENT, valeurs_affichees, errors,
@@ -180,10 +237,19 @@ class SectionsObjetMixin:
         (schema._invariants_croises). Retirer la cle exige `data=` (pas
         `data_updates=`, qui ne fait qu'une UNION — `subentry.data |
         {"voiture": None}` garderait la cle avec une valeur `None`, pas
-        l'absence que le contrat demande)."""
+        l'absence que le contrat demande).
+
+        Ronde 1 de relecture (Critique) : LE cas le plus grave mesure par le
+        relecteur vivait ICI — retirer la voiture pendant que `blocDefaut`
+        vaut encore "voiture" rendait un ecran DEJA VALIDE invalide, SANS UN
+        MOT (la docstring nommait deja `schema._invariants_croises`
+        juste au-dessus, sans jamais l'appeler). Les DEUX branches qui
+        persistent (retrait, ajout/edition) passent desormais par
+        `verifier_ecran_complet` avant d'ecrire."""
         entry = self._get_entry()
         subentry = self._get_reconfigure_subentry()
         errors: dict[str, str] = {}
+        description_placeholders: dict[str, str] = {}
         existant = subentry.data.get("voiture")
         valeurs_affichees = dict(existant) if existant else {}
 
@@ -192,26 +258,36 @@ class SectionsObjetMixin:
             if user_input.get("sans_voiture"):
                 donnees = dict(subentry.data)
                 donnees.pop("voiture", None)
-                self._async_update(entry=entry, subentry=subentry, data=donnees)
-                return await self.async_step_reconfigure()
-
-            candidat = {
-                champ: user_input[champ]
-                for champ in CHAMPS_VOITURE
-                if user_input.get(champ) not in (None, "")
-            }
-            if user_input.get("note"):
-                candidat["note"] = user_input["note"]
-            try:
-                valide = schema.VOITURE(candidat)
-            except vol.Invalid as err:
-                chemin, mot_cle = schema.localiser(err)
-                champ = str(chemin[0]) if chemin else "base"
-                errors[champ] = _ERREUR_PAR_MOT_CLE.get(mot_cle, ERREUR_CHAMP_INVALIDE)
+                errors_ecran, placeholders_ecran = verifier_ecran_complet(donnees)
+                if errors_ecran:
+                    errors.update(errors_ecran)
+                    description_placeholders.update(placeholders_ecran)
+                else:
+                    self._async_update(entry=entry, subentry=subentry, data=donnees)
+                    return await self.async_step_reconfigure()
             else:
-                donnees = dict(subentry.data)
-                donnees["voiture"] = valide
-                self._async_update(entry=entry, subentry=subentry, data=donnees)
-                return await self.async_step_reconfigure()
+                candidat = {
+                    champ: user_input[champ]
+                    for champ in CHAMPS_VOITURE
+                    if user_input.get(champ) not in (None, "")
+                }
+                if user_input.get("note"):
+                    candidat["note"] = user_input["note"]
+                try:
+                    valide = schema.VOITURE(candidat)
+                except vol.Invalid as err:
+                    champ, mot_cle = _localiser_champ(err)
+                    errors[champ] = _ERREUR_PAR_MOT_CLE.get(mot_cle, ERREUR_CHAMP_INVALIDE)
+                else:
+                    donnees = {**subentry.data, "voiture": valide}
+                    errors_ecran, placeholders_ecran = verifier_ecran_complet(donnees)
+                    if errors_ecran:
+                        errors.update(errors_ecran)
+                        description_placeholders.update(placeholders_ecran)
+                    else:
+                        self._async_update(entry=entry, subentry=subentry, data=donnees)
+                        return await self.async_step_reconfigure()
 
-        return reafficher(self, "voiture", SCHEMA_VOITURE, valeurs_affichees, errors)
+        return reafficher(
+            self, "voiture", SCHEMA_VOITURE, valeurs_affichees, errors, description_placeholders
+        )

@@ -123,6 +123,10 @@ from .const import (
     ERREUR_SERVICE_INCOMPLET,
 )
 from .formulaire import reafficher
+# Ronde 1 de relecture (Critique) : verifie l'ecran COMPLET avant tout
+# persist — voir garde_ecran.py pour les trois chemins que son absence
+# laissait passer en silence.
+from .garde_ecran import verifier_ecran_complet
 # `SECTIONS`/`Section` restent importes ICI pour l'usage INTERNE de ce module
 # (`_async_step_section*` ci-dessous), mais ne sont plus re-exportes depuis
 # la ronde 2 de relecture : deux adresses valables pour le meme objet
@@ -222,6 +226,34 @@ class SectionsListeMixin:
     ) -> None:
         self._async_update(entry=entry, subentry=subentry, data_updates={cle: elements})
 
+    def _persister_si_valide(
+        self,
+        entry: ConfigEntry,
+        subentry: ConfigSubentry,
+        cle: str,
+        elements: list,
+        errors: dict[str, str],
+        description_placeholders: dict[str, str],
+    ) -> bool:
+        """Ronde 1 de relecture (Critique) : persister ELEMENTS SANS
+        d'abord verifier que l'ECRAN COMPLET qui en resulterait reste
+        valide laissait passer trois chemins mesures par le relecteur
+        (retirer le dernier slot de minuteur pendant que le mode
+        "minuteur" reste actif, entre autres). Tous les gestes qui
+        persistent (monter, descendre, supprimer, enregistrer) passent
+        desormais par ICI : persiste et rend True si `schema.valider()`
+        accepte l'ecran complet candidat ; sinon peuple ERRORS/
+        DESCRIPTION_PLACEHOLDERS (la section fautive) et rend False, SANS
+        RIEN ECRIRE."""
+        candidat_ecran = {**subentry.data, cle: elements}
+        errors_ecran, placeholders_ecran = verifier_ecran_complet(candidat_ecran)
+        if errors_ecran:
+            errors.update(errors_ecran)
+            description_placeholders.update(placeholders_ecran)
+            return False
+        self._persister(entry, subentry, cle, elements)
+        return True
+
     async def _async_step_section(self, cle: str, user_input: dict[str, Any] | None):
         section = SECTIONS[cle]
         subentry = self._get_reconfigure_subentry()
@@ -267,97 +299,134 @@ class SectionsListeMixin:
 
             if geste == ACTION_MONTER:
                 if index is not None and index > 0:
-                    elements[index - 1], elements[index] = elements[index], elements[index - 1]
-                    self._persister(entry, subentry, cle, elements)
-                    self._index_courant = index - 1
-                return await self._async_step_section_element(cle, None)
+                    nouveaux = list(elements)
+                    nouveaux[index - 1], nouveaux[index] = nouveaux[index], nouveaux[index - 1]
+                    if self._persister_si_valide(
+                        entry, subentry, cle, nouveaux, errors, description_placeholders
+                    ):
+                        self._index_courant = index - 1
+                        return await self._async_step_section_element(cle, None)
+                    # Ronde 1 de relecture (Critique) : un ecart de rang ne
+                    # rend JAMAIS un ecran invalide (l'ordre n'entre dans
+                    # aucun invariant du contrat) — cette branche reste donc
+                    # une defense theorique, jamais exercee en pratique,
+                    # mais ecrite pour la MEME raison que le reste de ce
+                    # correctif : une regle qui protege TOUS les gestes,
+                    # jamais seulement ceux ou elle a deja ete vue faillir.
+                else:
+                    return await self._async_step_section_element(cle, None)
 
-            if geste == ACTION_DESCENDRE:
+            elif geste == ACTION_DESCENDRE:
                 if index is not None and index < len(elements) - 1:
-                    elements[index + 1], elements[index] = elements[index], elements[index + 1]
-                    self._persister(entry, subentry, cle, elements)
-                    self._index_courant = index + 1
-                return await self._async_step_section_element(cle, None)
+                    nouveaux = list(elements)
+                    nouveaux[index], nouveaux[index + 1] = nouveaux[index + 1], nouveaux[index]
+                    if self._persister_si_valide(
+                        entry, subentry, cle, nouveaux, errors, description_placeholders
+                    ):
+                        self._index_courant = index + 1
+                        return await self._async_step_section_element(cle, None)
+                else:
+                    return await self._async_step_section_element(cle, None)
 
-            if geste == ACTION_SUPPRIMER:
+            elif geste == ACTION_SUPPRIMER:
                 if index is not None:
-                    del elements[index]
-                    self._persister(entry, subentry, cle, elements)
-                self._index_courant = None
-                return await self._async_step_section(cle, None)
-
-            # ACTION_ENREGISTRER : rejoue schema.BOUTON/schema.SYNTHESE/
-            # schema.ENTITE, LA MEME validation que schema.valider() sur
-            # l'ecran complet — deux validateurs pour une regle serait la
-            # divergence que schema.py existe pour empecher.
-            #
-            # Ronde 2 de relecture : `construire_donnee` peut desormais lever
-            # elle-meme (`_construire_donnee_bouton`, une paire service_*
-            # a demi remplie) — DANS ce meme bloc `try`, jamais avant : sinon
-            # ce refus remonterait comme une exception non rattrapee plutot
-            # que comme un formulaire reaffiche avec erreurs.
-            valeurs_affichees = user_input
-            try:
-                candidat = section.construire_donnee(user_input, existant)
-                valide = section.valider(candidat)
-            except ServiceIncomplet as err:
-                # Ronde 3 de relecture (Important 2) : refus METIER lisible,
-                # pose sur le champ REELLEMENT vide — jamais le vocabulaire
-                # JSON Schema de `schema.motif()` (voir listes_champs.
-                # ServiceIncomplet pour le message que la ronde 2 affichait).
-                errors[err.champ_vide] = ERREUR_SERVICE_INCOMPLET
-            except AllumeeIncomplete as err:
-                # Tache 7 : le meme refus que ServiceIncomplet, pour la paire
-                # allumee_entite/allumee_etats de $defs/source — voir
-                # listes_champs_sources.AllumeeIncomplete pour pourquoi ce
-                # n'est PAS ServiceIncomplet qui la porte (son message nomme
-                # "le service", un mensonge ici).
-                errors[err.champ_vide] = ERREUR_ALLUMEE_INCOMPLETE
-            except ChampVide as err:
-                # Ronde 4 de relecture (mineur) : `libelle`/`texte` composes
-                # uniquement d'espaces — voir listes_champs.ChampVide.
-                errors[err.champ] = ERREUR_CHAMP_VIDE
-            except vol.Invalid as err:
-                # Ronde 4 de relecture (Important 1 du relecteur) : le
-                # generique ERREUR_CHAMP_INVALIDE + `schema.motif()` brut
-                # etait EXACTEMENT le charabia que la ronde 3 pensait avoir
-                # ferme pour `service` seul — mesure sur quatre autres
-                # chemins ("Ce champ n'est pas valide : : required.", sur
-                # un champ REMPLI d'une chaine vide, entre autres). Chaque
-                # mot-cle devient desormais un code d'erreur DEDIE
-                # (`_ERREUR_PAR_MOT_CLE`), et le champ fautif est TOUJOURS
-                # celui que `fautes.localiser()` designe — plus de "base"
-                # quand le chemin est connu. `description_placeholders` ne
-                # porte plus AUCUN motif brut.
-                chemin, mot_cle = schema.localiser(err)
-                champ = str(chemin[0]) if chemin else "base"
-                errors[champ] = _ERREUR_PAR_MOT_CLE.get(mot_cle, ERREUR_CHAMP_INVALIDE)
-            else:
-                # Tache 7, le TROISIEME invariant croise (legue par le plan
-                # 2, jamais mis dans le contrat a dessein — voir const.
-                # ERREUR_RECETTE_SANS_MODE). Applique aux TROIS sections qui
-                # partagent $defs/bouton (commandes, ambiances,
-                # extrasMaison) : `vue` y est le MEME champ, et le vrai
-                # ecran reel qui pose `vue: '#recette'` le fait depuis
-                # `commandes` (app/src/ecran.ts, piece cuisine) — rien ne
-                # garantit qu'un ecran futur ne le pose pas ailleurs.
-                # Verifie contre `agencement.modes` TEL QUE DEJA PERSISTE
-                # (cette section n'edite jamais l'agencement elle-meme) ;
-                # un ecran sans agencement du tout (`agencement` absent)
-                # n'a AUCUN mode, donc refuse tout `vue: '#recette'` —
-                # exactement le cas ou la tuile serait la plus inerte.
-                if isinstance(valide, dict) and valide.get("vue") == "#recette":
-                    modes_actuels = (subentry.data.get("agencement") or {}).get("modes", [])
-                    if "recette" not in modes_actuels:
-                        errors["base"] = ERREUR_RECETTE_SANS_MODE
-                if not errors:
-                    if index is not None:
-                        elements[index] = valide
-                    else:
-                        elements.append(valide)
-                    self._persister(entry, subentry, cle, elements)
-                    self._index_courant = None
+                    nouveaux = list(elements)
+                    del nouveaux[index]
+                    # Ronde 1 de relecture (Critique) : LE cas mesure par le
+                    # relecteur — retirer le dernier slot de `minuteurs`
+                    # pendant que `agencement.modes` contient encore
+                    # "minuteur" persistait en silence un ecran devenu
+                    # invalide. Refuse desormais AVANT d'ecrire, sur
+                    # l'element qu'on s'apprêtait a supprimer.
+                    if self._persister_si_valide(
+                        entry, subentry, cle, nouveaux, errors, description_placeholders
+                    ):
+                        self._index_courant = None
+                        return await self._async_step_section(cle, None)
+                else:
                     return await self._async_step_section(cle, None)
+
+            else:
+                # ACTION_ENREGISTRER : rejoue schema.BOUTON/schema.SYNTHESE/
+                # schema.ENTITE, LA MEME validation que schema.valider() sur
+                # l'ecran complet — deux validateurs pour une regle serait la
+                # divergence que schema.py existe pour empecher.
+                #
+                # Ronde 2 de relecture : `construire_donnee` peut desormais
+                # lever elle-meme (`_construire_donnee_bouton`, une paire
+                # service_* a demi remplie) — DANS ce meme bloc `try`, jamais
+                # avant : sinon ce refus remonterait comme une exception non
+                # rattrapee plutot que comme un formulaire reaffiche avec
+                # erreurs.
+                valeurs_affichees = user_input
+                try:
+                    candidat = section.construire_donnee(user_input, existant)
+                    valide = section.valider(candidat)
+                except ServiceIncomplet as err:
+                    # Ronde 3 de relecture (Important 2) : refus METIER
+                    # lisible, pose sur le champ REELLEMENT vide — jamais le
+                    # vocabulaire JSON Schema de `schema.motif()` (voir
+                    # listes_champs.ServiceIncomplet pour le message que la
+                    # ronde 2 affichait).
+                    errors[err.champ_vide] = ERREUR_SERVICE_INCOMPLET
+                except AllumeeIncomplete as err:
+                    # Tache 7 : le meme refus que ServiceIncomplet, pour la
+                    # paire allumee_entite/allumee_etats de $defs/source —
+                    # voir listes_champs_sources.AllumeeIncomplete pour
+                    # pourquoi ce n'est PAS ServiceIncomplet qui la porte
+                    # (son message nomme "le service", un mensonge ici).
+                    errors[err.champ_vide] = ERREUR_ALLUMEE_INCOMPLETE
+                except ChampVide as err:
+                    # Ronde 4 de relecture (mineur) : `libelle`/`texte`
+                    # composes uniquement d'espaces — voir listes_champs.
+                    # ChampVide.
+                    errors[err.champ] = ERREUR_CHAMP_VIDE
+                except vol.Invalid as err:
+                    # Ronde 4 de relecture (Important 1 du relecteur) : le
+                    # generique ERREUR_CHAMP_INVALIDE + `schema.motif()` brut
+                    # etait EXACTEMENT le charabia que la ronde 3 pensait
+                    # avoir ferme pour `service` seul — mesure sur quatre
+                    # autres chemins ("Ce champ n'est pas valide : :
+                    # required.", sur un champ REMPLI d'une chaine vide,
+                    # entre autres). Chaque mot-cle devient desormais un
+                    # code d'erreur DEDIE (`_ERREUR_PAR_MOT_CLE`), et le
+                    # champ fautif est TOUJOURS celui que
+                    # `fautes.localiser()` designe — plus de "base" quand le
+                    # chemin est connu. `description_placeholders` ne porte
+                    # plus AUCUN motif brut.
+                    chemin, mot_cle = schema.localiser(err)
+                    champ = str(chemin[0]) if chemin else "base"
+                    errors[champ] = _ERREUR_PAR_MOT_CLE.get(mot_cle, ERREUR_CHAMP_INVALIDE)
+                else:
+                    # Tache 7, le TROISIEME invariant croise (legue par le
+                    # plan 2, jamais mis dans le contrat a dessein — voir
+                    # const.ERREUR_RECETTE_SANS_MODE). Applique aux TROIS
+                    # sections qui partagent $defs/bouton (commandes,
+                    # ambiances, extrasMaison) : `vue` y est le MEME champ,
+                    # et le vrai ecran reel qui pose `vue: '#recette'` le
+                    # fait depuis `commandes` (app/src/ecran.ts, piece
+                    # cuisine) — rien ne garantit qu'un ecran futur ne le
+                    # pose pas ailleurs. Verifie contre `agencement.modes`
+                    # TEL QUE DEJA PERSISTE (cette section n'edite jamais
+                    # l'agencement elle-meme) ; un ecran sans agencement du
+                    # tout (`agencement` absent) n'a AUCUN mode, donc refuse
+                    # tout `vue: '#recette'` — exactement le cas ou la tuile
+                    # serait la plus inerte.
+                    if isinstance(valide, dict) and valide.get("vue") == "#recette":
+                        modes_actuels = (subentry.data.get("agencement") or {}).get("modes", [])
+                        if "recette" not in modes_actuels:
+                            errors["base"] = ERREUR_RECETTE_SANS_MODE
+                    if not errors:
+                        nouveaux = list(elements)
+                        if index is not None:
+                            nouveaux[index] = valide
+                        else:
+                            nouveaux.append(valide)
+                        if self._persister_si_valide(
+                            entry, subentry, cle, nouveaux, errors, description_placeholders
+                        ):
+                            self._index_courant = None
+                            return await self._async_step_section(cle, None)
 
         return reafficher(
             self,

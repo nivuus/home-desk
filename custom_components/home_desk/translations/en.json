@@ -7,6 +7,41 @@
         "descendre": "Move down",
         "supprimer": "Delete"
       }
+    },
+    "bloc_defaut": {
+      "options": {
+        "voiture": "Car",
+        "repas": "Meal",
+        "agenda": "Agenda"
+      }
+    },
+    "zone": {
+      "options": {
+        "synthese": "Summary",
+        "blocCentral": "Central block",
+        "ambiances": "Ambiance",
+        "commandes": "Commands"
+      }
+    },
+    "mode": {
+      "options": {
+        "alerte": "Alert",
+        "recette": "Recipe",
+        "minuteur": "Timer",
+        "menage": "Cleaning",
+        "cinema": "Cinema",
+        "media": "Media",
+        "aeration": "Airing",
+        "voiture": "Car",
+        "defaut": "Default"
+      }
+    },
+    "modulateur": {
+      "options": {
+        "invites": "Guests",
+        "chaleur": "Heat",
+        "delorean": "DeLorean"
+      }
     }
   },
   "config": {
@@ -33,6 +68,7 @@
         "reconfigure": {
           "title": "Edit the screen",
           "menu_options": {
+            "identite": "Identity and budget",
             "commandes": "Command tiles",
             "ambiances": "Ambiance row",
             "extrasMaison": "\"House extras\" tiles",
@@ -43,6 +79,16 @@
             "etiquettesMinuteur": "Timer labels",
             "agencement": "Blocks and modes",
             "voiture": "Car"
+          }
+        },
+        "identite": {
+          "title": "Identity and budget",
+          "description": "The screen's name, the displayed temperature sensor, and the tablet's usable height, in pixels.",
+          "data": {
+            "nom": "Name",
+            "hauteurUtile": "Usable height (px)",
+            "temperature": "Temperature sensor",
+            "note": "Note"
           }
         },
         "commandes": {
@@ -167,7 +213,7 @@
         },
         "sources_element": {
           "title": "Media source",
-          "description": "One step per source: this version of Home Assistant does not offer a collapsible section inside a flow form.",
+          "description": "Fill in only the entities this source uses; leave the other fields empty.",
           "data": {
             "nom": "Name",
             "titre": "Title entities",
@@ -260,9 +306,10 @@
         "selection_manquante": "Check \"Add\" for a new item; if the list isn't empty, you can also pick an existing one.",
         "service_incomplet": "Fill in both service fields, or clear them both.",
         "allumee_incomplet": "Fill in both the \"on\" entity and its states, or clear them both.",
-        "champ_element_requis": "This list must contain a value the screen requires (\"commandes\" for zones, \"defaut\" for modes).",
-        "recette_sans_mode": "This tile opens the Recipe view, but the \"recette\" mode is not in the screen's modes (\"Blocks and modes\" section): the mode would never engage and the tile would stay inert. Add the \"recette\" mode in \"Blocks and modes\" before saving this tile.",
-        "budget_intenable_mode": "The {mode} mode overflows by {debordement} px with these zones. Increase the usable height, remove a zone, or remove this mode."
+        "champ_element_requis": "This list must contain a value the screen requires (\"Commands\" for zones, \"Default\" for modes).",
+        "recette_sans_mode": "This tile opens the Recipe view, but the \"recette\" mode is not in the screen's modes (\"Blocks and modes\" section): the screen will never show the recipe's resume point on the home screen. Add the \"recette\" mode in \"Blocks and modes\" before saving this tile.",
+        "budget_intenable_mode": "The {mode} mode overflows by {debordement} px with these zones. Increase the usable height, remove a zone, or remove this mode.",
+        "ecran_deviendrait_invalide": "This change would make the screen invalid (section \"{section}\"): it was not saved. Open that section (for example \"Timers\" or \"Car\") to fix the inconsistency before continuing."
       }
     }
   }

@@ -7,6 +7,41 @@
         "descendre": "Descendre",
         "supprimer": "Supprimer"
       }
+    },
+    "bloc_defaut": {
+      "options": {
+        "voiture": "Voiture",
+        "repas": "Repas",
+        "agenda": "Agenda"
+      }
+    },
+    "zone": {
+      "options": {
+        "synthese": "Synthèse",
+        "blocCentral": "Bloc central",
+        "ambiances": "Ambiances",
+        "commandes": "Commandes"
+      }
+    },
+    "mode": {
+      "options": {
+        "alerte": "Alerte",
+        "recette": "Recette",
+        "minuteur": "Minuteur",
+        "menage": "Ménage",
+        "cinema": "Cinéma",
+        "media": "Média",
+        "aeration": "Aération",
+        "voiture": "Voiture",
+        "defaut": "Défaut"
+      }
+    },
+    "modulateur": {
+      "options": {
+        "invites": "Invités",
+        "chaleur": "Chaleur",
+        "delorean": "DeLorean"
+      }
     }
   },
   "config": {
@@ -33,6 +68,7 @@
         "reconfigure": {
           "title": "Modifier l'écran",
           "menu_options": {
+            "identite": "Identité et budget",
             "commandes": "Tuiles de commande",
             "ambiances": "Rangée d'ambiance",
             "extrasMaison": "Tuiles « Extras maison »",
@@ -43,6 +79,16 @@
             "etiquettesMinuteur": "Étiquettes de minuteur",
             "agencement": "Blocs et modes",
             "voiture": "Voiture"
+          }
+        },
+        "identite": {
+          "title": "Identité et budget",
+          "description": "Le nom de l'écran, le capteur de température affiché, et la hauteur utile de la tablette, en pixels.",
+          "data": {
+            "nom": "Nom",
+            "hauteurUtile": "Hauteur utile (px)",
+            "temperature": "Capteur de température",
+            "note": "Note"
           }
         },
         "commandes": {
@@ -167,7 +213,7 @@
         },
         "sources_element": {
           "title": "Source média",
-          "description": "Une étape par source : cette version de Home Assistant n'offre pas de section repliable à l'intérieur d'un formulaire de flow.",
+          "description": "Renseignez uniquement les entités que cette source utilise ; laissez les autres champs vides.",
           "data": {
             "nom": "Nom",
             "titre": "Entités de titre",
@@ -261,8 +307,9 @@
         "service_incomplet": "Renseignez les deux champs du service, ou videz-les tous les deux.",
         "allumee_incomplet": "Renseignez l'entité et les états « allumée », ou videz les deux champs.",
         "champ_element_requis": "Cette liste doit contenir un élément que l'écran exige (« Commandes » pour les zones, « Défaut » pour les modes).",
-        "recette_sans_mode": "Cette tuile ouvre la vue Recette, mais le mode « recette » n'est pas dans les modes de l'écran (section « Blocs et modes ») : le mode ne s'engagerait jamais et la tuile resterait inerte. Ajoutez le mode « recette » dans « Blocs et modes » avant d'enregistrer cette tuile.",
-        "budget_intenable_mode": "Le mode {mode} déborde de {debordement} px avec ces zones. Augmentez la hauteur utile, retirez une zone, ou retirez ce mode."
+        "recette_sans_mode": "Cette tuile ouvre la vue Recette, mais le mode « recette » n'est pas dans les modes de l'écran (section « Blocs et modes ») : l'écran n'affichera jamais le point de reprise de la recette sur l'accueil. Ajoutez le mode « recette » dans « Blocs et modes » avant d'enregistrer cette tuile.",
+        "budget_intenable_mode": "Le mode {mode} déborde de {debordement} px avec ces zones. Augmentez la hauteur utile, retirez une zone, ou retirez ce mode.",
+        "ecran_deviendrait_invalide": "Cette modification rendrait l'écran invalide (section « {section} ») : elle n'a pas été enregistrée. Ouvrez cette section (par exemple « Minuteurs » ou « Voiture ») pour corriger l'incohérence avant de continuer."
       }
     }
   }

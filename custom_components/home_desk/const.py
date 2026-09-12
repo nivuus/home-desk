@@ -116,11 +116,13 @@ ACTION_MONTER = "monter"
 ACTION_DESCENDRE = "descendre"
 ACTION_SUPPRIMER = "supprimer"
 
-# Tache 7 : les quatre sections « objet » (sources, blocs et modes, minuteurs,
-# voiture), et les deux regles croisees que le contrat NE PEUT PAS porter
-# (le troisieme invariant croise, et la verification de budget MODE PAR
-# MODE) — voir config_flow.py (EcranSubentryFlow.async_step_agencement) et
-# listes.py (_async_step_section_element) pour ou elles sont posees.
+# Tache 7 : quatre sections de plus (sources media et minuteurs/etiquettes
+# de minuteur, deux sections « liste » qui rejoignent listes_champs.SECTIONS ;
+# agencement et voiture, deux sections « objet » portees par
+# objets.SectionsObjetMixin), et les deux regles croisees que le contrat NE
+# PEUT PAS porter (le troisieme invariant croise, pose dans
+# listes._async_step_section_element ; la verification de budget MODE PAR
+# MODE, posee dans objets.SectionsObjetMixin.async_step_agencement).
 
 # Le pendant de `listes._ERREUR_PAR_MOT_CLE["contains"]` (schema.AGENCEMENT :
 # zones doit contenir "commandes", modes doit contenir "defaut"). Message
@@ -139,17 +141,28 @@ ERREUR_ALLUMEE_INCOMPLETE = "allumee_incomplet"
 
 # Le TROISIEME invariant croise (legue par le plan 2, jamais mis dans le
 # contrat a dessein) : une tuile `vue: '#recette'` sur un ecran dont
-# `agencement.modes` ne contient pas `recette` ouvrirait la vue sans que le
-# mode s'engage jamais — un bouton qui a l'air vivant et ne fait rien. Le
-# schema JSON juge un ecran FINI ; ce refus juge une saisie EN COURS, et lui
-# seul peut proposer le remede (aller dans « Blocs et modes » et y ajouter
-# le mode "recette") : un if/then JSON Schema ne sait pas faire ce dernier
-# geste. Pose par `listes._async_step_section_element` sur les tuiles
-# ($defs/bouton), verifie contre `agencement.modes` TEL QUE DEJA PERSISTE.
+# `agencement.modes` ne contient pas `recette`.
+#
+# Ronde 1 de relecture (Mineur) : la premiere version de ce commentaire (et
+# du message affiche) affirmait que la tuile « ne ferait rien » — FAUX,
+# verifie contre `app/src/demarrage.ts` (l'ecouteur `hashchange` ouvre
+# `#recette` sur le SEUL hash, ligne ~1067, sans jamais lire
+# `agencement.modes`) : la tuile OUVRE la vue normalement. Ce qui manque
+# reellement sans le mode "recette", c'est le POINT DE REPRISE sur
+# l'accueil : `modes.ts` (CONDITIONS.recette = c.recetteEnCours) n'engage
+# le bloc reduit de la recette QUE si "recette" fait partie des modes
+# ITERES par `agencement.modes` — sans lui, quitter la vue sans "Terminer"
+# ne laisse aucune trace visible sur l'accueil, la seule fonction que ce
+# mode existe pour porter. Le schema JSON juge un ecran FINI ; ce refus
+# juge une saisie EN COURS, et lui seul peut proposer le remede (aller dans
+# « Blocs et modes » et y ajouter le mode "recette") : un if/then JSON
+# Schema ne sait pas faire ce dernier geste. Pose par
+# `listes._async_step_section_element` sur les tuiles ($defs/bouton),
+# verifie contre `agencement.modes` TEL QUE DEJA PERSISTE.
 ERREUR_RECETTE_SANS_MODE = "recette_sans_mode"
 
-# Le budget verifie MODE PAR MODE (config_flow.py,
-# EcranSubentryFlow.async_step_agencement) : la tache 5 ne pouvait juger que
+# Le budget verifie MODE PAR MODE (objets.py,
+# SectionsObjetMixin.async_step_agencement) : la tache 5 ne pouvait juger que
 # le mode "defaut" (le moins cher), faute de donnee — ici, `agencement.modes`
 # existe enfin. Refuse sur le MODE LE PLUS COUTEUX des modes saisis, et le
 # NOMME dans `description_placeholders` ("mode") en plus du debordement
@@ -159,3 +172,18 @@ ERREUR_RECETTE_SANS_MODE = "recette_sans_mode"
 # "defaut" ; ici, plusieurs modes sont en jeu et celui qui echoue doit etre
 # nomme) — les deux messages different donc necessairement.
 ERREUR_BUDGET_INTENABLE_MODE = "budget_intenable_mode"
+
+# Ronde 1 de relecture (Critique) : ni listes.py ni objets.py ne rejouaient
+# schema.valider() sur l'ECRAN COMPLET avant de persister — chacun ne
+# verifiait que SA PROPRE forme (schema.BOUTON, schema.AGENCEMENT,
+# schema.VOITURE...), aveugle aux invariants CROISES entre sections (mode
+# "minuteur" sans slot, blocDefaut "voiture" sans objet voiture). Depuis que
+# la sous-entree est valide DES SA CREATION (SECTIONS initialise les huit
+# sections « liste » a [], donc "sources" ne manque plus), cette
+# integration peut s'offrir l'invariant inverse : un ecran valide DOIT LE
+# RESTER a chaque etape qui persiste. `garde_ecran.verifier_ecran_complet`
+# le fait tenir ; ce code nomme la section fautive
+# (`description_placeholders["section"]`, un champ RACINE du contrat -
+# "minuteurs", "voiture", "agencement"...) plutot que de laisser persister
+# un ecran devenu invalide en silence.
+ERREUR_ECRAN_DEVIENDRAIT_INVALIDE = "ecran_deviendrait_invalide"

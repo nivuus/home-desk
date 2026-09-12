@@ -16,7 +16,7 @@ import pathlib
 import pytest
 from homeassistant import config_entries, data_entry_flow
 
-from conftest import ELEMENTS_VALIDES, IDENTITE_MINIMALE, _creer_ecran, _init_reconfigure
+from conftest import IDENTITE_MINIMALE, _creer_ecran, _init_reconfigure
 from custom_components.home_desk.budget import BUDGET
 from custom_components.home_desk.config_flow import EcranSubentryFlow
 from custom_components.home_desk.const import (
@@ -37,6 +37,7 @@ from custom_components.home_desk.const import (
     ERREUR_CHAMP_VALEUR_FIGEE,
     ERREUR_CHAMP_VALEUR_NON_AUTORISEE,
     ERREUR_CHAMP_VIDE,
+    ERREUR_ECRAN_DEVIENDRAIT_INVALIDE,
     ERREUR_HAUTEUR_HORS_BORNES,
     ERREUR_NOM_VIDE,
     ERREUR_RECETTE_SANS_MODE,
@@ -48,6 +49,7 @@ from custom_components.home_desk.const import (
 from custom_components.home_desk.listes import SectionsListeMixin
 from custom_components.home_desk.listes_champs import SECTIONS
 from custom_components.home_desk.objets import SCHEMA_AGENCEMENT, SCHEMA_VOITURE
+from custom_components.home_desk import schema
 from custom_components.home_desk.schema import HAUTEUR_MAX, HAUTEUR_MIN
 from homeassistant.config_entries import ConfigSubentryFlow
 
@@ -118,6 +120,16 @@ def _cles_attendues() -> set[str]:
         f"/config_subentries/ecran/error/{ERREUR_CHAMP_ELEMENT_REQUIS}",
         f"/config_subentries/ecran/error/{ERREUR_RECETTE_SANS_MODE}",
         f"/config_subentries/ecran/error/{ERREUR_BUDGET_INTENABLE_MODE}",
+        f"/config_subentries/ecran/error/{ERREUR_ECRAN_DEVIENDRAIT_INVALIDE}",
+        # I4, ronde 1 de relecture : reconfigurer l'identite, aux memes
+        # cles de donnee que le step "user" (SCHEMA_IDENTITE, reutilise).
+        "/config_subentries/ecran/step/reconfigure/menu_options/identite",
+        "/config_subentries/ecran/step/identite/title",
+        "/config_subentries/ecran/step/identite/description",
+        "/config_subentries/ecran/step/identite/data/nom",
+        "/config_subentries/ecran/step/identite/data/hauteurUtile",
+        "/config_subentries/ecran/step/identite/data/temperature",
+        "/config_subentries/ecran/step/identite/data/note",
         "/selector/geste/options/enregistrer",
         "/selector/geste/options/monter",
         "/selector/geste/options/descendre",
@@ -140,6 +152,20 @@ def _cles_attendues() -> set[str]:
         cles.add(f"/config_subentries/ecran/step/{cle}/title")
         for champ in schema_form.schema:
             cles.add(f"/config_subentries/ecran/step/{cle}/data/{champ}")
+    # Ronde 1 de relecture (Mineur) : les quatre `SelectSelector` de
+    # SCHEMA_AGENCEMENT portent desormais un `translation_key` (voir
+    # objets.py) — leurs options exigent donc des cles de traduction, MEME
+    # mecanique que "geste" ci-dessus mais DERIVEE des vocabulaires du
+    # contrat (schema.BLOC_DEFAUT/ZONES/MODES/MODULATEURS) plutot que
+    # recopiee a la main.
+    for cle_selecteur, valeurs in (
+        ("bloc_defaut", schema.BLOC_DEFAUT),
+        ("zone", schema.ZONES),
+        ("mode", schema.MODES),
+        ("modulateur", schema.MODULATEURS),
+    ):
+        for valeur in valeurs:
+            cles.add(f"/selector/{cle_selecteur}/options/{valeur}")
     return cles
 
 
@@ -299,104 +325,67 @@ async def test_note_vide_n_est_pas_persistee(hass, entree):
 
 
 # ---------------------------------------------------------------------------
-# Tache 7 : les DEUX regles hors-schema. Les quatre sections « objet »
-# (sources, blocs et modes, minuteurs, voiture) sont du remplissage de
-# champs, deja couvert d'office par les tests parametres sur SECTIONS
-# (test_config_flow_listes.py) pour les sections « liste » qui les rejoignent
-# (sources, minuteurs, etiquettesMinuteur). Ce qui merite un test ICI, ce
-# sont les DEUX regles que le schema NE PEUT PAS porter.
+# Tache 7 : les sections « objet » (agencement, voiture) et les deux regles
+# hors-schema vivent dans test_config_flow_objets.py, separe d'ici en ronde 1
+# de relecture (ce fichier approchait 500 lignes).
 # ---------------------------------------------------------------------------
 
-
-async def test_le_TROISIEME_invariant_croise_est_refuse_a_la_saisie(hass, entree_peuplee):
-    """Legue par le plan 2, nomme et deliberement NON mis dans le schema.
-
-    Une tuile `vue: '#recette'` sur un ecran dont `agencement.modes` ne
-    contient pas `recette` : la tuile ouvrirait la vue, le mode ne
-    s'engagerait jamais. Un bouton qui a l'air vivant et ne fait rien —
-    exactement le « bouton mort » que ce projet s'interdit partout.
-
-    Il n'est pas dans le schema JSON a dessein : le schema juge un ecran
-    FINI, le formulaire juge une saisie EN COURS — et lui seul peut proposer
-    le remede, ce qu'un if/then JSON Schema ne sait pas faire.
-
-    `entree_peuplee` n'a jamais configure d'agencement : `agencement.modes`
-    est donc vide, et TOUTE tuile `vue: '#recette'` y est refusee — le cas le
-    plus simple ou la tuile serait la plus inerte."""
-    entry = hass.config_entries.async_entries(DOMAIN)[0]
-    subentry_id = next(iter(entry.subentries))
-    flow = await _init_reconfigure(hass, entree_peuplee, subentry_id)
-    await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "commandes"})
-    await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"],
-        {
-            "libelle": "Recette",
-            "icone": "book",
-            "entite": "sensor.home_stock_next_meal",
-            "vue": "#recette",
-        },
-    )
-    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["base"] == ERREUR_RECETTE_SANS_MODE
-    # Le message doit dire POURQUOI (le mode ne s'engagerait jamais) et OU
-    # remedier (la section « Blocs et modes ») — sonde de bout en bout, en
-    # francais et en anglais, le texte que l'utilisateur verrait reellement.
-    fr = json.loads((CHEMIN_TRADUCTIONS / "fr.json").read_text(encoding="utf-8"))
-    message_fr = fr["config_subentries"][SOUS_ENTREE_ECRAN]["error"][ERREUR_RECETTE_SANS_MODE]
-    assert "recette" in message_fr.lower()
-    assert "blocs et modes" in message_fr.lower()
-    en = json.loads((CHEMIN_TRADUCTIONS / "en.json").read_text(encoding="utf-8"))
-    message_en = en["config_subentries"][SOUS_ENTREE_ECRAN]["error"][ERREUR_RECETTE_SANS_MODE]
-    assert "recette" in message_en.lower()
-    assert "blocks and modes" in message_en.lower()
+# I4, ronde 1 de relecture : reconfigurer l'identite d'une sous-entree
+# EXISTANTE. Avant cette ronde, `nom`/`hauteurUtile`/`temperature`/`note`
+# etaient immuables a vie une fois la sous-entree creee.
 
 
-async def test_le_budget_est_verifie_MODE_PAR_MODE_et_nomme_le_pire(hass, entree):
-    """La tache 5 ne verifiait que le mode `defaut`, le moins cher : a ce
-    moment-la l'ecran n'avait ni tuiles, ni modes, ni zones. Ici la donnee
-    existe enfin, donc la verification peut etre complete.
-
-    Et le refus doit nommer LE MODE le plus couteux, pas seulement un
-    chiffre : « cet ecran deborde de 45 px » n'indique pas quoi changer,
-    « le mode minuteur deborde de X px » si — X est verifie par execution
-    ci-dessous, PAS retape de memoire (le brief nomme "45" a cet endroit,
-    et prevrevient explicitement que cette valeur est FAUSSE :
-    `verifier_budget('minuteur', True, 585)` rend 0 ; le cas mesure qui
-    deborde reellement est `('minuteur', True, 500)` = 58).
-
-    Ecran a 500 px (`verifier_budget('defaut', True, 500)` = 0, donc la
-    creation n'est PAS refusee) avec une rangee d'ambiance REELLE (une
-    tuile d'ambiance persistee, pas un placeholder) : `rangee_ambiance`
-    devient vrai, exactement la formule de app/src/demarrage.ts
-    (`piece.ambiances.length > 0 || ...`). Le mode `minuteur` y deborde de
-    58 px, le mode `defaut` tient (0) : le refus doit nommer `minuteur`."""
-    subentry_id = await _creer_ecran(hass, entree, hauteurUtile=500)
-
+async def test_reconfigurer_l_identite_change_le_nom_et_la_hauteur(hass, entree):
+    subentry_id = await _creer_ecran(hass, entree)
     flow = await _init_reconfigure(hass, entree, subentry_id)
     await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "ambiances"})
-    await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], ELEMENTS_VALIDES["ambiances"])
-    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-
-    flow = await _init_reconfigure(hass, entree, subentry_id)
-    await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "agencement"})
+        flow["flow_id"], {"next_step_id": "identite"})
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"],
-        {"zones": ["synthese", "blocCentral", "ambiances", "commandes"], "modes": ["defaut", "minuteur"]},
+        {**IDENTITE_MINIMALE, "nom": "Salon renomme", "hauteurUtile": 900, "note": "Renomme"},
     )
-    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["base"] == ERREUR_BUDGET_INTENABLE_MODE
-    assert "minuteur" in str(resultat["description_placeholders"])
-    assert "58" in str(resultat["description_placeholders"])
+    assert resultat["type"] is data_entry_flow.FlowResultType.MENU
+    subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
+    assert subentry.data["nom"] == "Salon renomme"
+    assert subentry.data["hauteurUtile"] == 900
+    assert subentry.data["note"] == "Renomme"
 
-    entry = hass.config_entries.async_get_entry(entree.entry_id)
-    assert entry.subentries[subentry_id].data.get("agencement") is None, (
-        "un refus ne doit RIEN persister")
+
+async def test_reconfigurer_l_identite_refuse_un_nom_vide(hass, entree):
+    subentry_id = await _creer_ecran(hass, entree)
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "identite"})
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {**IDENTITE_MINIMALE, "nom": "   "})
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+    assert resultat["errors"]["nom"] == ERREUR_NOM_VIDE
+    subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
+    assert subentry.data["nom"] == IDENTITE_MINIMALE["nom"], "un refus ne doit RIEN persister"
+
+
+async def test_reconfigurer_l_identite_refuse_une_hauteur_qui_deborde(hass, entree):
+    subentry_id = await _creer_ecran(hass, entree)
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "identite"})
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {**IDENTITE_MINIMALE, "hauteurUtile": 100})
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+    assert resultat["errors"]["hauteurUtile"] == ERREUR_BUDGET_INTENABLE
+    subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
+    assert subentry.data["hauteurUtile"] == IDENTITE_MINIMALE["hauteurUtile"]
+
+
+async def test_reconfigurer_l_identite_preremplit_les_valeurs_stockees(hass, entree):
+    subentry_id = await _creer_ecran(hass, entree, note="Une note")
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "identite"})
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+    marqueurs = {str(cle): cle for cle in resultat["data_schema"].schema}
+    assert marqueurs["nom"].description == {"suggested_value": IDENTITE_MINIMALE["nom"]}
+    assert marqueurs["note"].description == {"suggested_value": "Une note"}
 
 
 # ---------------------------------------------------------------------------
