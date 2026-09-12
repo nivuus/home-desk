@@ -367,7 +367,24 @@ async def test_supprimer_le_dernier_minuteur_alors_que_le_mode_minuteur_est_acti
     "supprimer" d'une section « liste », pas un objet « voiture »/
     "agencement" cette fois). Refuse, et nomme "agencement" (le SEUL
     remede reel : retirer le mode "minuteur"), jamais "minuteurs" (ou
-    l'utilisateur vient d'essayer la suppression)."""
+    l'utilisateur vient d'essayer la suppression).
+
+    Ronde 4 de relecture : ce test joue AUSSI, deliberement, le role de
+    DERNIER REMPART pour une classe de mutation que le test AST de
+    `garde_ecran.py` (`test_garde_ecran_est_le_seul_module_a_appeler_une_
+    porte_d_ecriture`) ne peut structurellement pas voir — une ecriture
+    par `object.__setattr__(subentry, "data", ...)` DIRECTEMENT sur le
+    `ConfigSubentry` (un dataclass gele que `async_update_subentry`
+    lui-meme degele de la meme facon), sans jamais nommer une des quatre
+    portes d'ecriture documentees par HA. Mesure : remplacer le corps de
+    `_persister_si_valide` (listes.py) par exactement cet appel laisse LE
+    TEST AST VERT — seul CE test-ci tombe (`KeyError: 'base'`, plus aucune
+    erreur posee), et seulement PARCE QUE ce scenario precis persiste par
+    la voie `listes.py` que la mutation modifiait. Ce n'est plus un
+    accident : c'est le remede EN CONNAISSANCE DE CAUSE a une limite
+    structurelle documentee ailleurs, pas une proprete fortuite qu'un
+    futur remaniement pourrait faire disparaitre sans que personne s'en
+    apercoive."""
     subentry_id = await _creer_ecran(hass, entree)
     flow = await _init_reconfigure(hass, entree, subentry_id)
     await hass.config_entries.subentries.async_configure(

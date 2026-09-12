@@ -231,7 +231,30 @@ def test_garde_ecran_est_le_seul_module_a_appeler_une_porte_d_ecriture():
     une EXISTENCE, jamais un compte — le MEME idiome que `test_formulaire_
     est_le_seul_module_a_appeler_async_show_form_avec_un_data_schema`,
     test_config_flow.py) aux QUATRE portes d'ecriture documentees par HA,
-    pas a un seul nom."""
+    pas a un seul nom.
+
+    Ronde 4 (la limite structurelle de ce test, a dire plutot qu'a taire) :
+    ce test ferme TOUTE ecriture qui passe par l'une des quatre portes
+    NOMMEES ci-dessus — `_async_update`, `async_update_subentry`,
+    `async_update_and_abort`, `async_update_reload_and_abort`. Il NE PEUT
+    PAS fermer une mutation directe par `object.__setattr__(subentry,
+    "data", ...)` : `ConfigSubentry` est un `@dataclass(frozen=True,
+    kw_only=True)` (`config_entries.py:371`), et `async_update_subentry`
+    lui-meme (`config_entries.py:2741`) contourne son propre gel par ce
+    meme appel — rien n'empeche un appelant de faire l'IDENTIQUE
+    directement, sans jamais nommer une des quatre portes. Mesure : ce
+    mutant precis (`_persister_si_valide`, listes.py, remplace par
+    `object.__setattr__(subentry, "data", {**subentry.data, cle:
+    elements}); return True`) laisse CE test VERT — un test AST sur des
+    noms d'attribut ne peut structurellement pas voir un appel qui n'en
+    nomme aucun des quatre, et generaliser plus loin reviendrait a
+    poursuivre un ensemble de contournements infini (tout appelant peut
+    ecrire `object.__setattr__` sur n'importe quel objet). Ce n'est pas un
+    oubli de ce test : c'est la limite de ce que « chercher un nom dans un
+    arbre syntaxique » peut prouver. Le mutant EST attrape ailleurs — voir
+    `test_supprimer_le_dernier_minuteur_alors_que_le_mode_minuteur_est_
+    actif_est_refuse` (test_config_flow_objets.py), qui joue desormais ce
+    role EN CONNAISSANCE DE CAUSE, pas par accident."""
     composant_dir = pathlib.Path(__file__).resolve().parents[2] / "custom_components" / "home_desk"
     fautifs: dict[str, set[str]] = {}
     for chemin in composant_dir.glob("*.py"):
