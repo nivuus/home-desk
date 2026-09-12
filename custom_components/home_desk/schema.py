@@ -55,19 +55,74 @@ _HAUTEUR_MAX = _SCHEMA_JSON["properties"]["hauteurUtile"]["maximum"]
 
 
 # --------------------------------------------------------------------------
-# Validateurs feuille. Chacun leve vol.Invalid avec error_type = le mot-cle
-# JSON Schema qu'il traduit ("type", "pattern", "minimum", "enum", ...) — pas
-# un message libre : c'est cette valeur que motif() rapporte telle quelle.
+# Validateurs feuille. Chacun leve une SOUS-CLASSE de vol.Invalid dediee au
+# mot-cle JSON Schema qu'il traduit ("type", "pattern", "minimum", "enum",
+# ...) — jamais un vol.Invalid generique avec error_type="...".
+#
+# Correction de la ronde 1 (Important 3) : error_type est un ATTRIBUT
+# d'instance, et les DEUX backends le reecrivent en le remontant a travers un
+# validateur de valeur imbrique dans un dict (`validate_mapping`, dans
+# voluptuous comme dans le shim probatio de Home Assistant, lui substitue un
+# message interne generique — "dictionary value" cote voluptuous nu). motif()
+# ne peut donc pas s'y fier. La CLASSE de l'exception, elle, n'est jamais
+# touchee par ce mecanisme : c'est deja pourquoi required/additionalProperties
+# /contains sont detectes par isinstance() plus bas ; les mots-cles qui
+# restent le sont desormais aussi, via `_Faute.mot_cle`.
 # --------------------------------------------------------------------------
+
+class _Faute(vol.Invalid):
+    """Le mot-cle JSON Schema vit sur la CLASSE, jamais sur `error_type`."""
+    mot_cle = "invalid"
+
+
+class _FauteType(_Faute):
+    mot_cle = "type"
+
+
+class _FautePattern(_Faute):
+    mot_cle = "pattern"
+
+
+class _FauteMinimum(_Faute):
+    mot_cle = "minimum"
+
+
+class _FauteMaximum(_Faute):
+    mot_cle = "maximum"
+
+
+class _FauteEnum(_Faute):
+    mot_cle = "enum"
+
+
+class _FauteConst(_Faute):
+    mot_cle = "const"
+
+
+class _FauteMinLength(_Faute):
+    mot_cle = "minLength"
+
+
+class _FauteMinItems(_Faute):
+    mot_cle = "minItems"
+
+
+class _FauteMaxItems(_Faute):
+    mot_cle = "maxItems"
+
+
+class _FauteUniqueItems(_Faute):
+    mot_cle = "uniqueItems"
+
 
 def _chaine(min_len: int = 0):
     """Un `str`, avec au besoin une longueur minimale (`minLength`)."""
 
     def valider(valeur):
         if not isinstance(valeur, str):
-            raise vol.Invalid("attendu une chaine", error_type="type")
+            raise _FauteType("attendu une chaine")
         if min_len and len(valeur) < min_len:
-            raise vol.Invalid(f"longueur minimale {min_len}", error_type="minLength")
+            raise _FauteMinLength(f"longueur minimale {min_len}")
         return valeur
 
     return valider
@@ -78,11 +133,11 @@ def _motif_chaine(regex: re.Pattern, min_len: int = 0):
 
     def valider(valeur):
         if not isinstance(valeur, str):
-            raise vol.Invalid("attendu une chaine", error_type="type")
+            raise _FauteType("attendu une chaine")
         if min_len and len(valeur) < min_len:
-            raise vol.Invalid(f"longueur minimale {min_len}", error_type="minLength")
+            raise _FauteMinLength(f"longueur minimale {min_len}")
         if not regex.match(valeur):
-            raise vol.Invalid("ne respecte pas le motif attendu", error_type="pattern")
+            raise _FautePattern("ne respecte pas le motif attendu")
         return valeur
 
     return valider
@@ -91,7 +146,7 @@ def _motif_chaine(regex: re.Pattern, min_len: int = 0):
 def _enum(valeurs: frozenset):
     def valider(valeur):
         if valeur not in valeurs:
-            raise vol.Invalid(f"doit etre parmi {sorted(valeurs)}", error_type="enum")
+            raise _FauteEnum(f"doit etre parmi {sorted(valeurs)}")
         return valeur
 
     return valider
@@ -102,7 +157,7 @@ def _const(attendu):
 
     def valider(valeur):
         if type(valeur) is not type(attendu) or valeur != attendu:
-            raise vol.Invalid(f"doit valoir {attendu!r}", error_type="const")
+            raise _FauteConst(f"doit valoir {attendu!r}")
         return valeur
 
     return valider
@@ -110,12 +165,51 @@ def _const(attendu):
 
 def _hauteur_utile(valeur):
     if isinstance(valeur, bool) or not isinstance(valeur, int):
-        raise vol.Invalid("attendu un entier", error_type="type")
+        raise _FauteType("attendu un entier")
     if valeur < _HAUTEUR_MIN:
-        raise vol.Invalid(f"minimum {_HAUTEUR_MIN}", error_type="minimum")
+        raise _FauteMinimum(f"minimum {_HAUTEUR_MIN}")
     if valeur > _HAUTEUR_MAX:
-        raise vol.Invalid(f"maximum {_HAUTEUR_MAX}", error_type="maximum")
+        raise _FauteMaximum(f"maximum {_HAUTEUR_MAX}")
     return valeur
+
+
+def _paire_service():
+    """Le pendant de `"service": {"minItems": 2, "maxItems": 2, "items":
+    {"type": "string", "minLength": 1}}`. Ecrit a la main plutot qu'avec
+    `vol.Length` : ce dernier ne distingue pas minItems de maxItems dans sa
+    classe, et son message ("length must be...") ne survivrait pas plus que
+    error_type au passage dans un dict — la meme fragilite qui a motive
+    `_Faute` ci-dessus, appliquee ici puisque le cout marginal est nul une
+    fois la hierarchie en place."""
+    chaine_non_vide = _chaine(1)
+
+    def valider(valeur):
+        if not isinstance(valeur, list):
+            raise _FauteType("attendu une liste")
+        if len(valeur) < 2:
+            raise _FauteMinItems("service attend exactement 2 elements")
+        if len(valeur) > 2:
+            raise _FauteMaxItems("service attend exactement 2 elements")
+        return [chaine_non_vide(v) for v in valeur]
+
+    return valider
+
+
+def _uniques():
+    """Le pendant de `"uniqueItems": true`. Remplace `vol.Unique()` pour la
+    meme raison que `_paire_service` remplace `vol.Length` : rester dans notre
+    propre hierarchie d'exceptions plutot que dans le vocabulaire interne de
+    voluptuous."""
+
+    def valider(valeur):
+        vus = []
+        for item in valeur:
+            if item in vus:
+                raise _FauteUniqueItems(f"doublon : {item!r}")
+            vus.append(item)
+        return valeur
+
+    return valider
 
 
 ENTITE = _motif_chaine(_ENTITE_PATTERN)
@@ -131,7 +225,7 @@ BOUTON = vol.Schema(
         vol.Required("icone"): vol.All(_chaine(1), _enum(_ICONES)),
         vol.Required("entite"): ENTITE,
         vol.Optional("cible"): ENTITE,
-        vol.Optional("service"): vol.All([_chaine(1)], vol.Length(min=2, max=2)),
+        vol.Optional("service"): _paire_service(),
         vol.Optional("lien"): _chaine(1),
         vol.Optional("vue"): _motif_chaine(_VUE_PATTERN),
         vol.Optional("epingle"): _const(True),
@@ -150,9 +244,9 @@ def _valeur_synthese(donnee: dict) -> dict:
     valeur = donnee.get("valeur")
     est_nombre = isinstance(valeur, (int, float)) and not isinstance(valeur, bool)
     if operateur in ("<", ">") and not est_nombre:
-        raise vol.Invalid("valeur doit etre un nombre", path=["valeur"], error_type="type")
+        raise _FauteType("valeur doit etre un nombre", path=["valeur"])
     if operateur in ("==", "!=") and not (est_nombre or isinstance(valeur, str)):
-        raise vol.Invalid("valeur doit etre une chaine ou un nombre", path=["valeur"], error_type="type")
+        raise _FauteType("valeur doit etre une chaine ou un nombre", path=["valeur"])
     return donnee
 
 
@@ -222,13 +316,13 @@ VOITURE = vol.Schema(
 AGENCEMENT = vol.Schema(
     {
         vol.Required("zones"): vol.All(
-            [_enum(_ZONES)], vol.Unique(), vol.Contains("commandes")
+            [_enum(_ZONES)], _uniques(), vol.Contains("commandes")
         ),
         vol.Optional("blocDefaut"): _enum(_BLOC_DEFAUT),
         vol.Required("modes"): vol.All(
-            [_enum(_MODES)], vol.Unique(), vol.Contains("defaut")
+            [_enum(_MODES)], _uniques(), vol.Contains("defaut")
         ),
-        vol.Required("modulateurs"): vol.All([_enum(_MODULATEURS)], vol.Unique()),
+        vol.Required("modulateurs"): vol.All([_enum(_MODULATEURS)], _uniques()),
         vol.Optional("note"): _chaine(),
     },
     extra=vol.PREVENT_EXTRA,
@@ -284,7 +378,7 @@ def _invariants_croises(ecran: dict) -> dict:
         if "minuteurs" not in ecran:
             raise vol.RequiredFieldInvalid("minuteurs est requis quand le mode minuteur est present", path=["minuteurs"])
         if len(ecran["minuteurs"]) < 1:
-            raise vol.Invalid("minuteurs ne doit pas etre vide", path=["minuteurs"], error_type="minItems")
+            raise _FauteMinItems("minuteurs ne doit pas etre vide", path=["minuteurs"])
 
     return ecran
 
@@ -325,6 +419,19 @@ def motif(err: vol.Invalid) -> str:
       dedie avec le message "not a valid option". D'ou la double detection
       ci-dessous plutot qu'une seule branche qui ne marcherait que sous
       Home Assistant, ou que sous voluptuous nu.
+    - Correction de la ronde 1 (Important 3) : `err.error_type` n'est PAS
+      fiable pour nos propres validateurs non plus. Les DEUX backends le
+      reecrivent quand l'erreur remonte a travers un validateur de valeur
+      imbrique dans un dict (`validate_mapping`), avec un message interne
+      generique ("dictionary value" cote voluptuous nu) — verifie en rejouant
+      le corpus entier sous voluptuous nu (schema.py charge seul, homeassistant
+      jamais importe) : 4 cas sur 11 se trompaient de mot-cle avant cette
+      correction. Nos propres validateurs levent donc desormais des
+      sous-classes de `_Faute`, dont le mot-cle vit sur la CLASSE — jamais
+      touchee par cette reecriture, contrairement a l'attribut. `required`,
+      `additionalProperties` et `contains` restent detectes comme avant
+      (classes/messages de voluptuous ou du shim, hors de notre controle) ;
+      tout le reste passe desormais par `isinstance(err, _Faute)`.
     """
     if isinstance(err, vol.MultipleInvalid):
         err = err.errors[0]
@@ -338,6 +445,8 @@ def motif(err: vol.Invalid) -> str:
         chemin_parts = chemin_parts[:-1]
     elif isinstance(err, vol.ContainsInvalid):
         mot_cle = "contains"
+    elif isinstance(err, _Faute):
+        mot_cle = err.mot_cle
     else:
         mot_cle = err.error_type or "invalid"
 

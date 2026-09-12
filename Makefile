@@ -17,10 +17,10 @@
 # lancable sur la cible d'installation) ni `test-app` (qui n'a rien a voir
 # avec Home Assistant) ne peuvent l'accueillir sans perdre ce qui les rend
 # lancables la ou elles le sont. La version epinglee de
-# pytest-homeassistant-custom-component y exige Python >= 3.14 (voir le
-# commentaire de tests/composant/requirements.txt) ; si `python3` resout vers
-# une version plus ancienne sur la machine, passez PYTHON=python3.14 (ou tout
-# interpreteur >= 3.14) a cette cible, comme NIVUUS_INSTALLER_DIR ci-dessous.
+# pytest-homeassistant-custom-component y exige Python >= 3.14 ; la cible
+# elle-meme le verifie et nomme le geste complet avant d'echouer (voir le
+# garde-fou en tete de `test-composant`), plutot que de laisser un mur de
+# `pip install` sans issue.
 #
 # NIVUUS_INSTALLER_DIR fait valider le manifeste par le VRAI parseur du moteur.
 #   make test NIVUUS_INSTALLER_DIR=$$HOME/Projects/Nivuus/packages/installer
@@ -43,7 +43,21 @@ test:
 test-app:
 	cd $(PACKAGE_DIR)/app && npm test
 
+# Correction de la ronde 1 (Important 2) : sans cette garde, un python3
+# < 3.14 produit un mur de `pip install` (49 versions ignorees, une par une)
+# ou "Requires-Python >= 3.14" se noie — et qui ne dit jamais quoi faire.
+# La garde teste l'interpreteur qui va REELLEMENT tourner : celui du venv
+# s'il existe deja (un `.venv-composant` cree en 3.13 refait le meme mur
+# meme avec PYTHON=python3.14, puisque `test -d ... ||` court-circuite sa
+# recreation), sinon $(PYTHON). Message : le geste COMPLET, pas seulement
+# la variable a passer.
 test-composant:
+	@interpreteur=$$( [ -x $(COMPOSANT_VENV)/bin/python3 ] && echo $(COMPOSANT_VENV)/bin/python3 || echo $(PYTHON) ); \
+	if ! $$interpreteur -c 'import sys; sys.exit(0 if sys.version_info >= (3, 14) else 1)' 2>/dev/null; then \
+	    echo "test-composant exige Python >= 3.14 ($$interpreteur ne convient pas) : tests/composant/requirements.txt epingle une version de pytest-homeassistant-custom-component qui le requiert."; \
+	    echo "Geste complet : rm -rf $(COMPOSANT_VENV) && make test-composant PYTHON=<python3.14 ou plus recent>"; \
+	    exit 1; \
+	fi
 	@test -d $(COMPOSANT_VENV) || $(PYTHON) -m venv $(COMPOSANT_VENV)
 	@$(COMPOSANT_VENV)/bin/pip install -q -r $(PACKAGE_DIR)/tests/composant/requirements.txt
 	@$(COMPOSANT_VENV)/bin/pytest $(PACKAGE_DIR)/tests/composant -q
