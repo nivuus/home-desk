@@ -1218,3 +1218,38 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 **Ce qui reste pour le plan 3 :** l'intégration `custom_components/home_desk`, le transport websocket, le démarrage asynchrone et ses quatre dégradations, la migration des 66 `entity_id` hors du dépôt, et la mise en production tablette par tablette.
 
 **Dette transmise, à ne pas perdre :** les fixtures de `app/outils/verifier-rendu.mjs` injectent `media_player.ytube_music_player`, entité disparue au renommage Music Assistant — l'outil rapporte « mode non atteint » sur `media` en silence depuis, et il alimente désormais un fichier contractuel.
+
+---
+
+## Ce que l'exécution a ajouté à la dette du plan 3 (2026-09-12, après relecture finale)
+
+Quatre points nés pendant l'exécution, qu'aucune tâche du plan n'avait prévus. Ils ne sont pas des
+regrets : ce sont des portes que ce plan vient d'ouvrir et que le plan 3 doit franchir sciemment.
+
+1. **`recette` est confinée à la cuisine par l'USAGE, pas par la donnée.** `recetteEnCours` lit
+   l'entité GLOBALE `sensor.home_stock_next_meal`, identique sur les trois tablettes ; ce qui
+   confine le mode, c'est que seule la cuisine porte une tuile `vue: '#recette'`. Dans le monde
+   déclaré, quelqu'un pourra donc ajouter cette tuile à un écran depuis Home Assistant **sans** que
+   `modes` de cet écran contienne `recette` : la tuile ouvrirait la vue, le mode ne s'engagerait
+   jamais. C'est un **troisième invariant croisé**, de la même famille que les deux de la tâche 6,
+   à penser avec le formulaire qui le déclenchera.
+
+2. **Le budget sait désormais chiffrer un ordre de zones que le moteur d'animation n'a pas été
+   mesuré pour rendre.** `coutEcran` accepte n'importe quel sous-ensemble de zones depuis la ronde
+   finale ; les rôles de mouvement (`ligne:commandes`, cf. `rendu/corps.ts`) ont été mesurés sur la
+   composition par défaut. C'est la première fois que cette dette est atteignable par une donnée
+   que le schéma déclare **valide**.
+
+3. **`version` dans `contrat/ecran.schema.json` n'est ni requis ni lu.** Dette nommée par le plan 1,
+   délibérément laissée nommée par la tâche 6 : c'est au plan 3, qui transportera la configuration,
+   d'écrire ce que la version veut dire et qui la vérifie.
+
+4. **Les fixtures de `app/outils/verifier-rendu.mjs`** injectent `media_player.ytube_music_player`,
+   entité disparue au renommage Music Assistant — l'outil rapporte « mode non atteint » sur `media`
+   en silence depuis, et il alimente désormais un fichier contractuel.
+
+**Et une leçon de méthode, qui a trouvé tous les vrais défauts de ce plan : la MUTATION.** Une suite
+verte ne dit rien de sa portée. Six défauts réels ont été trouvés en modifiant le code pour voir si
+la suite bronchait — le câblage de `hauteurUtile` décâblable sans un échec, la promesse centrale du
+plan qu'aucun test ne portait, un terme du modèle mesuré retirable en silence. Aucun n'a été trouvé
+par la lecture seule.
