@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "_source": "Derivee de src/rendu/icones.ts (export CHEMINS) par ce script, jamais recopiee a la main : quatre icones (scan, horsligne, case, coche) ont deja ete ajoutees a l'application sans que cette liste bouge, chacune retombant en silence sur le repli \"cloudy\" de icone() jusqu'a ce qu'on s'en apercoive. La derivation rend cet oubli impossible.",
   "icones": [
     "agenda",
     "aspirateur",

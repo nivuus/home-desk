@@ -84,6 +84,14 @@ describe('contrat/ecran.schema.json', () => {
       { instancePath: '/commandes/0', keyword: 'additionalProperties', params: { additionalProperty: 'couleur' } });
   });
 
+  it('refuse une icone hors vocabulaire (correction A : icone: "frigo" ne retombe plus en silence sur cloudy)', () => {
+    const casse = {
+      ...ECRANS.salon,
+      commandes: [{ ...ECRANS.salon.commandes[0], icone: 'frigo' }],
+    };
+    refusePour(casse, { instancePath: '/commandes/0/icone', keyword: 'enum' });
+  });
+
   it('refuse blocDefaut: "entretien" a la racine', () => {
     refusePour({ ...ECRANS.salon, blocDefaut: 'entretien' },
       { instancePath: '/blocDefaut', keyword: 'enum', params: { allowedValues: ['voiture', 'repas', 'agenda'] } });
