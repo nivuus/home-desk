@@ -18,7 +18,7 @@
  *  entité visible sur les deux écrans, piège déjà payé dans ce projet. */
 import { html, type TemplateResult } from 'lit';
 import type { Etat } from '../etat';
-import type { Bouton, Piece } from '../pieces';
+import type { Bouton, Ecran } from '../ecran';
 import { icone } from './icones';
 import { descripteurJauge, fractionJauge } from '../jauge';
 
@@ -70,7 +70,7 @@ export function brancherGesteMaison(fn: typeof geste) { geste = fn; }
 // maison », donc jamais de retour à la ligne inattendu) coûte zéro hauteur supplémentaire. Le
 // grisage `.muet` (universel, posé sur `#app` par `demarrage.ts`) reste le renfort ambiant sur
 // cette vue comme sur les deux autres.
-export function rendreMaison(etat: Etat, piece: Piece, horsLigne = false): TemplateResult {
+export function rendreMaison(etat: Etat, piece: Ecran, horsLigne = false): TemplateResult {
   // Tâche 12, arbitrage du propriétaire (2026-08-03) : `piece.aspirateurMaison`, quand déclaré,
   // REMPLACE l'entrée commune dont l'entité vaut `vacuum.aspirateur_cuisine` (la tuile générique
   // « Aspirateur », nettoyage complet du RDC) — jamais une tuile de plus (budget de 585px déjà

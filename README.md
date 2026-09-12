@@ -9,7 +9,7 @@ Home Assistant depuis `config/www/wallpanel/`.
 Ce n'est pas une base paramétrable, et ce n'est pas un oubli.
 
 - `app/src/` cite **66 `entity_id` en dur**, répartis en 18 domaines.
-- `app/src/pieces.ts` déclare `PIECES: Record<'salon' | 'bureau' | 'cuisine', Piece>` —
+- `app/src/ecran.ts` déclare `PIECES: Record<'salon' | 'bureau' | 'cuisine', Piece>` —
   les trois pièces sont un **type TypeScript**, pas une donnée de configuration.
 
 Installé ailleurs, il affiche un écran d'entités inexistantes. La
@@ -17,9 +17,14 @@ paramétrisation coûterait une refonte de `pieces.ts`, `modes.ts` et des 41
 fichiers de tests, pour zéro bénéfice sur l'unique installation existante
 (décision 4 de la spec).
 
-**La couture est nommée** : `app/src/pieces.ts` est le point **unique** où la
+**La couture est nommée** : `app/src/ecran.ts` est le point **unique** où la
 maison entre dans l'application. Le jour où une deuxième maison existe, c'est
 le seul fichier à ouvrir.
+
+> **En cours de renversement.** La spec du 2026-09-12
+> (`docs/superpowers/specs/2026-09-12-config-ecrans-depuis-ha-design.md`)
+> annule cette décision : la donnée part chez Home Assistant, le type reste ici.
+> Ce plan-ci (1/3) ne déplace encore aucune donnée.
 
 ## Installation
 

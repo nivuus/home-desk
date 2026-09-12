@@ -48,6 +48,8 @@ export type DeclarationSource = {
   progression: string[];
   transport: string[];
   volume: string[];
+  /** Cf. la docstring du même champ sur `Ecran`. */
+  note?: string;
 };
 
 export type SourceResolue = {

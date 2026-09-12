@@ -26,11 +26,11 @@
  *  fonction de présentation — aucun état de réveil n'est tenu ici. */
 import { html, type TemplateResult } from 'lit';
 import type { Etat } from '../etat';
-import type { Piece } from '../pieces';
+import type { Ecran } from '../ecran';
 import { icone } from './icones';
 
 export function rendreNuit(
-  etat: Etat, maintenant: Date, piece: Piece, horsLigne = false,
+  etat: Etat, maintenant: Date, piece: Ecran, horsLigne = false,
   // Optionnel et en dernière position : aucun appelant existant à changer, un écran de nuit sans
   // réveil branché reste un écran de nuit valide (cf. « reste inerte quand aucun réveil n'est
   // branché », tests/nuit.test.ts).

@@ -6,7 +6,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from 'lit';
 import { Etat } from '../src/etat';
-import { PIECES } from '../src/pieces';
+import { ECRANS } from '../src/ecran';
 import { rendreNuit } from '../src/rendu/nuit';
 
 const ev = (id: string, etat: string, attributes: Record<string, unknown> = {}) =>
@@ -18,7 +18,7 @@ describe('rendreNuit', () => {
     etat.appliquer(ev('sensor.capteur_humain_temperature', '19.6'));
     etat.appliquer(ev('lock.aqara_smart_lock_u200_lite', 'locked'));
     const div = document.createElement('div');
-    render(rendreNuit(etat, new Date(2026, 7, 1, 23, 42), PIECES.salon), div);
+    render(rendreNuit(etat, new Date(2026, 7, 1, 23, 42), ECRANS.salon), div);
 
     expect(div.querySelector('.hn')?.textContent).toBe('23:42');
     expect(div.querySelector('.tn')?.textContent).toBe('19,6° salon');
@@ -28,7 +28,7 @@ describe('rendreNuit', () => {
   it('pas de fuite de zero en tete : 5h03 s affiche 05:03', () => {
     const etat = new Etat();
     const div = document.createElement('div');
-    render(rendreNuit(etat, new Date(2026, 7, 1, 5, 3), PIECES.salon), div);
+    render(rendreNuit(etat, new Date(2026, 7, 1, 5, 3), ECRANS.salon), div);
     expect(div.querySelector('.hn')?.textContent).toBe('05:03');
   });
 
@@ -36,7 +36,7 @@ describe('rendreNuit', () => {
     const etat = new Etat();
     etat.appliquer(ev('sensor.capteur_humain_temperature', 'unavailable'));
     const div = document.createElement('div');
-    expect(() => render(rendreNuit(etat, new Date(2026, 7, 1, 23, 0), PIECES.salon), div)).not.toThrow();
+    expect(() => render(rendreNuit(etat, new Date(2026, 7, 1, 23, 0), ECRANS.salon), div)).not.toThrow();
     expect(div.querySelector('.tn')).toBeNull();
   });
 
@@ -44,14 +44,14 @@ describe('rendreNuit', () => {
     const etat = new Etat();
     etat.appliquer(ev('lock.aqara_smart_lock_u200_lite', 'unlocked'));
     const div = document.createElement('div');
-    render(rendreNuit(etat, new Date(2026, 7, 1, 23, 0), PIECES.salon), div);
+    render(rendreNuit(etat, new Date(2026, 7, 1, 23, 0), ECRANS.salon), div);
     expect(div.querySelector('.on')).toBeNull();
   });
 
   it('masque le bloc serrure quand l entite est absente (jamais d etat invente)', () => {
     const etat = new Etat();
     const div = document.createElement('div');
-    render(rendreNuit(etat, new Date(2026, 7, 1, 23, 0), PIECES.salon), div);
+    render(rendreNuit(etat, new Date(2026, 7, 1, 23, 0), ECRANS.salon), div);
     expect(div.querySelector('.on')).toBeNull();
   });
 
@@ -60,7 +60,7 @@ describe('rendreNuit', () => {
     etat.appliquer(ev('sensor.capteur_humain_temperature', '19.6'));
     etat.appliquer(ev('lock.aqara_smart_lock_u200_lite', 'locked'));
     const div = document.createElement('div');
-    render(rendreNuit(etat, new Date(2026, 7, 1, 23, 0), PIECES.salon), div);
+    render(rendreNuit(etat, new Date(2026, 7, 1, 23, 0), ECRANS.salon), div);
     expect(div.querySelectorAll('.tuile, .commande, .ambiance, .xl')).toHaveLength(0);
   });
 
@@ -75,7 +75,7 @@ describe('rendreNuit', () => {
     etat.appliquer(ev('sensor.capteur_humain_temperature', '19.6'));
     etat.appliquer(ev('lock.aqara_smart_lock_u200_lite', 'locked'));
     const div = document.createElement('div');
-    render(rendreNuit(etat, new Date(2026, 7, 1, 23, 42), PIECES.salon, true), div);
+    render(rendreNuit(etat, new Date(2026, 7, 1, 23, 42), ECRANS.salon, true), div);
 
     expect(div.querySelector('.hn')?.textContent).toBe('23:42');   // l heure reste fiable : elle
                                                                     // vient de la tablette, pas de HA
@@ -90,7 +90,7 @@ describe('rendreNuit', () => {
     const etat = new Etat();
     etat.appliquer(ev('sensor.capteur_humain_temperature', '19.6'));
     const div = document.createElement('div');
-    render(rendreNuit(etat, new Date(2026, 7, 1, 23, 0), PIECES.salon), div);
+    render(rendreNuit(etat, new Date(2026, 7, 1, 23, 0), ECRANS.salon), div);
     expect(div.querySelector('.tn')?.textContent).toContain('19,6°');
     expect(div.textContent).not.toContain('Dernières données');
   });
@@ -102,7 +102,7 @@ describe('rendreNuit', () => {
     const etat = new Etat();
     const surReveil = vi.fn();
     const div = document.createElement('div');
-    render(rendreNuit(etat, new Date(2026, 7, 3, 3, 14), PIECES.salon, false, surReveil), div);
+    render(rendreNuit(etat, new Date(2026, 7, 3, 3, 14), ECRANS.salon, false, surReveil), div);
     div.querySelector<HTMLElement>('.nuit')!.dispatchEvent(new Event('pointerdown'));
     expect(surReveil).toHaveBeenCalledTimes(1);
   });
@@ -123,7 +123,7 @@ describe('rendreNuit', () => {
     etat.appliquer(ev('sensor.capteur_humain_temperature', '19.6'));
     etat.appliquer(ev('lock.aqara_smart_lock_u200_lite', 'locked'));
     const div = document.createElement('div');
-    render(rendreNuit(etat, new Date(2026, 7, 1, 23, 42), PIECES.salon), div);
+    render(rendreNuit(etat, new Date(2026, 7, 1, 23, 42), ECRANS.salon), div);
     expect(div.querySelector('.tn')?.getAttribute('data-mvt')).toBe('detail:nuit-temp');
     expect(div.querySelector('.on')?.getAttribute('data-mvt')).toBe('detail:nuit-ferme');
   });
@@ -131,14 +131,14 @@ describe('rendreNuit', () => {
   it('la note « Dernières données » (horsLigne) porte SA PROPRE marque, distincte du statut serrure', () => {
     const etat = new Etat();
     const div = document.createElement('div');
-    render(rendreNuit(etat, new Date(2026, 7, 1, 23, 42), PIECES.salon, true), div);
+    render(rendreNuit(etat, new Date(2026, 7, 1, 23, 42), ECRANS.salon, true), div);
     expect(div.querySelector('.on')?.getAttribute('data-mvt')).toBe('detail:nuit-horsligne');
   });
 
   it('reste inerte quand aucun réveil n\'est branché', () => {
     const etat = new Etat();
     const div = document.createElement('div');
-    render(rendreNuit(etat, new Date(2026, 7, 3, 3, 14), PIECES.salon, false), div);
+    render(rendreNuit(etat, new Date(2026, 7, 3, 3, 14), ECRANS.salon, false), div);
     expect(() => div.querySelector<HTMLElement>('.nuit')!.dispatchEvent(new Event('pointerdown')))
       .not.toThrow();
   });

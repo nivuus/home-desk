@@ -4,7 +4,7 @@
 // Même patron que `tests/interaction.test.ts`/`tests/geste.test.ts` : ces fabriques sont testées
 // isolément, sans DOM, avec un minuteur factice injecté.
 import { describe, it, expect, vi } from 'vitest';
-import { PIECES, type Piece } from '../src/pieces';
+import { ECRANS, type Ecran } from '../src/ecran';
 import {
   listesTachesPiece, libelleListe, aplatirTaches, repartirTaches, MAX_LIGNES_TACHES,
   creerArmement, creerCochage,
@@ -12,18 +12,18 @@ import {
 
 describe('listesTachesPiece', () => {
   it('salon : seule todo.maintenance (synthese), aucun extra', () => {
-    expect(listesTachesPiece(PIECES.salon)).toEqual(['todo.maintenance']);
+    expect(listesTachesPiece(ECRANS.salon)).toEqual(['todo.maintenance']);
   });
 
   it('bureau : todo.travail et todo.maintenance, dans l ordre de synthese', () => {
-    expect(listesTachesPiece(PIECES.bureau)).toEqual(['todo.travail', 'todo.maintenance']);
+    expect(listesTachesPiece(ECRANS.bureau)).toEqual(['todo.travail', 'todo.maintenance']);
   });
 
   it("cuisine : trois listes, dans l'ordre entretien, DLC, courses", () => {
     // L'ordre est une DÉCISION : une DLC passe avant une course, parce que l'une a une échéance et
     // l'autre non. `listesTachesPiece` respecte l'ordre de `synthese` puis celui de
     // `listesTachesExtra` — déclarer la ligne DLC après `todo.maintenance` suffit.
-    expect(listesTachesPiece(PIECES.cuisine)).toEqual([
+    expect(listesTachesPiece(ECRANS.cuisine)).toEqual([
       'todo.maintenance', 'todo.home_stock_expirations', 'todo.home_stock_shopping',
     ]);
   });
@@ -33,11 +33,11 @@ describe('listesTachesPiece', () => {
     // la ligne au salon y ferait donc aussi apparaître la liste des DLC dans sa vue « Tâches », ce
     // que la spec refuse : sa vue Tâches n'a pas à porter une liste qu'on ne coche pas d'un canapé.
     // D'où `horsTaches`, posé UNIQUEMENT sur cette ligne-là.
-    expect(listesTachesPiece(PIECES.salon)).toEqual(['todo.maintenance']);
+    expect(listesTachesPiece(ECRANS.salon)).toEqual(['todo.maintenance']);
   });
 
   it('dedoublonne une entite presente a la fois dans synthese et listesTachesExtra', () => {
-    const piece: Piece = {
+    const piece: Ecran = {
       nom: 'Test', temperature: 'sensor.x', ambiances: [], commandes: [], extrasMaison: [],
       synthese: [{ entite: 'todo.maintenance', operateur: '>', valeur: 0, texte: '{etat} tâche{s}' }],
       listesTachesExtra: ['todo.maintenance'],
@@ -47,7 +47,7 @@ describe('listesTachesPiece', () => {
   });
 
   it('une piece sans aucune liste todo.* rend un tableau vide, sans lever', () => {
-    const piece: Piece = {
+    const piece: Ecran = {
       nom: 'Test', temperature: 'sensor.x', ambiances: [], commandes: [], synthese: [], extrasMaison: [],
       sources: [], ouvrants: [],
     };

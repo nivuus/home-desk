@@ -10,7 +10,7 @@
  *  fois — ce qui, sur un préconditionnement, enchaîne des commandes contradictoires. */
 import { html, nothing, type TemplateResult } from 'lit';
 import type { Etat } from '../etat';
-import type { Voiture } from '../pieces';
+import type { Voiture } from '../ecran';
 import { icone } from './icones';
 
 export type EnVolClim = 'demarrage' | 'arret' | null;

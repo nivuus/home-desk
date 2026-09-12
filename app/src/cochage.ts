@@ -7,13 +7,13 @@
  *  discipline que `contexte.ts`/`jauge.ts`, testables sans navigateur. Câblé par `demarrage.ts`
  *  (seul endroit qui connaît à la fois `Etat`/`Connexion` et l'horloge de la page) et rendu par
  *  `rendu/taches.ts`. */
-import type { Piece } from './pieces';
+import type { Ecran } from './ecran';
 
 /** Entités `todo.*` à afficher sur la vue « Tâches » de cette pièce : celles déjà déclarées dans
  *  `piece.synthese` (`todo.maintenance` partout, `todo.travail` au bureau, les DLC en cuisine —
  *  jamais dupliquées avec la ligne de synthèse, c'est la MÊME source, cf. `pieces.ts`) suivies de
  *  `piece.listesTachesExtra` (vide partout sauf en cuisine, où la liste de courses n'a pas sa place
- *  dans `synthese` — ce n'est pas un écart à signaler, cf. docstring de `Piece.listesTachesExtra`).
+ *  dans `synthese` — ce n'est pas un écart à signaler, cf. docstring de `Ecran.listesTachesExtra`).
  *
  *  `horsTaches` : la seule échappatoire à la collecte automatique, et elle n'est posée qu'une fois
  *  (la ligne DLC du SALON, cf. son docstring dans `pieces.ts`). Sans elle, déclarer un compte de
@@ -25,7 +25,7 @@ import type { Piece } from './pieces';
  *
  *  `Set` : une même entité déclarée deux fois (ne devrait jamais arriver, mais une pièce mal
  *  renseignée demain ne doit pas afficher deux fois la même liste). */
-export function listesTachesPiece(piece: Piece): string[] {
+export function listesTachesPiece(piece: Ecran): string[] {
   const deSynthese = piece.synthese
     .filter((s) => !s.horsTaches)
     .map((s) => s.entite)

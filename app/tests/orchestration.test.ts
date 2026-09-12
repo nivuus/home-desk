@@ -8,7 +8,7 @@
 // monte le vrai `demarrer()`, pousse des états comme le ferait le websocket, et regarde ce que
 // `#app` porte réellement.
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { PIECES } from '../src/pieces';
+import { ECRANS } from '../src/ecran';
 import type { Prevision } from '../src/meteo';
 import { monterDemarrage, restaurerReseau, vider } from './aides';
 import { DUREES_DELOREAN } from '../src/rendu/delorean';
@@ -27,7 +27,7 @@ const DEMAIN_DATE = '2026-08-02';
 
 describe('orchestration des modes', () => {
   it('rend la carte média quand une source joue, à la place du bloc voiture', async () => {
-    const { racine, pousser } = await monterDemarrage(PIECES.salon);
+    const { racine, pousser } = await monterDemarrage(ECRANS.salon);
     // Tâche 9 bis (2026-08-03) : le salon déclare désormais une voiture, donc son bloc par défaut
     // est `.voiture` et non plus `.prevision` (demande du propriétaire — les six prochaines heures
     // ont quitté cet écran, définitivement supprimées à la tâche 14). `.prevision` n'y apparaît
@@ -48,7 +48,7 @@ describe('orchestration des modes', () => {
   });
 
   it('rend le mode cinéma et force la palette sombre en plein jour quand la TV est allumée', async () => {
-    const { racine, pousser } = await monterDemarrage(PIECES.salon);
+    const { racine, pousser } = await monterDemarrage(ECRANS.salon);
     await pousser('sun.sun', 'above_horizon');   // plein jour : sans le mode cinéma, `.sombre` est absente
     expect(racine.classList.contains('sombre')).toBe(false);
 
@@ -61,7 +61,7 @@ describe('orchestration des modes', () => {
   });
 
   it('rend le bloc ménage quand l\'aspirateur tourne, même si la TV est allumée', async () => {
-    const { racine, pousser } = await monterDemarrage(PIECES.salon);
+    const { racine, pousser } = await monterDemarrage(ECRANS.salon);
     await pousser('media_player.televiseur_salon_3', 'on', { supported_features: 153529 });
     await pousser('vacuum.aspirateur_cuisine', 'cleaning', { battery_level: 60 });
     // Le bloc média est désormais marqué `data-mvt` (tâche 7) : le quitter produit une vraie
@@ -81,7 +81,7 @@ describe('orchestration des modes', () => {
     vi.useFakeTimers();
     try {
       vi.setSystemTime(new Date(2026, 7, 1, 14, 0));
-      const { racine, pousser } = await monterDemarrage(PIECES.salon, { maintenant: () => new Date() });
+      const { racine, pousser } = await monterDemarrage(ECRANS.salon, { maintenant: () => new Date() });
       await pousser('binary_sensor.porte_balcon_s_ouverture', 'on',
               { friendly_name: 'Porte balcon (S) Ouverture' });
       expect(racine.querySelector('.mode-bloc')).toBeNull();   // 0 min : rien à signaler encore
@@ -101,7 +101,7 @@ describe('orchestration des modes', () => {
     vi.useFakeTimers();
     try {
       vi.setSystemTime(new Date(2026, 7, 1, 14, 0));
-      const { racine, pousser } = await monterDemarrage(PIECES.salon, { maintenant: () => new Date() });
+      const { racine, pousser } = await monterDemarrage(ECRANS.salon, { maintenant: () => new Date() });
       await pousser('vacuum.aspirateur_cuisine', 'cleaning', {});
       await pousser('binary_sensor.tablette_salon_mouvement', 'on', {});   // la maison bouge
       await pousser('lock.aqara_smart_lock_u200_lite', 'unlocked', {});
@@ -122,7 +122,7 @@ describe('orchestration des modes', () => {
     vi.useFakeTimers();
     try {
       vi.setSystemTime(new Date(2026, 7, 1, 14, 0));
-      const { racine, pousser, silence } = await monterDemarrage(PIECES.salon, {
+      const { racine, pousser, silence } = await monterDemarrage(ECRANS.salon, {
         maintenant: () => new Date(),
       });
       await pousser('lock.aqara_smart_lock_u200_lite', 'unlocked', {});
@@ -147,20 +147,20 @@ describe('orchestration des modes', () => {
   // ce test pouvait lire depuis `demarrage.ts`. Gardé ici comme repère d'architecture plutôt que
   // supprimé en silence : `#app` ne porte plus AUCUNE classe `mvt-*`.
   it('ne pose plus de classe mvt-* sur #app (le niveau vit dans le moteur, pas en CSS)', async () => {
-    const { racine } = await monterDemarrage(PIECES.salon);
+    const { racine } = await monterDemarrage(ECRANS.salon);
     expect(Array.from(racine.classList).some((c) => c.startsWith('mvt-'))).toBe(false);
   });
 });
 
 describe('pastille du bandeau', () => {
   it('retombe sur « Demain » : la prévision quotidienne est bien rechargée', async () => {
-    const { racine } = await monterDemarrage(PIECES.salon, { reseau: { quotidien: QUOTIDIEN } });
+    const { racine } = await monterDemarrage(ECRANS.salon, { reseau: { quotidien: QUOTIDIEN } });
     expect(racine.querySelector('.pastille .pt')?.textContent).toBe('Demain');
     expect(racine.querySelector('.pastille .pv')?.textContent).toBe('35° et de la pluie');
   });
 
   it('affiche l\'anniversaire du jour', async () => {
-    const { racine } = await monterDemarrage(PIECES.salon, {
+    const { racine } = await monterDemarrage(ECRANS.salon, {
       reseau: {
         quotidien: QUOTIDIEN,
         calendriers: {
@@ -175,7 +175,7 @@ describe('pastille du bandeau', () => {
   it('n\'affiche JAMAIS un anniversaire de demain comme « Aujourd\'hui »', async () => {
     // La fenêtre interrogée fait 24 h : un anniversaire de demain arrive dans la même réponse que
     // celui du jour. Sans filtre côté chargement, il s'afficherait « Aujourd'hui ».
-    const { racine } = await monterDemarrage(PIECES.salon, {
+    const { racine } = await monterDemarrage(ECRANS.salon, {
       reseau: {
         quotidien: QUOTIDIEN,
         calendriers: {
@@ -188,7 +188,7 @@ describe('pastille du bandeau', () => {
   });
 
   it('affiche un rendez-vous des trois prochaines heures', async () => {
-    const { racine } = await monterDemarrage(PIECES.salon, {
+    const { racine } = await monterDemarrage(ECRANS.salon, {
       reseau: {
         quotidien: QUOTIDIEN,
         calendriers: { 'calendar.personnel': [{ resume: 'Dentiste', debut: `${AUJOURDHUI}T15:30:00` }] },
@@ -199,7 +199,7 @@ describe('pastille du bandeau', () => {
   });
 
   it('le mode invités masque la pastille personnelle du bandeau', async () => {
-    const { racine, pousser } = await monterDemarrage(PIECES.salon, {
+    const { racine, pousser } = await monterDemarrage(ECRANS.salon, {
       reseau: {
         quotidien: QUOTIDIEN,
         calendriers: {
@@ -218,7 +218,7 @@ describe('pastille du bandeau', () => {
 
 describe('actions des blocs de mode', () => {
   it('un appui sur pause appelle le service du lecteur qui porte le transport', async () => {
-    const { racine, pousser, appelerService } = await monterDemarrage(PIECES.salon);
+    const { racine, pousser, appelerService } = await monterDemarrage(ECRANS.salon);
     await pousser('media_player.musique_salon', 'playing',
             { media_title: 'Blinding Lights', supported_features: 1 });
 
@@ -229,7 +229,7 @@ describe('actions des blocs de mode', () => {
   });
 
   it('un appui sur le rail de volume envoie le niveau visé', async () => {
-    const { racine, pousser, appelerService } = await monterDemarrage(PIECES.salon);
+    const { racine, pousser, appelerService } = await monterDemarrage(ECRANS.salon);
     await pousser('media_player.musique_salon', 'playing',
             { media_title: 'Blinding Lights', supported_features: 1 | 4, volume_level: 0.5 });
 
@@ -241,7 +241,7 @@ describe('actions des blocs de mode', () => {
   });
 
   it('un appui sur « Ranger » renvoie l\'aspirateur à sa base', async () => {
-    const { racine, pousser, appelerService } = await monterDemarrage(PIECES.salon);
+    const { racine, pousser, appelerService } = await monterDemarrage(ECRANS.salon);
     await pousser('vacuum.aspirateur_cuisine', 'cleaning', { battery_level: 60 });
 
     racine.querySelector('.mode-action')!.dispatchEvent(new Event('pointerdown', { bubbles: true }));
@@ -251,7 +251,7 @@ describe('actions des blocs de mode', () => {
   });
 
   it('hors ligne, aucune action ne part — même depuis un bloc encore affiché à l\'écran', async () => {
-    const { racine, pousser, silence, appelerService } = await monterDemarrage(PIECES.salon);
+    const { racine, pousser, silence, appelerService } = await monterDemarrage(ECRANS.salon);
     await pousser('vacuum.aspirateur_cuisine', 'cleaning', { battery_level: 60 });
     // Le nœud est capturé AVANT la panne : hors ligne, `dessiner()` le remplace par le bandeau
     // « Hors ligne », mais un doigt déjà posé (ou un rendu que la dalle n'a pas encore repeint)
@@ -267,7 +267,7 @@ describe('actions des blocs de mode', () => {
 
 describe('clin d\'œil DeLorean', () => {
   it('survole l\'écran le 21 octobre, comme descendant de #app', async () => {
-    const { racine } = await monterDemarrage(PIECES.salon, {
+    const { racine } = await monterDemarrage(ECRANS.salon, {
       maintenant: () => new Date(2026, 9, 21, 14, 0),
     });
     const survol = racine.querySelector('.delorean');
@@ -282,7 +282,7 @@ describe('clin d\'œil DeLorean', () => {
   // 8 s pour le saut complet des deux grandes dates. Elle vient de `DUREES_DELOREAN`, jamais
   // d'une constante écrite ici — sinon les deux valeurs dériveraient en silence.
   it('disparaît au bout de la durée de sa scène', async () => {
-    const { racine, minuteurFn } = await monterDemarrage(PIECES.salon, {
+    const { racine, minuteurFn } = await monterDemarrage(ECRANS.salon, {
       maintenant: () => new Date(2026, 9, 21, 14, 0),
     });
     const retrait = minuteurFn.mock.calls.find(([, delai]) => delai === DUREES_DELOREAN.saut);
@@ -294,7 +294,7 @@ describe('clin d\'œil DeLorean', () => {
   });
 
   it('n\'apparaît pas un jour ordinaire', async () => {
-    const { racine } = await monterDemarrage(PIECES.salon);
+    const { racine } = await monterDemarrage(ECRANS.salon);
     expect(racine.querySelector('.delorean')).toBeNull();
   });
 
@@ -304,7 +304,7 @@ describe('clin d\'œil DeLorean', () => {
   // et le 5 novembre entre 23 h et 5 h. Le code promettait un clin d'œil qu'il ne pouvait pas
   // rendre.
   it('survole aussi l\'écran de nuit : 01 h 21 est par définition en pleine nuit', async () => {
-    const { racine } = await monterDemarrage(PIECES.salon, {
+    const { racine } = await monterDemarrage(ECRANS.salon, {
       maintenant: () => new Date(2026, 7, 1, 1, 21),
     });
     expect(racine.querySelector('.nuit')).not.toBeNull();   // bien l'écran de nuit, pas l'accueil
@@ -322,7 +322,7 @@ describe('clin d\'œil DeLorean', () => {
     const avantUrl = location.href;
     window.history.pushState({}, '', '/?mouvement=aucun');
     try {
-      const { racine } = await monterDemarrage(PIECES.salon, {
+      const { racine } = await monterDemarrage(ECRANS.salon, {
         maintenant: () => new Date(2026, 9, 21, 14, 0),
       });
       expect(racine.querySelector('.delorean')).toBeNull();
@@ -336,7 +336,7 @@ describe('clin d\'œil DeLorean', () => {
 // le défaut d'origine.
 describe('arbitrage de la source affichée', () => {
   it('un film en cours prime sur une musique laissée en pause la veille', async () => {
-    const { racine, pousser } = await monterDemarrage(PIECES.salon);
+    const { racine, pousser } = await monterDemarrage(ECRANS.salon);
     // `paused` compte comme « ça joue » (`ETATS_ACTIFS`) et « Musique » est déclarée AVANT
     // « Télévision » : retenir la première source non nulle affichait donc le dernier morceau
     // écouté, en plein film, sur un écran par ailleurs passé en mode cinéma.
@@ -358,7 +358,7 @@ describe('arbitrage de la source affichée', () => {
   it('sans télévision allumée, la musique en pause garde la carte', async () => {
     // Le cas nominal ne doit pas être emporté par le correctif ci-dessus : hors mode cinéma,
     // c'est toujours la première source qui joue, dans l'ordre d'exclusivité déclaré.
-    const { racine, pousser } = await monterDemarrage(PIECES.salon);
+    const { racine, pousser } = await monterDemarrage(ECRANS.salon);
     await pousser('media_player.musique_salon', 'paused',
             { media_title: 'Blinding Lights', supported_features: 1 });
 
@@ -368,7 +368,7 @@ describe('arbitrage de la source affichée', () => {
 
 describe('palette du mode cinéma dans les sous-vues', () => {
   it('entrer dans « Toute la maison » pendant un film garde l\'écran sombre', async () => {
-    const { racine, pousser } = await monterDemarrage(PIECES.salon);
+    const { racine, pousser } = await monterDemarrage(ECRANS.salon);
     await pousser('sun.sun', 'above_horizon');
     await pousser('media_player.televiseur_salon_3', 'on', { app_name: 'Plex', supported_features: 153529 });
     expect(racine.classList.contains('sombre')).toBe(true);
@@ -390,7 +390,7 @@ describe('palette du mode cinéma dans les sous-vues', () => {
 
 describe('choix de la prévision du lendemain', () => {
   it('prend la première entrée postérieure à aujourd\'hui, pas la deuxième de la liste', async () => {
-    const { racine } = await monterDemarrage(PIECES.salon, { reseau: { quotidien: QUOTIDIEN } });
+    const { racine } = await monterDemarrage(ECRANS.salon, { reseau: { quotidien: QUOTIDIEN } });
     // 35°/pluie = demain ; 30°/soleil = aujourd'hui. Prendre `f[0]` afficherait le mauvais jour.
     expect(racine.querySelector('.pastille .pv')?.textContent).toBe('35° et de la pluie');
   });
@@ -398,7 +398,7 @@ describe('choix de la prévision du lendemain', () => {
   it('reste juste quand l\'intégration ne renvoie pas le jour courant', async () => {
     // Rien ne garantit que le jour courant soit en tête : Open-Meteo peut le laisser tomber en
     // fin de journée. `f[1]` annonçait alors « Demain » avec le SURLENDEMAIN, ou plus rien du tout.
-    const { racine } = await monterDemarrage(PIECES.salon, { reseau: { quotidien: [DEMAIN] } });
+    const { racine } = await monterDemarrage(ECRANS.salon, { reseau: { quotidien: [DEMAIN] } });
     expect(racine.querySelector('.pastille .pt')?.textContent).toBe('Demain');
     expect(racine.querySelector('.pastille .pv')?.textContent).toBe('35° et de la pluie');
   });

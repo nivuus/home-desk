@@ -1,6 +1,6 @@
 /** Les deux blocs par défaut de la cuisine et du bureau, à la place des six prochaines heures
  *  (demande du propriétaire, 2026-08-03 — le salon les avait déjà perdues au profit de la voiture
- *  à la tâche 9 bis). Quelle pièce reçoit quel bloc est écrit une seule fois, sur `Piece.blocDefaut`
+ *  à la tâche 9 bis). Quelle pièce reçoit quel bloc est écrit une seule fois, sur `Ecran.blocDefaut`
  *  (`pieces.ts`) ; ces deux fonctions n'en savent rien, elles reçoivent leurs données déjà
  *  choisies par `demarrage.ts`, exactement comme `rendreVoiture` (`rendu/voiture.ts`) qu'elles
  *  rejoignent au même emplacement (le bloc central du mode `defaut`, `modes.ts`).

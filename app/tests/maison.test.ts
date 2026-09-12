@@ -9,13 +9,13 @@
 // le brief parlait d'une « vue Toute la maison de la cuisine » qui n'existait pas, une seule vue
 // partagée par les 3 tablettes) et affiche `TOUTE_LA_MAISON` SUIVIE de `piece.extrasMaison`
 // (vide partout sauf en cuisine, qui y place son accès au scanner). Les tests déjà présents utilisent
-// `PIECES.salon` (`extrasMaison: []`) pour rester inchangés en substance ; deux nouveautés :
+// `ECRANS.salon` (`extrasMaison: []`) pour rester inchangés en substance ; deux nouveautés :
 // un test qui prouve que l'extra cuisine n'apparaît QUE pour la cuisine, et le budget de hauteur
 // recalculé sur la pièce la plus chargée plutôt que sur `TOUTE_LA_MAISON` seule.
 import { describe, it, expect, vi } from 'vitest';
 import { render } from 'lit';
 import { Etat } from '../src/etat';
-import { PIECES } from '../src/pieces';
+import { ECRANS } from '../src/ecran';
 import { rendreMaison, brancherAppuiMaison, TOUTE_LA_MAISON } from '../src/rendu/maison';
 
 const ev = (id: string, etat: string, attributes: Record<string, unknown> = {}) =>
@@ -54,7 +54,7 @@ describe('rendreMaison', () => {
     // Le reste de TOUTE_LA_MAISON (cuisine, chambre, bureau, rideau cuisine, chauffage,
     // serrure, aspirateur) n'a reçu aucun état : `estUtilisable` doit les masquer.
     const div = document.createElement('div');
-    expect(() => render(rendreMaison(etat, PIECES.salon), div)).not.toThrow();
+    expect(() => render(rendreMaison(etat, ECRANS.salon), div)).not.toThrow();
     const tuiles = Array.from(div.querySelectorAll('.tuile'));
     expect(tuiles).toHaveLength(2);
     expect(tuiles.map((t) => t.textContent)).toEqual(
@@ -68,7 +68,7 @@ describe('rendreMaison', () => {
     etat.appliquer(ev('light.lumiere_cuisine', 'off'));
     etat.appliquer(ev('lock.aqara_smart_lock_u200_lite', 'locked'));   // jamais 'on', jamais actif
     const div = document.createElement('div');
-    render(rendreMaison(etat, PIECES.salon), div);
+    render(rendreMaison(etat, ECRANS.salon), div);
     const tuiles = Array.from(div.querySelectorAll('.tuile'));
     const salon = tuiles.find((t) => t.textContent?.includes('Salon'))!;
     const cuisine = tuiles.find((t) => t.textContent?.includes('Cuisine'))!;
@@ -84,7 +84,7 @@ describe('rendreMaison', () => {
     const appui = vi.fn();
     brancherAppuiMaison(appui);
     const div = document.createElement('div');
-    render(rendreMaison(etat, PIECES.salon), div);
+    render(rendreMaison(etat, ECRANS.salon), div);
 
     div.querySelector('.tuile')!.dispatchEvent(new Event('pointerdown', { bubbles: true }));
 
@@ -98,7 +98,7 @@ describe('rendreMaison', () => {
     const etat = new Etat();
     location.hash = '#maison';
     const div = document.createElement('div');
-    render(rendreMaison(etat, PIECES.salon), div);
+    render(rendreMaison(etat, ECRANS.salon), div);
 
     div.querySelector('.xl')!.dispatchEvent(new Event('pointerdown', { bubbles: true }));
 
@@ -108,7 +108,7 @@ describe('rendreMaison', () => {
   it('etiquette "Toute la maison" presente, sans donnee dupliquee avec la piece (pas de "Ambiance")', () => {
     const etat = new Etat();
     const div = document.createElement('div');
-    render(rendreMaison(etat, PIECES.salon), div);
+    render(rendreMaison(etat, ECRANS.salon), div);
     expect(div.querySelector('.etiquette')?.textContent).toBe('Toute la maison');
   });
 
@@ -122,7 +122,7 @@ describe('rendreMaison', () => {
   it('horsLigne remplace l etiquette par "Hors ligne", coloree, sans ajouter de bloc', () => {
     const etat = new Etat();
     const div = document.createElement('div');
-    render(rendreMaison(etat, PIECES.salon, true), div);
+    render(rendreMaison(etat, ECRANS.salon, true), div);
     const etiquette = div.querySelector('.etiquette')!;
     expect(etiquette.textContent).toBe('Hors ligne');
     expect(etiquette.className).toContain('hl');
@@ -134,7 +134,7 @@ describe('rendreMaison', () => {
   it('sans horsLigne (parametre omis), le comportement d origine est inchange : parametre retro-compatible', () => {
     const etat = new Etat();
     const div = document.createElement('div');
-    render(rendreMaison(etat, PIECES.salon), div);
+    render(rendreMaison(etat, ECRANS.salon), div);
     const etiquette = div.querySelector('.etiquette')!;
     expect(etiquette.textContent).toBe('Toute la maison');
     expect(etiquette.className).not.toContain('hl');
@@ -149,7 +149,7 @@ describe('rendreMaison', () => {
     etat.appliquer(ev('sensor.home_stock_next_meal', 'Riz'));   // utilisable pour toutes les pièces
 
     const divCuisine = document.createElement('div');
-    render(rendreMaison(etat, PIECES.cuisine), divCuisine);
+    render(rendreMaison(etat, ECRANS.cuisine), divCuisine);
     const tuilesCuisine = Array.from(divCuisine.querySelectorAll('.tuile'));
     expect(tuilesCuisine.some((t) => t.textContent?.includes('Scanner'))).toBe(true);
     // La liste commune (9 entrées, toutes sans état ici) reste masquée : seul l'extra cuisine
@@ -157,12 +157,12 @@ describe('rendreMaison', () => {
     expect(tuilesCuisine).toHaveLength(1);
 
     const divSalon = document.createElement('div');
-    render(rendreMaison(etat, PIECES.salon), divSalon);
+    render(rendreMaison(etat, ECRANS.salon), divSalon);
     expect(Array.from(divSalon.querySelectorAll('.tuile')).some((t) => t.textContent?.includes('Scanner')))
       .toBe(false);
 
     const divBureau = document.createElement('div');
-    render(rendreMaison(etat, PIECES.bureau), divBureau);
+    render(rendreMaison(etat, ECRANS.bureau), divBureau);
     expect(Array.from(divBureau.querySelectorAll('.tuile')).some((t) => t.textContent?.includes('Scanner')))
       .toBe(false);
   });
@@ -192,7 +192,7 @@ describe('rendreMaison', () => {
   const COLONNES = 2;
 
   it('la piece la plus chargee (TOUTE_LA_MAISON + extrasMaison) tient dans les 585 px, sans depassement silencieux', () => {
-    const parPiece = Object.entries(PIECES).map(
+    const parPiece = Object.entries(ECRANS).map(
       ([id, piece]) => [id, TOUTE_LA_MAISON.length + piece.extrasMaison.length] as const,
     );
     const [piecePlusChargee, total] = parPiece.reduce((a, b) => (b[1] > a[1] ? b : a));
@@ -225,7 +225,7 @@ describe('jauges a glissement — rendu vue Toute la maison (tache 13)', () => {
     etat.appliquer(ev('lock.aqara_smart_lock_u200_lite', 'locked'));
     etat.appliquer(ev('vacuum.aspirateur_cuisine', 'docked'));
     const div = document.createElement('div');
-    render(rendreMaison(etat, PIECES.salon), div);
+    render(rendreMaison(etat, ECRANS.salon), div);
     const tuiles = Array.from(div.querySelectorAll('.tuile'));
 
     const salon = tuiles.find((t) => t.textContent?.includes('Salon'))!;
@@ -258,7 +258,7 @@ describe('substitution de la tuile aspirateur par pièce (tâche 12)', () => {
     const appui = vi.fn();
     brancherAppuiMaison(appui);
     const div = document.createElement('div');
-    render(rendreMaison(etat, PIECES.cuisine), div);
+    render(rendreMaison(etat, ECRANS.cuisine), div);
 
     const aspirateur = Array.from(div.querySelectorAll('.tuile'))
       .find((t) => t.textContent?.includes('Aspirer'))!;
@@ -273,7 +273,7 @@ describe('substitution de la tuile aspirateur par pièce (tâche 12)', () => {
   });
 
   it('au salon et au bureau, la tuile aspirateur reste vacuum.start, jamais le script cuisine', () => {
-    for (const piece of [PIECES.salon, PIECES.bureau]) {
+    for (const piece of [ECRANS.salon, ECRANS.bureau]) {
       const etat = new Etat();
       etat.appliquer(ev('vacuum.aspirateur_cuisine', 'docked'));
       const appui = vi.fn();

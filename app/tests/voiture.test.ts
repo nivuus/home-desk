@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'lit';
 import { Etat } from '../src/etat';
 import { rendreVoiture, brancherVoiture } from '../src/rendu/voiture';
-import type { Voiture } from '../src/pieces';
+import type { Voiture } from '../src/ecran';
 
 const V: Voiture = {
   batterie: 'sensor.peugeot_e208_batterie_niveau',

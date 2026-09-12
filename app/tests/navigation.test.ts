@@ -16,7 +16,7 @@
 //      la page, jamais une fois par redessin (deuxième piège déjà payé dans ce projet).
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { demarrer, type ConnexionLike } from '../src/demarrage';
-import { PIECES, type Piece } from '../src/pieces';
+import { ECRANS, type Ecran } from '../src/ecran';
 import type { EvenementEtat } from '../src/connexion';
 import { CLE_RECETTE } from '../src/recette-en-cours';
 import { ENTREE_MS, GARDE_MS, PALETTE_MS } from '../src/mouvement/grammaire';
@@ -54,7 +54,7 @@ const GARDE_TRAVERSEE_MS = ENTREE_MS + GARDE_MS;
  *  retour effectif à l'accueil au bout de 45 s. */
 const CONTACTS_RAPPROCHES = 10;
 
-const piece: Piece = {
+const piece: Ecran = {
   nom: 'Salon', temperature: 'sensor.capteur_humain_temperature',
   ambiances: [], commandes: [], synthese: [], extrasMaison: [],
   sources: [], ouvrants: [],
@@ -584,7 +584,7 @@ describe('vue recette (#recette)', () => {
   /** Un montage de cuisine avec un repas planifié et les trois commandes doublées — le cas
    *  nominal de toute cette suite. */
   const monterCuisine = (options: Partial<OptionsMontage> = {}) =>
-    monterDemarrage(PIECES.cuisine, {
+    monterDemarrage(ECRANS.cuisine, {
       maintenant: MIDI, etats: REPAS, commandes: commandes(), ...options,
     });
 
@@ -960,7 +960,7 @@ describe('vue recette (#recette)', () => {
   // Un capteur muet AU MONTAGE ne doit pas consommer la reprise : au démarrage d'une tablette, les
   // entités mettent ~70 s à revenir, et perdre l'étape pour ça serait perdre une cuisson.
   it('reprend l étape au premier état reçu, même si le capteur était muet au démarrage', async () => {
-    const m = await monterDemarrage(PIECES.cuisine, {
+    const m = await monterDemarrage(ECRANS.cuisine, {
       maintenant: MIDI, commandes: commandes(),
       stockage: stockageAvecEtape(MIDI().getTime() - 60_000),
       etats: [['sensor.home_stock_next_meal', 'unavailable', {}]],
@@ -992,7 +992,7 @@ describe('vue recette (#recette)', () => {
     // Rien à ouvrir (aucun repas planifié) : le hash est nettoyé plutôt que laissé sur une vue
     // impossible.
     location.hash = '#recette';
-    const sans = await monterDemarrage(PIECES.cuisine, {
+    const sans = await monterDemarrage(ECRANS.cuisine, {
       maintenant: MIDI,
       etats: [['sensor.home_stock_next_meal', '', { day: null, slot: null }]],
     });
@@ -1005,7 +1005,7 @@ describe('vue recette (#recette)', () => {
   // elle n'est simplement pas validable — et on ne demande pas un aperçu qu'on ne pourrait pas
   // obtenir.
   it('sans meal_id : la recette s ouvre, aucun meal/preview, « Terminer » ferme sans valider', async () => {
-    const m = await monterDemarrage(PIECES.cuisine, {
+    const m = await monterDemarrage(ECRANS.cuisine, {
       maintenant: MIDI, commandes: commandes(),
       etats: [['sensor.home_stock_next_meal', 'Bol lentilles',
                { day: '2026-08-17', slot: 'dinner', recipe_id: 76 }]],

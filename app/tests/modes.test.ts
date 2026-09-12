@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { modePrincipal, modulateursActifs, ordreCommandes, type ContexteModes } from '../src/modes';
-import { PIECES, type Bouton } from '../src/pieces';
+import { ECRANS, type Bouton } from '../src/ecran';
 
 /** Contexte « rien de particulier » : aucun mode, aucun modulateur. Chaque test ne modifie que
  *  le champ qu'il exerce, pour qu'un échec désigne sans ambiguïté la règle fautive. */
@@ -294,18 +294,18 @@ describe('ordreCommandes', () => {
 /** Tâche 19 (2026-08-03) : la cuisine et le bureau passent de deux à quatre commandes déclarées.
  *  `ordreCommandes` coupe à `combien(mode)` APRÈS avoir remonté certains libellés : le risque
  *  n'est donc pas la tuile ajoutée, c'est celle qui pourrait tomber hors coupe à cause d'elle,
- *  dans les modes à deux commandes. Exercé sur les VRAIES déclarations (`PIECES`) et non sur un
+ *  dans les modes à deux commandes. Exercé sur les VRAIES déclarations (`ECRANS`) et non sur un
  *  tableau de laboratoire : c'est le contenu réel de `pieces.ts` qui décide ici. */
 describe('ordreCommandes — cuisine et bureau à quatre commandes (tâche 19)', () => {
   const noms = (b: Bouton[]) => b.map((x) => x.libelle);
 
   it('cuisine, mode courant : les quatre déclarées, dans leur ordre', () => {
-    expect(noms(ordreCommandes(PIECES.cuisine.commandes, CALME)))
+    expect(noms(ordreCommandes(ECRANS.cuisine.commandes, CALME)))
       .toEqual(['Hotte', 'Rideau', 'Courses', 'Recette']);
   });
 
   it('bureau, mode courant : les quatre déclarées, dans leur ordre', () => {
-    expect(noms(ordreCommandes(PIECES.bureau.commandes, CALME)))
+    expect(noms(ordreCommandes(ECRANS.bureau.commandes, CALME)))
       .toEqual(['Chauffage', 'Chambre', 'Ventilateur', 'Velux']);
   });
 
@@ -313,7 +313,7 @@ describe('ordreCommandes — cuisine et bureau à quatre commandes (tâche 19)',
   // « Chauffage », déclaré en tête au bureau. Il reste donc premier, et « Chambre » garde la
   // seconde place — les deux nouvelles cèdent la place, exactement comme avant cette tâche.
   it('bureau, mode média : Chauffage puis Chambre — résultat identique à avant la tâche 19', () => {
-    expect(noms(ordreCommandes(PIECES.bureau.commandes, { ...CALME, sourceJoue: true })))
+    expect(noms(ordreCommandes(ECRANS.bureau.commandes, { ...CALME, sourceJoue: true })))
       .toEqual(['Chauffage', 'Chambre']);
   });
 
@@ -323,7 +323,7 @@ describe('ordreCommandes — cuisine et bureau à quatre commandes (tâche 19)',
   // Recette restent à un appui : la ligne de synthèse ouvre la vue Tâches, et le bloc central du
   // mode média n'a de toute façon pas la place pour quatre tuiles.
   it('cuisine, mode média : les deux premières déclarées, Hotte et Rideau', () => {
-    expect(noms(ordreCommandes(PIECES.cuisine.commandes, { ...CALME, sourceJoue: true })))
+    expect(noms(ordreCommandes(ECRANS.cuisine.commandes, { ...CALME, sourceJoue: true })))
       .toEqual(['Hotte', 'Rideau']);
   });
 
@@ -332,8 +332,8 @@ describe('ordreCommandes — cuisine et bureau à quatre commandes (tâche 19)',
   it('bureau : ni la chaleur ni la serrure ne délogent rien, aucun des deux libellés n\'y figure', () => {
     for (const c of [{ ...CALME, temperatureExterieure: 35 },
                      { ...CALME, serrureDeverrouillee: true }]) {
-      expect(noms(ordreCommandes(PIECES.bureau.commandes, c)))
-        .toEqual(noms(PIECES.bureau.commandes));
+      expect(noms(ordreCommandes(ECRANS.bureau.commandes, c)))
+        .toEqual(noms(ECRANS.bureau.commandes));
     }
   });
 
@@ -343,19 +343,19 @@ describe('ordreCommandes — cuisine et bureau à quatre commandes (tâche 19)',
   // devient la consigne, comme au salon, et aucune tuile ne tombe : quatre déclarées, quatre
   // places.
   it('cuisine, chaleur : le rideau passe premier et devient la consigne « Fermer »', () => {
-    expect(noms(ordreCommandes(PIECES.cuisine.commandes, { ...CALME, temperatureExterieure: 35 })))
+    expect(noms(ordreCommandes(ECRANS.cuisine.commandes, { ...CALME, temperatureExterieure: 35 })))
       .toEqual(['Fermer', 'Hotte', 'Courses', 'Recette']);
   });
 
   it('cuisine : la serrure déverrouillée n\'y déloge rien, « Porte » n\'y est pas déclarée', () => {
-    expect(noms(ordreCommandes(PIECES.cuisine.commandes, { ...CALME, serrureDeverrouillee: true })))
-      .toEqual(noms(PIECES.cuisine.commandes));
+    expect(noms(ordreCommandes(ECRANS.cuisine.commandes, { ...CALME, serrureDeverrouillee: true })))
+      .toEqual(noms(ECRANS.cuisine.commandes));
   });
 
   // Le mode `minuteur` (cuisine) ne rend AUCUNE commande : la rangée entière disparaît, quatre
   // déclarées ou deux. Sa hauteur ne doit donc pas bouger d'un pixel avec cette tâche.
   it('le mode minuteur ne rend toujours aucune commande, quel que soit le nombre déclaré', () => {
-    expect(ordreCommandes(PIECES.cuisine.commandes, ctx({ minuteurEnCours: true }))).toEqual([]);
+    expect(ordreCommandes(ECRANS.cuisine.commandes, ctx({ minuteurEnCours: true }))).toEqual([]);
   });
 });
 
@@ -363,11 +363,11 @@ describe('ordreCommandes — cuisine et bureau à quatre commandes (tâche 19)',
  *  le temps, à part la nuit » sur la tablette salon. La nuit n'a rien à exercer ici — l'écran de
  *  nuit ne rend aucune commande, `rendreNuit` ne consulte même pas `ordreCommandes` — donc les
  *  tests portent sur les modes du jour, ceux qui coupaient la porte hors de la vue.
- *  Exercé sur les VRAIES déclarations (`PIECES.salon`) : c'est `pieces.ts` qui décide quelle
+ *  Exercé sur les VRAIES déclarations (`ECRANS.salon`) : c'est `pieces.ts` qui décide quelle
  *  commande est épinglée, ce fichier ne fait que vérifier la conséquence. */
 describe('ordreCommandes — commande épinglée (salon, 2026-08-04)', () => {
   const noms = (b: Bouton[]) => b.map((x) => x.libelle);
-  const salon = PIECES.salon.commandes;
+  const salon = ECRANS.salon.commandes;
   /** Le contexte tel que `demarrage.ts` le construit VRAIMENT pour cette pièce : elle ne déclare
    *  plus aucune ambiance depuis le 2026-08-29, donc `rangeeAmbiance: false`. Exercer le salon
    *  avec `CALME` (rangée présente) décrirait une pièce qui n'existe pas. */
@@ -470,7 +470,7 @@ describe('ordreCommandes — commande épinglée (salon, 2026-08-04)', () => {
   });
 
   it('aucune commande épinglée en cuisine ni au bureau : leur ordre ne bouge pas', () => {
-    for (const piece of [PIECES.cuisine, PIECES.bureau]) {
+    for (const piece of [ECRANS.cuisine, ECRANS.bureau]) {
       expect(piece.commandes.some((b) => b.epingle)).toBe(false);
       expect(noms(ordreCommandes(piece.commandes, ctx({ sourceJoue: true })))).toHaveLength(2);
     }

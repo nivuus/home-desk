@@ -7,7 +7,7 @@ import { Connexion, lireJetons, delaiReconnexion, type Jetons, type EvenementEta
 import { intervalFnParDefaut, minuteurFnParDefaut } from './minuteurs';
 import { Etat } from './etat';
 import { momentDuJour, alerteActive, type Moment } from './contexte';
-import type { Piece } from './pieces';
+import type { Ecran } from './ecran';
 import { rendreBandeau } from './rendu/bandeau';
 import { rendreCorps, brancherAppui, brancherGeste, rendreAlerte, rendreHorsLigne } from './rendu/corps';
 import { rendreNuit } from './rendu/nuit';
@@ -181,7 +181,7 @@ function erreurDemarrage(): TemplateResult {
  *  (« si ça persiste, reconnecte-toi »). Le compteur d'essais est remis à zéro dès qu'une
  *  tentative réussit, pour qu'une coupure ultérieure reparte d'un délai court. */
 export async function demarrer(
-  racine: HTMLElement, piece: Piece, deps: Partial<DependancesDemarrage> = {},
+  racine: HTMLElement, piece: Ecran, deps: Partial<DependancesDemarrage> = {},
 ): Promise<void> {
   // Tâche 20 : les jetons de couleur (`--md-*`, `jetons.css`) et le mode jour/nuit (classe
   // `.sombre`) sont scopés à `.m3`, posée statiquement sur `racine` (`#app`) par le HTML de

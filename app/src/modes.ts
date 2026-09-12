@@ -11,7 +11,7 @@
  *
  *  Fonctions pures : aucune lecture d'`Etat` ici, seulement le contexte déjà réduit à des valeurs
  *  simples par l'appelant (`demarrage.ts`). C'est ce qui les rend testables sans navigateur. */
-import type { Bouton } from './pieces';
+import type { Bouton } from './ecran';
 
 export type ModePrincipal =
   'alerte' | 'recette' | 'minuteur' | 'menage' | 'cinema' | 'media' | 'aeration' | 'voiture' | 'defaut';
@@ -37,7 +37,7 @@ export type ContexteModes = {
    *  sauf l'alerte : le mode `minuteur` n'affiche AUCUNE commande (630 px mesurés), donc sans cette
    *  préséance, lancer un minuteur ferait disparaître le seul point de reprise de la recette. */
   recetteEnCours: boolean;
-  /** Tâche 14 (2026-08-03) : reprend tel quel `Piece.blocDefaut` (`pieces.ts`) — UNE SEULE façon
+  /** Tâche 14 (2026-08-03) : reprend tel quel `Ecran.blocDefaut` (`pieces.ts`) — UNE SEULE façon
    *  de déclarer quel bloc central occupe la pièce par défaut, remplace l'ancien
    *  `voitureDeclaree: boolean` (qui déduisait ce fait de la simple présence de `piece.voiture`,
    *  un mécanisme que le repas/l'agenda n'auraient pas pu réutiliser sans en écrire un second en

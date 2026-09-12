@@ -1,7 +1,7 @@
 import { html, type TemplateResult } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 import type { Etat } from '../etat';
-import type { Piece, Bouton, EntreeSynthese } from '../pieces';
+import type { Ecran, Bouton, EntreeSynthese } from '../ecran';
 import type { Alerte } from '../contexte';
 import { icone } from './icones';
 import { ENTITE_ENTRETIEN } from './defaut';
@@ -322,7 +322,7 @@ let geste: (ev: PointerEvent, entite: string, surBascule: () => void) => void =
 export function brancherGeste(fn: typeof geste) { geste = fn; }
 
 export function rendreCorps(
-  etat: Etat, piece: Piece,
+  etat: Etat, piece: Ecran,
   // Renommé depuis `enTete` (tâche 9, 2026-08-02) : ce bloc n'a jamais été un en-tête, c'est le
   // bloc CENTRAL de l'écran, celui que le mode principal occupe. Fourni par `demarrage.ts`, qui
   // seul connaît le mode — `rendreCorps` reste une fonction de présentation.

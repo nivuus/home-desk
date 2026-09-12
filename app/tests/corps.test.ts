@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { render, html } from 'lit';
 import { Etat } from '../src/etat';
-import { PIECES, type EntreeSynthese } from '../src/pieces';
+import { ECRANS, type EntreeSynthese } from '../src/ecran';
 import { rendreCorps, ligneSynthese, rendreAlerte, etiquette } from '../src/rendu/corps';
 import { rendreMaison } from '../src/rendu/maison';
 import type { Alerte } from '../src/contexte';
@@ -21,7 +21,7 @@ import type { ContexteModes } from '../src/modes';
 const ev = (id: string, etat: string, attributes: Record<string, unknown> = {}) =>
   ({ entity_id: id, state: etat, attributes });
 
-/** État où les cinq commandes déclarées au salon (`PIECES.salon.commandes`, cf. `pieces.ts`) sont
+/** État où les cinq commandes déclarées au salon (`ECRANS.salon.commandes`, cf. `pieces.ts`) sont
  *  toutes utilisables — sert les tests de rangée de commandes (tâche 9) ci-dessous, qui ont
  *  besoin des cinq pour distinguer un filtrage par `ordreCommandes` (`modes.ts`) d'un simple
  *  manque de données (`Etat.estUtilisable`). */
@@ -101,7 +101,7 @@ describe('smoke rendreCorps', () => {
     etat.appliquer(ev('climate.radiateur', 'heat'));
     etat.appliquer(ev('light.lumiere_salon', 'off'));
     const div = document.createElement('div');
-    render(rendreCorps(etat, PIECES.salon), div);
+    render(rendreCorps(etat, ECRANS.salon), div);
     const commandes = Array.from(div.querySelectorAll('.commande'));
     expect(commandes).toHaveLength(2);
     const chauffage = commandes.find((c) => c.textContent?.includes('Chauffage'))!;
@@ -116,7 +116,7 @@ describe('smoke rendreCorps', () => {
     etat.appliquer(ev('climate.radiateur', 'off'));
     etat.appliquer(ev('light.lumiere_salon', 'on'));
     const div = document.createElement('div');
-    render(rendreCorps(etat, PIECES.salon), div);
+    render(rendreCorps(etat, ECRANS.salon), div);
     const commandes = Array.from(div.querySelectorAll('.commande'));
     const chauffage = commandes.find((c) => c.textContent?.includes('Chauffage'))!;
     expect(chauffage.className).not.toContain('actif');
@@ -129,7 +129,7 @@ describe('smoke rendreCorps', () => {
     etat.appliquer(ev('light.lumiere_salon', 'on'));
     const div = document.createElement('div');
     expect(() => render(
-      rendreCorps(etat, PIECES.salon), div,
+      rendreCorps(etat, ECRANS.salon), div,
     )).not.toThrow();
     const commandes = Array.from(div.querySelectorAll('.commande'));
     expect(commandes).toHaveLength(1);   // seule light.lumiere_salon reste
@@ -150,7 +150,7 @@ describe('smoke rendreCorps', () => {
     const etat = new Etat();
     etat.appliquer(ev('light.lumiere_salon', 'on'));
     const div = document.createElement('div');
-    render(rendreCorps(etat, PIECES.salon), div);
+    render(rendreCorps(etat, ECRANS.salon), div);
     const tuile = div.querySelector('.commande[data-mvt^="tuile:"]') as HTMLElement;
     expect(tuile).not.toBeNull();
     expect(tuile.dataset.mvtEtat).toBeUndefined();
@@ -158,7 +158,7 @@ describe('smoke rendreCorps', () => {
 
   it('ligneSynthese reste permanente (texte non vide) même sans aucune entité', () => {
     const etat = new Etat();
-    const s = ligneSynthese(etat, PIECES.salon.synthese);
+    const s = ligneSynthese(etat, ECRANS.salon.synthese);
     expect(s.texte.length).toBeGreaterThan(0);
     expect(s.ecarts).toEqual([]);
   });
@@ -169,7 +169,7 @@ describe('smoke rendreCorps', () => {
     etat.appliquer(ev('cover.rideau_salon', 'open'));
     etat.appliquer(ev('sensor.peugeot_e208_batterie_niveau', '12'));
     etat.appliquer(ev('todo.maintenance', '2'));
-    const s = ligneSynthese(etat, PIECES.salon.synthese);
+    const s = ligneSynthese(etat, ECRANS.salon.synthese);
     expect(s.ecarts).toContain('porte déverrouillée');
     expect(s.ecarts).toContain('rideau ouvert');
     expect(s.ecarts).toContain('voiture à brancher');
@@ -180,7 +180,7 @@ describe('smoke rendreCorps', () => {
   it('bureau : l air pollue produit son propre ecart (ronde 1 : etait silencieux)', () => {
     const etat = new Etat();
     etat.appliquer(ev('sensor.purificateur_air_pm2_5', '42'));
-    const s = ligneSynthese(etat, PIECES.bureau.synthese);
+    const s = ligneSynthese(etat, ECRANS.bureau.synthese);
     expect(s.ecarts).toContain('air à surveiller au-delà de 35 µg/m³ de particules fines');
   });
 
@@ -192,7 +192,7 @@ describe('smoke rendreCorps', () => {
     const etat = new Etat();
     etat.appliquer(ev('todo.travail', '4'));
     etat.appliquer(ev('todo.maintenance', '3'));
-    const s = ligneSynthese(etat, PIECES.bureau.synthese);
+    const s = ligneSynthese(etat, ECRANS.bureau.synthese);
     expect(s.ecarts).toContain('4 tâches de travail');
     expect(s.ecarts).toContain('3 tâches d\'entretien');
   });
@@ -200,12 +200,12 @@ describe('smoke rendreCorps', () => {
   it('le marqueur {s} accorde correctement le singulier et le pluriel', () => {
     const singulier = new Etat();
     singulier.appliquer(ev('todo.maintenance', '1'));
-    expect(ligneSynthese(singulier, PIECES.salon.synthese).ecarts).toContain('1 tâche d\'entretien');
-    expect(ligneSynthese(singulier, PIECES.salon.synthese).ecarts).not.toContain('1 tâches d\'entretien');
+    expect(ligneSynthese(singulier, ECRANS.salon.synthese).ecarts).toContain('1 tâche d\'entretien');
+    expect(ligneSynthese(singulier, ECRANS.salon.synthese).ecarts).not.toContain('1 tâches d\'entretien');
 
     const pluriel = new Etat();
     pluriel.appliquer(ev('todo.maintenance', '4'));
-    expect(ligneSynthese(pluriel, PIECES.salon.synthese).ecarts).toContain('4 tâches d\'entretien');
+    expect(ligneSynthese(pluriel, ECRANS.salon.synthese).ecarts).toContain('4 tâches d\'entretien');
   });
 
   // Tâche 17 : quand le bloc central affiche le DÉTAIL des tâches d'entretien (`rendreEntretien`,
@@ -218,7 +218,7 @@ describe('smoke rendreCorps', () => {
     etat.appliquer(ev('todo.travail', '4'));
     etat.appliquer(ev('todo.maintenance', '3'));
     const div = document.createElement('div');
-    render(rendreCorps(etat, PIECES.bureau, undefined, undefined, undefined, true), div);
+    render(rendreCorps(etat, ECRANS.bureau, undefined, undefined, undefined, true), div);
     const ecart = div.querySelector('.synthese .ecart')!.textContent!;
     expect(ecart).not.toContain('entretien');
     // Contre-épreuve dans le même rendu : le masquage ne coupe pas plus large que sa donnée —
@@ -230,7 +230,7 @@ describe('smoke rendreCorps', () => {
     const etat = new Etat();
     etat.appliquer(ev('todo.maintenance', '3'));
     const div = document.createElement('div');
-    render(rendreCorps(etat, PIECES.bureau), div);
+    render(rendreCorps(etat, ECRANS.bureau), div);
     expect(div.querySelector('.synthese .ecart')!.textContent).toContain('3 tâches d\'entretien');
   });
 
@@ -238,7 +238,7 @@ describe('smoke rendreCorps', () => {
     const etat = new Etat();
     etat.appliquer(ev('binary_sensor.distributeur_de_croquettes_alimentation', 'on'));
     etat.appliquer(ev('binary_sensor.eversweet_3_pro_uvc_niveau_d_eau', 'on'));
-    const s = ligneSynthese(etat, PIECES.cuisine.synthese);
+    const s = ligneSynthese(etat, ECRANS.cuisine.synthese);
     expect(s.ecarts).toContain('distributeur en défaut');
     expect(s.ecarts).toContain('fontaine à remplir');
     expect(s.ecarts).not.toContain('ouvert');
@@ -253,7 +253,7 @@ describe('smoke rendreCorps', () => {
     const etat = new Etat();
     etat.appliquer(ev('lock.aqara_smart_lock_u200_lite', 'unlocked'));   // écart affiché n'est pas une tâche
     const div = document.createElement('div');
-    render(rendreCorps(etat, PIECES.salon), div);
+    render(rendreCorps(etat, ECRANS.salon), div);
 
     div.querySelector('.synthese')!.dispatchEvent(new Event('pointerdown', { bubbles: true }));
 
@@ -269,7 +269,7 @@ describe('smoke rendreCorps', () => {
   // *oubliée* dans `ligneSynthese` ne peut plus exister, puisque la fonction n'a plus de liste
   // de domaines à jour à oublier.
   it('aucune entree declaree dans synthese, sur aucune piece, ne reste muette', () => {
-    for (const piece of Object.values(PIECES)) {
+    for (const piece of Object.values(ECRANS)) {
       for (const entree of piece.synthese) {
         const etat = new Etat();
         const etatDeclencheur = declencheur(entree);
@@ -318,7 +318,7 @@ describe('smoke rendreCorps', () => {
   // `rendreCorps` ne calcule plus aucun bloc central par défaut lui-même (cf. son docstring), donc
   // ce test n'a plus de prévisions à fournir ni à compter ; l'absence de `.demain` reste vérifiée.
   it('rend le corps complet des 3 pieces sans exception, sans blocCentral', () => {
-    for (const piece of Object.values(PIECES)) {
+    for (const piece of Object.values(ECRANS)) {
       const etat = new Etat();
       const div = document.createElement('div');
       expect(() => render(rendreCorps(etat, piece), div)).not.toThrow();
@@ -369,7 +369,7 @@ describe('rendreAlerte / blocCentral (tâche 8 bis)', () => {
   it('sans blocCentral, rendreCorps ne rend rien au centre (l\'écran se resserre)', () => {
     const etat = new Etat();
     const div = document.createElement('div');
-    render(rendreCorps(etat, PIECES.salon), div);
+    render(rendreCorps(etat, ECRANS.salon), div);
     expect(div.querySelector('.prevision')).toBeNull();
     expect(div.querySelector('.mode-bloc')).toBeNull();
     expect(div.querySelector('.alerte')).toBeNull();
@@ -380,7 +380,7 @@ describe('rendreAlerte / blocCentral (tâche 8 bis)', () => {
   it('blocCentral REMPLACE tout bloc par défaut, jamais les deux à la fois (règle 6 du brief : hauteur d écran inchangée)', () => {
     const etat = new Etat();
     const div = document.createElement('div');
-    render(rendreCorps(etat, PIECES.salon, rendreAlerte(alerte)), div);
+    render(rendreCorps(etat, ECRANS.salon, rendreAlerte(alerte)), div);
     expect(div.querySelector('.alerte')).not.toBeNull();
     expect(div.querySelector('.prevision')).toBeNull();
     // Un seul bloc de tête, jamais deux empilés (ce qui ferait déborder l'écran de 585px).
@@ -470,12 +470,12 @@ describe('rendreAlerte / blocCentral (tâche 8 bis)', () => {
   // La commande cuisine ouvre la sous-vue interne `#recette` (navigation par vue) — la page
   // autonome ne concerne plus que le scanner (`extrasMaison`), qui vise le panneau `home_stock`.
   it('la cuisine donne accès aux recettes par la vue interne de la commande Recette', () => {
-    const recette = PIECES.cuisine.commandes.find((c) => c.libelle === 'Recette');
+    const recette = ECRANS.cuisine.commandes.find((c) => c.libelle === 'Recette');
     expect(recette?.vue).toBe('#recette');
     expect(recette?.lien).toBeUndefined();
     // Masquée par le filtre générique si `home_stock` n'est pas chargé.
     expect(recette?.entite).toBe('sensor.home_stock_next_meal');
-    const courses = PIECES.cuisine.commandes.find((c) => c.libelle === 'Courses');
+    const courses = ECRANS.cuisine.commandes.find((c) => c.libelle === 'Courses');
     expect(courses?.lien).toBeUndefined();   // Courses navigue en interne, ce n'est pas un lien
   });
 
@@ -488,7 +488,7 @@ describe('rendreAlerte / blocCentral (tâche 8 bis)', () => {
     const etat = new Etat();
     etat.appliquer({ entity_id: 'sensor.home_stock_next_meal', state: '1', attributes: {} });
     const hote = document.createElement('div');
-    render(rendreCorps(etat, PIECES.cuisine, undefined, undefined, undefined, false, false), hote);
+    render(rendreCorps(etat, ECRANS.cuisine, undefined, undefined, undefined, false, false), hote);
     const libelles = Array.from(hote.querySelectorAll('.commande .t')).map((e) => e.textContent);
     expect(libelles).not.toContain('Recette');
   });
@@ -497,16 +497,16 @@ describe('rendreAlerte / blocCentral (tâche 8 bis)', () => {
     const etat = new Etat();
     etat.appliquer({ entity_id: 'sensor.home_stock_next_meal', state: '1', attributes: {} });
     const hote = document.createElement('div');
-    render(rendreCorps(etat, PIECES.cuisine, undefined, undefined, undefined, false, true), hote);
+    render(rendreCorps(etat, ECRANS.cuisine, undefined, undefined, undefined, false, true), hote);
     const libelles = Array.from(hote.querySelectorAll('.commande .t')).map((e) => e.textContent);
     expect(libelles).toContain('Recette');
   });
 
   it('le scanner (extra propre a la cuisine) pointe vers le panneau home_stock', () => {
-    const scanner = PIECES.cuisine.extrasMaison.find((b) => b.libelle === 'Scanner');
+    const scanner = ECRANS.cuisine.extrasMaison.find((b) => b.libelle === 'Scanner');
     expect(scanner?.lien).toBe('/home-stock');
-    expect(PIECES.salon.extrasMaison).toEqual([]);
-    expect(PIECES.bureau.extrasMaison).toEqual([]);
+    expect(ECRANS.salon.extrasMaison).toEqual([]);
+    expect(ECRANS.bureau.extrasMaison).toEqual([]);
   });
 });
 
@@ -519,7 +519,7 @@ describe('jauges a glissement — rendu (tache 13)', () => {
     const etat = new Etat();
     etat.appliquer(ev('light.lumiere_salon', 'on', { brightness: 128, supported_color_modes: ['hs'] }));
     const div = document.createElement('div');
-    render(rendreCorps(etat, PIECES.salon), div);
+    render(rendreCorps(etat, ECRANS.salon), div);
     const lumieres = Array.from(div.querySelectorAll('.commande'))
       .find((c) => c.textContent?.includes('Lumières'))!;
     expect(lumieres.className).toContain('jauge');
@@ -535,7 +535,7 @@ describe('jauges a glissement — rendu (tache 13)', () => {
     etat.appliquer(ev('climate.radiateur', 'heat', { temperature: 21 }));
     etat.appliquer(ev('light.lumiere_salon', 'off', { supported_color_modes: ['hs'] }));
     const div = document.createElement('div');
-    render(rendreCorps(etat, PIECES.salon), div);
+    render(rendreCorps(etat, ECRANS.salon), div);
     const chauffage = Array.from(div.querySelectorAll('.commande'))
       .find((c) => c.textContent?.includes('Chauffage'))!;
     expect(chauffage.className).toContain('jauge');
@@ -547,7 +547,7 @@ describe('jauges a glissement — rendu (tache 13)', () => {
     const etat = new Etat();
     etat.appliquer(ev('climate.radiateur', 'heat', {}));   // pas de `temperature`
     const div = document.createElement('div');
-    render(rendreCorps(etat, PIECES.salon), div);
+    render(rendreCorps(etat, ECRANS.salon), div);
     const chauffage = Array.from(div.querySelectorAll('.commande'))
       .find((c) => c.textContent?.includes('Chauffage'))!;
     expect(chauffage.className).not.toContain('jauge');
@@ -563,7 +563,7 @@ describe('jauges a glissement — rendu (tache 13)', () => {
     const etat = new Etat();
     etat.appliquer(ev('climate.radiateur', 'off', { temperature: 21 }));
     const div = document.createElement('div');
-    render(rendreCorps(etat, PIECES.salon), div);
+    render(rendreCorps(etat, ECRANS.salon), div);
     const chauffage = Array.from(div.querySelectorAll('.commande'))
       .find((c) => c.textContent?.includes('Chauffage'))!;
     // La classe reste : la tuile est toujours réglable au doigt même à l'arrêt (`descripteurJauge`
@@ -576,7 +576,7 @@ describe('jauges a glissement — rendu (tache 13)', () => {
     const etat = new Etat();
     etat.appliquer(ev('climate.radiateur', 'heat', { temperature: 21 }));
     const div = document.createElement('div');
-    render(rendreCorps(etat, PIECES.salon), div);
+    render(rendreCorps(etat, ECRANS.salon), div);
     const chauffage = Array.from(div.querySelectorAll('.commande'))
       .find((c) => c.textContent?.includes('Chauffage'))!;
     const style = chauffage.getAttribute('style') ?? '';
@@ -628,7 +628,7 @@ describe('etiquette des commandes serrure et rideau — francais partout, jamais
     const etat = new Etat();
     etat.appliquer(ev(entite, etatBrut, attributs ?? {}));
     const div = document.createElement('div');
-    render(rendreCorps(etat, PIECES.salon), div);
+    render(rendreCorps(etat, ECRANS.salon), div);
     const libelleCible = entite.startsWith('lock.') ? 'Porte' : 'Rideau';
     const tuile = Array.from(div.querySelectorAll('.commande'))
       .find((c) => c.querySelector('.t')?.textContent === libelleCible)!;
@@ -644,7 +644,7 @@ describe('etiquette des commandes serrure et rideau — francais partout, jamais
     etat.appliquer(ev('lock.aqara_smart_lock_u200_lite', 'locked'));
     etat.appliquer(ev('cover.rideau_salon', 'closed'));
     const div = document.createElement('div');
-    render(rendreCorps(etat, PIECES.salon), div);
+    render(rendreCorps(etat, ECRANS.salon), div);
     const texte = div.textContent ?? '';
     for (const motAnglais of ['locked', 'unlocked', 'locking', 'unlocking', 'jammed',
                                'closed', 'opening', 'closing']) {
@@ -660,7 +660,7 @@ describe('etiquette des commandes serrure et rideau — francais partout, jamais
 describe('rangées de commandes selon le mode', () => {
   it('affiche quatre commandes en mode courant', () => {
     const etat = etatSalonComplet();     // fabrique déjà présente dans ce fichier
-    render(rendreCorps(etat, PIECES.salon, undefined, CTX_SALON), hote);
+    render(rendreCorps(etat, ECRANS.salon, undefined, CTX_SALON), hote);
     expect(hote.querySelectorAll('.commande').length).toBe(4);
   });
 
@@ -670,7 +670,7 @@ describe('rangées de commandes selon le mode', () => {
   // règle reste couverte des deux côtés.
   it('garde quatre commandes en mode média, la rangée Ambiance ayant payé la seconde', () => {
     const etat = etatSalonComplet();
-    render(rendreCorps(etat, PIECES.salon, undefined,
+    render(rendreCorps(etat, ECRANS.salon, undefined,
                        { ...CTX_SALON, sourceJoue: true }), hote);
     expect(hote.querySelectorAll('.commande').length).toBe(4);
   });
@@ -683,21 +683,21 @@ describe('rangées de commandes selon le mode', () => {
       ['todo.home_stock_shopping', '5', {}],
       ['sensor.home_stock_next_meal', '2', {}],
     ] as const) etat.appliquer(ev(id, v, attrs));
-    render(rendreCorps(etat, PIECES.cuisine, undefined,
+    render(rendreCorps(etat, ECRANS.cuisine, undefined,
                        { ...CTX_CALME, sourceJoue: true }), hote);
     expect(hote.querySelectorAll('.commande').length).toBe(2);
   });
 
   it('n\'affiche jamais Ambilight hors du mode cinéma', () => {
     const etat = etatSalonComplet();
-    render(rendreCorps(etat, PIECES.salon, undefined, CTX_SALON), hote);
+    render(rendreCorps(etat, ECRANS.salon, undefined, CTX_SALON), hote);
     const libelles = Array.from(hote.querySelectorAll('.commande .t')).map((e) => e.textContent);
     expect(libelles).not.toContain('Ambilight');
   });
 
   it('affiche Ambilight en mode cinéma, sans déloger la Porte ni le Rideau', () => {
     const etat = etatSalonComplet();
-    render(rendreCorps(etat, PIECES.salon, undefined,
+    render(rendreCorps(etat, ECRANS.salon, undefined,
                        { ...CTX_SALON, ecranAllume: true }), hote);
     const libelles = Array.from(hote.querySelectorAll('.commande .t')).map((e) => e.textContent);
     expect(libelles).toEqual(['Ambilight', 'Lumières', 'Porte', 'Rideau']);
@@ -717,7 +717,7 @@ describe('rangées de commandes selon le mode', () => {
     ] as const;
     for (const [nom, ctx] of modes) {
       const etat = etatSalonComplet();
-      render(rendreCorps(etat, PIECES.salon, undefined, ctx), hote);
+      render(rendreCorps(etat, ECRANS.salon, undefined, ctx), hote);
       const libelles = Array.from(hote.querySelectorAll('.commande .t')).map((e) => e.textContent);
       expect(libelles, nom).toContain('Porte');
       // Sous chaleur, la même tuile s'appelle « Fermer » : c'est la consigne du jour, pas un objet.
@@ -730,14 +730,14 @@ describe('rangées de commandes selon le mode', () => {
 
   it('rend le bloc central fourni, jamais de bloc .prevision (disparu à la tâche 14)', () => {
     const etat = etatSalonComplet();
-    render(rendreCorps(etat, PIECES.salon, html`<div class="faux-bloc"></div>`, CTX_CALME), hote);
+    render(rendreCorps(etat, ECRANS.salon, html`<div class="faux-bloc"></div>`, CTX_CALME), hote);
     expect(hote.querySelector('.prevision')).toBeNull();
     expect(hote.querySelector('.faux-bloc')).not.toBeNull();
   });
 
   it('sans contexte, garde le comportement d\'avant : toutes les commandes utilisables', () => {
     const etat = etatSalonComplet();
-    render(rendreCorps(etat, PIECES.salon), hote);
+    render(rendreCorps(etat, ECRANS.salon), hote);
     expect(hote.querySelectorAll('.commande').length).toBe(5);
   });
 
@@ -746,7 +746,7 @@ describe('rangées de commandes selon le mode', () => {
     etat.appliquer({ entity_id: 'lock.aqara_smart_lock_u200_lite', state: 'unlocked', attributes: {} });
     etat.appliquer({ entity_id: 'sensor.peugeot_e208_batterie_niveau', state: '21', attributes: {} });
     etat.appliquer({ entity_id: 'todo.maintenance', state: '4', attributes: {} });
-    render(rendreCorps(etat, PIECES.salon, undefined,
+    render(rendreCorps(etat, ECRANS.salon, undefined,
                        { ...CTX_CALME, modeInvites: true }), hote);
     const ecart = hote.querySelector('.synthese .ecart')!.textContent!;
     expect(ecart).toContain('porte déverrouillée');
@@ -757,7 +757,7 @@ describe('rangées de commandes selon le mode', () => {
   it('sans le mode invités, tous les écarts sont affichés', () => {
     const etat = etatSalonComplet();
     etat.appliquer({ entity_id: 'sensor.peugeot_e208_batterie_niveau', state: '21', attributes: {} });
-    render(rendreCorps(etat, PIECES.salon, undefined, CTX_CALME), hote);
+    render(rendreCorps(etat, ECRANS.salon, undefined, CTX_CALME), hote);
     expect(hote.querySelector('.synthese .ecart')!.textContent).toContain('voiture');
   });
 });
@@ -778,7 +778,7 @@ describe('marques de mouvement (tâche 7)', () => {
   // sa place d'ancien voisin de flex (cf. le commentaire au-dessus de `.commandes`, `corps.ts`).
   it('le conteneur des commandes porte une marque de ligne, jamais de bloc', () => {
     const div = document.createElement('div');
-    render(rendreCorps(etatSalonComplet(), PIECES.salon), div);
+    render(rendreCorps(etatSalonComplet(), ECRANS.salon), div);
     expect(div.querySelector('.commandes')?.getAttribute('data-mvt')).toBe('ligne:commandes');
   });
 
@@ -786,11 +786,11 @@ describe('marques de mouvement (tâche 7)', () => {
   // test qui comparerait deux tableaux vides passerait toujours sans rien prouver.
   it('chaque tuile d\'ambiance est marquée par l\'entité de sa scène, pas par son rang', () => {
     const div = document.createElement('div');
-    render(rendreCorps(new Etat(), PIECES.cuisine), div);
+    render(rendreCorps(new Etat(), ECRANS.cuisine), div);
     const tuiles = Array.from(div.querySelectorAll('.groupe > .ambiance'));
     expect(tuiles).not.toHaveLength(0);
     expect(tuiles.map((t) => t.getAttribute('data-mvt'))).toEqual(
-      PIECES.cuisine.ambiances.map((a) => `tuile:amb-${a.entite}`),
+      ECRANS.cuisine.ambiances.map((a) => `tuile:amb-${a.entite}`),
     );
   });
 
@@ -801,7 +801,7 @@ describe('marques de mouvement (tâche 7)', () => {
   it('l\'étiquette d\'état d\'une tuile de commande ne porte plus de marque de détail (marque morte retirée)',
     () => {
       const div = document.createElement('div');
-      render(rendreCorps(etatSalonComplet(), PIECES.salon), div);
+      render(rendreCorps(etatSalonComplet(), ECRANS.salon), div);
       const chauffage = Array.from(div.querySelectorAll('.commande'))
         .find((c) => c.textContent?.includes('Chauffage'))!;
       expect(chauffage.querySelector('.s')?.hasAttribute('data-mvt')).toBe(false);
@@ -817,7 +817,7 @@ describe('marques de mouvement (tâche 7)', () => {
 describe('rangée Ambiance — absente quand la pièce n\'en déclare aucune', () => {
   it('ni étiquette ni groupe pour le salon', () => {
     const div = document.createElement('div');
-    render(rendreCorps(etatSalonComplet(), PIECES.salon), div);
+    render(rendreCorps(etatSalonComplet(), ECRANS.salon), div);
     expect(div.querySelector('.groupe')).toBeNull();
     expect(Array.from(div.querySelectorAll('.etiquette')).map((e) => e.textContent))
       .not.toContain('Ambiance');
@@ -825,7 +825,7 @@ describe('rangée Ambiance — absente quand la pièce n\'en déclare aucune', (
 
   it('le reste de l\'écran est intact : commandes, synthèse et « Toute la maison »', () => {
     const div = document.createElement('div');
-    render(rendreCorps(etatSalonComplet(), PIECES.salon), div);
+    render(rendreCorps(etatSalonComplet(), ECRANS.salon), div);
     expect(div.querySelector('.commandes')).not.toBeNull();
     expect(div.querySelector('.synthese')).not.toBeNull();
     expect(div.querySelector('.xl')?.textContent).toContain('Toute la maison');
@@ -838,7 +838,7 @@ describe('rangée Ambiance — absente quand la pièce n\'en déclare aucune', (
   it('une tuile minuteur seule suffit à garder la rangée', () => {
     const div = document.createElement('div');
     const tuile = html`<div class="ambiance" data-minuteur-entree>Minuteur</div>`;
-    render(rendreCorps(etatSalonComplet(), PIECES.salon, undefined, undefined, tuile), div);
+    render(rendreCorps(etatSalonComplet(), ECRANS.salon, undefined, undefined, tuile), div);
     const groupe = div.querySelector<HTMLElement>('.groupe')!;
     expect(groupe).not.toBeNull();
     expect(groupe.style.getPropertyValue('--ambiances')).toBe('1');
@@ -849,7 +849,7 @@ describe('rangée Ambiance — 4e tuile', () => {
   it('publie le nombre de tuiles pour la grille', () => {
     const etat = new Etat();
     const div = document.createElement('div');
-    render(rendreCorps(etat, PIECES.cuisine), div);
+    render(rendreCorps(etat, ECRANS.cuisine), div);
     const groupe = div.querySelector<HTMLElement>('.groupe')!;
     expect(groupe.style.getPropertyValue('--ambiances')).toBe('3');
   });
@@ -859,7 +859,7 @@ describe('rangée Ambiance — 4e tuile', () => {
     const div = document.createElement('div');
     const tuile = html`<div class="ambiance" data-minuteur-entree>Minuteur</div>`;
     render(
-      rendreCorps(etat, PIECES.cuisine, undefined, undefined, tuile),
+      rendreCorps(etat, ECRANS.cuisine, undefined, undefined, tuile),
       div,
     );
     const groupe = div.querySelector<HTMLElement>('.groupe')!;
@@ -957,9 +957,9 @@ describe('tâche 19 — étiquette, couleur et retour au doigt des nouvelles com
       .find((c) => c.querySelector('.t')?.textContent === libelle)!;
 
   it('un ventilateur dit « En marche » / « Arrêté », jamais « Allumé » (ce n\'est pas une lampe)', () => {
-    render(rendreCorps(etatBureau('on'), PIECES.bureau), hote);
+    render(rendreCorps(etatBureau('on'), ECRANS.bureau), hote);
     expect(tuile(hote, 'Ventilateur').querySelector('.s')?.textContent).toBe('En marche');
-    render(rendreCorps(etatBureau('off'), PIECES.bureau), hote);
+    render(rendreCorps(etatBureau('off'), ECRANS.bureau), hote);
     expect(tuile(hote, 'Ventilateur').querySelector('.s')?.textContent).toBe('Arrêté');
   });
 
@@ -971,7 +971,7 @@ describe('tâche 19 — étiquette, couleur et retour au doigt des nouvelles com
   // La RÈGLE elle-même (`fan.` → « En marche »/« Arrêté », décidée par domaine et non par entité)
   // n'a pas changé et reste couverte par le Ventilateur du bureau, juste au-dessus.
   it('le purificateur est passé en rangée du haut : plus d\'étiquette d\'état, par construction', () => {
-    render(rendreCorps(etatCuisine('on'), PIECES.cuisine), hote);
+    render(rendreCorps(etatCuisine('on'), ECRANS.cuisine), hote);
     expect(tuile(hote, 'Purificateur')).toBeUndefined();
     const ambiance = Array.from(hote.querySelectorAll('.ambiance'))
       .find((a) => a.textContent?.includes('Purificateur'))!;
@@ -980,9 +980,9 @@ describe('tâche 19 — étiquette, couleur et retour au doigt des nouvelles com
   });
 
   it('un ouvrant dit « Ouvert » / « Fermé », jamais « Allumé »', () => {
-    render(rendreCorps(etatBureau('on', 'on'), PIECES.bureau), hote);
+    render(rendreCorps(etatBureau('on', 'on'), ECRANS.bureau), hote);
     expect(tuile(hote, 'Velux').querySelector('.s')?.textContent).toBe('Ouvert');
-    render(rendreCorps(etatBureau('on', 'off'), PIECES.bureau), hote);
+    render(rendreCorps(etatBureau('on', 'off'), ECRANS.bureau), hote);
     expect(tuile(hote, 'Velux').querySelector('.s')?.textContent).toBe('Fermé');
   });
 
@@ -997,7 +997,7 @@ describe('tâche 19 — étiquette, couleur et retour au doigt des nouvelles com
   // anglais (`docked`, `cleaning`…) ne peut fuir sous son libellé, quel que soit l'état du robot.
   it('« Aspirer ici » n\'affiche aucun état, à sa base comme en plein nettoyage', () => {
     for (const etatVacuum of ['docked', 'cleaning', 'returning', 'error']) {
-      render(rendreCorps(etatCuisine('on', etatVacuum), PIECES.cuisine), hote);
+      render(rendreCorps(etatCuisine('on', etatVacuum), ECRANS.cuisine), hote);
       const tuileAspi = Array.from(hote.querySelectorAll('.ambiance'))
         .find((a) => a.textContent?.includes('Aspirer ici'))!;
       expect(tuileAspi, `état ${etatVacuum}`).toBeDefined();
@@ -1014,12 +1014,12 @@ describe('tâche 19 — étiquette, couleur et retour au doigt des nouvelles com
     const sousTitres = (r: HTMLElement) =>
       Array.from(r.querySelectorAll('.commande .s')).map((e) => e.textContent ?? '');
     for (const etatVacuum of ['docked', 'cleaning', 'returning', 'paused', 'idle', 'error']) {
-      render(rendreCorps(etatCuisine('on', etatVacuum), PIECES.cuisine), hote);
+      render(rendreCorps(etatCuisine('on', etatVacuum), ECRANS.cuisine), hote);
       for (const s of sousTitres(hote)) expect(bruts, `« ${s} »`).not.toContain(s);
     }
     for (const marche of ['on', 'off']) {
       for (const ouvert of ['on', 'off']) {
-        render(rendreCorps(etatBureau(marche, ouvert), PIECES.bureau), hote);
+        render(rendreCorps(etatBureau(marche, ouvert), ECRANS.bureau), hote);
         for (const s of sousTitres(hote)) expect(bruts, `« ${s} »`).not.toContain(s);
       }
     }
@@ -1029,10 +1029,10 @@ describe('tâche 19 — étiquette, couleur et retour au doigt des nouvelles com
   // purificateur en marche et un Velux ouvert restaient gris en permanence — la couleur, qui est
   // la seule information lisible de loin, mentait.
   it('un ventilateur en marche et un ouvrant ouvert sont colorés ; à l\'arrêt/fermés, non', () => {
-    render(rendreCorps(etatBureau('on', 'on'), PIECES.bureau), hote);
+    render(rendreCorps(etatBureau('on', 'on'), ECRANS.bureau), hote);
     expect(tuile(hote, 'Ventilateur').classList.contains('actif')).toBe(true);
     expect(tuile(hote, 'Velux').classList.contains('actif')).toBe(true);
-    render(rendreCorps(etatBureau('off', 'off'), PIECES.bureau), hote);
+    render(rendreCorps(etatBureau('off', 'off'), ECRANS.bureau), hote);
     expect(tuile(hote, 'Ventilateur').classList.contains('actif')).toBe(false);
     expect(tuile(hote, 'Velux').classList.contains('actif')).toBe(false);
   });
@@ -1041,7 +1041,7 @@ describe('tâche 19 — étiquette, couleur et retour au doigt des nouvelles com
   // tablettes murales, CLAUDE.md du dépôt HA : scènes et lanceurs d'aspirateur restent en couleur
   // inactive). La tuile reste grise même pendant que l'aspirateur nettoie.
   it('« Aspirer ici » n\'est jamais colorée, même pendant le nettoyage', () => {
-    render(rendreCorps(etatCuisine('on', 'cleaning'), PIECES.cuisine), hote);
+    render(rendreCorps(etatCuisine('on', 'cleaning'), ECRANS.cuisine), hote);
     const tuileAspi = Array.from(hote.querySelectorAll('.ambiance'))
       .find((a) => a.textContent?.includes('Aspirer ici'))!;
     // La rangée du haut ne porte aucun fond « actif » : la garantie est désormais structurelle
@@ -1056,14 +1056,14 @@ describe('tâche 19 — étiquette, couleur et retour au doigt des nouvelles com
   // qui compte : sans `service` lui non plus, mais réglable au GLISSEMENT (jauge `climate.`), donc
   // il agit et doit garder son accusé de réception.
   it('la tuile inerte (Velux) porte la classe inerte ; celles qui agissent, jamais', () => {
-    render(rendreCorps(etatBureau(), PIECES.bureau), hote);
+    render(rendreCorps(etatBureau(), ECRANS.bureau), hote);
     expect(tuile(hote, 'Velux').classList.contains('inerte')).toBe(true);
     expect(tuile(hote, 'Chauffage').classList.contains('inerte')).toBe(false);
     expect(tuile(hote, 'Ventilateur').classList.contains('inerte')).toBe(false);
     // Tâche 6 : la tuile « Recette » n'est rendue que si `recetteOuvrable` vaut `true` (7e
     // paramètre) — sans lui, elle est absente du DOM, pas seulement masquée, donc `tuile()`
     // échouerait à la trouver et ce test perdrait son sens sur cette commande précise.
-    render(rendreCorps(etatCuisine(), PIECES.cuisine, undefined, undefined, undefined, false, true), hote);
+    render(rendreCorps(etatCuisine(), ECRANS.cuisine, undefined, undefined, undefined, false, true), hote);
     // « Recette » n'a pas de service mais ouvre une vue interne (`vue`) : elle agit, elle accuse.
     expect(tuile(hote, 'Recette').classList.contains('inerte')).toBe(false);
     // La Hotte et le Rideau, arrivés en commandes le 2026-08-29, agissent tous les deux : la
@@ -1089,7 +1089,7 @@ describe('tâche 19 — étiquette, couleur et retour au doigt des nouvelles com
 // capteur passe `unavailable` ⇒ le masquage générique ci-dessus filtre la
 // tuile ⇒ elle disparaît de l'écran de la cuisine sans un mot.
 describe('absence nommée', () => {
-  const CUISINE = PIECES.cuisine;
+  const CUISINE = ECRANS.cuisine;
 
   /** Une pièce d'essai qui ne porte QUE les commandes fournies — la cuisine
    *  réelle en déclare cinq, dont trois qui n'ont rien à voir avec le

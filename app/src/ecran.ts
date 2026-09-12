@@ -43,6 +43,8 @@ export type Bouton = {
    *  INERTE : `interaction.ts` ignore l'appui tant que l'entité est muette. */
   absenceNommee?: string;
   epingle?: true;
+  /** Cf. la docstring du même champ sur `Ecran`. */
+  note?: string;
 };
 
 /** La voiture, telle que la tablette la montre : six entités à lire, deux boutons à presser.
@@ -56,6 +58,8 @@ export type Voiture = {
   clim: string;
   demarrerClim: string;
   arreterClim: string;
+  /** Cf. la docstring du même champ sur `Ecran`. */
+  note?: string;
 };
 
 export type Operateur = '!=' | '==' | '<' | '>';
@@ -92,13 +96,15 @@ export type Operateur = '!=' | '==' | '<' | '>';
  *  la ligne « repas suivant » de la cuisine venait de `home_stock`, et disparaissait
  *  sans un mot quand il n'était pas installé. */
 type Commun = { entite: string; texte: string; perso?: true; horsTaches?: true;
-                absenceNommee?: string };
+                absenceNommee?: string;
+                /** Cf. la docstring du même champ sur `Ecran`. */
+                note?: string };
 
 export type EntreeSynthese =
   | (Commun & { operateur: '<' | '>'; valeur: number })
   | (Commun & { operateur: '==' | '!='; valeur: string | number });
 
-export type Piece = {
+export type Ecran = {
   nom: string;
   temperature: string;
   ambiances: Bouton[];
@@ -178,9 +184,19 @@ export type Piece = {
    *  doubles de test devraient connaître un nom de pièce réel pour rien. Absent ailleurs : la
    *  cuisine et le bureau ne jouent rien et restent utilisables pendant les quatre rendez-vous. */
   delorean?: true;
+  /** Pourquoi cet écran est réglé comme il l'est. Jamais rendu ; présent dans le formulaire
+   *  qui l'édite (plan 3) et dans l'export YAML, où il redevient un commentaire. Ce champ est
+   *  la seule chose qui empêchera les ~300 lignes de raisonnement daté de ce fichier de
+   *  disparaître le jour où la donnée partira chez Home Assistant. */
+  note?: string;
+  /** Hauteur utile de l'écran, en pixels CSS. Absent = 585, la valeur des Fire 7 de cette
+   *  maison (viewport de référence 343×585, cf. `outils/mesurer-rendus.mjs`). Déclaré ici
+   *  plutôt qu'en constante de `modes.ts` parce qu'une autre maison n'aura pas ces tablettes —
+   *  c'est la conséquence directe de la portabilité (décision 4 de la spec du 2026-09-12). */
+  hauteurUtile?: number;
 };
 
-export const PIECES: Record<'salon' | 'bureau' | 'cuisine', Piece> = {
+export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {
   salon: {
     nom: 'Salon',
     temperature: 'sensor.capteur_humain_temperature',
@@ -493,7 +509,7 @@ export const PIECES: Record<'salon' | 'bureau' | 'cuisine', Piece> = {
       { libelle: 'Scanner', icone: 'scan', entite: 'sensor.home_stock_next_meal',
         lien: '/home-stock', absenceNommee: 'Garde-manger non installé' },
     ],
-    // Seule pièce avec un extra : la liste de courses (cf. docstring du champ sur `Piece`
+    // Seule pièce avec un extra : la liste de courses (cf. docstring du champ sur `Ecran`
     // ci-dessus). La liste des DLC, elle, arrive automatiquement par `synthese`.
     listesTachesExtra: ['todo.home_stock_shopping'],
     minuteurs: [

@@ -6,7 +6,7 @@
  *  HA (`etat.optimiste`) ; si rien ne confirme au bout de trois secondes, elle revient à l'état
  *  réel (`etat.confirme`, qui rend toujours la main à un état venu de HA — cf. `etat.ts`). */
 import type { Etat } from './etat';
-import type { Bouton } from './pieces';
+import type { Bouton } from './ecran';
 
 /** On ne dépend que de ce dont on a besoin (`appelerService`), jamais de la classe concrète
  *  `Connexion` : ses champs privés la rendraient impossible à satisfaire par un double de test

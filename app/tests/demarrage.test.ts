@@ -7,16 +7,16 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { demarrer } from '../src/demarrage';
 import { niveauDemande } from '../src/mouvement';
 import { Connexion } from '../src/connexion';
-import type { Piece } from '../src/pieces';
+import type { Ecran } from '../src/ecran';
 import type { EvenementEtat } from '../src/connexion';
 // Tâche 12 : le double de connexion, les stockages et la pièce vide vivent désormais dans
 // `tests/aides.ts`, partagés avec `tests/orchestration.test.ts` — déplacés sans une ligne de
 // changement, cette suite doit rester verte à l'identique.
 import {
-  connexionFactice, pieceVide as piece, stockageAvecSession, stockageSansSession,
+  connexionFactice, ecranVide as piece, stockageAvecSession, stockageSansSession,
   monterDemarrage, restaurerReseau, vider,
 } from './aides';
-import { PIECES } from '../src/pieces';
+import { ECRANS } from '../src/ecran';
 
 describe('demarrer', () => {
   it('sans session ouverte sur la tablette, affiche le message de session plutôt qu une page vide', async () => {
@@ -141,7 +141,7 @@ describe('demarrer', () => {
   // PERMANENTE que `base.css` s'interdit explicitement. Ce test compte les fondus armés : sans la
   // fusion des deux appels, il en verrait deux de plus à chaque état poussé.
   it('en plein jour pendant un film, la palette ne se rebascule pas à chaque peinture', async () => {
-    const { racine, pousser } = await monterDemarrage(PIECES.salon);
+    const { racine, pousser } = await monterDemarrage(ECRANS.salon);
     await pousser('sun.sun', 'above_horizon');                       // plein jour
     await pousser('media_player.televiseur_salon_3', 'on');           // écran allumé → mode cinéma
     expect(racine.classList.contains('sombre')).toBe(true);     // le film gagne sur le jour
@@ -259,7 +259,7 @@ describe('demarrer', () => {
   // pas ce qu'il prouve.
   it('un appui sur une commande rendue appelle le service et repeint la tuile en actif, immédiatement', async () => {
     const racine = document.createElement('div');
-    const pieceLumiere: Piece = {
+    const pieceLumiere: Ecran = {
       nom: 'Salon', temperature: 'sensor.capteur_humain_temperature',
       ambiances: [],
       commandes: [{ libelle: 'Lumières', icone: 'bulb', entite: 'light.lumiere_salon',
@@ -371,7 +371,7 @@ describe('demarrer', () => {
   // `tests/taches.test.ts` (rendu isolé) ne peuvent prouver que les deux sont bien reliés.
   it('la ligne de synthese ouvre la vue Taches ; un appui arme, le second confirme et coche', async () => {
     const racine = document.createElement('div');
-    const pieceAvecTaches: Piece = {
+    const pieceAvecTaches: Ecran = {
       nom: 'Salon', temperature: 'sensor.capteur_humain_temperature',
       ambiances: [], commandes: [], extrasMaison: [],
       synthese: [
@@ -466,7 +466,7 @@ describe('tictacProgression — les trois refus', () => {
   };
 
   it('aucune carte média à l\'écran : le tic ne lève pas (pas d\'ancre, rien à faire avancer)', async () => {
-    // `pieceVide` (aucune source déclarée) : le mode ne peut jamais être `media`/`cinema`, donc
+    // `ecranVide` (aucune source déclarée) : le mode ne peut jamais être `media`/`cinema`, donc
     // `.media` n'existe jamais dans `racine`. Sans le garde, `carte.style.setProperty` lèverait
     // sur `carte === null` — c'est CE refus que ce test prouve, pas seulement l'absence d'erreur.
     const { racine, intervalFn } = await monterDemarrage(piece);
@@ -476,7 +476,7 @@ describe('tictacProgression — les trois refus', () => {
   });
 
   it('écran éteint (document.hidden) : le tic n\'écrit pas --progression', async () => {
-    const { racine, pousser, intervalFn } = await monterDemarrage(PIECES.salon);
+    const { racine, pousser, intervalFn } = await monterDemarrage(ECRANS.salon);
     await pousserLectureEnCours(pousser);
     const carte = racine.querySelector<HTMLElement>('.media');
     expect(carte, 'carte média introuvable — la source doit être en lecture').not.toBeNull();
@@ -525,7 +525,7 @@ describe('tictacProgression — les trois refus', () => {
     const avant = location.href;
     window.history.pushState({}, '', '/?mouvement=aucun');
     try {
-      const { racine, pousser, intervalFn } = await monterDemarrage(PIECES.salon);
+      const { racine, pousser, intervalFn } = await monterDemarrage(ECRANS.salon);
       await pousserLectureEnCours(pousser);
       const carte = racine.querySelector<HTMLElement>('.media');
       // Le niveau de mouvement ne change JAMAIS quel mode est affiché, seulement s'il s'anime :
@@ -577,7 +577,7 @@ describe('mouvement=aucun (URL) — câblage du moteur (ronde de correction 1, t
     window.history.pushState({}, '', '/?mouvement=aucun');
     const anime = vi.spyOn(Element.prototype, 'animate');
     try {
-      const { pousser } = await monterDemarrage(PIECES.salon);
+      const { pousser } = await monterDemarrage(ECRANS.salon);
       // Un premier `pousser` pose la MARQUE de départ (10°) — sans elle, le second serait la
       // toute première peinture de ce chiffre : une entrée, jamais une mutation (cf. `peindre()`,
       // qui ne compare rien tant que `precedentes` est encore `null`).
@@ -599,7 +599,7 @@ describe('mouvement=aucun (URL) — câblage du moteur (ronde de correction 1, t
 // cochage d'une tâche plus haut dans ce fichier, c'est le seul niveau où l'on peut prouver que
 // le geste réel sur le DOM aboutit au bon appel de service `timer.*`.
 describe('minuteurs de cuisine', () => {
-  const cuisine = PIECES.cuisine;
+  const cuisine = ECRANS.cuisine;
 
   // `monterCuisine()` ne surcharge pas `maintenant` : l'horloge interne de l'écran reste donc
   // celle par défaut de `monterDemarrage` (1er août 2026, 14 h, cf. `tests/aides.ts`), PAS
@@ -626,7 +626,7 @@ describe('minuteurs de cuisine', () => {
   });
 
   it('n\'en rend aucune sur une pièce qui n\'en déclare pas', async () => {
-    const m = await monterDemarrage(PIECES.salon);
+    const m = await monterDemarrage(ECRANS.salon);
     expect(m.racine.querySelector('[data-minuteur-entree]')).toBeNull();
   });
 
@@ -955,7 +955,7 @@ describe('réveil de l\'écran de nuit', () => {
   const nuit = () => new Date(2026, 7, 3, 3, 14);
 
   it('rend l\'écran complet après un appui, puis la nuit après 45 s', async () => {
-    const m = await monterDemarrage(PIECES.cuisine, { maintenant: nuit });
+    const m = await monterDemarrage(ECRANS.cuisine, { maintenant: nuit });
     expect(m.racine.querySelector('.nuit')).not.toBeNull();
 
     m.racine.querySelector<HTMLElement>('.nuit')!.dispatchEvent(new Event('pointerdown'));
@@ -969,13 +969,13 @@ describe('réveil de l\'écran de nuit', () => {
   });
 
   it('n\'appelle aucun service au premier appui', async () => {
-    const m = await monterDemarrage(PIECES.cuisine, { maintenant: nuit });
+    const m = await monterDemarrage(ECRANS.cuisine, { maintenant: nuit });
     m.racine.querySelector<HTMLElement>('.nuit')!.dispatchEvent(new Event('pointerdown'));
     expect(m.appelerService).not.toHaveBeenCalled();
   });
 
   it('réarme le délai à chaque contact', async () => {
-    const m = await monterDemarrage(PIECES.cuisine, { maintenant: nuit });
+    const m = await monterDemarrage(ECRANS.cuisine, { maintenant: nuit });
     m.racine.querySelector<HTMLElement>('.nuit')!.dispatchEvent(new Event('pointerdown'));
     const premier = m.minuteurFn.mock.calls.filter((c: any[]) => c[1] === 45_000).pop()!;
     m.racine.querySelector<HTMLElement>('.corps')!.dispatchEvent(new Event('pointerdown'));
@@ -995,7 +995,7 @@ describe('réveil de l\'écran de nuit', () => {
   // `moment` reste encore `'nuit'` : sans corriger cette condition, le décompte resterait figé sur
   // un écran réveillé qui montre pourtant un minuteur en cours.
   it('un minuteur en cours continue de décompter sur l\'écran réveillé (les ancres ne restent pas vides)', async () => {
-    const m = await monterDemarrage(PIECES.cuisine, { maintenant: nuit });
+    const m = await monterDemarrage(ECRANS.cuisine, { maintenant: nuit });
     await m.pousser('timer.cuisine', 'active',
       { finishes_at: new Date(nuit().getTime() + 300_000).toISOString() });
     await m.pousser('timer.cuisine_2', 'idle', {});
@@ -1024,14 +1024,14 @@ describe('réveil de l\'écran de nuit', () => {
 // `describe('bloc par défaut : repas et agenda')`, qui prouve désormais ce qui les a remplacées.
 describe('voiture au salon', () => {
   it('occupe le bloc central du salon, jamais de bloc .prevision (disparu à la tâche 14)', async () => {
-    const m = await monterDemarrage(PIECES.salon);
+    const m = await monterDemarrage(ECRANS.salon);
     await m.pousser('sensor.peugeot_e208_batterie_niveau', '21', {});
     expect(m.racine.querySelector('.voiture')).not.toBeNull();
     expect(m.racine.querySelector('.prevision')).toBeNull();
   });
 
   it('presse le bouton de la voiture et affiche un retour immédiat', async () => {
-    const m = await monterDemarrage(PIECES.salon);
+    const m = await monterDemarrage(ECRANS.salon);
     await m.pousser('binary_sensor.peugeot_e208_pre_conditionnement', 'off', {});
     m.racine.querySelector<HTMLElement>('.vt-bouton')!.dispatchEvent(new Event('pointerdown'));
     expect(m.appelerService).toHaveBeenCalledWith('button', 'press',
@@ -1040,7 +1040,7 @@ describe('voiture au salon', () => {
   });
 
   it('efface le retour immédiat dès que la voiture confirme', async () => {
-    const m = await monterDemarrage(PIECES.salon);
+    const m = await monterDemarrage(ECRANS.salon);
     await m.pousser('binary_sensor.peugeot_e208_pre_conditionnement', 'off', {});
     m.racine.querySelector<HTMLElement>('.vt-bouton')!.dispatchEvent(new Event('pointerdown'));
     await m.pousser('binary_sensor.peugeot_e208_pre_conditionnement', 'on', {});
@@ -1048,7 +1048,7 @@ describe('voiture au salon', () => {
   });
 
   it('abandonne le retour immédiat si la voiture ne répond pas', async () => {
-    const m = await monterDemarrage(PIECES.salon);
+    const m = await monterDemarrage(ECRANS.salon);
     await m.pousser('binary_sensor.peugeot_e208_pre_conditionnement', 'off', {});
     m.racine.querySelector<HTMLElement>('.vt-bouton')!.dispatchEvent(new Event('pointerdown'));
     const pose = m.minuteurFn.mock.calls.filter((c: any[]) => c[1] === 180_000).pop();
@@ -1062,7 +1062,7 @@ describe('voiture au salon', () => {
   // rechargement de tablette. Le bloc doit rester utilisable (bouton de clim visible et actif)
   // même quand AUCUNE des six entités n'a encore été poussée.
   it('reste utilisable quand la voiture est entièrement injoignable (aucune entité connue)', async () => {
-    const m = await monterDemarrage(PIECES.salon);
+    const m = await monterDemarrage(ECRANS.salon);
     expect(m.racine.querySelector('.voiture')).not.toBeNull();
     expect(m.racine.querySelector('.vt-niveau')).toBeNull();
     expect(m.racine.querySelector('.vt-autonomie')).toBeNull();
@@ -1090,7 +1090,7 @@ const POULET: [string, string, Record<string, unknown>][] = [[
 ]];
 describe('bloc par défaut : repas et agenda', () => {
   it('cuisine : affiche le repas suivant, lu dans les attributs du capteur', async () => {
-    const m = await monterDemarrage(PIECES.cuisine, { etats: POULET });
+    const m = await monterDemarrage(ECRANS.cuisine, { etats: POULET });
     expect(m.racine.querySelector('.mode-bloc .t')?.textContent).toBe('Dîner');
     expect(m.racine.querySelector('.mode-bloc .v')?.textContent).toBe('Poulet rôti');
     expect(m.racine.querySelector('.voiture')).toBeNull();
@@ -1101,7 +1101,7 @@ describe('bloc par défaut : repas et agenda', () => {
   // au moment de cette tâche — ce n'est donc pas un cas limite théorique. Jamais un plat inventé :
   // l'écran se resserre, aucun conteneur vide (`.mode-bloc` absent, pas seulement son contenu).
   it('cuisine : sans plan de repas, aucun bloc central (l\'écran se resserre)', async () => {
-    const m = await monterDemarrage(PIECES.cuisine);
+    const m = await monterDemarrage(ECRANS.cuisine);
     expect(m.racine.querySelector('.mode-bloc')).toBeNull();
     expect(m.racine.querySelector('.voiture')).toBeNull();
     expect(m.racine.querySelector('.prevision')).toBeNull();
@@ -1116,7 +1116,7 @@ describe('bloc par défaut : repas et agenda', () => {
   // fait céder la pastille sur les rendez-vous, jamais le bloc central, qui reste seul propriétaire
   // de cette information sur cet écran.
   it('bureau : affiche le rendez-vous dans le bloc central, jamais aussi dans la pastille', async () => {
-    const m = await monterDemarrage(PIECES.bureau, {
+    const m = await monterDemarrage(ECRANS.bureau, {
       reseau: { calendriers: { 'calendar.famille': [
         { resume: 'Réunion client', debut: '2026-08-01T16:30:00' },
       ] } },
@@ -1130,7 +1130,7 @@ describe('bloc par défaut : repas et agenda', () => {
   });
 
   it('bureau : sans rendez-vous restant aujourd\'hui, aucun bloc central', async () => {
-    const m = await monterDemarrage(PIECES.bureau);
+    const m = await monterDemarrage(ECRANS.bureau);
     expect(m.racine.querySelector('.mode-bloc')).toBeNull();
   });
 
@@ -1138,7 +1138,7 @@ describe('bloc par défaut : repas et agenda', () => {
   // jour reste annoncé par la pastille au bureau, puisque `rendreProchainRdv` ne le montre jamais
   // (pas d'heure, cf. son docstring, `rendu/defaut.ts`) : rien à dédoublonner de ce côté.
   it('bureau : un anniversaire du jour reste annoncé par la pastille, jamais coupé', async () => {
-    const m = await monterDemarrage(PIECES.bureau, {
+    const m = await monterDemarrage(ECRANS.bureau, {
       reseau: { calendriers: { 'calendar.anniversaires': [
         { resume: 'Anniversaire de Soraya', debut: '2026-08-01' },
       ] } },
@@ -1157,15 +1157,15 @@ describe('bloc par défaut : repas et agenda', () => {
     // exactement UN de moins qu'avant ce lot pour la cuisine, et rien de changé ailleurs.
     const quartsDHeure = (m: { intervalFn: ReturnType<typeof vi.fn> }) =>
       m.intervalFn.mock.calls.filter((c: any[]) => c[1] === 15 * 60_000).length;
-    const cuisine = await monterDemarrage(PIECES.cuisine, { etats: POULET });
-    const bureau = await monterDemarrage(PIECES.bureau);
+    const cuisine = await monterDemarrage(ECRANS.cuisine, { etats: POULET });
+    const bureau = await monterDemarrage(ECRANS.bureau);
     expect(quartsDHeure(cuisine)).toBe(3);
     expect(quartsDHeure(bureau)).toBe(3);
   });
 
   it("redessine le bloc quand le capteur change d'état", async () => {
     // Le bloc suit la maison à la seconde, sans qu'aucun minuteur ne s'en mêle.
-    const m = await monterDemarrage(PIECES.cuisine);
+    const m = await monterDemarrage(ECRANS.cuisine);
     expect(m.racine.querySelector('.mode-bloc')).toBeNull();
     await m.pousser(...POULET[0]);
     expect(m.racine.querySelector('.mode-bloc .v')?.textContent).toBe('Poulet rôti');
@@ -1176,7 +1176,7 @@ describe('bloc par défaut : repas et agenda', () => {
   it("n'envoie AUCUNE commande websocket pour afficher le repas", async () => {
     // Garde-fou : afficher le bloc ne coûte RIEN sur le réseau. `listerTaches` (vue « Tâches »)
     // reste une commande à part, comptée ailleurs.
-    const m = await monterDemarrage(PIECES.cuisine, { etats: POULET });
+    const m = await monterDemarrage(ECRANS.cuisine, { etats: POULET });
     expect(m.racine.querySelector('.mode-bloc .v')?.textContent).toBe('Poulet rôti');
     expect(m.envoyerCommande).not.toHaveBeenCalled();
   });
@@ -1199,26 +1199,26 @@ describe('repli du bloc par défaut vers l\'entretien', () => {
   };
 
   it('cuisine : sans plan de repas, l\'entretien prend le bloc central', async () => {
-    const m = await monterDemarrage(PIECES.cuisine, { taches: ENTRETIEN });
+    const m = await monterDemarrage(ECRANS.cuisine, { taches: ENTRETIEN });
     expect(m.racine.querySelector('.mode-bloc .t')?.textContent).toBe('Entretien — 2 tâches');
     expect(m.racine.querySelector('.mode-bloc .v')?.textContent)
       .toContain('Purificateur — filtre à remplacer');
   });
 
   it('bureau : sans rendez-vous restant aujourd\'hui, l\'entretien prend le bloc central', async () => {
-    const m = await monterDemarrage(PIECES.bureau, { taches: ENTRETIEN });
+    const m = await monterDemarrage(ECRANS.bureau, { taches: ENTRETIEN });
     expect(m.racine.querySelector('.mode-bloc .t')?.textContent).toBe('Entretien — 2 tâches');
   });
 
   // Le repas et le rendez-vous gardent la priorité : le repli ne les remplace jamais, il occupe la
   // place qu'ils laissent vide.
   it('cuisine : un plat planifié prime sur l\'entretien', async () => {
-    const m = await monterDemarrage(PIECES.cuisine, { taches: ENTRETIEN, etats: POULET });
+    const m = await monterDemarrage(ECRANS.cuisine, { taches: ENTRETIEN, etats: POULET });
     expect(m.racine.querySelector('.mode-bloc .t')?.textContent).toBe('Dîner');
   });
 
   it('bureau : un rendez-vous du jour prime sur l\'entretien', async () => {
-    const m = await monterDemarrage(PIECES.bureau, {
+    const m = await monterDemarrage(ECRANS.bureau, {
       taches: ENTRETIEN,
       reseau: { calendriers: { 'calendar.famille': [
         { resume: 'Réunion client', debut: '2026-08-01T16:30:00' },
@@ -1230,12 +1230,12 @@ describe('repli du bloc par défaut vers l\'entretien', () => {
   // Le trou résiduel, assumé et documenté (rapport de tâche 17) : ni repas, ni rendez-vous, ni
   // tâche d'entretien → aucun bloc central, l'écran se resserre comme avant cette tâche.
   it('cuisine : rien à montrer nulle part, aucun bloc central (l\'écran se resserre)', async () => {
-    const m = await monterDemarrage(PIECES.cuisine);
+    const m = await monterDemarrage(ECRANS.cuisine);
     expect(m.racine.querySelector('.mode-bloc')).toBeNull();
   });
 
   it('salon : la voiture garde son bloc, jamais remplacée par l\'entretien', async () => {
-    const m = await monterDemarrage(PIECES.salon, { taches: ENTRETIEN });
+    const m = await monterDemarrage(ECRANS.salon, { taches: ENTRETIEN });
     expect(m.racine.querySelector('.voiture')).not.toBeNull();
     expect(m.racine.querySelector('.mode-bloc')).toBeNull();
   });
@@ -1245,14 +1245,14 @@ describe('repli du bloc par défaut vers l\'entretien', () => {
   // La décision suit ce qui est RÉELLEMENT affiché à cet instant, jamais la pièce : trois cas, le
   // même écran, trois verdicts différents.
   it('la synthèse cesse d\'annoncer l\'entretien quand le bloc central l\'affiche', async () => {
-    const m = await monterDemarrage(PIECES.cuisine, { taches: ENTRETIEN });
+    const m = await monterDemarrage(ECRANS.cuisine, { taches: ENTRETIEN });
     await m.pousser('todo.maintenance', '2', {});
     expect(m.racine.querySelector('.mode-bloc .t')?.textContent).toBe('Entretien — 2 tâches');
     expect(m.racine.querySelector('.synthese .ecart')?.textContent).not.toContain('entretien');
   });
 
   it('la synthèse garde sa mention quand le repas occupe le bloc central', async () => {
-    const m = await monterDemarrage(PIECES.cuisine, { taches: ENTRETIEN, etats: POULET });
+    const m = await monterDemarrage(ECRANS.cuisine, { taches: ENTRETIEN, etats: POULET });
     await m.pousser('todo.maintenance', '2', {});
     expect(m.racine.querySelector('.synthese .ecart')?.textContent).toContain('2 tâches d\'entretien');
   });
@@ -1261,7 +1261,7 @@ describe('repli du bloc par défaut vers l\'entretien', () => {
   // affiché nulle part, donc la synthèse doit le reprendre. C'est exactement ce qu'un masquage posé
   // sur la pièce (et non sur le rendu réel) ferait disparaître à tort.
   it('la synthèse reprend sa mention dès qu\'un mode prioritaire confisque le bloc', async () => {
-    const m = await monterDemarrage(PIECES.cuisine, { taches: ENTRETIEN });
+    const m = await monterDemarrage(ECRANS.cuisine, { taches: ENTRETIEN });
     await m.pousser('todo.maintenance', '2', {});
     await m.pousser('vacuum.aspirateur_cuisine', 'cleaning', { battery_level: 80 });
     expect(m.racine.querySelector('.mode-bloc .t')?.textContent).toBe('Ménage');
@@ -1279,20 +1279,20 @@ describe('repli du bloc par défaut vers l\'entretien', () => {
     m.intervalFn.mock.calls.filter((c: any[]) => c[1] === 15 * 60_000).length;
 
   it('rafraîchit les tâches toutes les 15 min en cuisine et au bureau, jamais au salon', async () => {
-    const salon = await monterDemarrage(PIECES.salon);
-    const bureau = await monterDemarrage(PIECES.bureau);
+    const salon = await monterDemarrage(ECRANS.salon);
+    const bureau = await monterDemarrage(ECRANS.bureau);
     // Salon : météo + agenda. Bureau et cuisine : + tâches. Lot 6 : la cuisine en avait un
     // QUATRIÈME (le plan de repas) — il a disparu avec la source, le repas arrivant désormais par
     // `subscribe_events`.
     expect(rafraichissements(salon)).toBe(2);
     expect(rafraichissements(bureau)).toBe(3);
-    const cuisine = await monterDemarrage(PIECES.cuisine);
+    const cuisine = await monterDemarrage(ECRANS.cuisine);
     expect(rafraichissements(cuisine)).toBe(3);
   });
 
   it('le rappel de 15 min recharge réellement les tâches affichées', async () => {
     const taches: Record<string, { uid: string; texte: string }[]> = { 'todo.maintenance': [] };
-    const m = await monterDemarrage(PIECES.bureau, { taches });
+    const m = await monterDemarrage(ECRANS.bureau, { taches });
     expect(m.racine.querySelector('.mode-bloc')).toBeNull();
     // La liste change dans Home Assistant pendant que l'écran est allumé, sans qu'aucun contact
     // n'ait lieu : seul ce rappel périodique peut le voir.
@@ -1320,7 +1320,7 @@ describe('repli du bloc par défaut vers l\'entretien', () => {
         { uid: 'c', texte: 'Mises à jour manuelles à installer' },
       ],
     };
-    const m = await monterDemarrage(PIECES.cuisine, { taches });
+    const m = await monterDemarrage(ECRANS.cuisine, { taches });
     await m.pousser('todo.maintenance', '3', {});
     expect(m.racine.querySelector('.mode-bloc .t')?.textContent).toBe('Entretien — 3 tâches');
 
@@ -1335,7 +1335,7 @@ describe('repli du bloc par défaut vers l\'entretien', () => {
   });
 
   it('un état identique republié ne relance aucune requête (jamais de boucle de rechargement)', async () => {
-    const m = await monterDemarrage(PIECES.cuisine, {
+    const m = await monterDemarrage(ECRANS.cuisine, {
       taches: { 'todo.maintenance': [{ uid: 'a', texte: 'Purificateur — filtre à remplacer' }] },
     });
     const appels = () => m.listerTaches.mock.calls.filter((c: any[]) => c[0] === 'todo.maintenance').length;
@@ -1352,7 +1352,7 @@ describe('repli du bloc par défaut vers l\'entretien', () => {
   });
 
   it('salon : un changement de todo.maintenance ne relance rien (le bloc n\'y est jamais rendu)', async () => {
-    const m = await monterDemarrage(PIECES.salon, {
+    const m = await monterDemarrage(ECRANS.salon, {
       taches: { 'todo.maintenance': [{ uid: 'a', texte: 'Purificateur — filtre à remplacer' }] },
     });
     const avant = m.listerTaches.mock.calls.length;
@@ -1373,7 +1373,7 @@ describe('repli du bloc par défaut vers l\'entretien', () => {
   // celle qui venait d'être cochée — pendant que la synthèse, elle, était masquée. Même liste,
   // deux comptes, sur la même tablette.
   it('une tâche cochée dans la vue Tâches disparaît aussi du bloc central', async () => {
-    const m = await monterDemarrage(PIECES.cuisine, {
+    const m = await monterDemarrage(ECRANS.cuisine, {
       taches: {
         'todo.maintenance': [
           { uid: 'a', texte: 'Purificateur — filtre à remplacer' },
@@ -1414,7 +1414,7 @@ describe('repli du bloc par défaut vers l\'entretien', () => {
   // sous mode invités, sans repas ni rendez-vous, le trou de ~170 px revient. C'est le
   // comportement d'avant la tâche 17 ; le propriétaire n'a pas arbitré autre chose.
   it('mode invités : le bloc d\'entretien s\'efface en cuisine (donnée perso), le trou revient', async () => {
-    const m = await monterDemarrage(PIECES.cuisine, { taches: ENTRETIEN });
+    const m = await monterDemarrage(ECRANS.cuisine, { taches: ENTRETIEN });
     expect(m.racine.querySelector('.mode-bloc .t')?.textContent).toBe('Entretien — 2 tâches');
     await m.pousser('input_boolean.mode_invites', 'on', {});
     // Le bloc d'entretien disparaît réellement de la mise en page (aucun repli), mais le moteur de
@@ -1427,7 +1427,7 @@ describe('repli du bloc par défaut vers l\'entretien', () => {
   });
 
   it('mode invités : le bloc d\'entretien s\'efface au bureau aussi', async () => {
-    const m = await monterDemarrage(PIECES.bureau, { taches: ENTRETIEN });
+    const m = await monterDemarrage(ECRANS.bureau, { taches: ENTRETIEN });
     expect(m.racine.querySelector('.mode-bloc .t')?.textContent).toBe('Entretien — 2 tâches');
     await m.pousser('input_boolean.mode_invites', 'on', {});
     // Cf. commentaire du test jumeau (cuisine, juste au-dessus) : le clone de sortie du moteur de
@@ -1439,7 +1439,7 @@ describe('repli du bloc par défaut vers l\'entretien', () => {
   // Le repas, lui, n'est pas `perso` : il reste affiché devant des invités — le modulateur ne
   // vide pas le bloc central, il n'en retire que ce qui ne regarde que Maxime.
   it('mode invités : le repas du jour garde sa place', async () => {
-    const m = await monterDemarrage(PIECES.cuisine, { taches: ENTRETIEN, etats: POULET });
+    const m = await monterDemarrage(ECRANS.cuisine, { taches: ENTRETIEN, etats: POULET });
     await m.pousser('input_boolean.mode_invites', 'on', {});
     expect(m.racine.querySelector('.mode-bloc .t')?.textContent).toBe('Dîner');
   });

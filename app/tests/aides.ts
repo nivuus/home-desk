@@ -5,13 +5,13 @@
  *  le ramasse pas comme une suite vide. */
 import { vi } from 'vitest';
 import { demarrer, type ConnexionLike } from '../src/demarrage';
-import type { Piece } from '../src/pieces';
+import type { Ecran } from '../src/ecran';
 import type { EvenementEtat } from '../src/connexion';
 import type { Prevision } from '../src/meteo';
 
 /** Pièce sans rien à afficher : les suites qui testent l'orchestration elle-même (session
  *  absente, reconnexion, grisage) n'ont besoin d'aucune commande ni d'aucune source. */
-export const pieceVide: Piece = {
+export const ecranVide: Ecran = {
   nom: 'Salon', temperature: 'sensor.capteur_humain_temperature',
   ambiances: [], commandes: [], synthese: [], extrasMaison: [],
   sources: [], ouvrants: [],
@@ -158,7 +158,7 @@ export type Montage = {
 
 /** Monte `demarrer()` sur un `#app` neuf, avec toutes ses dépendances injectées et aucun minuteur
  *  réel. Rend de quoi pousser un état, simuler un silence et inspecter les appels de service. */
-export async function monterDemarrage(piece: Piece, options: OptionsMontage = {}): Promise<Montage> {
+export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}): Promise<Montage> {
   installerReseau(options.reseau ?? {});
   const racine = document.createElement('div');
   let emettre: (e: EvenementEtat) => void = () => {};

@@ -18,7 +18,7 @@ import { Etat } from '../src/etat';
 import { ligneSynthese } from '../src/rendu/corps';
 import { demarrer, type ConnexionLike } from '../src/demarrage';
 import { Connexion } from '../src/connexion';
-import type { Piece } from '../src/pieces';
+import type { Ecran } from '../src/ecran';
 import type { EvenementEtat } from '../src/connexion';
 import { vider } from './aides';
 
@@ -66,7 +66,7 @@ describe('robustesse de la synthese', () => {
   });
 });
 
-const piece: Piece = {
+const piece: Ecran = {
   nom: 'Salon', temperature: 'sensor.capteur_humain_temperature',
   ambiances: [], commandes: [], synthese: [], extrasMaison: [],
   sources: [], ouvrants: [],
@@ -254,7 +254,7 @@ describe('vue Taches hors ligne (tache 18, meme regle que Toute la maison)', () 
     const racine = document.createElement('div');
     let cbSilence: (ms: number) => void = () => {};
     const appelerService = vi.fn();
-    const pieceAvecTaches: Piece = {
+    const pieceAvecTaches: Ecran = {
       nom: 'Salon', temperature: 'sensor.capteur_humain_temperature',
       ambiances: [], commandes: [], extrasMaison: [],
       synthese: [
@@ -396,7 +396,7 @@ describe('reconnexion interne cassee (jeton de rafraichissement revoque apres un
 // grille restait pourtant amputée : l'écran perdait Porte et Rideau et gagnait ~90 px de blanc,
 // au moment précis où la maison ne répond plus et où le peu qui reste tapable compte le plus.
 describe('revue tâche 15 (M4) — la grille de commandes ne reste pas amputée sous hors-ligne', () => {
-  const pieceAvecMedia: Piece = {
+  const pieceAvecMedia: Ecran = {
     nom: 'Salon', temperature: 'sensor.capteur_humain_temperature',
     // Trois ambiances DÉLIBÉRÉES depuis le 2026-08-29 : c'est ce qui fait de cette pièce de
     // laboratoire une pièce à deux commandes en mode média, donc la seule où l'amputation que ce
