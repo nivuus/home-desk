@@ -80,6 +80,16 @@ async def entree(hass):
     return resultat["result"]
 
 
+@pytest.fixture
+async def ws_client(hass, hass_ws_client):
+    """Un client websocket DEJA CONNECTE et authentifie (tache 8) : les tests
+    du transport (`tests/composant/test_websocket.py`) n'ont besoin que
+    d'envoyer/recevoir, jamais de refaire la connexion. `hass_ws_client`
+    vient de `pytest_homeassistant_custom_component` (elle appelle elle-meme
+    `async_setup_component(hass, "websocket_api", {})`)."""
+    return await hass_ws_client(hass)
+
+
 async def _creer_ecran(hass, entree, **overrides) -> str:
     """Cree une sous-entree d'identite minimale (nom/hauteurUtile/temperature
     valides), rend son `subentry_id`. Partagee par les deux fichiers de test

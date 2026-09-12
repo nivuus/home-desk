@@ -187,3 +187,14 @@ ERREUR_BUDGET_INTENABLE_MODE = "budget_intenable_mode"
 # "minuteurs", "voiture", "agencement"...) plutot que de laisser persister
 # un ecran devenu invalide en silence.
 ERREUR_ECRAN_DEVIENDRAIT_INVALIDE = "ecran_deviendrait_invalide"
+
+# Tache 8 : les deux codes d'erreur du TRANSPORT websocket (websocket.py),
+# jamais ceux d'un formulaire de saisie -- ERREUR_ECRAN_INTROUVABLE est le
+# refus de `home_desk/ecran` quand aucune sous-entree ne porte le `nom`
+# demande (un objet vide serait un ecran SANS TUILES, indistinguable d'une
+# absence) ; ERREUR_VERSION_INCONNUE est son refus quand la sous-entree
+# stockee porte une `version` que ce composant ne reconnait pas -- la
+# quatrieme degradation (spec, decision 10), posee a l'ECRITURE par le flow
+# (VERSION_CONFIG ci-dessus) et desormais VERIFIEE A LA LECTURE, ici.
+ERREUR_ECRAN_INTROUVABLE = "not_found"
+ERREUR_VERSION_INCONNUE = "version_inconnue"
