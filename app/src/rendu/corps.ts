@@ -47,7 +47,7 @@ import { ordreCommandes, type ContexteModes } from '../modes';
  *  ici), lisible d'un coup d'œil depuis l'autre bout de la pièce ; la seconde garde la phrase
  *  complète (`a.texte`). */
 export function rendreAlerte(a: Alerte): TemplateResult {
-  return html`<div class="alerte" data-mvt="bloc:alerte">${icone('lock')}
+  return html`<div class="alerte" data-zone="blocCentral" data-mvt="bloc:alerte">${icone('lock')}
     <div><div class="t">${a.sujet}</div><div class="v">${a.texte}</div></div></div>`;
 }
 
@@ -59,7 +59,7 @@ export function rendreAlerte(a: Alerte): TemplateResult {
  *  synthèse) continue d'afficher le dernier état connu, grisé par `.muet` sur `#app` : un écran
  *  qui se vide ou qui ment vaudrait pire qu'un écran éteint (cf. brief tâche 9). */
 export function rendreHorsLigne(): TemplateResult {
-  return html`<div class="hors-ligne" data-mvt="bloc:hors-ligne">${icone('horsligne')}
+  return html`<div class="hors-ligne" data-zone="blocCentral" data-mvt="bloc:hors-ligne">${icone('horsligne')}
     <div><div class="t">Hors ligne</div><div class="v">Dernières données connues</div></div></div>`;
 }
 
@@ -321,6 +321,29 @@ let geste: (ev: PointerEvent, entite: string, surBascule: () => void) => void =
   (_ev, _entite, surBascule) => surBascule();
 export function brancherGeste(fn: typeof geste) { geste = fn; }
 
+/** `data-zone` — INERTE POUR LE RENDU, et lu par une seule machine : `outils/mesurer-hauteurs.mjs`,
+ *  qui relève dans un vrai navigateur ce que chaque zone de l'écran coûte en pixels. Ces hauteurs
+ *  vivent ensuite dans `contrat/budget.json` (clé `hauteurs`), d'où `combien()` (`src/modes.ts`)
+ *  les relit pour CALCULER le nombre de commandes au lieu d'appliquer une table calibrée sur les
+ *  585 px des Fire 7 — c'est ce qui permet à l'intégration Home Assistant de répondre « cet écran
+ *  déborde de tant » pour une tablette quelconque.
+ *
+ *  Attribut SÉPARÉ de `data-mvt`, délibérément : `data-mvt` appartient au moteur de mouvement
+ *  (`mouvement.ts`), qui nomme des RÔLES d'animation (`bloc:`, `ligne:`, `detail:`). Deux
+ *  consommateurs sur un même attribut, c'est un couplage payé au premier changement d'animation.
+ *
+ *  Les zones nommées, et où elles sont posées :
+ *    `bandeau`           — `.cap`, la racine du bandeau (`rendu/bandeau.ts`) ;
+ *    `etiquetteAmbiance` — le titre « Ambiance », un enfant de `.corps` à part entière ;
+ *    `rangeeAmbiance`    — le `.groupe` des tuiles d'ambiance ;
+ *    `commandes`         — la grille `.commandes` ENTIÈRE (plusieurs rangées) — l'outil en
+ *                          déduit le coût d'UNE rangée avec le `row-gap` réel de la grille ;
+ *    `blocCentral`       — le bloc du mode, quel qu'il soit : `.mode-bloc` (repas/agenda/
+ *                          entretien/ménage/aération/recette réduite), `.alerte`, `.hors-ligne`,
+ *                          `.media`, `.voiture`, `.minuteurs`. Un seul NOM pour tous : c'est
+ *                          l'outil qui sait quel mode il a posé, et ce fichier n'a pas à
+ *                          connaître le vocabulaire du budget ;
+ *    `touteLaMaison`     — le grand bouton `.xl` du pied, présent dans tous les modes. */
 export function rendreCorps(
   etat: Etat, piece: Ecran,
   // Renommé depuis `enTete` (tâche 9, 2026-08-02) : ce bloc n'a jamais été un en-tête, c'est le
@@ -406,13 +429,13 @@ export function rendreCorps(
            laisser se découvrir un jour à l'écran.
            (Pas de guillemet oblique dans ce commentaire : il vit DANS un template literal.) -->
       ${piece.ambiances.length || tuileMinuteur ? html`
-        <div class="etiquette">Ambiance</div>
+        <div class="etiquette" data-zone="etiquetteAmbiance">Ambiance</div>
         <!-- Tâche 3 : --ambiances porte le compte RÉEL de tuiles, la tuile minuteur comprise —
              c'est cette variable que .groupe (base.css) lit pour son nombre de colonnes
              (repeat(var(--ambiances, 3), …)). Le repli à 3 dans le CSS garde intact tout rendu
              qui ne publierait pas la variable (le bureau, qui ne passe jamais tuileMinuteur,
              et les anciens tests/pages en cache). -->
-        <div class="groupe" style="--ambiances: ${piece.ambiances.length + (tuileMinuteur ? 1 : 0)}">
+        <div class="groupe" data-zone="rangeeAmbiance" style="--ambiances: ${piece.ambiances.length + (tuileMinuteur ? 1 : 0)}">
           <!-- Tâche 13, décision délibérée : la rangée Ambiance ne passe JAMAIS par le
                dispatcher de geste, même quand une de ses entrées enveloppe un appareil réglable.
                Cette rangée est visuellement/sémantiquement une rangée de SCÈNES (tuiles étroites,
@@ -453,7 +476,7 @@ export function rendreCorps(
            a exactement le comportement voulu ici (entrée/sortie/déplacement, cf. jouer() dans
            moteur.ts) sans jamais entrer dans cet appariement, réservé au seul rôle bloc. -->
       ${commandes.length ? html`
-        <div class="commandes" data-mvt="ligne:commandes">
+        <div class="commandes" data-zone="commandes" data-mvt="ligne:commandes">
           ${repeat(commandes, (c) => c.entite,
                    (c) => bouton(etat, c, etat.estUtilisable(c.entite)
                      && commandeActive(c.entite, etat.lire(c.entite)!.etat), 'commande'))}
@@ -496,11 +519,11 @@ export function rendreCorps(
            page cuisine, en comptant les enfants de .synthese). Marquer .synthese couvre
            .synthese-texte et .ecart, qui sont ses descendants : la règle d'imbrication veut
            un ancêtre STRICT qui bouge dans la même différence, pas une marque sur chaque nœud. -->
-      <div class="synthese" data-mvt="ligne:synthese"
+      <div class="synthese" data-zone="synthese" data-mvt="ligne:synthese"
            @pointerdown=${() => (location.hash = '#taches')}>${icone('lock')}
         <div class="synthese-texte">${s.texte} <span class="ecart">${s.ecarts.join(', ')}</span></div>
       </div>
-      <div class="xl" data-mvt="tuile:toute-la-maison"
+      <div class="xl" data-zone="touteLaMaison" data-mvt="tuile:toute-la-maison"
            @pointerdown=${() => (location.href = '#maison')}>
         ${icone('home')}Toute la maison</div>
     </div>`;

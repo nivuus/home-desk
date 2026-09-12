@@ -247,7 +247,7 @@ const AERATION_ANCIENNETE_MS = 11 * 60_000;   // > AERATION_MS (10 min, `modes.t
 // déjà commise puis corrigée (« le brief se trompait — Date.now() réel contre l'horloge figée »,
 // cf. `progress.md`) — et qui recommençait ici si elle n'était pas corrigée avant même d'écrire
 // le premier test.
-const JOUR_COURT = new Date(2026, 4, 7, 14, 0, 0);   // jeudi 7 mai — une date courte ordinaire
+export const JOUR_COURT = new Date(2026, 4, 7, 14, 0, 0);   // jeudi 7 mai — une date courte ordinaire
 
 /** Tâche 14 : ISO LOCAL (sans « Z »/décalage), comme `start.dateTime` d'un événement de
  *  calendrier HA avec heure. `toISOString()` ne convient PAS ici : il convertit en UTC, ce
@@ -437,7 +437,7 @@ const INGREDIENTS_ESSAI_7 = [
  *  ferait diverger silencieusement le pire cas mesuré de celui décompté. */
 const ECHEANCES_MINUTEURS_MS = [754_000, 1_500_000];
 
-const MODES = [
+export const MODES = [
   {
     // Le bloc par défaut du SALON depuis la tâche 9 bis (demande du propriétaire) : niveau,
     // autonomie, état le plus « parlant » (clim > charge > branchée), bouton de clim. Pas de
@@ -720,7 +720,7 @@ const MODES = [
 
 /** La page HA sur laquelle un mode doit être posé pour être atteignable — cf. le commentaire de
  *  `pages` au-dessus de `MODES`. Absent = salon, inchangé depuis la tâche 13. */
-function pageDuMode(mode) {
+export function pageDuMode(mode) {
   return mode.pages ? mode.pages[0] : 'salon';
 }
 
@@ -843,13 +843,13 @@ const AFFICHES = [
   { nom: 'sombre', base: 10, amplitude: 22 },
 ];
 
-function lireIdentifiants() {
+export function lireIdentifiants() {
   const mcp = JSON.parse(readFileSync(`${DATA}/.mcp.json`, 'utf8'));
   const env = mcp.mcpServers.homeassistant.env;
   return { url: (process.env.HA_URL ?? env.HA_URL).replace(/\/$/, ''), token: env.HA_TOKEN };
 }
 
-function fabriquerJetons(url, token) {
+export function fabriquerJetons(url, token) {
   // `expires` est un epoch ms, pas un délai — cf. `connexion.ts`. Le jeton lu dans .mcp.json est
   // un jeton d'accès longue durée (HA), donc une expiration lointaine évite tout rafraîchissement
   // (qui échouerait : on n'a pas de vrai `refresh_token` à donner à `/auth/token`).
@@ -972,7 +972,7 @@ function affiche(base, amplitude) {
   });
 }
 
-const AFFICHES_PNG = new Map(AFFICHES.map((a) => [a.nom, affiche(a.base, a.amplitude)]));
+export const AFFICHES_PNG = new Map(AFFICHES.map((a) => [a.nom, affiche(a.base, a.amplitude)]));
 
 /** Tâche 18 — REJOUE UNE FEUILLE DE STYLE COMME LA LIRAIT LE MOTEUR DES TABLETTES CUISINE ET
  *  SALON. Relevé en lecture seule sur l'API d'administration Fully (`?cmd=deviceInfo`) le
@@ -2261,7 +2261,7 @@ async function allerSurPage(page, HA_URL, nomPage) {
   await attendreEcranVivant(page);
 }
 
-async function poserMode(page, HA_URL, mode) {
+export async function poserMode(page, HA_URL, mode) {
   await allerSurPage(page, HA_URL, pageDuMode(mode));
   await neutraliser(page);
   await injecter(page, mode.etats);
@@ -4603,4 +4603,13 @@ async function main() {
 // les prouver depuis un autre script sans jamais les recopier) — sans cette garde, le simple
 // fait d'IMPORTER ce fichier lancerait un vrai navigateur et une vraie session HA en effet de
 // bord, découvert en écrivant la preuve de détection de la tâche 10 elle-même.
+//
+// 2026-09-12 : `MODES`, `NEUTRE` (par `poserMode`), `JOUR_COURT`, `pageDuMode`, `AFFICHES_PNG`,
+// `lireIdentifiants` et `fabriquerJetons` sont exportés à leur tour, pour `mesurer-hauteurs.mjs`.
+// Ce ne sont pas des commodités : `MODES` porte le PIRE CAS RÉEL de chaque mode (les états à
+// injecter, la page où le mode est atteignable, le marqueur qui prouve qu'il est bien rendu),
+// établi mesure après mesure depuis la tâche 13. Le recopier dans le second outil aurait donné
+// deux tables qui disent la même chose — donc deux tables qui divergent, et un budget mesuré sur
+// un pire cas qui n'est plus celui que ce vérificateur contrôle. Aucun comportement n'est changé
+// ici : un `export` de plus ne s'exécute pas.
 if (import.meta.url === `file://${process.argv[1]}`) await main();

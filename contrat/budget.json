@@ -7,6 +7,21 @@
   "commandesParDefaut": 4,
   "commandesSousBlocHaut": 2,
   "tuilesParRangee": 2,
+  "hauteurs": {
+    "_source": "app/outils/mesurer-hauteurs.mjs, viewport 343x585, mesure du 2026-09-12 sur 11 modes et 3 ecrans. Chaque valeur est le COUT NET de la zone dans la colonne .corps (sa boite plus ses marges), au PIRE CAS des modes mesures. combien() les additionne, gouttiere comprise, au lieu d'appliquer une table.",
+    "gouttiere": 8,
+    "paddingCorps": 24,
+    "bandeau": 120.9,
+    "etiquetteAmbiance": 9,
+    "rangeeAmbiance": 72,
+    "rangeeCommandes": 64,
+    "gouttiereCommandes": 10,
+    "blocDefaut": 84,
+    "blocHaut": 153,
+    "blocMinuteur": 206,
+    "synthese": 32,
+    "touteLaMaison": 62
+  },
   "mesures": {
     "rangeeAmbiance": { "px": 100, "detail": "72 px de tuiles + etiquette + 8 px de gouttiere", "date": "2026-08-29" },
     "rangeeCommandes": { "px": 74, "detail": "64 px + 10 px de gouttiere", "date": "2026-08-29" },

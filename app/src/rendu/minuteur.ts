@@ -83,7 +83,7 @@ function marche(v: VueMinuteur): TemplateResult {
 // forme liste (data-minuteur de temps()).
 function solo(v: VueMinuteur): TemplateResult {
   return html`
-    <div class="minuteurs mn-solo" data-mvt="bloc:minuteur-solo">
+    <div class="minuteurs mn-solo" data-zone="blocCentral" data-mvt="bloc:minuteur-solo">
       <div class="mn-nom">${libelle(v)}</div>
       <div class="mn-grand">${temps(v)}</div>
       <div class="mn-actions">
@@ -145,7 +145,7 @@ function ligne(v: VueMinuteur): TemplateResult {
 export function rendreMinuteurs(vues: VueMinuteur[], slotLibre: boolean): TemplateResult {
   if (vues.length === 1) return solo(vues[0]);
   return html`
-    <div class="minuteurs" data-mvt="bloc:minuteurs">
+    <div class="minuteurs" data-zone="blocCentral" data-mvt="bloc:minuteurs">
       <!-- Clé par SLOT : une ligne qui change de rang doit être déplacée par lit, pas réécrite —
            sans quoi le tic d'une seconde écrirait dans le nœud d'un autre minuteur pendant une
            trame. Même raison que le repeat par entité de rendu/corps.ts. -->

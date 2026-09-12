@@ -48,7 +48,7 @@ export function rendreRepasSuivant(r: RepasSuivant | undefined): TemplateResult 
   if (!r || r.plat.trim() === '') return undefined;
   const ouvrable = r.recetteId !== null;
   return html`
-    <div class="mode-bloc" data-mvt="bloc:repas"
+    <div class="mode-bloc" data-zone="blocCentral" data-mvt="bloc:repas"
          @pointerdown=${ouvrable ? () => { location.hash = '#recette'; } : null}>
       ${icone('repas')}
       <div class="mode-texte">
@@ -71,7 +71,7 @@ export function rendreRecetteReduite(
 ): TemplateResult {
   const decompte = v.restantS === undefined ? '' : ` · ${formaterRestant(v.restantS)}`;
   return html`
-    <div class="mode-bloc" data-mvt="bloc:recette"
+    <div class="mode-bloc" data-zone="blocCentral" data-mvt="bloc:recette"
          @pointerdown=${() => { location.hash = '#recette'; }}>
       ${icone('book')}
       <div class="mode-texte">
@@ -144,7 +144,7 @@ export function rendreEntretien(items: { uid: string; texte: string }[]): Templa
   const nommees = items.filter((i) => i.texte.trim() !== '');
   if (nommees.length === 0) return undefined;
   return html`
-    <div class="mode-bloc" data-mvt="bloc:entretien">${icone('entretien')}
+    <div class="mode-bloc" data-zone="blocCentral" data-mvt="bloc:entretien">${icone('entretien')}
       <div class="mode-texte">
         <div class="t">Entretien — ${nommees.length} tâche${nommees.length > 1 ? 's' : ''}</div>
         <div class="v deux-lignes">${nommees.map((i) => i.texte).join(' · ')}</div>
@@ -161,7 +161,7 @@ export function rendreProchainRdv(evenements: Evenement[], maintenant: Date): Te
     .sort((a, b) => a.quand - b.quand)[0];
   if (!prochain) return undefined;
   return html`
-    <div class="mode-bloc" data-mvt="bloc:agenda">${icone('agenda')}
+    <div class="mode-bloc" data-zone="blocCentral" data-mvt="bloc:agenda">${icone('agenda')}
       <div class="mode-texte">
         <div class="t">Rendez-vous</div>
         <div class="v deux-lignes">${heureCourte(prochain.e.debut)} — ${prochain.e.resume}</div>

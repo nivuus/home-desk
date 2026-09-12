@@ -59,7 +59,7 @@ export function rendreMenage(etat: Etat, aspirateur: string): TemplateResult {
   const batterie = Number(e?.attributs['battery_level']);
   const detail = ETATS_VACUUM[e?.etat ?? ''] ?? 'En marche';
   return html`
-    <div class="mode-bloc" data-mvt="bloc:menage">${icone('aspirateur')}
+    <div class="mode-bloc" data-zone="blocCentral" data-mvt="bloc:menage">${icone('aspirateur')}
       <div class="mode-texte">
         <div class="t">Ménage</div>
         <div class="v">${detail}${Number.isFinite(batterie)
@@ -86,7 +86,7 @@ export function rendreAeration(etat: Etat, ouvrants: string[]): TemplateResult {
     .filter((id) => etat.estUtilisable(id) && etat.lire(id)!.etat === 'on')
     .map((id) => nomOuvrant(etat, id));
   return html`
-    <div class="mode-bloc" data-mvt="bloc:aeration">${icone('fenetre')}
+    <div class="mode-bloc" data-zone="blocCentral" data-mvt="bloc:aeration">${icone('fenetre')}
       <div class="mode-texte">
         <div class="t">Ouvert</div>
         <div class="v">${ouverts.join(', ')}</div>

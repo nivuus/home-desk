@@ -72,7 +72,7 @@ export function rendreCarteMedia(
   // quand même comme un changement d'état plutôt que de rester figé sur une chaîne vide.
   return html`
     <div class="media ${s.affiche ? 'avec-affiche' : ''}" style="--progression:${fraction}"
-      data-mvt="bloc:media" data-mvt-etat=${s.titre || s.nom}>
+      data-zone="blocCentral" data-mvt="bloc:media" data-mvt-etat=${s.titre || s.nom}>
       ${s.affiche
         // Couche de fond, jamais un <img> dans le flux : un élément remplacé participerait à la
         // mise en page et ferait varier la hauteur du bloc avec les proportions de l'affiche.

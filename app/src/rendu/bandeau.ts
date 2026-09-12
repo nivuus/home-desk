@@ -40,7 +40,7 @@ export function rendreBandeau(
     : null;
 
   return html`
-    <div class="cap">
+    <div class="cap" data-zone="bandeau">
       <!-- Correction (2026-08-02) : .cap est une grille à deux colonnes, pas une ligne suivie
            d'une phrase empilée dessous sur toute la largeur — ce découpage-là forçait la hauteur
            du bandeau à grandir dès que la pastille passait sur deux lignes, alors que c'est le

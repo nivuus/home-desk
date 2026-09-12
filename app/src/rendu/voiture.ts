@@ -53,7 +53,7 @@ export function rendreVoiture(etat: Etat, v: Voiture, enVol: EnVolClim): Templat
     : enVol === 'arret' ? 'Arrêt…'
     : marche ? 'Arrêter la clim' : 'Lancer la clim';
   return html`
-    <div class="voiture" data-mvt="bloc:voiture">
+    <div class="voiture" data-zone="blocCentral" data-mvt="bloc:voiture">
       <div class="vt-chiffres">
         ${niveau !== null
           ? html`<span class="vt-niveau" data-mvt="detail:vt-niveau">${Math.round(niveau)} %</span>`

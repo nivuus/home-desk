@@ -134,13 +134,84 @@ export function modulateursActifs(c: ContexteModes): Modulateur[] {
  *  par l'intégration Home Assistant (plan 3) — elle doit pouvoir dire « cet écran déborde » au
  *  moment de la saisie, ce qu'elle ne peut pas faire en relisant des `if` TypeScript. Le
  *  RÉSULTAT est strictement inchangé : `tests/budget.test.ts` porte la table de vérité d'avant
- *  et la vérifie à chaque commit. */
-export function combien(mode: ModePrincipal, rangeeAmbiance = true): number {
+ *  et la vérifie à chaque commit.
+ *
+ *  2026-09-12, second temps — CECI N'EST PLUS UNE TABLE, C'EST UN CALCUL. `Ecran.hauteurUtile`
+ *  existe depuis la tâche 1, et une table calibrée pour 585 px ne sait pas l'honorer : elle rend
+ *  le même 0/2/4 à 585 px comme à 900. Les hauteurs par zone n'avaient JAMAIS été mesurées — les
+ *  commentaires ci-dessus ne donnent que des totaux d'écran (630 px, 648 px). Elles le sont
+ *  maintenant, dans un vrai navigateur, au viewport de référence, par
+ *  `app/outils/mesurer-hauteurs.mjs` (attribut `data-zone`, cf. `rendu/corps.ts`) : onze modes,
+ *  trois écrans, et pour chaque zone le PIRE CAS retenu. Elles vivent sous `hauteurs` dans
+ *  `contrat/budget.json`.
+ *
+ *  `combien` additionne donc la colonne `.corps` comme le moteur de rendu l'additionne — les
+ *  enfants, la gouttière entre chacun, le padding, le bandeau au-dessus — et garde la plus grande
+ *  composition qui tient. Le modèle a été confronté à la mesure avant d'être écrit : pour chacun
+ *  des onze modes relevés, le reste qu'il prédit est EXACTEMENT le reste mesuré à l'écran (11,1 px
+ *  en cuisine et au bureau, 108,1 px en mode ménage, 34,1 px en mode voiture...). Et il reproduit
+ *  la table historique sans y toucher, ligne par ligne, avec 3,1 px de marge sur son cas le plus
+ *  serré — c'était la condition d'acceptation de la tâche, pas un résultat espéré : un modèle qui
+ *  ne l'aurait pas reproduite aurait été ANNULÉ plutôt qu'ajusté (on ne truque pas une mesure
+ *  pour faire passer un test).
+ *
+ *  À NE PAS CONFONDRE avec la clé `mesures` du même fichier, qui reste le relevé de 2026-08-29 et
+ *  compte le coût d'une zone GOUTTIÈRE COMPRISE (« rangeeCommandes : 74 px = 64 + 10 »). Les
+ *  `hauteurs` lues ici sont des coûts NETS, les gouttières étant ajoutées par le calcul ci-dessous
+ *  — sans quoi elles seraient comptées deux fois. Les deux relevés s'accordent, ce qui est déjà
+ *  une vérification : 64 + 10 pour une rangée de commandes, 9 + 72 + 2 × 8 = 97 px pour la rangée
+ *  « Ambiance » complète, contre les ~100 px estimés en août. */
+/** Levée quand AUCUNE composition ne tient dans la hauteur demandée — pas même le mode réduit à
+ *  son bloc central, sa ligne de synthèse et son bouton de pied, sans une seule commande. Une
+ *  exception et non un `0` : zéro commande est un RÉSULTAT légitime (c'est celui du mode
+ *  minuteur), alors qu'un écran qui déborde de son cadre est une configuration à refuser. Le
+ *  distinguer par un code de retour aurait obligé chaque appelant à s'en souvenir ;
+ *  l'intégration Home Assistant (plan 3), elle, doit pouvoir dire NON à la saisie. */
+export class BudgetIntenable extends Error {}
+
+export function combien(
+  mode: ModePrincipal,
+  rangeeAmbiance = true,
+  hauteurUtile: number = BUDGET.hauteurUtileParDefaut,
+): number {
   if ((BUDGET.modesSansCommande as string[]).includes(mode)) return 0;
-  const blocHaut = (BUDGET.modesABlocHaut as string[]).includes(mode);
-  return blocHaut && rangeeAmbiance
-    ? BUDGET.commandesSousBlocHaut
-    : BUDGET.commandesParDefaut;
+  const h = BUDGET.hauteurs;
+  const bloc = (BUDGET.modesABlocHaut as string[]).includes(mode) ? h.blocHaut : h.blocDefaut;
+  // Le plafond de DEUX rangées n'est pas un chiffre de plus : c'est ce que `commandesParDefaut`
+  // (4 places) et `tuilesParRangee` (2 colonnes) disent déjà. Une troisième rangée n'existe dans
+  // aucun écran de ce projet, et l'inventer ici sur un grand écran ferait rendre à `combien` un
+  // nombre que la grille n'a jamais rendu.
+  const rangeesMax = Math.floor(BUDGET.commandesParDefaut / BUDGET.tuilesParRangee);
+  /** Ce que l'écran mesure pour `rangees` rangées de commandes. `.corps` est une COLONNE FLEX à
+   *  gouttière fixe : son coût est la somme de ses enfants plus une gouttière entre chaque paire,
+   *  plus son padding vertical, le bandeau venant au-dessus. Trois enfants sont toujours là (le
+   *  bloc central, la ligne de synthèse, le bouton « Toute la maison ») ; la rangée « Ambiance »
+   *  en ajoute DEUX (son étiquette est un enfant à part entière), la grille de commandes UN. */
+  const cout = (rangees: number): number => {
+    let enfants = 3;
+    let somme = bloc + h.synthese + h.touteLaMaison;
+    if (rangeeAmbiance) {
+      enfants += 2;
+      somme += h.etiquetteAmbiance + h.rangeeAmbiance;
+    }
+    if (rangees > 0) {
+      enfants += 1;
+      // Les rangées vivent dans UNE grille : leur gouttière est celle de la grille (10 px), pas
+      // celle de la colonne (8 px) — et il n'y en a pas après la dernière.
+      somme += h.rangeeCommandes * rangees + h.gouttiereCommandes * (rangees - 1);
+    }
+    return h.bandeau + h.paddingCorps + somme + h.gouttiere * (enfants - 1);
+  };
+  for (let rangees = rangeesMax; rangees >= 1; rangees--) {
+    if (cout(rangees) <= hauteurUtile) return rangees * BUDGET.tuilesParRangee;
+  }
+  // Jamais de rangée coupée en deux (cf. plus haut) : sous une rangée, il ne reste que zéro.
+  if (cout(0) > hauteurUtile) {
+    throw new BudgetIntenable(
+      `${mode} ne tient pas dans ${hauteurUtile} px : ${Math.round(cout(0))} px sont nécessaires `
+      + 'sans une seule commande');
+  }
+  return 0;
 }
 
 /** Remonte en tête les commandes dont le libellé est cité, dans l'ordre cité, en gardant les

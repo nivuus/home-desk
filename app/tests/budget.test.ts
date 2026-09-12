@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { combien, ordreCommandes, BUDGET, type ContexteModes } from '../src/modes';
+import { combien, ordreCommandes, BUDGET, BudgetIntenable, type ContexteModes } from '../src/modes';
 import { ECRANS } from '../src/ecran';
 import { CALME } from './contextes';
 
@@ -45,5 +45,56 @@ describe('contrat/budget.json', () => {
     const quatre = ECRANS.bureau.commandes;
     expect(ordreCommandes(quatre, CALME_VOITURE)).toHaveLength(2);
     expect(ordreCommandes(quatre, { ...CALME_VOITURE, rangeeAmbiance: false })).toHaveLength(4);
+  });
+});
+
+/** LA PORTE de la tache du 2026-09-12, gardee ici pour de bon. `combien()` n'applique plus une
+ *  table calibree pour 585 px : il ADDITIONNE les hauteurs mesurees par
+ *  `app/outils/mesurer-hauteurs.mjs` (cle `hauteurs` de `contrat/budget.json`) comme le moteur de
+ *  rendu additionne la colonne `.corps`. La condition d'acceptation etait que ce calcul reproduise
+ *  la table historique SANS qu'aucune mesure ne soit retouchee — d'ou le `describe` ci-dessus,
+ *  laisse intact, et celui-ci qui atteste que les deux chemins (table d'hier, calcul d'aujourd'hui)
+ *  rendent le meme ecran au budget de reference. */
+describe('hauteurUtile', () => {
+  it('rend exactement la table historique pour 585 px', () => {
+    expect(combien('media', true, 585)).toBe(2);
+    expect(combien('defaut', true, 585)).toBe(4);
+    expect(combien('minuteur', true, 585)).toBe(0);
+  });
+
+  /** Les deux nombres de la regle d'hier (`commandesParDefaut`, `commandesSousBlocHaut`) ne sont
+   *  plus LUS par `combien()`. Sans ce test ils deviendraient deux constantes mortes dans un
+   *  fichier partage — qu'on pourrait modifier sans qu'il ne se passe rien, le pire sort pour une
+   *  donnee de contrat. Ils restent donc la table de verite du budget de reference, et c'est le
+   *  calcul qui doit s'y conformer. */
+  it('retombe sur les deux nombres declares par le contrat, au budget de reference', () => {
+    const H = BUDGET.hauteurUtileParDefaut;
+    expect(combien('defaut', true, H)).toBe(BUDGET.commandesParDefaut);
+    expect(combien('media', true, H)).toBe(BUDGET.commandesSousBlocHaut);
+    expect(combien('media', false, H)).toBe(BUDGET.commandesParDefaut);
+  });
+
+  it('rend moins de commandes sur un ecran plus court', () => {
+    const court = 585 - BUDGET.hauteurs.rangeeCommandes * 2;
+    expect(combien('defaut', true, court)).toBeLessThan(combien('defaut', true, 585));
+  });
+
+  /** L'inverse, et il compte autant : un ecran PLUS HAUT ne doit pas inventer une troisieme
+   *  rangee. La grille n'en a jamais rendu que deux (`tuilesParRangee` x 2), et `combien` promet
+   *  un nombre de tuiles reellement affichables, pas une capacite theorique. */
+  it('ne depasse jamais deux rangees, meme sur un grand ecran', () => {
+    expect(combien('defaut', true, 2000)).toBe(4);
+    expect(combien('media', true, 2000)).toBe(4);
+  });
+
+  it('leve BudgetIntenable quand meme zero commande ne tient pas', () => {
+    expect(() => combien('defaut', true, 100)).toThrow(BudgetIntenable);
+  });
+
+  /** Le mode sans commande n'est PAS un budget intenable : zero est son resultat normal, et il
+   *  le reste quelle que soit la hauteur — y compris une hauteur ou son propre bloc deborde.
+   *  C'est la frontiere entre les deux notions, et elle merite d'etre clouee. */
+  it('rend zero sans lever pour un mode sans commande, meme sur un ecran minuscule', () => {
+    expect(combien('minuteur', true, 100)).toBe(0);
   });
 });
