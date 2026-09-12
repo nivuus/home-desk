@@ -33,11 +33,15 @@ test-app:
 
 # Le composant embarque sa copie de contrat/ : depose dans
 # config/custom_components/, il ne voit pas le depot. `make test` verifie
-# qu'elle est identique a la source (tests/test_contrat_embarque.py).
+# qu'elle est identique a la source (tests/test_contrat_embarque.py), dont la
+# liste FICHIERS vient du meme glob que la boucle ci-dessous : deux
+# enumerations recopiees a la main divergeraient en silence des qu'un fichier
+# est ajoute a contrat/.
 contrat:
 	@mkdir -p $(PACKAGE_DIR)/custom_components/home_desk/contrat
-	@for f in budget.json icones.json ecran.schema.json; do \
-	    cp $(PACKAGE_DIR)/contrat/$$f \
-	       $(PACKAGE_DIR)/custom_components/home_desk/contrat/$$f; \
-	done
-	@echo "contrat embarque : 3 fichiers"
+	@n=0; \
+	for f in $(PACKAGE_DIR)/contrat/*.json; do \
+	    cp $$f $(PACKAGE_DIR)/custom_components/home_desk/contrat/; \
+	    n=$$((n+1)); \
+	done; \
+	echo "contrat embarque : $$n fichiers"
