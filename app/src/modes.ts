@@ -248,7 +248,9 @@ export function combien(
   // nombre que la grille n'a jamais rendu.
   const rangeesMax = Math.floor(BUDGET.commandesParDefaut / BUDGET.tuilesParRangee);
   for (let rangees = rangeesMax; rangees >= 1; rangees--) {
-    if (coutEcran(mode, rangeeAmbiance, rangees) <= hauteurUtile) return rangees * BUDGET.tuilesParRangee;
+    if (coutEcran(mode, rangeeAmbiance, rangees) <= hauteurUtile) {
+      return rangees * BUDGET.tuilesParRangee;
+    }
   }
   // Jamais de rangée coupée en deux (cf. plus haut) : sous une rangée, il ne reste que zéro — que
   // le budget tienne ou non. Ne lève plus depuis 2026-09-12 (plan 2) : cf. le docstring ci-dessus.
@@ -256,8 +258,16 @@ export function combien(
 }
 
 /** De combien cette composition déborde, en pixels. 0 si elle tient. Écrite pour le formulaire de
- *  l'intégration Home Assistant (plan 3), qui doit pouvoir dire « cet écran déborde de 45 px en
- *  mode minuteur » AU MOMENT DE LA SAISIE — pas devant la tablette.
+ *  l'intégration Home Assistant (plan 3), qui doit pouvoir dire « cet écran déborde de 45 px »
+ *  AU MOMENT DE LA SAISIE — pas devant la tablette.
+ *
+ *  UN MODE N'EST PAS ENCORE FACTURÉ : `minuteur`. Il n'est pas dans `modesABlocHaut`, donc le
+ *  calcul lui compte `blocDefaut` (84 px) au lieu de son vrai `blocMinuteur` (206 px), et
+ *  `verifierBudget('minuteur', true, 585)` rend donc 0 pour un écran qui déborde réellement.
+ *  C'est la dette que `contrat/budget.json` nomme sous `_blocMinuteur`, et elle est réelle pour
+ *  l'appelant : le formulaire validerait un écran intenable. Ne PAS écrire dans une docstring un
+ *  exemple chiffré en mode `minuteur` tant que ce n'est pas vrai — la version précédente de ce
+ *  commentaire le faisait, et c'est ainsi qu'une promesse fausse voyage jusqu'à son appelant.
  *
  *  Le rendu ne l'appelle jamais : c'est toute la différence avec la version d'avant, où le verdict
  *  (l'ex-`BudgetIntenable`) et le calcul vivaient dans la même fonction, `combien`. */

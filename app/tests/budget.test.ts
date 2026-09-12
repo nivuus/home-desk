@@ -74,9 +74,13 @@ describe('hauteurUtile', () => {
     expect(combien('media', false, H)).toBe(BUDGET.commandesParDefaut);
   });
 
-  it('rend moins de commandes sur un ecran plus court', () => {
-    const court = 585 - BUDGET.hauteurs.rangeeCommandes * 2;
-    expect(combien('defaut', true, court)).toBeLessThan(combien('defaut', true, 585));
+  /** Relecture de la tache 4 : ce test etait DEGENERE. Il posait `court = 585 - 64 * 2` = 457, ou
+   *  `combien` rend 0 — c'est-a-dire exactement le cas du test « rend 0 » plus bas, pas le palier
+   *  intermediaire que son nom annonce. Une rangee de moins, c'est 521 px, et le palier vaut 2. */
+  it('rend une rangee de moins sur un ecran plus court d une rangee', () => {
+    const court = 585 - BUDGET.hauteurs.rangeeCommandes;
+    expect(combien('defaut', true, court)).toBe(2);
+    expect(combien('defaut', true, 585)).toBe(4);
   });
 
   /** L'inverse, et il compte autant : un ecran PLUS HAUT ne doit pas inventer une troisieme
@@ -108,14 +112,36 @@ describe('hauteurUtile', () => {
     expect(verifierBudget('defaut', true, 585)).toBe(0);
   });
 
-  it('verifierBudget rend le debordement en pixels quand elle ne tient pas', () => {
-    expect(verifierBudget('defaut', true, 100)).toBeGreaterThan(0);
+  /** Relecture de la tache 4 : `toBeGreaterThan(0)` n'affirmait RIEN du calcul — n'importe quelle
+   *  addition fausse le passe, y compris celle qui oubliait trois termes et que le brief de cette
+   *  tache proposait. Le chiffre est donc cloue : 121 + 24 + (84 + 32 + 62 + 9 + 72) + 8 x 4 = 436
+   *  px pour le mode `defaut` avec rangee d'ambiance et zero commande, moins les 100 px demandes.
+   *  Chaque terme du modele MESURE (plan 1, tache 3) est ainsi garde par une valeur exacte : en
+   *  retirer un seul fait tomber ce test. */
+  it('verifierBudget rend le debordement EXACT en pixels quand elle ne tient pas', () => {
+    expect(verifierBudget('defaut', true, 100)).toBe(336);
+  });
+
+  /** Le terme que le test ci-dessus ne peut pas garder : `gouttiereCommandes` (10 px) ne compte
+   *  qu'a partir de DEUX rangees, et `verifierBudget` en demande zero. A 577 px, il fait toute la
+   *  difference — deux rangees coutent 582 px avec lui, 572 px sans. Avec, l'ecran retombe a une
+   *  rangee (2 tuiles) ; sans, il en garderait deux (4 tuiles). Verifie par mutation : retirer le
+   *  terme de `coutEcran` fait tomber CE test et lui seul. */
+  it('facture la gouttiere entre deux rangees de commandes', () => {
+    expect(combien('defaut', true, 577)).toBe(2);
   });
 
   /** Le cablage de bout en bout : `ordreCommandes` ne doit JAMAIS lever, meme sur un
-   *  `hauteurUtile` absurde — c'est exactement le piege que cette tache referme. */
-  it('ordreCommandes ne leve jamais, meme sur un ecran absurde', () => {
-    expect(() => ordreCommandes(ECRANS.bureau.commandes,
-      { ...CALME_VOITURE, hauteurUtile: 50 })).not.toThrow();
+   *  `hauteurUtile` absurde — c'est exactement le piege que cette tache referme.
+   *
+   *  Relecture de la tache 4 : ce test n'assertait QUE `not.toThrow()`, et passait donc aussi bien
+   *  quand `ordreCommandes` ne transmettait pas `hauteurUtile` du tout (sans le cablage,
+   *  `combien('voiture', undefined, 585)` rend 2 et ne leve pas davantage). La mutation l'a
+   *  prouve : decabler la moitie (1) de cette tache laissait la suite entierement verte. C'est le
+   *  RESULTAT qu'il faut affirmer — a 50 px, plus une seule commande ne tient. */
+  it('ordreCommandes transmet hauteurUtile et ne leve jamais, meme sur un ecran absurde', () => {
+    const absurde = { ...CALME_VOITURE, hauteurUtile: 50 };
+    expect(() => ordreCommandes(ECRANS.bureau.commandes, absurde)).not.toThrow();
+    expect(ordreCommandes(ECRANS.bureau.commandes, absurde)).toHaveLength(0);
   });
 });
