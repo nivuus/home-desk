@@ -25,8 +25,22 @@ import type { Ecran } from './ecran';
  *  (`outils/mesurer-hauteurs.mjs`) et non à les ordonner. */
 export type Zone = 'synthese' | 'blocCentral' | 'ambiances' | 'commandes';
 
-/** Trois valeurs. Le schéma en accepte cinq sur `agencement.blocDefaut` (`entretien`,
- *  `previsions`) : prospectives, le rendu ne sait pas encore les produire. */
+/** Trois valeurs, et le schéma en accepte exactement trois depuis la relecture de la tâche 6.
+ *
+ *  Il en acceptait CINQ. Les deux de trop étaient présentées comme « prospectives » ; elles ne
+ *  l'étaient pas. `previsions` est un mode SUPPRIMÉ (cf. `meteo.ts`, `demarrage.ts` : « ex-
+ *  `previsions` »), donc un fossile, et `entretien` n'a jamais été câblé comme bloc par défaut —
+ *  `rendreEntretien` (`rendu/defaut.ts`) n'existe que comme REPLI de `repas`/`agenda` quand leur
+ *  contenu est vide. Une valeur hors de ces trois retombe sur `undefined` dans le ternaire de
+ *  `demarrage.ts`, c'est-à-dire sur le même résultat qu'un `blocDefaut` absent : bloc central
+ *  silencieusement vide.
+ *
+ *  Le schéma est le contrat que le formulaire de l'intégration (plan 3) fera respecter. Un `enum`
+ *  plus large que ce type y ouvrait un menu déroulant sur deux choix qui ne produisent rien — le
+ *  « bouton mort » que ce projet s'interdit partout ailleurs. Le même écart avait déjà été trouvé
+ *  et corrigé au plan 1 sur le `blocDefaut` de la RACINE ; cette copie y avait survécu.
+ *
+ *  Si un bloc par défaut s'ajoute un jour, il s'ajoute ICI ET DANS LE SCHÉMA en même temps. */
 export type BlocDefaut = 'voiture' | 'repas' | 'agenda';
 
 export type Agencement = {

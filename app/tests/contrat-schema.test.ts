@@ -103,13 +103,25 @@ describe('contrat/ecran.schema.json', () => {
   });
 
   // Symétrique du test précédent : l'absence de `blocDefaut` à la racine ne doit pas déteindre sur
-  // `agencement.blocDefaut`, qui reste prospectif (cinq valeurs, plan 2) et bien réel. Sans ce
-  // test, quelqu'un retirant `blocDefaut` de `$defs/agencement` par erreur en même temps que la
-  // racine casserait exactement ce que la correction ci-dessus visait à garantir, et rien ne le
-  // verrait.
-  it('accepte blocDefaut: "entretien" dans agencement (prospectif, distinct de la racine)', () => {
-    const annote = { ...ECRANS.salon, agencement: { blocDefaut: 'entretien' } };
+  // `agencement.blocDefaut`, qui reste bien réel. Sans ce test, quelqu'un retirant `blocDefaut` de
+  // `$defs/agencement` par erreur en même temps que la racine casserait exactement ce que la
+  // correction ci-dessus visait à garantir, et rien ne le verrait.
+  it('accepte un blocDefaut valide dans agencement, distinct de la racine', () => {
+    const annote = { ...ECRANS.salon, agencement: { blocDefaut: 'agenda' } };
     expect(valider(annote), JSON.stringify(valider.errors)).toBe(true);
+  });
+
+  // Relecture de la tâche 6. Cet `enum` portait CINQ valeurs contre TROIS au type `BlocDefaut`
+  // (`src/agencement.ts`), et un test entérinait l'écart en le disant « prospectif ». Il ne l'était
+  // pas : `previsions` est un mode SUPPRIMÉ, et `entretien` n'est câblé que comme repli de
+  // `repas`/`agenda`, jamais comme bloc par défaut. Les deux retombaient sur `undefined` dans le
+  // ternaire de `demarrage.ts` — soit un bloc central silencieusement vide, offert au menu
+  // déroulant du formulaire que le plan 3 fera valider par ce schéma.
+  it('refuse un blocDefaut que le rendu ne sait pas produire', () => {
+    for (const mort of ['entretien', 'previsions']) {
+      refusePour({ ...ECRANS.salon, agencement: { blocDefaut: mort } },
+        { instancePath: '/agencement/blocDefaut', keyword: 'enum' });
+    }
   });
 
   describe('les invariants croises', () => {

@@ -208,7 +208,7 @@
           "items": { "enum": ["synthese", "blocCentral", "ambiances", "commandes"] },
           "contains": { "const": "commandes" }
         },
-        "blocDefaut": { "enum": ["voiture", "repas", "agenda", "entretien", "previsions"] },
+        "blocDefaut": { "enum": ["voiture", "repas", "agenda"] },
         "modes": {
           "type": "array",
           "uniqueItems": true,
