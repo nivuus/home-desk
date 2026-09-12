@@ -187,49 +187,65 @@ def test_hass_fourni_traduit_la_section_en_libelle_humain():
 # ---------------------------------------------------------------------------
 
 
-def test_garde_ecran_est_le_seul_module_a_appeler__async_update():
+# Ronde 3 de relecture (point 1) : la ronde 2 ne nommait qu'`_async_update` —
+# un mutant qui ecrit via `self.hass.config_entries.async_update_subentry(
+# entry=..., subentry=..., data=...)` (l'idiome PUBLIC, celui que
+# `ConfigSubentryFlow._async_update` appelle lui-meme en interne,
+# `config_entries.py:3785` documentant explicitement `_async_update` comme
+# « Internal to be used by update_and_abort and update_reload_and_abort
+# methods only ») passait les 154 tests — mesure. `async_update_and_abort`
+# et `async_update_reload_and_abort` (les DEUX methodes que cette docstring
+# nomme) sont les DEUX AUTRES portes documentees qui aboutissent au meme
+# effet. Les QUATRE noms sont donc gardes, jamais un seul.
+_PORTES_ECRITURE = (
+    "_async_update",
+    "async_update_subentry",
+    "async_update_and_abort",
+    "async_update_reload_and_abort",
+)
+
+
+def _appels_portes_ecriture(chemin: pathlib.Path) -> set[str]:
+    arbre = ast.parse(chemin.read_text(encoding="utf-8"))
+    return {
+        noeud.func.attr
+        for noeud in ast.walk(arbre)
+        if isinstance(noeud, ast.Call)
+        and isinstance(noeud.func, ast.Attribute)
+        and noeud.func.attr in _PORTES_ECRITURE
+    }
+
+
+def test_garde_ecran_est_le_seul_module_a_appeler_une_porte_d_ecriture():
     """Ronde 2 de relecture (le clou qui n'etait pas le bon) : le test
     precedent comptait `_async_update` face a `verifier_ecran_complet`,
     PAR FICHIER — un `_persister(...)` qui ecrivait en SAUTANT la garde
-    (mesure : faire ecrire les QUATRE gestes de `listes.py` par un
-    `_async_update` nu, `_persister_si_valide` devenant du code mort)
-    laissait ce compte EGAL (zero des deux cotes), donc VERT. Meme faille
-    dans la liste de FICHIERS EN DUR : un module neuf portant un
-    `_async_update` nu n'y apparaissait jamais.
+    laissait ce compte EGAL (zero des deux cotes), donc VERT.
 
-    Ce test-ci, sur le MEME idiome que `test_formulaire_est_le_seul_
-    module_a_appeler_async_show_form_avec_un_data_schema`
-    (test_config_flow.py) : un `glob("*.py")` sur TOUT le paquet, une
-    EXISTENCE (pas un compte) — `garde_ecran.py` est le SEUL fichier ou
-    `_async_update` apparait. `garde_ecran.persister_si_valide` (le seul
-    appelant) est donc, structurellement, le SEUL site d'ecriture du
-    paquet entier."""
+    Ronde 3 (point 1, le cran suivant) : meme apres avoir corrige ca, le
+    test ne nommait QU`_async_update` — `self.hass.config_entries.
+    async_update_subentry(entry=..., subentry=..., data=...)` (l'idiome
+    PUBLIC que HA documente pour cet usage, cf. commentaire ci-dessus)
+    ecrit exactement pareil, EN SAUTANT `garde_ecran.persister_si_valide`,
+    et passait les 154 tests. Genre le meme MECANISME (un `glob("*.py")`,
+    une EXISTENCE, jamais un compte — le MEME idiome que `test_formulaire_
+    est_le_seul_module_a_appeler_async_show_form_avec_un_data_schema`,
+    test_config_flow.py) aux QUATRE portes d'ecriture documentees par HA,
+    pas a un seul nom."""
     composant_dir = pathlib.Path(__file__).resolve().parents[2] / "custom_components" / "home_desk"
-    fautifs = []
+    fautifs: dict[str, set[str]] = {}
     for chemin in composant_dir.glob("*.py"):
         if chemin.name == "garde_ecran.py":
             continue
-        arbre = ast.parse(chemin.read_text(encoding="utf-8"))
-        for noeud in ast.walk(arbre):
-            if (
-                isinstance(noeud, ast.Call)
-                and isinstance(noeud.func, ast.Attribute)
-                and noeud.func.attr == "_async_update"
-            ):
-                fautifs.append(chemin.name)
-    assert not fautifs, f"_async_update() hors de garde_ecran.py : {fautifs}"
+        trouves = _appels_portes_ecriture(chemin)
+        if trouves:
+            fautifs[chemin.name] = trouves
+    assert not fautifs, f"porte(s) d'ecriture hors de garde_ecran.py : {fautifs}"
 
     # Preuve que ce test verifie bien QUELQUE CHOSE (garde_ecran.py
-    # contient au moins un appel) plutot que de passer a vide.
-    arbre_garde = ast.parse((composant_dir / "garde_ecran.py").read_text(encoding="utf-8"))
-    n_garde = sum(
-        1
-        for noeud in ast.walk(arbre_garde)
-        if isinstance(noeud, ast.Call)
-        and isinstance(noeud.func, ast.Attribute)
-        and noeud.func.attr == "_async_update"
-    )
-    assert n_garde > 0, "garde_ecran.py ne contient plus aucun appel a _async_update"
+    # appelle au moins une des quatre portes) plutot que de passer a vide.
+    trouves_garde = _appels_portes_ecriture(composant_dir / "garde_ecran.py")
+    assert trouves_garde, "garde_ecran.py n'appelle plus aucune porte d'ecriture"
 
 
 # ---------------------------------------------------------------------------

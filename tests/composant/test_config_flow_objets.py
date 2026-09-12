@@ -2,18 +2,18 @@
 `voiture`) et les DEUX regles hors-schema de la tache 7. Separe de
 `test_config_flow.py` en ronde 1 de relecture (ce dernier approchait 500
 lignes) — meme couture que `listes.py`/`listes_champs.py` a la tache 6.
-`sources` (I5) est parti dans son propre fichier en ronde 2, pour la meme
-raison (voir `test_config_flow_sources.py`).
+`sources` (I5) est parti dans son propre fichier en ronde 2, la section
+`voiture` elle-meme (I1) en ronde 3, pour la meme raison (voir
+`test_config_flow_sources.py`, `test_config_flow_voiture.py`).
 
 Les formulaires de ces deux sections sont du remplissage de champs ; ce qui
 merite un test, ce sont les regles qu'AUCUN test parametre sur `SECTIONS`
 ne peut couvrir d'office (agencement/voiture n'y sont pas, ce ne sont pas
 des sections « liste ») : les deux regles hors-schema, l'ordre soumis des
-multi-selections (I2), le remplissage complet de la voiture (I1), et les
-scenarios concrets du Critique (une modification qui rendrait l'ecran
-invalide) — leur MECANISME est teste directement dans
-`test_garde_ecran.py`, ces trois-ci en sont la preuve DE BOUT EN BOUT, par
-le flow reel.
+multi-selections (I2), et les scenarios concrets du Critique (une
+modification qui rendrait l'ecran invalide) — leur MECANISME est teste
+directement dans `test_garde_ecran.py`, ces trois-ci en sont la preuve DE
+BOUT EN BOUT, par le flow reel.
 """
 import ast
 import json
@@ -21,13 +21,12 @@ import pathlib
 
 from homeassistant import data_entry_flow
 
-from conftest import ELEMENTS_VALIDES, _creer_ecran, _geste, _init_reconfigure
+from conftest import ELEMENTS_VALIDES, VOITURE_COMPLETE, _creer_ecran, _geste, _init_reconfigure
 from custom_components.home_desk.const import (
     ACTION_SUPPRIMER,
     DOMAIN,
     ERREUR_BUDGET_INTENABLE_MODE,
     ERREUR_CHAMP_ELEMENT_REQUIS,
-    ERREUR_CHAMP_REQUIS,
     ERREUR_ECRAN_DEVIENDRAIT_INVALIDE,
     ERREUR_RECETTE_SANS_MODE,
     SOUS_ENTREE_ECRAN,
@@ -36,16 +35,6 @@ from custom_components.home_desk.const import (
 CHEMIN_TRADUCTIONS = (
     pathlib.Path(__file__).resolve().parents[2] / "custom_components" / "home_desk" / "translations"
 )
-
-VOITURE_COMPLETE = {
-    "batterie": "sensor.voiture_batterie",
-    "autonomie": "sensor.voiture_autonomie",
-    "branchee": "binary_sensor.voiture_branchee",
-    "enCharge": "binary_sensor.voiture_en_charge",
-    "clim": "binary_sensor.voiture_clim",
-    "demarrerClim": "script.voiture_demarrer_clim",
-    "arreterClim": "script.voiture_arreter_clim",
-}
 
 
 # ---------------------------------------------------------------------------
@@ -341,6 +330,30 @@ async def test_retirer_la_voiture_alors_que_blocDefaut_l_exige_encore_est_refuse
     subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
     assert subentry.data["voiture"] == VOITURE_COMPLETE, "un refus ne doit RIEN changer"
 
+    # Ronde 3 de relecture (point 2) : le CODE nommait deja "Blocks and
+    # modes" (ci-dessus), mais le CORPS DU MESSAGE, lui, recommandait
+    # encore statiquement « Minuteurs » et « Voiture » — EXACTEMENT les
+    # deux sections que ce correctif vient de decider de ne plus nommer,
+    # puisque l'utilisateur s'y trouve deja et n'y a rien a corriger.
+    # Aucun test n'assertait la CHAINE RENDUE (placeholder substitue dans
+    # le gabarit), seulement le placeholder seul — ce qui laissait la
+    # phrase se contredire elle-meme, invisible a la suite. Ici, on
+    # rejoue REELLEMENT la substitution HA (`str.format`) sur les DEUX
+    # gabarits et on lit le texte final, mot pour mot.
+    en = json.loads((CHEMIN_TRADUCTIONS / "en.json").read_text(encoding="utf-8"))
+    gabarit_en = en["config_subentries"][SOUS_ENTREE_ECRAN]["error"][ERREUR_ECRAN_DEVIENDRAIT_INVALIDE]
+    rendu_en = gabarit_en.format(section=resultat["description_placeholders"]["section"])
+    assert "Blocks and modes" in rendu_en
+    assert "Voiture" not in rendu_en and "Car" not in rendu_en
+    assert "Minuteurs" not in rendu_en and "Timers" not in rendu_en
+
+    fr = json.loads((CHEMIN_TRADUCTIONS / "fr.json").read_text(encoding="utf-8"))
+    gabarit_fr = fr["config_subentries"][SOUS_ENTREE_ECRAN]["error"][ERREUR_ECRAN_DEVIENDRAIT_INVALIDE]
+    rendu_fr = gabarit_fr.format(section="Blocs et modes")
+    assert "Blocs et modes" in rendu_fr
+    assert "Voiture" not in rendu_fr
+    assert "Minuteurs" not in rendu_fr
+
 
 async def test_supprimer_le_dernier_minuteur_alors_que_le_mode_minuteur_est_actif_est_refuse(
     hass, entree
@@ -382,61 +395,11 @@ async def test_supprimer_le_dernier_minuteur_alors_que_le_mode_minuteur_est_acti
 
 
 # ---------------------------------------------------------------------------
-# I1 : la section Voiture n'avait aucun test fonctionnel
+# I1 (la section Voiture n'avait aucun test fonctionnel) vit dans
+# test_config_flow_voiture.py, separe d'ici en ronde 3 de relecture (ce
+# fichier depassait 500 lignes) — meme couture que `test_config_flow_
+# sources.py` en ronde 2.
 # ---------------------------------------------------------------------------
-
-
-async def test_voiture_complete_est_persistee_avec_ses_sept_champs(hass, entree):
-    subentry_id = await _creer_ecran(hass, entree)
-    flow = await _init_reconfigure(hass, entree, subentry_id)
-    await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "voiture"})
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], VOITURE_COMPLETE)
-    assert resultat["type"] is data_entry_flow.FlowResultType.MENU
-    subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
-    assert subentry.data["voiture"] == VOITURE_COMPLETE
-
-
-async def test_voiture_incomplete_est_refusee_et_ne_persiste_rien(hass, entree):
-    """I1, mutation survivante : supprimer `schema.VOITURE(candidat)`
-    (le remplacer par `candidat` tel quel) laissait passer un objet
-    INCOMPLET — plus aucun test ne l'en empechait."""
-    subentry_id = await _creer_ecran(hass, entree)
-    incomplete = dict(VOITURE_COMPLETE)
-    del incomplete["clim"]
-    flow = await _init_reconfigure(hass, entree, subentry_id)
-    await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "voiture"})
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], incomplete)
-    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["clim"] == ERREUR_CHAMP_REQUIS
-    subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
-    assert "voiture" not in subentry.data, "un refus ne doit RIEN persister"
-
-
-async def test_cocher_sans_voiture_retire_la_cle_entierement(hass, entree):
-    """I1, l'autre mutation survivante : poser `None` au lieu de retirer la
-    cle. `"voiture" not in subentry.data` (jamais `is None`) : le contrat
-    exige l'ABSENCE, pas une valeur nulle — `schema.VOITURE(None)` leverait
-    de toute facon si la cle restait presente."""
-    subentry_id = await _creer_ecran(hass, entree)
-    flow = await _init_reconfigure(hass, entree, subentry_id)
-    await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "voiture"})
-    await hass.config_entries.subentries.async_configure(flow["flow_id"], VOITURE_COMPLETE)
-    subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
-    assert subentry.data["voiture"] == VOITURE_COMPLETE
-
-    flow = await _init_reconfigure(hass, entree, subentry_id)
-    await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "voiture"})
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"sans_voiture": True})
-    assert resultat["type"] is data_entry_flow.FlowResultType.MENU
-    subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
-    assert "voiture" not in subentry.data
 
 
 # ---------------------------------------------------------------------------

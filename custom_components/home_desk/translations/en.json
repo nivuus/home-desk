@@ -309,7 +309,7 @@
         "champ_element_requis": "This list must contain a value the screen requires (\"Commands\" for zones, \"Default\" for modes).",
         "recette_sans_mode": "This tile opens the Recipe view, but the \"recette\" mode is not in the screen's modes (\"Blocks and modes\" section): the screen will never show the recipe's resume point on the home screen. Add the \"recette\" mode in \"Blocks and modes\" before saving this tile.",
         "budget_intenable_mode": "The {mode} mode overflows by {debordement} px with these zones. Increase the usable height, remove a zone, or remove this mode.",
-        "ecran_deviendrait_invalide": "This change would make the screen invalid (section \"{section}\"): it was not saved. Open that section (for example \"Timers\" or \"Car\") to fix the inconsistency before continuing."
+        "ecran_deviendrait_invalide": "This change would make the screen invalid: it was not saved. Open the \"{section}\" section to fix the inconsistency before continuing."
       }
     }
   }

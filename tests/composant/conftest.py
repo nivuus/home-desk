@@ -48,6 +48,21 @@ ELEMENTS_VALIDES = {
     "etiquettesMinuteur": {"etiquette": "Pates"},
 }
 
+# Un objet `voiture` complet (les sept champs), partage entre
+# test_config_flow_objets.py (le Critique : retirer une voiture DEJA
+# configuree) et test_config_flow_voiture.py (I1 : la section elle-meme) —
+# ronde 3 de relecture, deplace ici pour que la scission de ces deux
+# fichiers n'oblige pas a une seconde copie.
+VOITURE_COMPLETE = {
+    "batterie": "sensor.voiture_batterie",
+    "autonomie": "sensor.voiture_autonomie",
+    "branchee": "binary_sensor.voiture_branchee",
+    "enCharge": "binary_sensor.voiture_en_charge",
+    "clim": "binary_sensor.voiture_clim",
+    "demarrerClim": "script.voiture_demarrer_clim",
+    "arreterClim": "script.voiture_arreter_clim",
+}
+
 
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations):
