@@ -46,7 +46,23 @@ si les deux divergent.
 committez le résultat.** Sans ce geste, la mesure que vous venez de publier
 n'atteint pas le formulaire qui s'en sert pour refuser une saisie.
 
-## Les deux tables de cas
+## Les trois tables de cas
+
+`cas-budget.json` (tâche 4) est un corpus de vérité pour le budget de hauteur : chaque cas donne
+un mode, une rangée d'ambiance, des zones (`null` = les quatre du défaut) et une hauteur utile, et
+attend un nombre de commandes et un débordement en pixels. Il est lu par deux suites :
+
+- `app/tests/cas-budget.test.ts`, qui rejoue chaque cas avec `combien()` et `verifierBudget()`
+  (`app/src/modes.ts`) ;
+- `tests/composant/test_budget.py`, qui rejoue le même cas avec le miroir Python `combien()` et
+  `verifier_budget()` (`custom_components/home_desk/budget.py`).
+
+Les vingt-deux cas sont sur-déterminés : onze restes mesurés dans un vrai navigateur, prédits
+exactement, une corroboration à 630 px sur une mesure du 2026-08-03 antérieure au modèle, et
+quatre cas à zones omises qu'aucun des trois écrans réels de la maison n'exerce aujourd'hui — les
+premiers que le formulaire de l'intégration rencontrera quand quelqu'un réordonnera ses zones
+depuis Home Assistant. Un terme retiré d'un seul côté de l'addition doit casser UNE des deux
+suites, jamais les deux : c'est ce que ce corpus garde, pas seulement le résultat final.
 
 `cas-schema.json` (tâche 3) est un corpus de conformité pour `ecran.schema.json` :
 un écran `minimal`, et une liste de `cas` qui le modifient — chacun disant s'il
@@ -73,5 +89,8 @@ regardent — c'est ce qui rend un cas présent d'un côté et absent de l'autre
 tout simplement impossible : c'est le même fichier, chargé deux fois par deux
 lecteurs différents, jamais recopié.
 
-Comme les trois autres fichiers de ce répertoire, il est **inventé** : aucun
+Comme les autres fichiers de ce répertoire, il est **inventé** : aucun
 écran de `cas-schema.json` ne décrit une pièce ou une entité de cette maison.
+Même règle pour `cas-budget.json` juste au-dessus : aucun de ses vingt-deux
+cas ne porte de mode, de hauteur ou de zone propre à un écran réel de cette
+maison — seulement des valeurs choisies pour exercer la règle.
