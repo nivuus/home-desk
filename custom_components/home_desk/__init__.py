@@ -4,6 +4,13 @@ Ce composant ne cree AUCUNE entite. Il detient une configuration, la valide, et
 la publie par websocket. C'est deliberé : une entite par ecran donnerait un etat
 a synchroniser, un historique a purger et un registre a migrer, pour une donnee
 qui change trois fois par an.
+
+La configuration elle-meme est structuree en une entree unique « Tablettes
+murales » (rien dedans) et N sous-entrees « ecran » (une par tablette, le
+type `const.SOUS_ENTREE_ECRAN`) — voir `config_flow.py`. `async_setup_entry`
+n'a donc rien a lire ici : les sous-entrees vivent sur `entry.subentries`,
+disponibles directement par l'API `ConfigEntry` sans etape de chargement
+supplementaire.
 """
 from __future__ import annotations
 

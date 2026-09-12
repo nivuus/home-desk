@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "documentation": "https://github.com/nivuus/home-desk",
   "config_flow": true,
+  "single_config_entry": true,
   "dependencies": ["http", "websocket_api"],
   "codeowners": [],
   "requirements": [],
