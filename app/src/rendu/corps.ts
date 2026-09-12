@@ -386,7 +386,12 @@ export function rendreCorps(
   // Décidé par `demarrage.ts` sur ce qui est RÉELLEMENT rendu, jamais sur la pièce (contrairement
   // à `masquerRdv`, posé lui sur `agencement.blocDefaut === 'agenda'`) : un soir où un plat est planifié, ou
   // pendant qu'un mode prioritaire confisque le bloc, l'entretien n'est affiché nulle part et la
-  // synthèse doit le reprendre. Optionnel et en dernière position comme `ctx`/`tuileMinuteur` :
+  // synthèse doit le reprendre.
+  // Relecture finale du plan 2 (I4) : « réellement rendu » veut dire DEUX choses depuis que la
+  // tâche 3 a fait de la composition une donnée — que le bloc central calculé soit bien celui de
+  // l'entretien, ET que `agencement.zones` contienne la zone `blocCentral`, faute de quoi ce
+  // gabarit ne place rien. `demarrage.ts` vérifie désormais les deux ; il ne vérifiait que la
+  // première, et la synthèse pouvait taire une mention que rien n'affichait. Optionnel et en dernière position comme `ctx`/`tuileMinuteur` :
   // sans lui, comportement d'avant cette tâche, à l'identique.
   masquerEntretien = false,
   // Tâche 6 (2026-08-17) : la tuile qui ouvre `#recette` n'a de sens que s'il y a une recette à
@@ -548,7 +553,18 @@ export function rendreCorps(
     commandes: () => (commandes.length ? RENDU_COMMANDES : undefined),
     synthese: () => RENDU_SYNTHESE,
   };
-  const zones = (agencement ?? AGENCEMENT_DEFAUT).zones;
+  // Relecture finale du plan 2 (I2) : repli PAR CHAMP, jamais par objet. `(agencement ??
+  // AGENCEMENT_DEFAUT).zones` lisait le `??` au niveau de l'OBJET — un agencement PARTIEL n'est
+  // pas `undefined`, donc `zones` l'était, et le `.map` ci-dessous levait
+  // `TypeError: Cannot read properties of undefined (reading 'map')`. C'est la règle que la
+  // tâche 4 vient de poser sur `combien` (« le moteur de rendu l'appelle : un écran mal configuré
+  // aurait fait un ÉCRAN BLANC, ce que ce projet s'interdit au même titre que le bouton mort »)
+  // rentrée par une autre porte, dans la même branche. `modePrincipal` et `modulateursActifs`
+  // (`modes.ts`) retombent déjà par champ (`c.modes ?? AGENCEMENT_DEFAUT.modes`) : ce fichier
+  // était le seul des trois consommateurs de cette donnée facultative à lever.
+  // Le rendu DÉGRADE, la saisie REFUSE : `$defs/agencement` exige désormais les trois champs
+  // (`contrat/ecran.schema.json`), ce que le type `Agencement` disait déjà.
+  const zones = agencement?.zones ?? AGENCEMENT_DEFAUT.zones;
   return html`
     <!-- La marque data-mvt="vue:accueil" N'EST PLUS ICI (2026-08-28) : elle vit sur .ecran
          (demarrage.ts), la racine qui contient le bandeau ET ce corps. Une traversée ne fait

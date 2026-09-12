@@ -1257,6 +1257,25 @@ describe('repli du bloc par défaut vers l\'entretien', () => {
     expect(m.racine.querySelector('.synthese .ecart')?.textContent).toContain('2 tâches d\'entretien');
   });
 
+  // Relecture finale du plan 2 (I4) — QUATRIÈME cas, créé par la tâche 3 : la composition est
+  // devenue une DONNÉE, donc « le bloc central calculé » n'est plus « le bloc central rendu ».
+  // Un agencement qui omet la zone `blocCentral` ne place RIEN au centre — `rendreCorps` ignore
+  // le `TemplateResult` reçu. `entretienAffiche` ne regardait que `blocCentral === replEntretien`,
+  // vrai ici : la synthèse taisait « 2 tâches d'entretien » au motif d'un bloc que personne ne
+  // voit, c'est-à-dire qu'elle effaçait la SEULE trace restante de cette information.
+  it('la synthese garde sa mention quand l agencement n affiche aucun bloc central', async () => {
+    const sansBloc: Ecran = {
+      ...ECRANS.cuisine,
+      agencement: { ...ECRANS.cuisine.agencement!,
+                    zones: ['ambiances', 'commandes', 'synthese'] },
+    };
+    const m = await monterDemarrage(sansBloc, { taches: ENTRETIEN });
+    await m.pousser('todo.maintenance', '2', {});
+    expect(m.racine.querySelector('[data-zone="blocCentral"]')).toBeNull();
+    expect(m.racine.querySelector('.synthese .ecart')?.textContent)
+      .toContain("2 tâches d'entretien");
+  });
+
   // Un mode plus prioritaire (ici le ménage) confisque le bloc central : l'entretien n'est PLUS
   // affiché nulle part, donc la synthèse doit le reprendre. C'est exactement ce qu'un masquage posé
   // sur la pièce (et non sur le rendu réel) ferait disparaître à tort.

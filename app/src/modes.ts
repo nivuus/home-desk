@@ -13,6 +13,7 @@
  *  simples par l'appelant (`demarrage.ts`). C'est ce qui les rend testables sans navigateur. */
 import type { Bouton } from './ecran';
 import { AGENCEMENT_DEFAUT } from './agencement';
+import type { Zone } from './agencement';
 import BUDGET from '../../contrat/budget.json';
 
 export { BUDGET };
@@ -68,6 +69,17 @@ export type ContexteModes = {
   modes?: ModePrincipal[];
   /** Modulateurs actifs, même provenance et même défaut. Sans ordre significatif. */
   modulateurs?: Modulateur[];
+  /** Zones affichées par l'écran, reprises de l'agencement par `demarrage.ts` — ce module ne lit
+   *  jamais un écran lui-même. Facultatif : absent, `AGENCEMENT_DEFAUT.zones` s'applique, ce qui
+   *  reproduit le gabarit d'avant le plan 2 (les quatre zones). Même patron que `modes` et
+   *  `modulateurs` avant lui.
+   *
+   *  Ce que ce champ CHANGE, et pourquoi il n'est pas cosmétique : une zone qu'un écran n'affiche
+   *  pas ne coûte pas sa hauteur. Sans lui, `coutEcran` facturait une synthèse absente (40 px), une
+   *  rangée d'ambiance absente (97 px) ou un bloc central absent (jusqu'à 214 px) — toujours en
+   *  SURFACTURANT, donc jamais un débordement à l'écran, mais `verifierBudget` aurait refusé une
+   *  saisie parfaitement tenable dans le formulaire du plan 3. */
+  zones?: Zone[];
   /** Hauteur utile de l'écran en pixels CSS, reprise d'`Ecran.hauteurUtile` par `demarrage.ts` —
    *  ce module ne lit jamais un écran lui-même. Facultatif : absent,
    *  `BUDGET.hauteurUtileParDefaut` (585, les Fire 7) s'applique. Même patron que `modes`,
@@ -197,19 +209,29 @@ export function modulateursActifs(c: ContexteModes): Modulateur[] {
  *  — sans quoi elles seraient comptées deux fois. Les deux relevés s'accordent, ce qui est déjà
  *  une vérification : 64 + 10 pour une rangée de commandes, 9 + 72 + 2 × 8 = 97 px pour la rangée
  *  « Ambiance » complète, contre les ~100 px estimés en août. */
-/** Ce que l'écran mesure pour `rangees` rangées de commandes, à mode et rangée d'ambiance donnés.
- *  `.corps` est une COLONNE FLEX à gouttière fixe : son coût est la somme de ses enfants plus une
- *  gouttière entre chaque paire, plus son padding vertical, le bandeau venant au-dessus. Trois
- *  enfants sont toujours là (le bloc central, la ligne de synthèse, le bouton « Toute la
- *  maison ») ; la rangée « Ambiance » en ajoute DEUX (son étiquette est un enfant à part entière),
+/** Ce que l'écran mesure pour `rangees` rangées de commandes, à mode, rangée d'ambiance et zones
+ *  donnés. `.corps` est une COLONNE FLEX à gouttière fixe : son coût est la somme de ses enfants
+ *  plus une gouttière entre chaque paire, plus son padding vertical, le bandeau venant au-dessus.
+ *  UN SEUL enfant est toujours là, le bouton « Toute la maison » — il vit hors de l'ordre réglable
+ *  (cf. `rendu/corps.ts`, où il est écrit après le `repeat` des zones et collé en bas par
+ *  `margin-top: auto`). Les autres ne comptent que si `zones` les demande : le bloc central UN, la
+ *  ligne de synthèse UN, la rangée « Ambiance » DEUX (son étiquette est un enfant à part entière),
  *  la grille de commandes UN.
  *
  *  2026-09-12, plan 2 : extraite de la clôture `cout` qui vivait dans `combien` — `verifierBudget`
  *  la réutilise sans dupliquer l'addition. Deux additions du même budget finiraient par diverger,
  *  et c'est précisément ce que `contrat/budget.json` existe pour empêcher. Ne recapture pas `bloc`
  *  d'un appelant : elle le recalcule depuis `mode`, puisqu'elle n'a plus de fermeture commune avec
- *  `combien` pour le lui prêter. */
-function coutEcran(mode: ModePrincipal, rangeeAmbiance: boolean, rangees: number): number {
+ *  `combien` pour le lui prêter.
+ *
+ *  Relecture finale du plan 2 (I4) : `zones` est arrivé ici parce que cette fonction facturait les
+ *  quatre zones EN DUR — elle partait de `enfants = 3` et ne recevait jamais la composition de
+ *  l'écran. Le défaut (`AGENCEMENT_DEFAUT.zones`) les contient toutes les quatre, donc l'addition
+ *  redevient TERME POUR TERME celle d'avant dès qu'on ne passe rien : c'est ce qui rend la
+ *  correction vérifiable par une table de vérité gelée qu'on n'a pas eu à retoucher
+ *  (`tests/budget.test.ts`). */
+function coutEcran(mode: ModePrincipal, rangeeAmbiance: boolean, rangees: number,
+                  zones: Zone[] = AGENCEMENT_DEFAUT.zones): number {
   const h = BUDGET.hauteurs;
   // Troisième branche depuis 2026-09-12 (plan 2, tâche 5) : `minuteur` payait `blocDefaut`
   // jusqu'ici, un chiffre qu'aucun `.mode-bloc` de minuteur n'a jamais mesuré — le court-circuit
@@ -217,9 +239,25 @@ function coutEcran(mode: ModePrincipal, rangeeAmbiance: boolean, rangees: number
   // aujourd'hui) suit le même patron que `modesABlocHaut` juste en dessous.
   const bloc = (BUDGET.modesABlocMinuteur as string[]).includes(mode) ? h.blocMinuteur
     : (BUDGET.modesABlocHaut as string[]).includes(mode) ? h.blocHaut : h.blocDefaut;
-  let enfants = 3;
-  let somme = bloc + h.synthese + h.touteLaMaison;
-  if (rangeeAmbiance) {
+  // « Toute la maison » est HORS de l'ordre réglable (cf. `rendu/corps.ts`, où elle est écrite
+  // après le `repeat` des zones, collée en bas par `margin-top: auto`) : toujours là, toujours
+  // facturée. Les quatre autres ne coûtent que si l'agencement les demande — c'est la correction
+  // de la relecture finale du plan 2 (I4). Avec les quatre zones, l'addition redevient TERME POUR
+  // TERME celle d'avant cette correction, ce que la table de vérité gelée de `tests/budget.test.ts`
+  // vérifie sans avoir été retouchée.
+  let enfants = 1;
+  let somme = h.touteLaMaison;
+  if (zones.includes('blocCentral')) {
+    enfants += 1;
+    somme += bloc;
+  }
+  if (zones.includes('synthese')) {
+    enfants += 1;
+    somme += h.synthese;
+  }
+  if (rangeeAmbiance && zones.includes('ambiances')) {
+    // L'étiquette « Ambiance » est un enfant à part entière de la colonne flex, pas un titre
+    // dans le groupe : deux enfants, donc deux gouttières.
     enfants += 2;
     somme += h.etiquetteAmbiance + h.rangeeAmbiance;
   }
@@ -245,7 +283,17 @@ export function combien(
   mode: ModePrincipal,
   rangeeAmbiance = true,
   hauteurUtile: number = BUDGET.hauteurUtileParDefaut,
+  zones: Zone[] = AGENCEMENT_DEFAUT.zones,
 ): number {
+  // Relecture finale du plan 2 (I4) : un écran qui n'affiche pas la zone `commandes` n'affiche
+  // AUCUNE commande — ce n'est pas une question de budget, c'est une question de composition, et
+  // `rendu/corps.ts` ne rendra de toute façon jamais le conteneur. Sans cette garde, `combien`
+  // rendrait 2 ou 4 pour un écran qui n'a nulle part où les mettre, et `ordreCommandes` couperait
+  // une liste que personne n'affiche. Le schéma exige aujourd'hui `commandes` dans `zones`
+  // (`contains`, `contrat/ecran.schema.json`) — cette garde est ce qui rend `combien` honnête si
+  // la donnée entre quand même par une autre porte, exactement comme le repli par champ de
+  // `rendu/corps.ts`.
+  if (!zones.includes('commandes')) return 0;
   // Plus de court-circuit pour `minuteur` depuis 2026-09-12 (plan 2, tâche 5) : `coutEcran` lui
   // fait déjà payer `blocMinuteur` (206 px, troisième branche ci-dessus), donc le mode traverse
   // la même boucle que les huit autres. À 585 px avec rangée d'ambiance, il rend encore 0 — mais
@@ -257,7 +305,7 @@ export function combien(
   // nombre que la grille n'a jamais rendu.
   const rangeesMax = Math.floor(BUDGET.commandesParDefaut / BUDGET.tuilesParRangee);
   for (let rangees = rangeesMax; rangees >= 1; rangees--) {
-    if (coutEcran(mode, rangeeAmbiance, rangees) <= hauteurUtile) {
+    if (coutEcran(mode, rangeeAmbiance, rangees, zones) <= hauteurUtile) {
       return rangees * BUDGET.tuilesParRangee;
     }
   }
@@ -271,17 +319,33 @@ export function combien(
  *  AU MOMENT DE LA SAISIE — pas devant la tablette.
  *
  *  TOUS LES MODES SONT FACTURÉS depuis 2026-09-12 (plan 2, tâche 5), `minuteur` compris : il vit
- *  désormais dans `modesABlocMinuteur` et `coutEcran` lui compte son vrai `blocMinuteur`
- *  (206 px), plus `blocDefaut` (84 px). `verifierBudget('minuteur', true, 585)` rend donc 0 — à
- *  bon droit, cet écran ne déborde pas (558 px consommés sur 585) — et
- *  `verifierBudget('minuteur', true, 500)` rend 58, le vrai débordement. C'était la dette que
- *  `contrat/budget.json` nommait sous `_blocMinuteur` ; elle est refermée.
+ *  désormais dans `modesABlocMinuteur` et `coutEcran` lui compte son vrai `blocMinuteur` (206 px)
+ *  AU LIEU DE `blocDefaut` (84 px). Au lieu de, jamais en plus : la sélection du bloc central est
+ *  un TERNAIRE à trois branches, un écran n'a qu'un seul bloc central. (La relecture finale du
+ *  plan 2 a trouvé ici le mot « plus », qui annonçait 290 px de bloc — 84 px de dette fantôme dans
+ *  le modèle même sur lequel le plan 3 dira « cet écran déborde », et que la phrase suivante
+ *  contredisait déjà. C'est la DEUXIÈME fois que cette docstring ment : la ronde 1 de la tâche 4
+ *  l'avait déjà réécrite pour un exemple faux.)
+ *
+ *  Les deux valeurs, recalculées depuis `contrat/budget.json` : `verifierBudget('minuteur', true,
+ *  585)` rend 0 — à bon droit, cet écran ne déborde pas, 121 + 24 + (62 + 206 + 32 + 9 + 72) +
+ *  8 x 4 = 558 px consommés sur 585 — et `verifierBudget('minuteur', true, 500)` rend 58, le vrai
+ *  débordement. C'était la dette que `contrat/budget.json` nommait sous `_blocMinuteur` ; elle est
+ *  refermée.
+ *
+ *  `zones` est FACULTATIF et vaut les quatre zones du défaut (relecture finale du plan 2, I4) :
+ *  une zone que l'agencement n'affiche pas ne coûte pas sa hauteur, sans quoi cette fonction
+ *  refuserait une saisie tenable en annonçant un débordement fantôme (jusqu'à 214 px pour un
+ *  écran sans bloc central en mode minuteur). Elle compte toujours ZÉRO rangée de commandes :
+ *  c'est la composition la plus petite que l'écran puisse rendre, donc la question « tient-elle,
+ *  même à vide ? ».
  *
  *  Le rendu ne l'appelle jamais : c'est toute la différence avec la version d'avant, où le verdict
  *  (l'ex-`BudgetIntenable`) et le calcul vivaient dans la même fonction, `combien`. */
 export function verifierBudget(mode: ModePrincipal, rangeeAmbiance: boolean,
-                               hauteurUtile: number): number {
-  return Math.max(0, coutEcran(mode, rangeeAmbiance, 0) - hauteurUtile);
+                               hauteurUtile: number,
+                               zones: Zone[] = AGENCEMENT_DEFAUT.zones): number {
+  return Math.max(0, coutEcran(mode, rangeeAmbiance, 0, zones) - hauteurUtile);
 }
 
 /** Remonte en tête les commandes dont le libellé est cité, dans l'ordre cité, en gardant les
@@ -355,5 +419,5 @@ export function ordreCommandes(commandes: Bouton[], c: ContexteModes): Bouton[] 
   else if (c.serrureDeverrouillee) ordre = remonter(commandes, ['Porte']);
   // `Ambilight` n'a rien à faire sur l'accueil courant : déclaré au salon pour le mode cinéma
   // seulement, il ne remonte dans aucun autre ordre et se fait donc écarter par la coupe.
-  return epingler(ordre, combien(mode, c.rangeeAmbiance, c.hauteurUtile));
+  return epingler(ordre, combien(mode, c.rangeeAmbiance, c.hauteurUtile, c.zones));
 }

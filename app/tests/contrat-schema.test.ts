@@ -106,9 +106,26 @@ describe('contrat/ecran.schema.json', () => {
   // `agencement.blocDefaut`, qui reste bien réel. Sans ce test, quelqu'un retirant `blocDefaut` de
   // `$defs/agencement` par erreur en même temps que la racine casserait exactement ce que la
   // correction ci-dessus visait à garantir, et rien ne le verrait.
+  //
+  // Relecture finale du plan 2 (I2) : ce test passait un agencement PARTIEL
+  // (`{ blocDefaut: 'agenda' }`), c'est-à-dire précisément la donnée que `$defs/agencement`
+  // déclarait valide et qui faisait lever `rendreCorps`. Il reprend maintenant l'agencement
+  // COMPLET du salon et n'y remplace que `blocDefaut` — la seule chose qu'il a jamais voulu dire.
   it('accepte un blocDefaut valide dans agencement, distinct de la racine', () => {
-    const annote = { ...ECRANS.salon, agencement: { blocDefaut: 'agenda' } };
+    const annote = { ...ECRANS.salon,
+                     agencement: { ...ECRANS.salon.agencement!, blocDefaut: 'agenda' } };
     expect(valider(annote), JSON.stringify(valider.errors)).toBe(true);
+  });
+
+  // Relecture finale du plan 2 (I2). Le type `Agencement` (`src/agencement.ts`) rend `zones`,
+  // `modes` et `modulateurs` OBLIGATOIRES ; le schéma, lui, n'exigeait rien. Il déclarait donc
+  // valide ce que le type interdit — et le rendu le payait : `rendreCorps` retombait par OBJET,
+  // pas par champ, et `{ blocDefaut: 'agenda' }` lui faisait lever `TypeError` sur `zones.map`.
+  // Le rendu dégrade désormais (cf. `rendu/corps.ts`), et le contrat que le formulaire du plan 3
+  // fera respecter dit enfin la même chose que le type.
+  it('refuse un agencement incomplet — le schema dit ce que le type exige', () => {
+    refusePour({ ...ECRANS.salon, agencement: { blocDefaut: 'agenda' } },
+      { instancePath: '/agencement', keyword: 'required', params: { missingProperty: 'zones' } });
   });
 
   // Relecture de la tâche 6. Cet `enum` portait CINQ valeurs contre TROIS au type `BlocDefaut`

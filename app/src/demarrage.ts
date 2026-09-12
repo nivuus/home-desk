@@ -1454,6 +1454,11 @@ export async function demarrer(
       // un écran lui-même, exactement comme pour `blocDefaut` et `rangeeAmbiance`.
       modes: agencement.modes,
       modulateurs: agencement.modulateurs,
+      // Relecture finale du plan 2 (I4) : `coutEcran` (`modes.ts`) facturait les quatre zones en
+      // dur. Une zone qu'un écran n'affiche pas ne coûte pas sa hauteur — même provenance et même
+      // patron que `modes`/`modulateurs` ci-dessus. À résultat constant sur les trois écrans, qui
+      // déclarent tous les quatre zones du défaut (cf. `tests/agencement.test.ts`).
+      zones: agencement.zones,
       // Repris tel quel d'`Ecran.hauteurUtile` — ce module ne lit jamais un écran lui-même, même
       // patron que `blocDefaut`, `rangeeAmbiance`, `modes` et `modulateurs` ci-dessus. Absent pour
       // les trois écrans déclarés aujourd'hui : `combien` retombe alors sur `BUDGET.hauteurUtileParDefaut`
@@ -1803,7 +1808,14 @@ export async function demarrer(
     // réellement à l'écran. Sous `horsLigne` (ou sous une alerte, ou pendant le ménage) elle ne
     // l'est pas : laisser une ancre vivante ferait écrire `--progression` par le tic sur un
     // `.media` qui n'existe pas — ou pire, sur celui d'un rendu précédent encore dans l'arbre.
-    const carteMediaAffichee = blocCentral !== undefined && !horsLigne
+    // Relecture finale du plan 2 (I4) : `agencement.zones.includes('blocCentral')` en tête. Depuis
+    // que la tâche 3 a fait de la composition une DONNÉE, « le bloc central est calculé » ne veut
+    // plus dire « le bloc central est rendu » : un agencement qui omet la zone `blocCentral` ne
+    // rend rien du tout, et `rendreCorps` ne place même pas le `TemplateResult` reçu. Poser l'ancre
+    // du rail dans ce cas, c'est exactement le risque que ce commentaire nomme depuis la tâche 15 —
+    // faire écrire `--progression` par le tic « sur un `.media` qui n'existe pas ».
+    const carteMediaAffichee = agencement.zones.includes('blocCentral')
+      && blocCentral !== undefined && !horsLigne
       && (mode === 'cinema' || mode === 'media') && source !== null;
     ancreProgression = carteMediaAffichee
       ? ancrerProgression(source!.progression, maintenantMs, horlogeMonotone())
@@ -1838,7 +1850,14 @@ export async function demarrer(
     // donc la ligne de synthèse doit garder sa mention. `replEntretien !== undefined` exclut au
     // passage le cas « aucune tâche » (la comparaison serait alors `undefined === undefined`,
     // vraie sur un écran sans aucun bloc central — et couperait la synthèse pour rien).
-    const entretienAffiche = replEntretien !== undefined && blocCentral === replEntretien;
+    //
+    // Relecture finale du plan 2 (I4) : `agencement.zones.includes('blocCentral')` en plus, même
+    // raison que pour `carteMediaAffichee` ci-dessus. Sans lui, un écran dont l'agencement omet la
+    // zone `blocCentral` taisait « 3 tâches d'entretien » dans sa ligne de synthèse au motif que le
+    // bloc central les affichait — alors que RIEN ne les affichait. C'est l'invariant « le bloc
+    // central calculé EST le bloc central rendu » que la tâche 3 a transformé en donnée réglable.
+    const entretienAffiche = agencement.zones.includes('blocCentral')
+      && replEntretien !== undefined && blocCentral === replEntretien;
 
     // Tâche 7 : la 4e tuile de la rangée « Ambiance », uniquement pour une pièce qui déclare des
     // minuteurs (la cuisine) — absente pour le salon/bureau (`undefined`, jamais rendue),

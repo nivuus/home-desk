@@ -201,6 +201,7 @@
       "description": "Facultatif tant que le plan 2 ne l'a pas porte dans la donnee. La resolution cote integration le remplit par defaut.",
       "type": "object",
       "additionalProperties": false,
+      "required": ["zones", "modes", "modulateurs"],
       "properties": {
         "zones": {
           "type": "array",

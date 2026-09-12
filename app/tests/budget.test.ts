@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { combien, ordreCommandes, verifierBudget, BUDGET, type ContexteModes } from '../src/modes';
 import { ECRANS } from '../src/ecran';
-import { resoudreAgencement } from '../src/agencement';
+import { resoudreAgencement, AGENCEMENT_DEFAUT, type Zone } from '../src/agencement';
 import { CALME } from './contextes';
 
 /** `CALME_VOITURE` : un `ContexteModes` valant `blocDefaut: 'voiture'` et rien d'autre d'actif.
@@ -211,6 +211,85 @@ describe('le mode minuteur paie son cout comme les autres', () => {
 
   it('verifierBudget chiffre le debordement exact a 500 px (558 - 500)', () => {
     expect(verifierBudget('minuteur', true, 500)).toBe(58);
+  });
+});
+
+/** Relecture finale du plan 2 (I4) — `coutEcran` SAIT COMPTER UN ÉCRAN QUI OMET UNE ZONE.
+ *
+ *  Il partait de `enfants = 3` et `somme = bloc + synthese + touteLaMaison` EN DUR et ne recevait
+ *  jamais `zones` : une zone omise était facturée quand même. L'erreur était toujours
+ *  CONSERVATRICE (surfacturation, donc moins de commandes, jamais un débordement à l'écran) —
+ *  mais `verifierBudget`, écrite exactement pour que le formulaire du plan 3 REFUSE une saisie,
+ *  aurait refusé un agencement parfaitement tenable en annonçant un débordement fantôme.
+ *
+ *  Chaque valeur ci-dessous est calculée à la main depuis `contrat/budget.json` et affirmée AU
+ *  PIXEL, jamais par une inégalité : bandeau 121, paddingCorps 24, gouttiere 8, touteLaMaison 62,
+ *  synthese 32, blocDefaut 84, etiquetteAmbiance 9, rangeeAmbiance 72. La référence commune est
+ *  l'écran COMPLET à zéro rangée, déjà cloué plus haut à 436 px :
+ *      121 + 24 + (62 + 84 + 32 + 9 + 72) + 8 x 4 = 436       (5 enfants, 4 gouttières)
+ *  « Toute la maison » n'est PAS dans `zones` (elle vit hors de l'ordre réglable, cf.
+ *  `rendu/corps.ts`) : elle reste facturée dans les quatre cas. */
+describe('coutEcran compte les zones que l agencement demande, et elles seules', () => {
+  /** SANS `synthese` : 4 enfants, somme 62 + 84 + 9 + 72 = 227.
+   *      121 + 24 + 227 + 8 x 3 = 396   (40 px de moins que 436 : 32 de synthèse + 8 de gouttière)
+   *  À 100 px de hauteur utile, le débordement est donc 396 - 100 = 296, contre 336 pour l'écran
+   *  complet. L'écart de 40 px EST la correction. */
+  it('ne facture ni la synthese ni sa gouttiere quand la zone est absente', () => {
+    const sansSynthese: Zone[] = ['ambiances', 'commandes', 'blocCentral'];
+    expect(verifierBudget('defaut', true, 100, sansSynthese)).toBe(296);
+    expect(verifierBudget('defaut', true, 100)).toBe(336);
+    expect(verifierBudget('defaut', true, 396, sansSynthese)).toBe(0);
+  });
+
+  /** SANS `ambiances` : 3 enfants, somme 62 + 84 + 32 = 178.
+   *      121 + 24 + 178 + 8 x 2 = 339   (97 px de moins : 9 + 72 + DEUX gouttières de 8)
+   *  97 px est exactement le coût complet de la rangée « Ambiance » que `contrat/budget.json`
+   *  documente sous `_source` (« 9 + 72 + 2 x 8 = 97 px »). Noter que `rangeeAmbiance` reste VRAI
+   *  ici : c'est bien la ZONE absente de l'agencement qui décide, pas la pièce. */
+  it('ne facture pas la rangee Ambiance quand la zone est absente, meme rangeeAmbiance vrai', () => {
+    const sansAmbiances: Zone[] = ['commandes', 'blocCentral', 'synthese'];
+    expect(verifierBudget('defaut', true, 100, sansAmbiances)).toBe(239);
+    expect(verifierBudget('defaut', true, 339, sansAmbiances)).toBe(0);
+  });
+
+  /** SANS `blocCentral` : 4 enfants, somme 62 + 32 + 9 + 72 = 175.
+   *      121 + 24 + 175 + 8 x 3 = 344   (92 px de moins : 84 de blocDefaut + 8 de gouttière)
+   *  C'est la zone la plus chère : sous `minuteur` (blocMinuteur, 206 px) l'écart monterait à
+   *  214 px de débordement fantôme. */
+  it('ne facture pas le bloc central quand la zone est absente', () => {
+    const sansBloc: Zone[] = ['ambiances', 'commandes', 'synthese'];
+    expect(verifierBudget('defaut', true, 100, sansBloc)).toBe(244);
+    expect(verifierBudget('defaut', true, 344, sansBloc)).toBe(0);
+  });
+
+  /** SANS `commandes`, aucun calcul n'a lieu : un écran qui n'affiche pas la zone des commandes
+   *  n'en affiche AUCUNE. 2000 px est choisi parce que l'écran complet y rend 4 (test « ne dépasse
+   *  jamais deux rangées ») : la garde mord sur un budget que rien d'autre ne limite. */
+  it('rend 0 commande quand la zone commandes est absente, quel que soit le budget', () => {
+    const sansCommandes: Zone[] = ['ambiances', 'blocCentral', 'synthese'];
+    expect(combien('defaut', true, 2000, sansCommandes)).toBe(0);
+    expect(combien('defaut', true, 2000)).toBe(4);
+  });
+
+  /** Le filet de la correction : avec les quatre zones du défaut, l'addition est TERME POUR TERME
+   *  celle d'avant. La table de vérité gelée (`ATTENDU`) l'atteste déjà en n'appelant jamais avec
+   *  `zones` ; ce test l'atteste par l'autre bout, en le passant EXPLICITEMENT. */
+  it('le defaut explicite rend exactement ce que l omission rend', () => {
+    for (const [mode, rangeeAmbiance, places] of ATTENDU) {
+      expect(combien(mode as any, rangeeAmbiance, 585, AGENCEMENT_DEFAUT.zones),
+             `${mode} / ambiance=${rangeeAmbiance}`).toBe(places);
+    }
+  });
+
+  /** Le CÂBLAGE, sans lequel les quatre tests ci-dessus garderaient une fonction que personne
+   *  n'appelle avec le bon argument : `ordreCommandes` transmet `c.zones`. Même leçon que la
+   *  relecture de la tâche 4, où décâbler `c.hauteurUtile` laissait la suite entièrement verte. */
+  it('ordreCommandes transmet zones : un ecran sans zone commandes n en rend aucune', () => {
+    const sansCommandes: ContexteModes = {
+      ...CALME_VOITURE, zones: ['ambiances', 'blocCentral', 'synthese'],
+    };
+    expect(ordreCommandes(ECRANS.bureau.commandes, sansCommandes)).toHaveLength(0);
+    expect(ordreCommandes(ECRANS.bureau.commandes, CALME_VOITURE)).toHaveLength(2);
   });
 });
 

@@ -1251,6 +1251,23 @@ describe('rendreCorps — assembleur de zones', () => {
    *  le bloc central SURVIVAIT au retrait de la rangée de commandes. Le rendu est le même dans les
    *  deux cas : c'est l'IDENTITÉ des nœuds qui était en jeu, et elle se perdait sans qu'aucun
    *  rendu ne la trahisse. Ce test la rend observable. */
+  /** Relecture finale du plan 2 (I2). `rendreCorps` retombait sur le défaut PAR OBJET
+   *  (`(agencement ?? AGENCEMENT_DEFAUT).zones`) : un agencement PARTIEL n'est pas `undefined`,
+   *  donc `zones` l'était, et le `.map` levait `TypeError: Cannot read properties of undefined`.
+   *  Le schéma déclarait cette donnée VALIDE (`$defs/agencement` n'avait aucun `required`) — elle
+   *  ne l'est plus, mais le rendu doit dégrader quand même : c'est la règle que la tâche 4 a posée
+   *  sur `combien` (le moteur de rendu ne fait pas d'écran blanc), et `modePrincipal` /
+   *  `modulateursActifs` retombent déjà par champ. Le `as unknown as Agencement` est délibéré :
+   *  le TYPE exige les trois champs — ce cas n'existe QUE si la donnée entre par une autre porte
+   *  que TypeScript, c'est-à-dire par l'intégration du plan 3.
+   *  Un `not.toThrow()` seul n'affirmerait rien (leçon de la relecture de la tâche 4) : la
+   *  seconde assertion dit QUEL agencement a pris le relais. */
+  it('degrade sur les zones du defaut quand l agencement en omet le champ, au lieu de lever', () => {
+    const partiel = { blocDefaut: 'agenda' } as unknown as Agencement;
+    expect(() => rendreDans(ECRANS.cuisine, partiel)).not.toThrow();
+    expect(zonesRendues(rendreDans(ECRANS.cuisine, partiel))).toEqual(AGENCEMENT_DEFAUT.zones);
+  });
+
   it('garde le meme noeud de bloc central quand une zone amont disparait', () => {
     const racine = document.createElement('div');
     const rendre = (zones: Zone[]) => render(
