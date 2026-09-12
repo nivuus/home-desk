@@ -113,7 +113,7 @@
           "type": "array", "minItems": 2, "maxItems": 2,
           "items": { "type": "string", "minLength": 1 }
         },
-        "lien": { "type": "string" },
+        "lien": { "type": "string", "minLength": 1 },
         "vue": { "type": "string", "pattern": "^#" },
         "epingle": { "const": true },
         "absenceNommee": { "type": "string" },
