@@ -30,11 +30,21 @@ CHEMIN_ICONES = pathlib.Path(__file__).parent / "contrat" / "icones.json"
 _ICONES_OPTIONS: list[str] = json.loads(CHEMIN_ICONES.read_text(encoding="utf-8"))["icones"]
 
 # $defs/bouton (tuiles de commande, rangee d'ambiance, extras maison) :
-# light/cover/lock/switch, les domaines qu'un bouton d'ecran mural actionne
-# reellement.
-_DOMAINES_TUILE = ["light", "cover", "lock", "switch"]
+# AUCUNE restriction de domaine — corrige apres verification directe sur les
+# trois ecrans reels (app/src/ecran.ts). Une premiere version restreignait
+# "entite"/"cible" a light/cover/lock/switch ; l'inventaire REEL des trois
+# ecrans dement ce choix : `commandes` porte aussi binary_sensor, climate,
+# fan, sensor, todo (ex. `climate.radiateur`, un chauffage) ; `ambiances`
+# porte fan et vacuum ; `extrasMaison` ne porte QUE du sensor (le Scanner,
+# `sensor.home_stock_next_meal`) — aucun n'aurait ete saisissable derriere
+# cette liste. Le contrat lui-meme ($defs/entite) ne restreint aucun domaine
+# (un motif d'entity_id generique) : une liste blanche ici aurait ete une
+# contrainte INVENTEE, pas une regle du contrat — et une contrainte inventee
+# qui rend des ecrans REELS non reproductibles rate exactement le but de
+# cette tache (migrer les trois ecrans hors du depot).
 # $defs/synthese (ligne de synthese) : ce qu'une synthese resume est un ETAT
-# a lire, jamais un service a appeler.
+# a lire, jamais un service a appeler — verifie de la meme facon sur les
+# trois ecrans reels (binary_sensor, cover, lock, sensor, todo).
 _DOMAINES_SYNTHESE = ["sensor", "binary_sensor", "todo", "lock", "cover"]
 # `ouvrants` (racine du contrat) : verifie sur les trois ecrans reels
 # (app/src/ecran.ts, ex. `binary_sensor.porte_balcon_s_ouverture`) — toujours
@@ -52,8 +62,15 @@ def _selecteur_icone() -> selector.SelectSelector:
     )
 
 
-def _selecteur_entite(domaines: list[str]) -> selector.EntitySelector:
-    return selector.EntitySelector(selector.EntitySelectorConfig(domain=domaines))
+def _selecteur_entite(domaines: list[str] | None = None) -> selector.EntitySelector:
+    """`domaines=None` (bouton) : aucune restriction, voir la note ci-dessus.
+    Un domaine fourni (synthese, ouvrants) reste une vraie contrainte,
+    verifiee sur les trois ecrans reels — jamais une liste ecrite au
+    jugement."""
+    config: dict[str, Any] = {}
+    if domaines:
+        config["domain"] = domaines
+    return selector.EntitySelector(selector.EntitySelectorConfig(**config))
 
 
 def _selecteur_geste() -> selector.SelectSelector:
@@ -113,8 +130,8 @@ def _schema_bouton(editable: bool) -> vol.Schema:
     champs: dict[Any, Any] = {
         vol.Required("libelle"): str,
         vol.Required("icone"): _selecteur_icone(),
-        vol.Required("entite"): _selecteur_entite(_DOMAINES_TUILE),
-        vol.Optional("cible"): _selecteur_entite(_DOMAINES_TUILE),
+        vol.Required("entite"): _selecteur_entite(),
+        vol.Optional("cible"): _selecteur_entite(),
         vol.Optional("service_domaine"): str,
         vol.Optional("service_action"): str,
         vol.Optional("lien"): str,

@@ -332,6 +332,61 @@ def test_icone_vient_du_contrat_embarque_pas_d_une_liste_ecrite_a_la_main():
     assert listes_champs._ICONES_OPTIONS == brut["icones"]
 
 
+async def test_extrasMaison_accepte_un_capteur_comme_le_vrai_Scanner_du_depot(hass, entree):
+    """Verification directe (ronde 1 de relecture, suite) : une premiere
+    version restreignait "entite" de $defs/bouton a light/cover/lock/switch,
+    y compris pour `extrasMaison`. Or le SEUL extra reel du depot
+    (app/src/ecran.ts, piece cuisine) est `{ libelle: 'Scanner', icone:
+    'scan', entite: 'sensor.home_stock_next_meal', ... }` — un `sensor`, hors
+    de cette liste. Ce test rejoue exactement cette tuile : elle doit passer,
+    sans quoi le SEUL extra reel du depot resterait irreproductible depuis
+    l'interface, à l'oppose du but de la tache (migrer les ecrans reels hors
+    du depot, cf. le brief)."""
+    subentry_id = await _creer_ecran(hass, entree)
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "extrasMaison"})
+    await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"],
+        {
+            "libelle": "Scanner",
+            "icone": "scan",
+            "entite": "sensor.home_stock_next_meal",
+            "lien": "/home-stock",
+            "absenceNommee": "Garde-manger non installe",
+        },
+    )
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+
+    subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
+    assert subentry.data["extrasMaison"] == [
+        {
+            "libelle": "Scanner",
+            "icone": "scan",
+            "entite": "sensor.home_stock_next_meal",
+            "lien": "/home-stock",
+            "absenceNommee": "Garde-manger non installe",
+        }
+    ]
+
+
+def test_bouton_n_impose_aucun_domaine_verifie_sur_les_trois_ecrans_reels():
+    """Complement du test ci-dessus, au niveau du selecteur directement :
+    l'inventaire REEL des trois ecrans (commandes: binary_sensor, climate,
+    cover, fan, light, lock, sensor, todo ; ambiances: fan, light, vacuum ;
+    extrasMaison: sensor — mesure par grep sur app/src/ecran.ts) deborde
+    largement toute liste blanche raisonnable : `entite`/`cible` ne doivent
+    filtrer AUCUN domaine, exactement comme `$defs/entite` du contrat, qui
+    n'en restreint aucun."""
+    champs = listes_champs._schema_bouton(False).schema
+    for nom in ("entite", "cible"):
+        selecteur = next(v for k, v in champs.items() if str(k) == nom)
+        assert "domain" not in selecteur.config, (
+            f"{nom} ne doit filtrer aucun domaine (voir la note de "
+            "listes_champs.py sur l'inventaire reel des trois ecrans)")
+
+
 # ---------------------------------------------------------------------------
 # Point 3 de la ronde 1 : le plan ne rendait jamais la sous-entree validable
 # ---------------------------------------------------------------------------
