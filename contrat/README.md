@@ -45,3 +45,33 @@ si les deux divergent.
 **Après toute modification d'un fichier de ce répertoire : `make contrat`, et
 committez le résultat.** Sans ce geste, la mesure que vous venez de publier
 n'atteint pas le formulaire qui s'en sert pour refuser une saisie.
+
+## Les deux tables de cas
+
+`cas-schema.json` (tâche 3) est un corpus de conformité pour `ecran.schema.json` :
+un écran `minimal`, et une liste de `cas` qui le modifient — chacun disant s'il
+doit rester valide, et pour un cas invalide, **le motif exact attendu**
+(`chemin: mot-clé`, au vocabulaire de JSON Schema — `type`, `minimum`,
+`pattern`, `enum`, `additionalProperties`, `required`, `contains`).
+
+Il est lu par DEUX suites, et c'est tout ce qu'il garantit :
+
+- `app/tests/cas-schema.test.ts`, qui rejoue chaque cas avec `ajv` ;
+- `tests/composant/test_schema.py`, qui rejoue le même cas avec le miroir
+  `voluptuous` (`custom_components/home_desk/schema.py`).
+
+Un cas invalide qui n'assertirait que le refus (et pas le motif) passerait
+pour la mauvaise raison — n'importe quelle autre faute du même objet
+suffirait à le faire réussir. C'est ce que `motif()` (côté `voluptuous`) et
+`motifs()` (côté `ajv`, dans le test vitest) existent pour empêcher : les deux
+doivent nommer LE MÊME endroit, pas seulement refuser.
+
+**Ce fichier vit dans `contrat/`, et nulle part ailleurs.** Posé dans
+`app/tests/`, il serait invisible à `pytest` ; posé dans `tests/composant/`,
+invisible à `vitest`. `contrat/` est le seul répertoire que les deux suites
+regardent — c'est ce qui rend un cas présent d'un côté et absent de l'autre
+tout simplement impossible : c'est le même fichier, chargé deux fois par deux
+lecteurs différents, jamais recopié.
+
+Comme les trois autres fichiers de ce répertoire, il est **inventé** : aucun
+écran de `cas-schema.json` ne décrit une pièce ou une entité de cette maison.
