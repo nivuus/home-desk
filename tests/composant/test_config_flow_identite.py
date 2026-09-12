@@ -11,7 +11,12 @@ son renommage) plutot qu'un decoupage arbitraire.
 from homeassistant import data_entry_flow
 
 from conftest import IDENTITE_MINIMALE, _creer_ecran, _init_reconfigure
-from custom_components.home_desk.const import ERREUR_BUDGET_INTENABLE, ERREUR_NOM_VIDE
+from custom_components.home_desk.const import (
+    ERREUR_BUDGET_INTENABLE,
+    ERREUR_NOM_DEJA_UTILISE,
+    ERREUR_NOM_VIDE,
+    VERSION_CONFIG,
+)
 
 
 async def test_reconfigurer_l_identite_change_le_nom_et_la_hauteur(hass, entree):
@@ -87,6 +92,61 @@ async def test_reconfigurer_l_identite_vide_la_note_existante(hass, entree):
     assert resultat["type"] is data_entry_flow.FlowResultType.MENU
     subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
     assert "note" not in subentry.data
+
+
+async def test_reconfigurer_l_identite_refuse_un_nom_deja_pris_par_un_autre_ecran(hass, entree):
+    """Ronde 1 de relecture (Important, tache 8) : `nom` est la cle primaire
+    du transport websocket -- deux ecrans homonymes en rendraient un
+    inatteignable. Renommer "salon" en "cuisine" alors que "cuisine" existe
+    deja doit se refuser, en nommant le conflit."""
+    salon_id = await _creer_ecran(hass, entree, nom="salon")
+    await _creer_ecran(hass, entree, nom="cuisine")
+
+    flow = await _init_reconfigure(hass, entree, salon_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "identite"})
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {**IDENTITE_MINIMALE, "nom": "cuisine"})
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+    assert resultat["errors"]["nom"] == ERREUR_NOM_DEJA_UTILISE
+    assert "cuisine" in str(resultat["description_placeholders"])
+    subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[salon_id]
+    assert subentry.data["nom"] == "salon", "un refus ne doit RIEN persister"
+
+
+async def test_reconfigurer_l_identite_vers_son_propre_nom_actuel_n_est_pas_un_conflit(hass, entree):
+    """Le pendant du test precedent : renommer un ecran vers SON PROPRE nom
+    (aucun changement de `nom`) ne doit jamais se refuser lui-meme --
+    `garde_ecran.noms_utilises` EXCLUT la sous-entree en cours de
+    reconfiguration."""
+    subentry_id = await _creer_ecran(hass, entree, nom="salon")
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "identite"})
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {**IDENTITE_MINIMALE, "nom": "salon", "hauteurUtile": 950})
+    assert resultat["type"] is data_entry_flow.FlowResultType.MENU
+    subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
+    assert subentry.data["hauteurUtile"] == 950
+
+
+async def test_reconfigurer_l_identite_preserve_la_version(hass, entree):
+    """Ronde 1 de relecture (Important, tache 8) : le transport websocket
+    (`websocket.py`) refuse net (`version_inconnue`) toute sous-entree dont
+    la `version` ne vaut pas exactement `VERSION_CONFIG` -- si une
+    reconfiguration la perdait, l'ecran deviendrait IRRECUPERABLE par le
+    transport, pas seulement degrade. Rien ne gardait cette garantie avant
+    ce test : `_valider_identite` ne touche jamais `version`, et
+    `nouvelles_donnees = dict(subentry.data)` (avant `.update(donnee)`)
+    la conserve seulement TANT QUE ce point de depart ne change pas."""
+    subentry_id = await _creer_ecran(hass, entree)
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "identite"})
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {**IDENTITE_MINIMALE, "nom": "Salon renomme"})
+    subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
+    assert subentry.data["version"] == VERSION_CONFIG
 
 
 async def test_reconfigurer_l_identite_renomme_le_titre_de_la_sous_entree(hass, entree):

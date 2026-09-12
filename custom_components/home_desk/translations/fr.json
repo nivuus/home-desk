@@ -289,6 +289,7 @@
       },
       "error": {
         "nom_vide": "Le nom ne peut pas être vide.",
+        "nom_deja_utilise": "Un autre écran s'appelle déjà « {nom} » : choisissez un nom différent.",
         "hauteur_hors_bornes": "La hauteur utile doit être comprise entre {min} et {max} px.",
         "budget_intenable": "Cet écran déborde de {debordement} px. Augmentez la hauteur utile, ou retirez une zone dans « Blocs et modes ».",
         "champ_invalide": "Ce champ n'est pas valide.",

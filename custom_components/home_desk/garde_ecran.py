@@ -65,6 +65,23 @@ from . import libelles, schema
 from .const import ERREUR_ECRAN_DEVIENDRAIT_INVALIDE
 
 
+def noms_utilises(entry: Any, *, exclure: str | None = None) -> frozenset[str]:
+    """Les `nom` des sous-entrees « ecran » de `entry`, hors `exclure`.
+
+    Ronde 1 de relecture (Important, tache 8) : `nom` est la cle PRIMAIRE
+    du transport (`websocket.py` resout un ecran PAR SON NOM) -- deux
+    homonymes rendraient l'un des deux definitivement inatteignable.
+    `config_flow._valider_identite` l'utilise pour refuser un `nom` deja
+    pris avant d'ecrire ; vit ici (pas dans `config_flow.py`, deja a la
+    limite des 500 lignes) comme les autres invariants qui depassent la
+    portee d'une seule sous-entree."""
+    return frozenset(
+        sous_entree.data["nom"]
+        for subentry_id, sous_entree in entry.subentries.items()
+        if subentry_id != exclure and "nom" in sous_entree.data
+    )
+
+
 def verifier_ecran_complet(
     donnees: dict, *, section_courante: str | None = None, hass: Any = None
 ) -> tuple[dict[str, str], dict[str, str]]:

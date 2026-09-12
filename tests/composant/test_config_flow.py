@@ -39,6 +39,7 @@ from custom_components.home_desk.const import (
     ERREUR_CHAMP_VIDE,
     ERREUR_ECRAN_DEVIENDRAIT_INVALIDE,
     ERREUR_HAUTEUR_HORS_BORNES,
+    ERREUR_NOM_DEJA_UTILISE,
     ERREUR_NOM_VIDE,
     ERREUR_RECETTE_SANS_MODE,
     ERREUR_SELECTION_MANQUANTE,
@@ -110,6 +111,7 @@ def _cles_attendues() -> set[str]:
         f"/config_subentries/ecran/error/{ERREUR_CHAMP_INCONNU}",
         f"/config_subentries/ecran/error/{ERREUR_CHAMP_VIDE}",
         f"/config_subentries/ecran/error/{ERREUR_NOM_VIDE}",
+        f"/config_subentries/ecran/error/{ERREUR_NOM_DEJA_UTILISE}",
         f"/config_subentries/ecran/error/{ERREUR_SELECTION_MANQUANTE}",
         f"/config_subentries/ecran/error/{ERREUR_SERVICE_INCOMPLET}",
         # Tache 7 : les deux regles hors-schema, et les deux refus qui
@@ -240,6 +242,34 @@ async def test_un_ecran_valide_est_accepte_et_porte_sa_version(hass, entree):
     assert resultat["data"]["note"] == "Fire 7, mur du salon"
     assert resultat["data"]["temperature"] == IDENTITE_MINIMALE["temperature"]
     assert resultat["title"] == IDENTITE_MINIMALE["nom"]
+
+
+async def test_creer_un_second_ecran_du_meme_nom_est_refuse(hass, entree):
+    """Ronde 1 de relecture (Important, tache 8) : `nom` est la cle primaire
+    du transport websocket (`websocket.py` resout un ecran PAR SON NOM,
+    `home_desk/ecrans` liste par ce meme champ) -- deux homonymes
+    rendraient l'un des deux DEFINITIVEMENT inatteignable et le selecteur
+    de la tablette afficherait deux lignes identiques. Refuse a la SAISIE,
+    en nommant le conflit, plutot que de laisser deux sous-entrees
+    partager un nom que rien ne distinguerait plus cote transport."""
+    premier = await hass.config_entries.subentries.async_init(
+        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        context={"source": config_entries.SOURCE_USER})
+    resultat = await hass.config_entries.subentries.async_configure(
+        premier["flow_id"], IDENTITE_MINIMALE)
+    assert resultat["type"] is data_entry_flow.FlowResultType.CREATE_ENTRY
+
+    second = await hass.config_entries.subentries.async_init(
+        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        context={"source": config_entries.SOURCE_USER})
+    resultat = await hass.config_entries.subentries.async_configure(
+        second["flow_id"], IDENTITE_MINIMALE)
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+    assert resultat["errors"]["nom"] == ERREUR_NOM_DEJA_UTILISE
+    assert IDENTITE_MINIMALE["nom"] in str(resultat["description_placeholders"])
+
+    entry = hass.config_entries.async_get_entry(entree.entry_id)
+    assert len(entry.subentries) == 1, "le second ecran refuse ne doit RIEN persister"
 
 
 async def test_nom_vide_est_refuse_a_la_saisie(hass, entree):

@@ -28,7 +28,19 @@ Il ne recoit que `(hass, entry)`, jamais la sous-entree modifiee : ce
 module garde donc un instantane des `data` DEJA VUES par sous-entree pour
 determiner LAQUELLE a change, et n'emettre QUE pour celle-la (les trois
 tablettes ecoutent le meme bus, et deux d'entre elles n'ont aucune raison
-de se recharger parce que la troisieme a change)."""
+de se recharger parce que la troisieme a change).
+
+Ronde 1 de relecture (Important) : le diff se fait dans LES DEUX SENS,
+pas seulement `nouveau nom`. Le geste le plus ordinaire qui soit --
+RENOMMER un ecran -- rendait orphelin le NOM PRECEDENT : l'evenement ne
+portait que le nom APRES, donc une tablette qui affichait encore l'ANCIEN
+nom n'entendait rien, et sa prochaine requete `home_desk/ecran` recevrait
+`not_found` sans avoir jamais ete avertie de recharger. Une SUPPRESSION de
+sous-entree souffrait du meme angle mort : elle disparait de
+`entry.subentries`, donc la boucle qui ne visite QUE les sous-entrees
+PRESENTES ne l'aurait jamais vue. `_async_sur_mise_a_jour` emet donc
+l'ANCIEN nom pour toute sous-entree RENOMMEE (en plus du nouveau) ou
+DISPARUE, et le NOUVEAU nom pour toute sous-entree creee ou modifiee."""
 from __future__ import annotations
 
 from typing import Any
@@ -59,17 +71,39 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     }
 
     async def _async_sur_mise_a_jour(hass: HomeAssistant, entry: ConfigEntry) -> None:
-        """Compare les `data` de chaque sous-entree a celles DEJA VUES ;
-        emet `EVENEMENT_CHANGEMENT` avec le `nom` de celle qui differe.
-        Necessaire (pas seulement suffisant) : comparer sur `nom` seul
-        aurait manque un changement qui laisse le nom inchange (ajouter une
-        tuile, par exemple)."""
+        """Compare les `data` de chaque sous-entree a celles DEJA VUES, DANS
+        LES DEUX SENS -- ronde 1 de relecture (Important).
+
+        Premiere passe : toute sous-entree VUE avant mais absente
+        aujourd'hui a ete SUPPRIMEE -- emet son ANCIEN nom (elle a cesse
+        d'etre servable, une tablette qui l'affichait doit l'apprendre) et
+        oublie son instantane.
+
+        Seconde passe : toute sous-entree dont les `data` DIFFERENT de
+        l'instantane -- creation (rien vu avant) ou modification. Si son
+        `nom` a change (un RENOMMAGE), l'ANCIEN nom est emis EN PLUS du
+        nouveau : la tablette qui affichait l'ancien nom ne l'apprendrait
+        sinon jamais (elle n'ecoute que ce nom-la). Comparer sur `data`
+        entier, pas sur `nom` seul, reste necessaire par ailleurs : un
+        changement qui laisse le nom inchange (ajouter une tuile, par
+        exemple) doit aussi notifier."""
+        ids_actuels = set(entry.subentries)
+        for subentry_id in [i for i in dernieres_donnees if i not in ids_actuels]:
+            donnees_disparues = dernieres_donnees.pop(subentry_id)
+            nom_disparu = donnees_disparues.get("nom")
+            if nom_disparu is not None:
+                hass.bus.async_fire(EVENEMENT_CHANGEMENT, {"nom": nom_disparu})
+
         for sous_entree in entry.subentries.values():
-            if dernieres_donnees.get(sous_entree.subentry_id) != sous_entree.data:
-                dernieres_donnees[sous_entree.subentry_id] = sous_entree.data
-                hass.bus.async_fire(
-                    EVENEMENT_CHANGEMENT, {"nom": sous_entree.data.get("nom")}
-                )
+            donnees_avant = dernieres_donnees.get(sous_entree.subentry_id)
+            if donnees_avant == sous_entree.data:
+                continue
+            dernieres_donnees[sous_entree.subentry_id] = sous_entree.data
+            nom_apres = sous_entree.data.get("nom")
+            nom_avant = donnees_avant.get("nom") if donnees_avant is not None else None
+            if nom_avant is not None and nom_avant != nom_apres:
+                hass.bus.async_fire(EVENEMENT_CHANGEMENT, {"nom": nom_avant})
+            hass.bus.async_fire(EVENEMENT_CHANGEMENT, {"nom": nom_apres})
 
     entry.async_on_unload(entry.add_update_listener(_async_sur_mise_a_jour))
     return True

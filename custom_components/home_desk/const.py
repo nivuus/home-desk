@@ -188,13 +188,44 @@ ERREUR_BUDGET_INTENABLE_MODE = "budget_intenable_mode"
 # un ecran devenu invalide en silence.
 ERREUR_ECRAN_DEVIENDRAIT_INVALIDE = "ecran_deviendrait_invalide"
 
-# Tache 8 : les deux codes d'erreur du TRANSPORT websocket (websocket.py),
-# jamais ceux d'un formulaire de saisie -- ERREUR_ECRAN_INTROUVABLE est le
-# refus de `home_desk/ecran` quand aucune sous-entree ne porte le `nom`
-# demande (un objet vide serait un ecran SANS TUILES, indistinguable d'une
-# absence) ; ERREUR_VERSION_INCONNUE est son refus quand la sous-entree
-# stockee porte une `version` que ce composant ne reconnait pas -- la
-# quatrieme degradation (spec, decision 10), posee a l'ECRITURE par le flow
+# Tache 8 : les codes d'erreur du TRANSPORT websocket (websocket.py), jamais
+# ceux d'un formulaire de saisie -- ERREUR_ECRAN_INTROUVABLE est le refus de
+# `home_desk/ecran` quand aucune sous-entree ne porte le `nom` demande (un
+# objet vide serait un ecran SANS TUILES, indistinguable d'une absence) ;
+# ERREUR_VERSION_INCONNUE est son refus quand la sous-entree stockee porte
+# une `version` que ce composant ne reconnait pas -- la quatrieme
+# degradation (spec, decision 10), posee a l'ECRITURE par le flow
 # (VERSION_CONFIG ci-dessus) et desormais VERIFIEE A LA LECTURE, ici.
+#
+# Ronde 1 de relecture (Point 2) : ces valeurs de fil sont un CONTRAT PUBLIE
+# vers `app/src/` (TypeScript, qui ne peut pas importer ce module) -- au
+# moins un test doit les epingler par leur LITTERAL, jamais seulement par la
+# constante (sinon un renommage de la constante ne fait tomber aucun test,
+# comme le mesure la ronde 1).
 ERREUR_ECRAN_INTROUVABLE = "not_found"
 ERREUR_VERSION_INCONNUE = "version_inconnue"
+
+# Ronde 1 de relecture (Critique + Point 4) : distinct d'ERREUR_VERSION_
+# INCONNUE. Une sous-entree dont la VERSION est connue mais dont les
+# DONNEES sont par ailleurs invalides (sauvegarde restauree, import direct
+# -- deux des trois portes que la docstring de `websocket._resoudre` nomme,
+# ni gardees par le formulaire) ne doit JAMAIS partager le code generique
+# `invalid_format` que Home Assistant produit pour une requete CLIENTE mal
+# formee (`nom` absent du message websocket, par exemple) : les deux
+# refus, mesures cote a cote, rendaient le MEME `{"code": "invalid_format",
+# "message": "required key not provided at '...'"}"` -- un client ne peut
+# pas distinguer « ma requete est mauvaise » de « la config stockee est
+# pourrie ». `websocket.ws_ecran` attribue desormais ce code DEDIE des que
+# `schema.valider()` echoue sur une version pourtant CONNUE.
+ERREUR_ECRAN_CORROMPU = "ecran_corrompu"
+
+# Ronde 1 de relecture (Important) : `nom` est la cle PRIMAIRE du transport
+# (websocket.py resout un ecran PAR SON NOM) -- rien dans le contrat ne
+# l'exige unique (schema.py ne porte aucune contrainte inter-ecrans, et
+# n'en a pas les moyens : chaque sous-entree est validee seule), mais deux
+# ecrans homonymes rendraient l'un des deux DEFINITIVEMENT inatteignable
+# par `home_desk/ecran` (qui rend toujours le PREMIER trouve) et
+# `home_desk/ecrans` en afficherait deux lignes rigoureusement identiques.
+# C'est une regle du FLOW (config_flow.py), pas du contrat -- posee a la
+# CREATION et a la RECONFIGURATION de l'identite (`_valider_identite`).
+ERREUR_NOM_DEJA_UTILISE = "nom_deja_utilise"

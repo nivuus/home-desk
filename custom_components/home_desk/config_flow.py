@@ -96,6 +96,7 @@ from .const import (
     DOMAIN,
     ERREUR_BUDGET_INTENABLE,
     ERREUR_HAUTEUR_HORS_BORNES,
+    ERREUR_NOM_DEJA_UTILISE,
     ERREUR_NOM_VIDE,
     SOUS_ENTREE_ECRAN,
     VERSION_CONFIG,
@@ -176,22 +177,24 @@ SCHEMA_IDENTITE = vol.Schema(
 )
 
 
-def _valider_identite(user_input: dict[str, Any]) -> tuple[dict[str, str], dict[str, str], dict[str, Any] | None]:
-    """Les trois gardes communes a la CREATION (`EcranSubentryFlow.
+def _valider_identite(user_input: dict[str, Any], *, noms_existants: frozenset[str] = frozenset()) -> tuple[dict[str, str], dict[str, str], dict[str, Any] | None]:
+    """Les QUATRE gardes communes a la CREATION (`EcranSubentryFlow.
     async_step_user`) et a la RECONFIGURATION (`async_step_identite`, ronde 1
-    de relecture — Important I4) de l'identite : nom non vide, budget du
-    mode le moins cher, bornes de hauteur. Extraite ici pour que les DEUX
-    chemins rejouent EXACTEMENT la meme regle plutot que d'en ecrire une
-    seconde copie qui pourrait diverger.
-
-    Rend `(errors, description_placeholders, donnee)` : `donnee` est le
-    fragment nettoye (`nom`/`hauteurUtile`/`temperature`, `note` seulement
-    si non vide) si les trois gardes passent, `None` sinon — l'appelant
-    n'a alors qu'a verifier `donnee is not None` avant de persister."""
+    de relecture — Important I4) : nom non vide, nom non DEJA UTILISE par un
+    autre ecran (ronde 1 — `nom` est la cle primaire du transport websocket,
+    voir `garde_ecran.noms_utilises`), budget du mode le moins cher, bornes
+    de hauteur. `noms_existants` (calcule par l'appelant, seul a savoir
+    EXCLURE la sous-entree en reconfiguration) est vide a la creation. Rend
+    `(errors, description_placeholders, donnee)`, `donnee` etant `None` sauf
+    si les quatre gardes passent."""
     errors: dict[str, str] = {}
     description_placeholders: dict[str, str] = {}
     if not user_input["nom"].strip():
         errors["nom"] = ERREUR_NOM_VIDE
+        return errors, description_placeholders, None
+    if user_input["nom"] in noms_existants:
+        errors["nom"] = ERREUR_NOM_DEJA_UTILISE
+        description_placeholders["nom"] = user_input["nom"]
         return errors, description_placeholders, None
     deborde = verifier_budget(
         "defaut", rangee_ambiance=True, hauteur_utile=user_input["hauteurUtile"]
@@ -271,7 +274,7 @@ class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFl
         « valeur invalide », qui signalerait un refus sans dire quoi faire.
 
         `nom` est verifie EN PREMIER (ronde 1, tache 6 : dette de la tache 5,
-        `nom` vide passait). Le budget vient ensuite : c'est la garde la plus
+        `nom` vide passait), puis son UNICITE (tache 8). Le budget vient ensuite : c'est la garde la plus
         frequente sur `hauteurUtile` (toute hauteur trop juste, meme dans les
         bornes, deborde), et c'est elle que
         `test_un_ecran_qui_deborde_est_REFUSE_avec_son_chiffre` exerce avec
@@ -288,7 +291,9 @@ class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFl
         description_placeholders: dict[str, str] = {}
 
         if user_input is not None:
-            errors, description_placeholders, donnee = _valider_identite(user_input)
+            errors, description_placeholders, donnee = _valider_identite(
+                user_input, noms_existants=garde_ecran.noms_utilises(self._get_entry())
+            )
             if donnee is not None:
                 donnee["version"] = VERSION_CONFIG
                 # Ronde 3 de relecture (Important 1) : une section
@@ -358,9 +363,10 @@ class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFl
     ) -> SubentryFlowResult:
         """Reconfigure `nom`/`hauteurUtile`/`temperature`/`note` d'une
         sous-entree EXISTANTE — I4, ronde 1 de relecture. Rejoue les MEMES
-        trois gardes que la creation (`_valider_identite`), PUIS
-        `garde_ecran.persister_si_valide` (ronde 1, Critique ; ronde 2, LE
-        site d'ecriture unique) : changer la hauteur utile ne peut
+        quatre gardes que la creation (`_valider_identite`), l'unicite du
+        `nom` EXCLUANT cette sous-entree elle-meme, PUIS `garde_ecran.
+        persister_si_valide` (ronde 1, Critique ; ronde 2, LE site
+        d'ecriture unique) : changer la hauteur utile ne peut
         aujourd'hui casser aucun invariant croise du contrat, mais
         l'appliquer ICI AUSSI, uniformement avec chaque autre step qui
         persiste, coute une ligne et evite d'avoir a s'en souvenir le jour
@@ -384,7 +390,10 @@ class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFl
 
         if user_input is not None:
             valeurs_affichees = user_input
-            errors, description_placeholders, donnee = _valider_identite(user_input)
+            noms = garde_ecran.noms_utilises(entry, exclure=subentry.subentry_id)
+            errors, description_placeholders, donnee = _valider_identite(
+                user_input, noms_existants=noms
+            )
             if donnee is not None:
                 nouvelles_donnees = dict(subentry.data)
                 nouvelles_donnees.update(donnee)

@@ -35,6 +35,7 @@ import re
 
 import voluptuous as vol
 
+from .const import VERSION_CONFIG
 from .fautes import (
     _Faute,
     _FauteConst,
@@ -355,7 +356,14 @@ AGENCEMENT = vol.Schema(
 
 _ECRAN_STRUCTURE = vol.Schema(
     {
-        vol.Optional("version"): _const(1),
+        # Ronde 1 de relecture (Mineur) : COUPLE a `const.VERSION_CONFIG`,
+        # jamais un "1" retape a la main -- avant cette correction, le
+        # nombre existait en TROIS copies sans lien (const.py, `contrat/
+        # ecran.schema.json`, et ce `_const(1)`) : une coincidence
+        # numerique, pas un couplage. `contrat/cas-schema.json` ne porte
+        # d'ailleurs AUCUN cas sur `version` (compte : 0) -- ce champ est
+        # propre a home_desk, pas au contrat partage avec ajv.
+        vol.Optional("version"): _const(VERSION_CONFIG),
         vol.Required("nom"): _chaine(1),
         vol.Optional("note"): _chaine(),
         vol.Optional("hauteurUtile"): hauteur_utile,
