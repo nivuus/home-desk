@@ -2,7 +2,7 @@
   "version": 1,
   "hauteurUtileParDefaut": 585,
   "viewportReference": { "largeur": 343, "hauteur": 585 },
-  "modesSansCommande": ["minuteur"],
+  "modesABlocMinuteur": ["minuteur"],
   "modesABlocHaut": ["media", "cinema", "voiture"],
   "commandesParDefaut": 4,
   "commandesSousBlocHaut": 2,
@@ -10,7 +10,7 @@
   "hauteurs": {
     "_source": "app/outils/mesurer-hauteurs.mjs, viewport 343x585, mesure du 2026-09-12 sur 11 modes et 3 ecrans. Chaque valeur est le COUT NET de la zone dans la colonne .corps (sa boite plus ses marges), au PIRE CAS des modes mesures. combien() les additionne, gouttiere comprise, au lieu d'appliquer une table.",
     "_bandeau": "121 px, INVARIANT sur les 8 etats balayes : la date du jour et la date la plus longue de 28 ans de calendrier, croisees avec une pastille a une ligne, a deux lignes (le plafond de son clamp) et celle rendue par la maison, phrase interieure presente (sans elle la colonne gauche retrecit, donc le bandeau ne peut que baisser).",
-    "_blocMinuteur": "Publiee pour l'integration, deliberement NON consommee par combien() (app/src/modes.ts) : ce dernier sort par `return 0` pour tout mode de `modesSansCommande` (minuteur en fait partie) AVANT tout calcul de cout, donc cette hauteur n'est aujourd'hui lue par personne cote application. Un plan ulterieur pourra faire payer a minuteur son cout comme aux autres modes ; ce n'est pas le cas aujourd'hui, et ce changement n'est pas fait ici (il rendrait verifierBudget() capable de signaler un debordement pour minuteur et redemande de revoir app/tests/budget.test.ts).",
+    "_blocMinuteur": "206 px, le bloc du mode minuteur. Consomme par combien() comme tout autre bloc central depuis le plan 2 : le mode minuteur rend 0 commande PARCE QUE 27 px restent apres son cout (585 - 558), pas par court-circuit. La cle modesSansCommande a disparu avec ce court-circuit ; modesABlocMinuteur la remplace, dans le meme role que modesABlocHaut, et sert aussi de proxy a app/outils/mesurer-hauteurs.mjs pour choisir la famille de bloc a publier.",
     "gouttiere": 8,
     "paddingCorps": 24,
     "bandeau": 121,

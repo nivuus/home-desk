@@ -212,7 +212,7 @@ function releverZones() {
 // --- 3. Mesure, mode par mode ---------------------------------------------------------------
 
 const familleDuBloc = (nom) => {
-  if ((BUDGET.modesSansCommande ?? []).includes(nom)) return 'blocMinuteur';
+  if ((BUDGET.modesABlocMinuteur ?? []).includes(nom)) return 'blocMinuteur';
   if ((BUDGET.modesABlocHaut ?? []).includes(nom)) return 'blocHaut';
   return 'blocDefaut';
 };

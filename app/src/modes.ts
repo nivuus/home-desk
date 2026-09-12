@@ -211,7 +211,12 @@ export function modulateursActifs(c: ContexteModes): Modulateur[] {
  *  `combien` pour le lui prêter. */
 function coutEcran(mode: ModePrincipal, rangeeAmbiance: boolean, rangees: number): number {
   const h = BUDGET.hauteurs;
-  const bloc = (BUDGET.modesABlocHaut as string[]).includes(mode) ? h.blocHaut : h.blocDefaut;
+  // Troisième branche depuis 2026-09-12 (plan 2, tâche 5) : `minuteur` payait `blocDefaut`
+  // jusqu'ici, un chiffre qu'aucun `.mode-bloc` de minuteur n'a jamais mesuré — le court-circuit
+  // de `combien` rendait ce choix sans conséquence. `modesABlocMinuteur` (contrat, un seul mode
+  // aujourd'hui) suit le même patron que `modesABlocHaut` juste en dessous.
+  const bloc = (BUDGET.modesABlocMinuteur as string[]).includes(mode) ? h.blocMinuteur
+    : (BUDGET.modesABlocHaut as string[]).includes(mode) ? h.blocHaut : h.blocDefaut;
   let enfants = 3;
   let somme = bloc + h.synthese + h.touteLaMaison;
   if (rangeeAmbiance) {
@@ -241,7 +246,11 @@ export function combien(
   rangeeAmbiance = true,
   hauteurUtile: number = BUDGET.hauteurUtileParDefaut,
 ): number {
-  if ((BUDGET.modesSansCommande as string[]).includes(mode)) return 0;
+  // Plus de court-circuit pour `minuteur` depuis 2026-09-12 (plan 2, tâche 5) : `coutEcran` lui
+  // fait déjà payer `blocMinuteur` (206 px, troisième branche ci-dessus), donc le mode traverse
+  // la même boucle que les huit autres. À 585 px avec rangée d'ambiance, il rend encore 0 — mais
+  // désormais PARCE QUE le calcul le dit (558 px consommés, 27 px de reste, moins que les 64 px
+  // d'une rangée), pas parce qu'une exception l'a décidé sans rien calculer.
   // Le plafond de DEUX rangées n'est pas un chiffre de plus : c'est ce que `commandesParDefaut`
   // (4 places) et `tuilesParRangee` (2 colonnes) disent déjà. Une troisième rangée n'existe dans
   // aucun écran de ce projet, et l'inventer ici sur un grand écran ferait rendre à `combien` un
@@ -261,13 +270,12 @@ export function combien(
  *  l'intégration Home Assistant (plan 3), qui doit pouvoir dire « cet écran déborde de 45 px »
  *  AU MOMENT DE LA SAISIE — pas devant la tablette.
  *
- *  UN MODE N'EST PAS ENCORE FACTURÉ : `minuteur`. Il n'est pas dans `modesABlocHaut`, donc le
- *  calcul lui compte `blocDefaut` (84 px) au lieu de son vrai `blocMinuteur` (206 px), et
- *  `verifierBudget('minuteur', true, 585)` rend donc 0 pour un écran qui déborde réellement.
- *  C'est la dette que `contrat/budget.json` nomme sous `_blocMinuteur`, et elle est réelle pour
- *  l'appelant : le formulaire validerait un écran intenable. Ne PAS écrire dans une docstring un
- *  exemple chiffré en mode `minuteur` tant que ce n'est pas vrai — la version précédente de ce
- *  commentaire le faisait, et c'est ainsi qu'une promesse fausse voyage jusqu'à son appelant.
+ *  TOUS LES MODES SONT FACTURÉS depuis 2026-09-12 (plan 2, tâche 5), `minuteur` compris : il vit
+ *  désormais dans `modesABlocMinuteur` et `coutEcran` lui compte son vrai `blocMinuteur`
+ *  (206 px), plus `blocDefaut` (84 px). `verifierBudget('minuteur', true, 585)` rend donc 0 — à
+ *  bon droit, cet écran ne déborde pas (558 px consommés sur 585) — et
+ *  `verifierBudget('minuteur', true, 500)` rend 58, le vrai débordement. C'était la dette que
+ *  `contrat/budget.json` nommait sous `_blocMinuteur` ; elle est refermée.
  *
  *  Le rendu ne l'appelle jamais : c'est toute la différence avec la version d'avant, où le verdict
  *  (l'ex-`BudgetIntenable`) et le calcul vivaient dans la même fonction, `combien`. */

@@ -16,9 +16,24 @@ const CALME_VOITURE: ContexteModes = { ...CALME, blocDefaut: 'voiture' };
  *  Testée sur `combien` DIRECTEMENT, et non à travers `ordreCommandes` : celui-ci prend
  *  `(commandes, contexte)` et dérive le mode du contexte lui-même (`modes.ts` l. 210), donc
  *  atteindre les neuf modes par lui demanderait de fabriquer neuf contextes — neuf occasions
- *  de tester autre chose que ce qu'on croit. `combien` est donc exporté par cette tâche. */
+ *  de tester autre chose que ce qu'on croit. `combien` est donc exporté par cette tâche.
+ *
+ *  2026-09-12 (plan 2, tâche 5) : UNE SEULE ligne bouge, `['minuteur', false, 0]` devient
+ *  `['minuteur', false, 2]`. Ce n'était pas une mesure mais une EXCEPTION : `combien` rendait 0
+ *  pour tout mode de `modesSansCommande` avant tout calcul de coût, jamais parce qu'un budget de
+ *  585 px avait été confronté au coût réel du mode. Une fois `minuteur` soumis au même calcul que
+ *  les huit autres (`coutEcran` lui compte désormais `blocMinuteur`, 206 px), sans rangée
+ *  d'ambiance une rangée de commandes coûte 533 px au total : ça tient sous 585, donc 2. AVEC
+ *  rangée d'ambiance, le bloc central coûte 558 px sans commande, et il ne reste que 27 px —
+ *  moins qu'une rangée : ça ne tient pas, donc 0, cette ligne-là ne bouge pas. Aucun écran de
+ *  `ECRANS` ne peut aujourd'hui atteindre `['minuteur', false, …]` : la seule
+ *  pièce à porter le mode `minuteur` (la cuisine) a aussi des ambiances déclarées, donc
+ *  `rangeeAmbiance` y vaut toujours `true` en pratique (cf. `demarrage.ts`, et le test
+ *  d'inatteignabilité plus bas). Cette ligne reste néanmoins dans la table : `combien` est une
+ *  fonction pure, testée sur tout son domaine, pas seulement sur ce que la maison déclare
+ *  aujourd'hui. */
 const ATTENDU: [string, boolean, number][] = [
-  ['minuteur', true, 0], ['minuteur', false, 0],
+  ['minuteur', true, 0], ['minuteur', false, 2],
   ['media', true, 2], ['cinema', true, 2], ['voiture', true, 2],
   ['media', false, 4], ['cinema', false, 4], ['voiture', false, 4],
   ['defaut', true, 4], ['defaut', false, 4],
@@ -99,10 +114,13 @@ describe('hauteurUtile', () => {
     expect(combien('defaut', true, 100)).toBe(0);
   });
 
-  /** Le mode sans commande n'est PAS un budget intenable : zero est son resultat normal, et il
-   *  le reste quelle que soit la hauteur — y compris une hauteur ou son propre bloc deborde.
-   *  C'est la frontiere entre les deux notions, et elle merite d'etre clouee. */
-  it('rend zero sans lever pour un mode sans commande, meme sur un ecran minuscule', () => {
+  /** 2026-09-12 (plan 2, tache 5) : `minuteur` n'est plus un cas a part. Il degrade a zero par le
+   *  MEME mecanisme generique que `defaut` ci-dessus (la boucle de `combien` ne trouve aucune
+   *  rangee qui tienne), plus par une exception qui le visait nommement (l'ancien
+   *  `modesSansCommande`, disparu du contrat avec le court-circuit qu'il servait). Ce test clone
+   *  donc a dessein celui du dessus avec `minuteur` a la place de `defaut` : la meme assertion sur
+   *  deux modes differents est la preuve qu'aucun des deux n'est plus un cas particulier. */
+  it('degrade a zero sans lever pour minuteur aussi, par le meme mecanisme generique', () => {
     expect(combien('minuteur', true, 100)).toBe(0);
   });
 
@@ -143,5 +161,79 @@ describe('hauteurUtile', () => {
     const absurde = { ...CALME_VOITURE, hauteurUtile: 50 };
     expect(() => ordreCommandes(ECRANS.bureau.commandes, absurde)).not.toThrow();
     expect(ordreCommandes(ECRANS.bureau.commandes, absurde)).toHaveLength(0);
+  });
+});
+
+/** 2026-09-12, plan 2, tache 5 : `blocMinuteur` (206 px, `contrat/budget.json`) devient un bloc
+ *  central comme les autres — `coutEcran` (`modes.ts`) le facture au mode `minuteur` via
+ *  `modesABlocMinuteur`, et `combien` a perdu le court-circuit qui rendait 0 SANS jamais calculer
+ *  ce cout. Les quatre valeurs ci-dessous sont calculees a la main contre `coutEcran`, pas
+ *  copiees du brief de la tache — chacune est verifiee independamment par un test qui affirme un
+ *  CHIFFRE EXACT, jamais une absence de levee ni une inegalite vague (cf. la relecture de la
+ *  tache 4 : `not.toThrow()` et `toBeGreaterThan(0)` laissent passer un calcul faux). */
+describe('le mode minuteur paie son cout comme les autres', () => {
+  /** 585 px, rangee d'ambiance : 121 + 24 + 32 + 206 + 9 + 72 + 62 + 4x8 = 558, reste 27 px —
+   *  moins que les 64 px d'une rangee de commandes. 0 commande, IDENTIQUE a avant cette tache :
+   *  seule la ligne `['minuteur', false, …]` de la table de verite bougeait (cf. plus haut). */
+  it('rend 0 commande a 585 px avec rangee d ambiance, par calcul et non par court-circuit', () => {
+    expect(combien('minuteur', true, 585)).toBe(0);
+  });
+
+  /** Sans rangee d'ambiance, la ligne qui bouge : 121 + 24 + 32 + 206 + 62 + 2x8 = 461 (zero
+   *  rangee, 3 enfants). Une rangee de commandes ajoute un 4e enfant et sa gouttiere : 461 + 64 +
+   *  8 = 533 px — sous les 585, ca tient. Deux rangees : 533 + 64 + 10 (gouttiere de grille) =
+   *  607 px — ca deborde. 2 commandes, donc : c'est ce que `combien('minuteur', false, 585)`
+   *  rendait a tort a 0 avant cette tache, uniquement parce que le court-circuit ne calculait
+   *  jamais rien. */
+  it('rend 2 commandes a 585 px sans rangee d ambiance : rien ne l empechait, sauf l exception', () => {
+    expect(combien('minuteur', false, 585)).toBe(2);
+  });
+
+  /** Un ecran assez haut pour financer une rangee sous le bloc minuteur EN RENDRAIT deux tuiles —
+   *  la preuve que le 0 de 585 px est une CONSEQUENCE du budget, pas une regle fixee pour ce mode.
+   *  630 px pour une rangee (121+24+32+206+9+72+62+5x8+64 = 630, la 5e gouttiere venant du 6e
+   *  enfant qu'ajoute la rangee) : c'est EXACTEMENT la mesure
+   *  historique `mesures.ecranModeMinuteur` de `contrat/budget.json` (« liste seule, 45 px au-dela
+   *  du budget », relevee le 2026-08-03, TROIS SEMAINES avant que ce modele de calcul existe, et
+   *  sur laquelle rien n'a ete calibre depuis). Le modele et la mesure se confirment mutuellement. */
+  it('rend 2 commandes des que le budget finance une rangee (630 px, la mesure historique)', () => {
+    expect(combien('minuteur', true, 630)).toBe(2);
+    expect(BUDGET.mesures.ecranModeMinuteur.px).toBe(630);
+  });
+
+  /** verifierBudget chiffre desormais le debordement reel du mode minuteur — c'est le point de la
+   *  tache : avant, `verifierBudget('minuteur', true, 585)` rendait 0 pour un ecran qui aurait pu
+   *  deborder sans que la fonction ne puisse jamais le dire, faute de facturer le bon bloc. */
+  it('verifierBudget rend 0 a 585 px (558 px consommes, l ecran tient)', () => {
+    expect(verifierBudget('minuteur', true, 585)).toBe(0);
+  });
+
+  it('verifierBudget chiffre le debordement exact a 500 px (558 - 500)', () => {
+    expect(verifierBudget('minuteur', true, 500)).toBe(58);
+  });
+});
+
+/** Test d'INATTEIGNABILITE, au niveau des DONNEES (`ecran.ts`), pas seulement du calcul. La ligne
+ *  `['minuteur', false, 2]` de la table de verite ci-dessus est mathematiquement correcte, mais
+ *  aucun ecran de la maison ne peut aujourd'hui l'atteindre : `demarrage.ts` derive
+ *  `rangeeAmbiance` de `piece.ambiances.length > 0 || (piece.minuteurs?.length ?? 0) > 0`, et tout
+ *  ecran qui porte le mode `minuteur` doit donc declarer l'un ou l'autre pour meme ENTRER dans ce
+ *  mode avec une rangee d'ambiance vraie. Sans ce test, la table gele un chiffre qu'aucun ecran ne
+ *  peut produire — un test qui ne protege rien. */
+describe('minuteur et rangeeAmbiance : ce que la donnee garantit', () => {
+  it('tout ecran portant le mode minuteur declare des ambiances ou des minuteurs', () => {
+    for (const [nom, ecran] of Object.entries(ECRANS)) {
+      if (!ecran.agencement?.modes.includes('minuteur')) continue;
+      const declare = ecran.ambiances.length > 0 || (ecran.minuteurs?.length ?? 0) > 0;
+      expect(declare, `${nom} porte le mode minuteur sans ambiances ni minuteurs declares`)
+        .toBe(true);
+    }
+  });
+
+  /** Corroboration : au moins un ecran porte reellement le mode minuteur aujourd'hui, sans quoi
+   *  le test ci-dessus serait vide et ne garantirait rien. */
+  it('au moins un ecran porte effectivement le mode minuteur', () => {
+    const porteurs = Object.values(ECRANS).filter((e) => e.agencement?.modes.includes('minuteur'));
+    expect(porteurs.length).toBeGreaterThan(0);
   });
 });

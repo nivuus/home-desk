@@ -167,13 +167,18 @@ describe('rangeeAmbiance — le budget rendu par la rangée « Ambiance » suppr
       .toHaveLength(2);
   });
 
-  it('ne touche NI aux modes déjà à quatre, NI au minuteur qui reste à zéro', () => {
+  it('ne touche pas aux modes déjà à quatre ; le minuteur, lui, paie son coût', () => {
     // Le budget rendu paie une rangée, jamais deux : un mode à quatre places n'en gagne pas une
-    // cinquième. Et `minuteur` reste à zéro commande quoi qu'il arrive — 630 px mesurés pour son
-    // seul bloc, il n'y a aucune place à financer.
+    // cinquième.
     expect(ordreCommandes(QUATRE, { ...CALME, rangeeAmbiance: false })).toHaveLength(4);
+    // 2026-09-12 (plan 2, tâche 5) : `minuteur` ne reste plus à zéro « quoi qu'il arrive ». Sans
+    // rangée Ambiance, son bloc (206 px) plus une rangée de commandes coûte 533 px — sous les
+    // 585 : ça tient, donc 2. La croyance d'un zéro inconditionnel venait du court-circuit que
+    // cette tâche a retiré (`combien` rendait 0 pour `minuteur` avant tout calcul), jamais d'une
+    // vraie mesure de ce cas — `mesures.ecranModeMinuteur` (`contrat/budget.json`, 630 px) mesure
+    // le cas AVEC rangée Ambiance, celui juste au-dessus de ce test, qui reste à 0.
     expect(ordreCommandes(QUATRE, { ...ctx({ minuteurEnCours: true }), rangeeAmbiance: false }))
-      .toHaveLength(0);
+      .toHaveLength(2);
   });
 });
 

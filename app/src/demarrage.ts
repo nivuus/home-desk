@@ -1441,7 +1441,15 @@ export async function demarrer(
       // rangée « Ambiance », et c'est ce fait-là, pas son identité, qui lui rend les ~100 px de la
       // deuxième rangée de commandes (cf. `combien`, `modes.ts`). Une pièce qui reprendrait des
       // ambiances demain retrouverait son ancien budget sans qu'on ait à y penser.
-      rangeeAmbiance: piece.ambiances.length > 0,
+      //
+      // 2026-09-12 (plan 2, tâche 5) : `|| (piece.minuteurs?.length ?? 0) > 0` ajouté. Le gabarit
+      // (`rendu/corps.ts`, `piece.ambiances.length || tuileMinuteur`) garde la rangée dès qu'une
+      // tuile minuteur existe, même sans ambiance déclarée — ce contexte devait dire la même
+      // chose, sous peine de faire rendre au gabarit une rangée que `combien` n'a pas budgétée.
+      // À résultat constant sur les trois écrans : seule la cuisine déclare des `minuteurs`, et
+      // elle a déjà des ambiances (cf. `ecran.ts`) — la disjonction n'y change rien aujourd'hui,
+      // elle protège seulement le jour où une pièce aura des minuteurs sans ambiance.
+      rangeeAmbiance: piece.ambiances.length > 0 || (piece.minuteurs?.length ?? 0) > 0,
       // Repris tels quels de l'agencement de l'écran (`agencement.ts`) — `modes.ts` ne lit jamais
       // un écran lui-même, exactement comme pour `blocDefaut` et `rangeeAmbiance`.
       modes: agencement.modes,
