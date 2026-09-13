@@ -232,3 +232,65 @@ async def test_une_entite_inconnue_AVERTIT_pour_une_section_a_element_nu(hass, e
     assert "binary_sensor.nexiste_absolument_pas" in str(
         resultat["description_placeholders"]
     )
+
+
+# ---------------------------------------------------------------------------
+# Ronde de correction 2 (reserve 1 de la ronde 1) : neuf champs d'entite
+# imbriques EN LIGNE (sans `$defs` propre) manquaient -- `minuteurs[].timer`/
+# `.nom`, et les sept champs de `voiture`. `voiture` n'a PAS de test ici :
+# son chemin d'appel passe par `objets.py`/`SectionsObjetMixin.async_step_
+# voiture` (verifie), qui n'appelle `entites_inconnues`/`entites_dans` NULLE
+# PART -- cablage jamais fait, ni en tache 7 ni dans les rondes de
+# correction precedentes, et hors du perimetre de celle-ci (voir le rapport).
+# ---------------------------------------------------------------------------
+
+
+async def test_LE_TEST_DE_LA_COLLISION_dans_le_squelette_des_sections(hass, entree):
+    """LE test qui distingue cette correction de la precedente (reserve 1) :
+    un element de la section `sources` porte ENSEMBLE `titre` (une vraie
+    entite, inconnue -- doit etre citee) et `nom` (texte libre qui A LA
+    FORME d'une entite -- ne doit PAS l'etre). Si ce test passe, la
+    correction est structurellement juste ; s'il tombe, `entites_dans` est
+    redevenu un ensemble de noms deconnecte du CHEMIN."""
+    subentry_id = await _creer_ecran(hass, entree)
+
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "sources"})
+    await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"],
+        {"nom": "salon.spotify", "titre": ["sensor.nexiste_absolument_pas"]})
+
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+    assert resultat.get("errors", {}) == {}
+    placeholders = str(resultat["description_placeholders"])
+    assert "sensor.nexiste_absolument_pas" in placeholders
+    assert "salon.spotify" not in placeholders
+
+
+async def test_une_entite_inconnue_AVERTIT_dans_un_slot_de_minuteur(hass, entree):
+    """`minuteurs[].timer`/`.nom` : un objet imbrique EN LIGNE, sans `$defs`
+    propre -- neuf champs manques par la table de la ronde 1 (reserve 1).
+    `timer` inconnu est cite ; `note`, du texte libre en forme d'entite,
+    ne l'est pas ; `nom`, CONNU ici, ne l'est pas non plus."""
+    er.async_get(hass).async_get_or_create(
+        "input_text", "demo", "u1", suggested_object_id="minuteur_salon")
+    subentry_id = await _creer_ecran(hass, entree)
+
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "minuteurs"})
+    await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"],
+        {"timer": "timer.nexiste_absolument_pas",
+         "nom": "input_text.minuteur_salon",
+         "note": "reglages.avances"})
+
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+    assert resultat.get("errors", {}) == {}
+    placeholders = str(resultat["description_placeholders"])
+    assert "timer.nexiste_absolument_pas" in placeholders
+    assert "input_text.minuteur_salon" not in placeholders
+    assert "reglages.avances" not in placeholders

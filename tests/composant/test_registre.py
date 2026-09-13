@@ -54,60 +54,67 @@ async def test_une_entite_connue_de_l_ETAT_mais_absente_du_registre_n_avertit_pa
 
 
 # ---------------------------------------------------------------------------
-# `entites_dans` : l'extraction DERIVEE DU CONTRAT (ronde de correction 1,
-# defaut A) qui rend le cablage possible dans le squelette des sections
-# (`listes.py`) SANS deviner par la FORME ce que le contrat DIT -- un champ
-# de texte libre dont la valeur ressemble a un `entity_id` (`libelle:
-# "tv.salon"`, `lien: "media_player.html"`) ne doit JAMAIS etre cite.
+# `entites_dans` : descend dans la VALEUR et dans le SOUS-SCHEMA du contrat,
+# EN PARALLELE (ronde de correction 2) -- jamais la FORME d'une chaine
+# (defaut A, ronde 1), jamais un ENSEMBLE DE NOMS deconnecte du CHEMIN
+# (reserve 1, ronde 1) : `nom` est une entite dans `minuteurs[]`, du texte
+# libre a la racine et dans `$defs/source`, et seul le sous-schema associe
+# au chemin le sait.
 # ---------------------------------------------------------------------------
 
 
-def test_entites_dans_recurse_dans_un_dict_et_une_liste():
-    """Decor a DEUX formes (`entite` scalaire, `titre` une LISTE) : une
-    implementation qui ne recurserait que dans les dicts, jamais les listes,
-    manquerait les six champs multi-entites de `sources`."""
+def test_entites_dans_reconnait_les_deux_champs_entite_d_une_tuile():
+    """`$defs/bouton` : `entite` et `cible` sont des entites, `libelle` du
+    texte libre -- meme quand il A LA FORME d'une entite (defaut A)."""
     candidat = {
-        "libelle": "Portail",
-        "entite": "cover.portail",
-        "titre": ["sensor.titre_1", "sensor.titre_2"],
+        "libelle": "tv.salon", "icone": "bulb",
+        "entite": "light.salon", "cible": "switch.garage",
     }
-    assert set(entites_dans(candidat)) == {
-        "cover.portail", "sensor.titre_1", "sensor.titre_2",
+    assert set(entites_dans(candidat, "commandes")) == {"light.salon", "switch.garage"}
+
+
+def test_entites_dans_LE_TEST_DE_LA_COLLISION_nom_entite_ou_texte_libre():
+    """LE test qui distingue cette correction de la precedente (reserve 1,
+    ronde 2) : `nom` est une entite dans `minuteurs[]`, du texte libre dans
+    `sources[]`. Un ENSEMBLE PLAT de noms ne peut pas porter cette
+    difference -- seul le sous-schema associe au CHEMIN le peut. Si ce test
+    passe, la correction est structurellement juste ; s'il tombe, c'est
+    qu'un ensemble de noms est revenu."""
+    source = {
+        "nom": "salon.spotify",  # texte libre, la FORME trompe
+        "titre": ["sensor.nexiste_pas"],
+        "sousTitre": [], "affiche": [], "progression": [], "transport": [], "volume": [],
+    }
+    assert entites_dans(source, "sources") == ["sensor.nexiste_pas"]
+
+    minuteur = {"timer": "timer.cuisine", "nom": "input_text.minuteur_nom"}
+    assert set(entites_dans(minuteur, "minuteurs")) == {
+        "timer.cuisine", "input_text.minuteur_nom",
     }
 
 
-def test_entites_dans_ignore_le_texte_libre_meme_en_forme_d_entity_id():
-    """LE test du defaut A : un decor RICHE, tout ensemble -- une entite,
-    et trois champs de texte libre dont la valeur A LA FORME d'un
-    `entity_id`. Seule la vraie entite doit ressortir."""
-    candidat = {
-        "entite": "light.salon",
-        "libelle": "tv.salon",
-        "lien": "media_player.html",
-        "note": "reglages.avances",
-    }
-    assert entites_dans(candidat) == ["light.salon"]
-
-
-def test_entites_dans_descend_dans_un_champ_imbrique_sans_cle_reconnue():
+def test_entites_dans_descend_dans_allumee_un_objet_imbrique_de_source():
     """`allumee` ($defs/source) n'est lui-meme PAS `$ref: entite` -- un objet
-    imbrique qui porte `entite` dedans. Sans la descente inconditionnelle
-    sous une cle non reconnue, `allumee.entite` serait invisible."""
-    candidat = {"allumee": {"entite": "input_boolean.presence", "etats": ["on"]}}
-    assert entites_dans(candidat) == ["input_boolean.presence"]
+    imbrique dont SEULE la cle `entite` en est une ; `etats` (une liste de
+    chaines simples au contrat) n'en est pas."""
+    source = {
+        "nom": "Radio", "titre": [], "sousTitre": [], "affiche": [],
+        "progression": [], "transport": [], "volume": [],
+        "allumee": {"entite": "input_boolean.presence", "etats": ["on", "playing"]},
+    }
+    assert entites_dans(source, "sources") == ["input_boolean.presence"]
 
 
 def test_entites_dans_pour_une_section_a_element_nu_traite_la_valeur_comme_l_entite():
-    """`ouvrants`/`listesTachesExtra` : l'element EST l'entite, une chaine
-    NUE sans cle autour -- `cle` porte l'information que la FORME ne peut
-    pas donner."""
-    assert entites_dans("binary_sensor.porte", cle="ouvrants") == ["binary_sensor.porte"]
-    assert entites_dans("todo.taches", cle="listesTachesExtra") == ["todo.taches"]
+    """`ouvrants`/`listesTachesExtra` : leur `items` EST `$ref: entite` --
+    l'element nu (une chaine SANS cle autour) est donc collecte SANS cas
+    particulier, la MEME descente que pour un dict."""
+    assert entites_dans("binary_sensor.porte", "ouvrants") == ["binary_sensor.porte"]
+    assert entites_dans("todo.taches", "listesTachesExtra") == ["todo.taches"]
 
 
-def test_entites_dans_sans_cle_reconnue_ignore_une_chaine_nue():
-    """Le pendant negatif : une chaine nue d'une section dont l'element
-    N'EST PAS une entite au contrat (`etiquettesMinuteur`, un simple
-    libelle) ne doit jamais etre traitee comme telle."""
-    assert entites_dans("light.salon") == []
-    assert entites_dans("Pates", cle="etiquettesMinuteur") == []
+def test_entites_dans_une_chaine_nue_hors_d_une_section_a_entite_ne_rend_rien():
+    """Le pendant negatif : `etiquettesMinuteur` a aussi un element NU, mais
+    son `items` est `{"type": "string"}` au contrat -- jamais une entite,
+    meme si la chaine EN A LA FORME."""
+    assert entites_dans("light.salon", "etiquettesMinuteur") == []
