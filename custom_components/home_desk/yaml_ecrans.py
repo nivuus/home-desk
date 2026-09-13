@@ -53,21 +53,28 @@ bloc) reste lisible, un commentaire a une AUTRE colonne (ou ailleurs qu'une
 ligne juste au-dessus) est simplement ignore -- perdu comme note, mais
 jamais confondu avec la mauvaise.
 
-LIMITES CONNUES, assumees plutot que masquees :
+LIMITES CONNUES, assumees plutot que masquees -- toutes les deux gardees
+par un test (`tests/composant/test_yaml_ecrans.py`), pas seulement
+enoncees ici :
 
 1. Une `note` qui contiendrait elle-meme un saut de ligne est applatie (les
    sauts de ligne y deviennent des espaces) avant d'etre ecrite -- sans
    quoi une note multiligne casserait la regle "un commentaire, une ligne"
    dont ce module depend pour se relire lui-meme. Aucun ecran reel de ce
    depot n'a jamais porte de note multiligne (le contrat ne l'interdit pas,
-   mais rien ne l'exerce).
+   mais rien ne l'exerce) -- gardee quand meme par
+   `test_une_note_multiligne_est_aplatie_pas_perdue_ni_cassee` (ronde 2 de
+   relecture : la ronde 1 l'affirmait sans test, retirer l'aplatissement
+   laissait la suite verte).
 2. Un espace de tete ou de queue du texte d'une note SURVIT au
    round-trip -- `_lignes_commentaires` ne retire que l'UNIQUE espace
    separateur que `rendre` insere lui-meme apres "#", jamais davantage :
    un fichier EDITE A LA MAIN qui ajoute ses propres espaces autour du
    texte les verrait donc conserves, contrairement a un simple `.strip()`
-   qui les aurait avales en silence (mesure, corrigee en ronde 1 de
-   relecture)."""
+   qui les aurait avales en silence -- gardee par
+   `test_une_note_avec_espaces_de_tete_ou_de_queue_survit_a_l_aller_retour`
+   (ronde 2 de relecture : corrigee en ronde 1 mais sans test, remettre le
+   `.strip()` laissait la suite verte)."""
 from __future__ import annotations
 
 from typing import Any

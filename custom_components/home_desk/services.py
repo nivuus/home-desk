@@ -45,8 +45,10 @@ def _lire_fichier(chemin: pathlib.Path) -> str:
     Ronde 1 de relecture (Important, neuvieme docstring menteuse du
     chantier) : la version precedente affirmait « les tests de
     `pytest-homeassistant-custom-component` le verifient » -- FAUX, mesure
-    en inlinant cet appel SANS `async_add_executor_job` : les 186 tests
-    restent verts. Ce garde-fou de production (`hass.
+    en inlinant cet appel SANS `async_add_executor_job` : la suite D'ALORS
+    restait entierement verte (le nombre exact ne nomme rien de
+    reproductible une fois la suite elle-meme modifiee). Ce garde-fou de
+    production (`hass.
     verify_event_loop_thread`) est DESACTIVE pour cette suite
     (`skip_for_tests=True`, propre a l'idiome de test de Home Assistant) --
     la suite ne peut donc PAS voir une regression sur ce point par ce
@@ -139,8 +141,14 @@ _SCHEMA_SANS_CHAMP = vol.Schema({})
 # Assistant AVALE en silence tout champ inconnu (`{"chemin": "..."}`, par
 # exemple) plutot que de le refuser : un bouton mort en miniature, le genre
 # de refus muet que ce depot s'interdit ailleurs. `vol.Schema({})` refuse
-# EXPLICITEMENT toute cle -- verifie par execution (`vol.Invalid: extra
-# keys not allowed`).
+# EXPLICITEMENT toute cle.
+#
+# Ronde 2 de relecture : la ronde 1 s'arretait a « verifie par execution »
+# -- une sonde jetable, vraie sur le coup et gardee ensuite par RIEN
+# (passer `extra=vol.ALLOW_EXTRA` a la place laissait la suite verte).
+# `test_exporter_et_importer_refusent_un_champ_inconnu` (test_services.py)
+# ferme desormais cette regle par un test, pas seulement par ce
+# commentaire.
 
 
 def async_setup_services(hass: HomeAssistant) -> None:

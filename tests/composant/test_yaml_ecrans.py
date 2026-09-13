@@ -78,3 +78,44 @@ def test_un_commentaire_entre_ecrans_et_le_premier_tiret_est_ignore():
     devenait une note RACINE INVENTEE sur le premier ecran."""
     texte = "ecrans:\n# entre les deux\n" + _ECRAN_MINIMAL_TEXTE[len("ecrans:\n"):]
     assert yaml_ecrans.lire(texte)[0].get("note") is None
+
+
+# ---------------------------------------------------------------------------
+# Ronde 2 de relecture : deux regles ecrites avec une sonde jetable et une
+# phrase de docstring, jamais un test -- fermees ici.
+# ---------------------------------------------------------------------------
+
+
+def _ecran_avec_note_de_commande(note: str) -> dict:
+    return {
+        "titre": "Salon", "nom": "Salon", "temperature": "sensor.t",
+        "ambiances": [], "commandes": [
+            {"libelle": "Porte", "icone": "porte", "entite": "lock.garage", "note": note},
+        ],
+        "extrasMaison": [], "synthese": [], "sources": [], "ouvrants": [],
+    }
+
+
+def test_une_note_avec_espaces_de_tete_ou_de_queue_survit_a_l_aller_retour():
+    """`_lignes_commentaires` ne retire que l'UNIQUE espace separateur que
+    `rendre` insere lui-meme apres "#", jamais davantage -- remettre un
+    `.strip()` du contenu entier laisse la suite verte (rien ne
+    l'exercait), mais perdrait silencieusement les espaces de tete/queue
+    d'une note editee a la main ou saisie ainsi."""
+    ecran = _ecran_avec_note_de_commande("  espaces de tete et de queue  ")
+    texte = yaml_ecrans.rendre([ecran])
+    assert yaml_ecrans.lire(texte) == [ecran]
+
+
+def test_une_note_multiligne_est_aplatie_pas_perdue_ni_cassee():
+    """LIMITE CONNUE assumee (voir la docstring de module) : un saut de
+    ligne dans une note devient un espace -- ne pas l'aplatir romprait le
+    format (« un commentaire, une ligne », dont `lire` depend pour se
+    relire lui-meme) ; retirer l'aplatissement sans rien y substituer
+    laisse la suite verte (rien ne l'exercait), mais casserait le YAML
+    produit ou perdrait la note selon comment. Gardee ici meme si aucun
+    ecran reel de ce depot ne porte de note multiligne aujourd'hui."""
+    ecran = _ecran_avec_note_de_commande("premiere ligne\nseconde ligne")
+    texte = yaml_ecrans.rendre([ecran])
+    resultat = yaml_ecrans.lire(texte)
+    assert resultat[0]["commandes"][0]["note"] == "premiere ligne seconde ligne"
