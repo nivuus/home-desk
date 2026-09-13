@@ -15,7 +15,7 @@
 //   3. les écouteurs `hashchange`/`pointerdown` sont posés une seule fois par la durée de vie de
 //      la page, jamais une fois par redessin (deuxième piège déjà payé dans ce projet).
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { demarrer, type ConnexionLike } from '../src/demarrage';
+import { demarrerAvecEcran, type ConnexionLike } from '../src/demarrage';
 import { ECRANS, type Ecran } from '../src/ecran';
 import type { EvenementEtat } from '../src/connexion';
 import { CLE_RECETTE } from '../src/recette-en-cours';
@@ -66,6 +66,7 @@ const stockageAvecSession = { getItem: () => JSON.stringify(jetons), setItem: vi
 function connexionFactice(): ConnexionLike {
   return {
     connecter: () => Promise.resolve(),
+    prete: () => Promise.resolve(),
     surChangement: (_cb: (e: EvenementEtat) => void) => {},
     appelerService: vi.fn(),
     // Depuis la tâche 9, `ConnexionLike` porte aussi `surSilence` : aucun des tests de ce
@@ -84,7 +85,7 @@ afterEach(() => { location.hash = ''; });
 describe('navigation (nuit / toute la maison)', () => {
   it('entre 23h et 5h, l ecran de nuit remplace le bandeau et le corps', async () => {
     const racine = document.createElement('div');
-    await demarrer(racine, piece, {
+    await demarrerAvecEcran(racine, piece, {
       stockage: stockageAvecSession,
       creerConnexion: () => connexionFactice(),
       intervalFn: vi.fn() as any,
@@ -99,7 +100,7 @@ describe('navigation (nuit / toute la maison)', () => {
 
   it('en journee, l ecran normal (bandeau + corps) reste affiche', async () => {
     const racine = document.createElement('div');
-    await demarrer(racine, piece, {
+    await demarrerAvecEcran(racine, piece, {
       stockage: stockageAvecSession,
       creerConnexion: () => connexionFactice(),
       intervalFn: vi.fn() as any,
@@ -123,7 +124,7 @@ describe('navigation (nuit / toute la maison)', () => {
   it('l accueil se declare au moteur par UNE racine de vue qui contient le bandeau ET le corps',
      async () => {
     const racine = document.createElement('div');
-    await demarrer(racine, piece, {
+    await demarrerAvecEcran(racine, piece, {
       stockage: stockageAvecSession,
       creerConnexion: () => connexionFactice(),
       intervalFn: vi.fn() as any,
@@ -152,7 +153,7 @@ describe('navigation (nuit / toute la maison)', () => {
   it('l ecran de nuit prime sur un hash « #maison » deja pose (residu d une navigation anterieure)', async () => {
     const racine = document.createElement('div');
     location.hash = '#maison';   // état résiduel, posé AVANT le démarrage de cette instance
-    await demarrer(racine, piece, {
+    await demarrerAvecEcran(racine, piece, {
       stockage: stockageAvecSession,
       creerConnexion: () => connexionFactice(),
       intervalFn: vi.fn() as any,
@@ -174,7 +175,7 @@ describe('navigation (nuit / toute la maison)', () => {
     const racine = document.createElement('div');
     let maintenant = new Date(2026, 7, 1, 22, 58);
     const intervalFn = vi.fn();
-    await demarrer(racine, piece, {
+    await demarrerAvecEcran(racine, piece, {
       stockage: stockageAvecSession,
       creerConnexion: () => connexionFactice(),
       intervalFn: intervalFn as any,
@@ -215,7 +216,7 @@ describe('navigation (nuit / toute la maison)', () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error('réseau indisponible dans ce test')) as any;
     try {
       const racine = document.createElement('div');
-      await demarrer(racine, piece, {
+      await demarrerAvecEcran(racine, piece, {
         stockage: stockageAvecSession,
         creerConnexion: () => connexionFactice(),
         intervalFn: vi.fn() as any,
@@ -279,7 +280,7 @@ describe('navigation (nuit / toute la maison)', () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error('réseau indisponible dans ce test')) as any;
     try {
       const racine = document.createElement('div');
-      await demarrer(racine, piece, {
+      await demarrerAvecEcran(racine, piece, {
         stockage: stockageAvecSession,
         creerConnexion: () => connexionFactice(),
         intervalFn: vi.fn() as any,
@@ -315,7 +316,7 @@ describe('navigation (nuit / toute la maison)', () => {
       globalThis.fetch = vi.fn().mockRejectedValue(new Error('réseau indisponible dans ce test')) as any;
       try {
         const racine = document.createElement('div');
-        await demarrer(racine, piece, {
+        await demarrerAvecEcran(racine, piece, {
           stockage: stockageAvecSession,
           creerConnexion: () => connexionFactice(),
           intervalFn: vi.fn() as any,
@@ -357,7 +358,7 @@ describe('navigation (nuit / toute la maison)', () => {
       globalThis.fetch = vi.fn().mockRejectedValue(new Error('réseau indisponible dans ce test')) as any;
       try {
         const racine = document.createElement('div');
-        await demarrer(racine, piece, {
+        await demarrerAvecEcran(racine, piece, {
           stockage: stockageAvecSession,
           creerConnexion: () => connexionFactice(),
           intervalFn: vi.fn() as any,
@@ -437,7 +438,7 @@ describe('navigation (nuit / toute la maison)', () => {
       globalThis.fetch = vi.fn().mockRejectedValue(new Error('réseau indisponible dans ce test')) as any;
       try {
         const racine = document.createElement('div');
-        await demarrer(racine, piece, {
+        await demarrerAvecEcran(racine, piece, {
           stockage: stockageAvecSession,
           creerConnexion: () => connexionFactice(),
           intervalFn: vi.fn() as any,
@@ -475,7 +476,7 @@ describe('navigation (nuit / toute la maison)', () => {
     // `outils/verifier-rendu.mjs` sur la tablette réelle.
     it('la vue « Toute la maison » se déclare comme telle au moteur', async () => {
       const racine = document.createElement('div');
-      await demarrer(racine, piece, {
+      await demarrerAvecEcran(racine, piece, {
         stockage: stockageAvecSession,
         creerConnexion: () => connexionFactice(),
         intervalFn: vi.fn() as any,
@@ -499,10 +500,11 @@ describe('navigation (nuit / toute la maison)', () => {
     let emettre: ((e: EvenementEtat) => void) | undefined;
 
     try {
-      await demarrer(racine, piece, {
+      await demarrerAvecEcran(racine, piece, {
         stockage: stockageAvecSession,
         creerConnexion: () => ({
           connecter: () => Promise.resolve(),
+          prete: () => Promise.resolve(),
           surChangement: (cb) => { emettre = cb; },
           appelerService: vi.fn(),
           surSilence: (_cb: (ms: number) => void) => {},

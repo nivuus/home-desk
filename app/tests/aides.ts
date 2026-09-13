@@ -38,6 +38,7 @@ export function connexionFactice(...sequence: ('succes' | 'echec')[]): Connexion
         ? Promise.resolve()
         : Promise.reject(new Error('Rafraîchissement refusé : 400'));
     },
+    prete: () => Promise.resolve(),
     surChangement: (_cb: (e: EvenementEtat) => void) => {},
     // Depuis la tâche 7, `ConnexionLike` porte aussi `appelerService` (retour optimiste,
     // cf. `interaction.ts`) : aucun des tests existants n'appuie sur une tuile, donc ce double
@@ -178,16 +179,21 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
     return reponse(charge);
   });
 
-  await demarrer(racine, piece, {
+  await demarrer(racine, piece.nom, {
     stockage: options.stockage ?? stockageAvecSession,
     creerConnexion: () => ({
       connecter: () => Promise.resolve(),
+      prete: () => Promise.resolve(),
       surChangement: (cb) => { emettre = cb; },
       appelerService,
       surSilence: (cb) => { silencer = cb; },
       listerTaches,
       envoyerCommande,
     }),
+    // L'écran est fourni directement : ces tests montent un écran CONNU, ils n'ont rien à
+    // apprendre du transport. Mais ils traversent quand même la coquille — écran d'attente,
+    // résolution, délégation — donc chacun des 292 sites en est une épreuve de plus.
+    chargerEcran: async () => ({ ok: true, valeur: piece }),
     intervalFn: intervalFn as any,
     minuteurFn: minuteurFn as any,
     maintenant: options.maintenant ?? (() => new Date(2026, 7, 1, 14, 0)),

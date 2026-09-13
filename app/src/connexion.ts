@@ -186,6 +186,17 @@ export class Connexion {
   async connecter(): Promise<void> {
     this.armerSurveillanceSilence();
 
+    // Idempotente à dessein : `demarrer()` connecte pour résoudre la configuration, puis passe
+    // LA MÊME instance au corps, qui rappelle `connecter()`. Sans cette garde, la seconde
+    // ouverture remplacerait `this.ws` ; l'ancienne socket déclencherait son `onclose`, donc
+    // `reconnecter()`, et la page repartirait en boucle de reconnexion sans qu'aucune coupure
+    // n'ait eu lieu.
+    //
+    // La garde ne gêne PAS la reconnexion réelle : quand `ws.onclose` rappelle `connecter()`,
+    // `readyState` vaut CLOSED (3), jamais OPEN. Et un double de test sans `readyState`
+    // (`undefined !== 1`) passe la garde comme avant.
+    if (this.ws && this.ws.readyState === 1) return;
+
     if (doitRafraichir(this.jetons, Date.now())) {
       this.jetons = await rafraichir(this.jetons, this.deps.fetchFn, Date.now());
       this.deps.stockage.setItem('hassTokens', JSON.stringify(this.jetons));

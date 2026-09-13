@@ -4,7 +4,7 @@
 // un élément et bascule des classes CSS dessus. Le reste de la suite tourne en environnement
 // `node` (par défaut), plus rapide — ce docblock ne change l'environnement que pour ce fichier.
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { demarrer } from '../src/demarrage';
+import { demarrer, demarrerAvecEcran } from '../src/demarrage';
 import { niveauDemande } from '../src/mouvement';
 import { Connexion } from '../src/connexion';
 import type { Ecran } from '../src/ecran';
@@ -21,7 +21,7 @@ import { ECRANS } from '../src/ecran';
 describe('demarrer', () => {
   it('sans session ouverte sur la tablette, affiche le message de session plutôt qu une page vide', async () => {
     const racine = document.createElement('div');
-    await demarrer(racine, piece, { stockage: stockageSansSession });
+    await demarrerAvecEcran(racine, piece, { stockage: stockageSansSession });
     expect(racine.textContent).toContain('Session');
     expect(racine.textContent).toContain('connecte-toi');
   });
@@ -32,7 +32,7 @@ describe('demarrer', () => {
   // moindre message. `void demarrer()` en tête de fichier avalait le rejet silencieusement.
   it('si la connexion échoue au démarrage, affiche un écran d erreur — jamais une page vide', async () => {
     const racine = document.createElement('div');
-    await demarrer(racine, piece, {
+    await demarrerAvecEcran(racine, piece, {
       stockage: stockageAvecSession,
       creerConnexion: () => connexionFactice('echec'),
       minuteurFn: vi.fn() as any,   // on ne veut pas qu une vraie nouvelle tentative parte ici
@@ -46,7 +46,7 @@ describe('demarrer', () => {
   it('programme une nouvelle tentative après échec, avec le repli exponentiel de delaiReconnexion', async () => {
     const racine = document.createElement('div');
     const minuteurFn = vi.fn();
-    await demarrer(racine, piece, {
+    await demarrerAvecEcran(racine, piece, {
       stockage: stockageAvecSession,
       creerConnexion: () => connexionFactice('echec'),
       minuteurFn: minuteurFn as any,
@@ -61,7 +61,7 @@ describe('demarrer', () => {
   it('une nouvelle tentative qui réussit efface l écran d erreur et dessine le bandeau', async () => {
     const racine = document.createElement('div');
     const minuteurFn = vi.fn();
-    await demarrer(racine, piece, {
+    await demarrerAvecEcran(racine, piece, {
       stockage: stockageAvecSession,
       creerConnexion: () => connexionFactice('echec', 'succes'),
       intervalFn: vi.fn() as any,
@@ -86,7 +86,7 @@ describe('demarrer', () => {
   // `document.documentElement` ne portant alors ni `.m3` ni `.sombre`.
   it('pose .m3 sur <html> et y reflète .sombre en pleine nuit, en plus de racine', async () => {
     const racine = document.createElement('div');
-    await demarrer(racine, piece, {
+    await demarrerAvecEcran(racine, piece, {
       stockage: stockageAvecSession,
       creerConnexion: () => connexionFactice('succes'),
       intervalFn: vi.fn() as any,
@@ -108,10 +108,11 @@ describe('demarrer', () => {
   it('retire .sombre de <html> en plein jour, sans fuite depuis le test précédent', async () => {
     const racine = document.createElement('div');
     let emettre: ((e: EvenementEtat) => void) | undefined;
-    await demarrer(racine, piece, {
+    await demarrerAvecEcran(racine, piece, {
       stockage: stockageAvecSession,
       creerConnexion: () => ({
         connecter: () => Promise.resolve(),
+        prete: () => Promise.resolve(),
         surChangement: (cb) => { emettre = cb; },
         appelerService: vi.fn(),
         surSilence: (_cb: (ms: number) => void) => {},
@@ -189,7 +190,7 @@ describe('demarrer', () => {
       constructor(public url: string) {}
     }
 
-    await demarrer(racine, piece, {
+    await demarrerAvecEcran(racine, piece, {
       stockage,
       creerConnexion: (j) => new Connexion(j, {
         fetchFn, intervalFn: intervalFn as any, stockage,
@@ -230,7 +231,7 @@ describe('demarrer', () => {
   // revenue trois lignes plus haut. Ce test force `creerConnexion` à lever pour le prouver.
   it('si l initialisation (creerConnexion) lève, affiche un écran d erreur — jamais une page vide', async () => {
     const racine = document.createElement('div');
-    await demarrer(racine, piece, {
+    await demarrerAvecEcran(racine, piece, {
       stockage: stockageAvecSession,
       creerConnexion: () => { throw new Error('globale absente ou fabrique cassée'); },
       minuteurFn: vi.fn() as any,
@@ -271,10 +272,11 @@ describe('demarrer', () => {
     const appelerService = vi.fn();
     let emettre: ((e: EvenementEtat) => void) | undefined;
 
-    await demarrer(racine, pieceLumiere, {
+    await demarrerAvecEcran(racine, pieceLumiere, {
       stockage: stockageAvecSession,
       creerConnexion: () => ({
         connecter: () => Promise.resolve(),
+        prete: () => Promise.resolve(),
         surChangement: (cb) => { emettre = cb; },
         appelerService,
         surSilence: (_cb: (ms: number) => void) => {},
@@ -324,10 +326,11 @@ describe('demarrer', () => {
     try {
       const racine = document.createElement('div');
       let emettre: ((e: EvenementEtat) => void) | undefined;
-      await demarrer(racine, piece, {
+      await demarrerAvecEcran(racine, piece, {
         stockage: stockageAvecSession,
         creerConnexion: () => ({
           connecter: () => Promise.resolve(),
+          prete: () => Promise.resolve(),
           surChangement: (cb) => { emettre = cb; },
           appelerService: vi.fn(),
           surSilence: (_cb: (ms: number) => void) => {},
@@ -380,10 +383,11 @@ describe('demarrer', () => {
       sources: [], ouvrants: [],
     };
     const appelerService = vi.fn();
-    await demarrer(racine, pieceAvecTaches, {
+    await demarrerAvecEcran(racine, pieceAvecTaches, {
       stockage: stockageAvecSession,
       creerConnexion: () => ({
         connecter: () => Promise.resolve(),
+        prete: () => Promise.resolve(),
         surChangement: () => {},
         appelerService,
         surSilence: (_cb: (ms: number) => void) => {},
@@ -1506,5 +1510,152 @@ describe('repli du bloc par défaut vers l\'entretien', () => {
     const m = await monterDemarrage(ECRANS.cuisine, { taches: ENTRETIEN, etats: POULET });
     await m.pousser('input_boolean.mode_invites', 'on', {});
     expect(m.racine.querySelector('.mode-bloc .t')?.textContent).toBe('Dîner');
+  });
+});
+
+describe('demarrer — la coquille résout l écran avant de déléguer', () => {
+  // ⚠️ `ecranVide` est une CONSTANTE (`app/tests/aides.ts:14`), importée ici sous le nom
+  // `piece`, pas une fabrique. On en dérive un écran nommé plutôt que de l'appeler.
+  const ecranDeNom = (nom: string) => ({ ...piece, nom });
+
+  function deps(sur: Record<string, unknown> = {}) {
+    return {
+      stockage: stockageAvecSession,
+      creerConnexion: () => ({
+        connecter: () => Promise.resolve(),
+        prete: () => Promise.resolve(),
+        surChangement: () => {}, surSilence: () => {},
+        appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
+      }),
+      intervalFn: vi.fn() as any,
+      minuteurFn: vi.fn() as any,
+      maintenant: () => new Date(2026, 7, 1, 14, 0),
+      ...sur,
+    };
+  }
+
+  it('affiche l écran d attente AVANT que la configuration arrive', async () => {
+    // Décision 10 : écran d'attente franc, pas de cache local. Il faut donc qu'il soit peint
+    // avant l'aller-retour, pas après.
+    const racine = document.createElement('div');
+    let vuPendantLeChargement = '';
+    await demarrer(racine, 'Cuisine', deps({
+      chargerEcran: async () => {
+        vuPendantLeChargement = racine.textContent!.replace(/\s+/g, ' ').trim();
+        return { ok: true as const, valeur: ecranDeNom('Cuisine') };
+      },
+    }));
+    expect(vuPendantLeChargement).toBe(
+      'Cuisine Chargement de la configuration depuis Home Assistant…');
+  });
+
+  it('demande l écran par SON NOM, tel quel', async () => {
+    const chargerEcran = vi.fn(async () => ({ ok: true as const, valeur: ecranDeNom('Salon') }));
+    await demarrer(document.createElement('div'), 'Salon', deps({ chargerEcran }));
+    expect(chargerEcran).toHaveBeenCalledWith(expect.anything(), 'Salon');
+  });
+
+  it('ne demande RIEN et propose la liste quand le nom est vide', async () => {
+    // Première dégradation : `?ecran=` absent. Demander un écran nommé « » serait un
+    // aller-retour dont on connaît déjà la réponse.
+    const chargerEcran = vi.fn();
+    const racine = document.createElement('div');
+    await demarrer(racine, '', deps({
+      chargerEcran,
+      listerEcrans: async () => ({ ok: true as const, valeur: [{ nom: 'Salon', titre: 'Salon' }] }),
+    }));
+    expect(chargerEcran).not.toHaveBeenCalled();
+    expect(racine.querySelector('a')!.getAttribute('href')).toBe('?ecran=Salon');
+  });
+
+  it('propose la liste quand l écran demandé est introuvable', async () => {
+    const racine = document.createElement('div');
+    await demarrer(racine, 'Grenier', deps({
+      chargerEcran: async () => ({ ok: false as const, panne: 'introuvable' as const }),
+      listerEcrans: async () => ({
+        ok: true as const,
+        valeur: [{ nom: 'Salon', titre: 'Salon' }, { nom: 'Cuisine', titre: 'Cuisine' }],
+      }),
+    }));
+    // Décor à DEUX écrans (leçon 3) : avec un seul, une implémentation qui n'en rendrait
+    // qu'un passerait.
+    expect(Array.from(racine.querySelectorAll('a')).map((a) => a.getAttribute('href')))
+      .toEqual(['?ecran=Salon', '?ecran=Cuisine']);
+  });
+
+  it('dit « aucun écran configuré » quand HA répond une liste vide', async () => {
+    const racine = document.createElement('div');
+    await demarrer(racine, '', deps({
+      listerEcrans: async () => ({ ok: true as const, valeur: [] }),
+    }));
+    expect(racine.textContent).toMatch(/Aucun écran configuré/);
+    expect(racine.textContent).not.toMatch(/réseau/);
+  });
+
+  it('affiche l écran de CHAQUE panne, et ne retente pas celles qui exigent un humain', async () => {
+    for (const [panne, motif] of [
+      // `\s+` et non un simple espace : `versionRefusee()` (rendu/repli.ts) coupe sa phrase entre
+      // « autre » et « version » sur deux lignes du template littéral ; `textContent` en jsdom
+      // garde le saut de ligne et l'indentation tels quels, sans les collapser comme un navigateur
+      // le ferait visuellement.
+      ['version', /autre\s+version de l'intégration/],
+      ['corrompu', /ne respecte plus le contrat/],
+      ['integrationAbsente', /n'est pas installée/],
+    ] as const) {
+      const racine = document.createElement('div');
+      const minuteurFn = vi.fn();
+      await demarrer(racine, 'Salon', deps({
+        chargerEcran: async () => ({ ok: false as const, panne }),
+        minuteurFn: minuteurFn as any,
+      }));
+      expect(racine.textContent).toMatch(motif);
+      // Retenter une configuration illisible en boucle n'a jamais rien réparé : ces trois
+      // pannes attendent un geste humain, et l'écran le nomme.
+      expect(minuteurFn).not.toHaveBeenCalled();
+    }
+  });
+
+  it('retente en repli exponentiel sur une panne réseau, et finit par afficher l écran', async () => {
+    let appels = 0;
+    const rappels: (() => void)[] = [];
+    const minuteurFn = vi.fn((fn: () => void, _ms: number) => { rappels.push(fn); return 1 as any; });
+    const racine = document.createElement('div');
+    await demarrer(racine, 'Salon', deps({
+      minuteurFn: minuteurFn as any,
+      chargerEcran: async () => (++appels < 3
+        ? { ok: false as const, panne: 'reseau' as const }
+        : { ok: true as const, valeur: ecranDeNom('Salon') }),
+    }));
+    expect(racine.textContent).toMatch(/Connexion impossible/);
+    expect(minuteurFn.mock.calls[0][1]).toBe(1000);
+
+    await rappels[0]!();
+    expect(minuteurFn.mock.calls[1][1]).toBe(2000);
+    await rappels[1]!();
+    expect(racine.textContent).not.toMatch(/Connexion impossible/);
+  });
+
+  it('affiche l écran de session AVANT tout aller-retour réseau', async () => {
+    const chargerEcran = vi.fn();
+    const racine = document.createElement('div');
+    await demarrer(racine, 'Salon', deps({ stockage: stockageSansSession, chargerEcran }));
+    expect(racine.textContent).toMatch(/Ouvre Home Assistant/);
+    expect(chargerEcran).not.toHaveBeenCalled();
+  });
+
+  it('ne crée qu UNE SEULE connexion pour la résolution ET pour le corps', async () => {
+    // Une seconde instance de `Connexion` poserait un second `setInterval` de surveillance du
+    // silence, fermé sur une instance abandonnée — la fuite que la ronde de correction 2 a
+    // fermée, rouverte par la coquille.
+    const creerConnexion = vi.fn(() => ({
+      connecter: () => Promise.resolve(), prete: () => Promise.resolve(),
+      surChangement: () => {}, surSilence: () => {},
+      appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
+    }));
+    await demarrer(document.createElement('div'), 'Salon', deps({
+      creerConnexion,
+      chargerEcran: async () => ({ ok: true as const, valeur: ecranDeNom('Salon') }),
+    }));
+    expect(creerConnexion).toHaveBeenCalledTimes(1);
   });
 });

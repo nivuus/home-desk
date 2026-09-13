@@ -16,7 +16,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Etat } from '../src/etat';
 import { ligneSynthese } from '../src/rendu/corps';
-import { demarrer, type ConnexionLike } from '../src/demarrage';
+import { demarrerAvecEcran, type ConnexionLike } from '../src/demarrage';
 import { Connexion } from '../src/connexion';
 import type { Ecran } from '../src/ecran';
 import type { EvenementEtat } from '../src/connexion';
@@ -82,6 +82,7 @@ function connexionAvecSilence() {
   let cbEtat: (e: EvenementEtat) => void = () => {};
   const cx: ConnexionLike = {
     connecter: () => Promise.resolve(),
+    prete: () => Promise.resolve(),
     surChangement: (cb) => { cbEtat = cb; },
     appelerService: vi.fn(),
     surSilence: (cb) => { cbSilence = cb; },
@@ -95,7 +96,7 @@ describe('grisage apres silence (brief tache 9, etape 3)', () => {
   it('grise #app et affiche un bandeau hors-ligne apres 30 s de silence, jamais avant, sans jamais vider l ecran', async () => {
     const racine = document.createElement('div');
     const { cx, declencherSilence } = connexionAvecSilence();
-    await demarrer(racine, piece, {
+    await demarrerAvecEcran(racine, piece, {
       stockage: stockageAvecSession, creerConnexion: () => cx,
       intervalFn: vi.fn() as any, minuteurFn: vi.fn() as any,
       maintenant: () => new Date(2026, 7, 1, 10, 30),
@@ -139,7 +140,7 @@ describe('grisage apres silence (brief tache 9, etape 3)', () => {
     try {
       const racine = document.createElement('div');
       const { cx, declencherSilence, emettre } = connexionAvecSilence();
-      await demarrer(racine, piece, {
+      await demarrerAvecEcran(racine, piece, {
         stockage: stockageAvecSession, creerConnexion: () => cx,
         intervalFn: vi.fn() as any, minuteurFn: vi.fn() as any,
         maintenant: () => new Date(),
@@ -170,7 +171,7 @@ describe('grisage apres silence (brief tache 9, etape 3)', () => {
   it('sur l ecran de nuit, le silence remplace aussi la temperature par la note hors-ligne (bout en bout, pas juste rendreNuit isole)', async () => {
     const racine = document.createElement('div');
     const { cx, declencherSilence, emettre } = connexionAvecSilence();
-    await demarrer(racine, piece, {
+    await demarrerAvecEcran(racine, piece, {
       stockage: stockageAvecSession, creerConnexion: () => cx,
       intervalFn: vi.fn() as any, minuteurFn: vi.fn() as any,
       maintenant: () => new Date(2026, 7, 1, 23, 30),
@@ -212,7 +213,7 @@ describe('vue Toute la maison hors ligne (retour du coordinateur, IMPORTANT)', (
     const racine = document.createElement('div');
     const { cx, declencherSilence, emettre } = connexionAvecSilence();
     try {
-      await demarrer(racine, piece, {
+      await demarrerAvecEcran(racine, piece, {
         stockage: stockageAvecSession, creerConnexion: () => cx,
         intervalFn: vi.fn() as any, minuteurFn: vi.fn() as any,
         maintenant: () => new Date(2026, 7, 1, 14, 0),
@@ -264,6 +265,7 @@ describe('vue Taches hors ligne (tache 18, meme regle que Toute la maison)', () 
     };
     const cx: ConnexionLike = {
       connecter: () => Promise.resolve(),
+      prete: () => Promise.resolve(),
       surChangement: () => {},
       appelerService,
       surSilence: (cb) => { cbSilence = cb; },
@@ -271,7 +273,7 @@ describe('vue Taches hors ligne (tache 18, meme regle que Toute la maison)', () 
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
     };
     try {
-      await demarrer(racine, pieceAvecTaches, {
+      await demarrerAvecEcran(racine, pieceAvecTaches, {
         stockage: stockageAvecSession, creerConnexion: () => cx,
         intervalFn: vi.fn() as any, minuteurFn: vi.fn() as any,
         maintenant: () => new Date(2026, 7, 1, 14, 0),
@@ -345,7 +347,7 @@ describe('reconnexion interne cassee (jeton de rafraichissement revoque apres un
       });
 
       const racine = document.createElement('div');
-      await demarrer(racine, piece, {
+      await demarrerAvecEcran(racine, piece, {
         stockage, creerConnexion: () => cxReel,
         intervalFn: vi.fn() as any, minuteurFn: vi.fn() as any,
         maintenant: () => new Date(),
@@ -440,7 +442,7 @@ describe('revue tâche 15 (M4) — la grille de commandes ne reste pas amputée 
   it('rend 2 commandes quand la carte média est là, 4 quand hors-ligne la remplace', async () => {
     const racine = document.createElement('div');
     const { cx, declencherSilence, emettre } = connexionAvecSilence();
-    await demarrer(racine, pieceAvecMedia, {
+    await demarrerAvecEcran(racine, pieceAvecMedia, {
       stockage: stockageAvecSession, creerConnexion: () => cx,
       intervalFn: vi.fn() as any, minuteurFn: vi.fn() as any,
       maintenant: () => new Date(2026, 7, 1, 14, 0),

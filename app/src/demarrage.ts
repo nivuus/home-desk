@@ -14,12 +14,18 @@ import { rendreCorps, brancherAppui, brancherGeste, rendreAlerte, rendreHorsLign
 import { rendreNuit } from './rendu/nuit';
 import { rendreMaison, brancherAppuiMaison, brancherGesteMaison } from './rendu/maison';
 import { rendreTaches, brancherCochageTaches } from './rendu/taches';
-import { sessionAbsente, erreurDemarrage } from './rendu/repli';
+import {
+  sessionAbsente, erreurDemarrage, ecranEnAttente, choisirEcran, ecranDeLaPanne,
+} from './rendu/repli';
 import { creerAppui, type ConnexionAppelable } from './interaction';
 import { creerGeste } from './geste';
 import { listesTachesPiece, aplatirTaches, repartirTaches, creerCochage, creerArmement } from './cochage';
 import { collecterAlertes, dernierMouvement } from './alertes';
 import type { Prevision } from './meteo';
+import {
+  chargerEcran as chargerEcranHA, listerEcrans as listerEcransHA,
+  type EntreeListe, type Resultat, type TransportConfig,
+} from './configuration';
 // Tâche 12 : tout ce qui suit a été construit par les tâches 1 à 11 et n'était appelé par
 // personne. C'est ici, et nulle part ailleurs, que le câblage se fait — les fonctions de rendu
 // restent des fonctions de présentation, et les modules de décision restent purs.
@@ -122,6 +128,10 @@ const horlogeMonotone = (): number =>
  *  reçoit de quoi appeler un service — ses champs privés interdiraient tout double de test. */
 export type ConnexionLike = {
   connecter(): Promise<void>;
+  /** Résolue quand l'authentification websocket a abouti. Nécessaire à `demarrer()` : avant
+   *  cette tâche, `connecter()` rendait la main AVANT `auth_ok`, donc la toute première commande
+   *  websocket de l'application appelait `ws.send()` sur une socket en CONNECTING. */
+  prete(): Promise<void>;
   surChangement(cb: (e: EvenementEtat) => void): void;
   // Tâche 9 : `surSilence` existe sur `Connexion` depuis la tâche 3 (armé une seule fois par
   // `connecter()`) mais n'était consommé nulle part — le minuteur tournait dans le vide. C'est
@@ -151,6 +161,10 @@ export type DependancesDemarrage = {
   intervalFn: typeof setInterval;
   minuteurFn: typeof setTimeout;
   maintenant: () => Date;
+  /** Injectables pour que les tests montent un écran sans transport — et pour que le chemin de
+   *  transition (`index.ts`, `data-piece`) serve le littéral par la même porte. */
+  chargerEcran: (cx: TransportConfig, nom: string) => Promise<Resultat<Ecran>>;
+  listerEcrans: (cx: TransportConfig) => Promise<Resultat<EntreeListe[]>>;
 };
 
 /** Démarre l'écran de la pièce donnée dans `racine`. Ne lève jamais : la promesse couvre tout
@@ -162,8 +176,13 @@ export type DependancesDemarrage = {
  *  coupure réseau (temporaire, se résout seule) : réessayer indéfiniment couvre les deux sans
  *  intervention humaine sur un écran mural, et le message affiché reste vrai dans les deux cas
  *  (« si ça persiste, reconnecte-toi »). Le compteur d'essais est remis à zéro dès qu'une
- *  tentative réussit, pour qu'une coupure ultérieure reparte d'un délai court. */
-export async function demarrer(
+ *  tentative réussit, pour qu'une coupure ultérieure reparte d'un délai court.
+ *
+ *  Cette fonction reçoit un écran DÉJÀ RÉSOLU. C'est `demarrer()`, plus bas, qui l'obtient —
+ *  depuis Home Assistant en usage normal, depuis le littéral `ECRANS` sur le chemin de
+ *  transition (cf. `index.ts`). Séparer les deux garde ce corps-ci indifférent à la provenance
+ *  de sa configuration, et c'est ce qui a permis de l'introduire sans toucher à ces 1900 lignes. */
+export async function demarrerAvecEcran(
   racine: HTMLElement, piece: Ecran, deps: Partial<DependancesDemarrage> = {},
 ): Promise<void> {
   // Tâche 20 : les jetons de couleur (`--md-*`, `jetons.css`) et le mode jour/nuit (classe
@@ -189,6 +208,11 @@ export async function demarrer(
     intervalFn: deps.intervalFn ?? intervalFnParDefaut,
     minuteurFn: deps.minuteurFn ?? minuteurFnParDefaut,
     maintenant: deps.maintenant ?? (() => new Date()),
+    // `demarrerAvecEcran` ne les appelle jamais (elle reçoit un écran déjà résolu) : ces deux
+    // champs n'existent ici que pour que `d` satisfasse `DependancesDemarrage` au complet, le
+    // même sac de dépendances que `demarrer()` plus bas lui transmet tel quel.
+    chargerEcran: deps.chargerEcran ?? chargerEcranHA,
+    listerEcrans: deps.listerEcrans ?? listerEcransHA,
   };
 
   const jetonsLus = lireJetons(d.stockage);
@@ -1893,4 +1917,87 @@ export async function demarrer(
   }
 
   await tenter();
+}
+
+/** Démarre l'écran NOMMÉ dans `racine` : attente → chargement → rendu.
+ *
+ *  C'est le point d'entrée de l'application depuis que la configuration vit dans Home Assistant
+ *  (spec du 2026-09-12). Il résout l'écran, puis délègue à `demarrerAvecEcran` qui n'a pas
+ *  changé d'une ligne — c'est cette séparation qui a permis d'introduire le transport sans
+ *  toucher aux 1900 lignes du corps, ni aux 292 références à `ECRANS` des douze fichiers de
+ *  tests qui le montent.
+ *
+ *  Ne lève jamais. Les cinq pannes se répartissent en trois familles, et le traitement DIFFÈRE :
+ *   - `reseau` : on retente, en repli exponentiel, indéfiniment. C'est la seule que le temps
+ *     répare, et c'est ce que promet le texte d'`erreurDemarrage()` — « une nouvelle tentative
+ *     va avoir lieu automatiquement ».
+ *   - `introuvable` : on propose la liste. Retenter ne changerait rien ; l'écran demandé
+ *     n'existe pas, et le choix est immédiatement utile.
+ *   - `version`, `corrompu`, `integrationAbsente` : on affiche, et on s'arrête. Ces trois-là
+ *     attendent un geste HUMAIN, que l'écran nomme. Une boucle de retentative n'a jamais réparé
+ *     une configuration illisible ; elle ne ferait que consommer le réseau d'une tablette à
+ *     130 Mo de libre en cachant le vrai message derrière un clignotement. */
+export async function demarrer(
+  racine: HTMLElement, nomEcran: string, deps: Partial<DependancesDemarrage> = {},
+): Promise<void> {
+  // Même raison qu'au début de `demarrerAvecEcran` : les jetons de couleur sont scopés à `.m3`,
+  // et les écrans de repli aussi profitent du bon fond.
+  document.documentElement.classList.add('m3');
+
+  const stockage = deps.stockage ?? localStorage;
+  const minuteurFn = deps.minuteurFn ?? minuteurFnParDefaut;
+  const chargerEcranFn = deps.chargerEcran ?? chargerEcranHA;
+  const listerEcransFn = deps.listerEcrans ?? listerEcransHA;
+
+  const jetons = lireJetons(stockage);
+  if (!jetons) {
+    // Avant tout aller-retour réseau : sans session, aucune commande ne partirait de toute façon.
+    render(sessionAbsente(), racine);
+    return;
+  }
+
+  render(ecranEnAttente(nomEcran), racine);
+
+  // UNE SEULE instance pour la résolution ET pour le corps : une seconde poserait un second
+  // minuteur de surveillance du silence, fermé sur une instance abandonnée — la fuite que la
+  // ronde de correction 2 a fermée. `connecter()` est idempotente depuis cette tâche, donc le
+  // corps peut la rappeler sans ouvrir un second websocket.
+  const cx = (deps.creerConnexion ?? ((j: Jetons) => new Connexion(j)))(jetons);
+  const depsDuCorps: Partial<DependancesDemarrage> = { ...deps, creerConnexion: () => cx };
+
+  const proposerLaListe = async (): Promise<void> => {
+    const liste = await listerEcransFn(cx);
+    render(
+      liste.ok ? choisirEcran(liste.valeur) : ecranDeLaPanne(liste.panne, nomEcran),
+      racine,
+    );
+  };
+
+  let essai = 0;
+  const tenterChargement = async (): Promise<void> => {
+    try {
+      await cx.connecter();
+      await cx.prete();
+
+      // `?ecran=` absent : on connaît déjà la réponse, inutile de demander un écran nommé « ».
+      if (nomEcran === '') { await proposerLaListe(); return; }
+
+      const resultat = await chargerEcranFn(cx, nomEcran);
+      if (resultat.ok) {
+        await demarrerAvecEcran(racine, resultat.valeur, depsDuCorps);
+        return;
+      }
+      if (resultat.panne === 'introuvable') { await proposerLaListe(); return; }
+      if (resultat.panne === 'reseau') throw new Error('reseau');
+      render(ecranDeLaPanne(resultat.panne, nomEcran), racine);
+    } catch {
+      render(erreurDemarrage(), racine);
+      // Sans `void` : même convention que `d.minuteurFn(() => tenter(), ...)` plus haut dans ce
+      // fichier (corps de `demarrerAvecEcran`) — la promesse est rendue, pas avalée, pour qu'un
+      // test qui capture ce rappel puisse l'attendre jusqu'au bout (`await rappels[0]!()`).
+      minuteurFn(() => tenterChargement(), delaiReconnexion(essai++));
+    }
+  };
+
+  await tenterChargement();
 }

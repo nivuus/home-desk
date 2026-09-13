@@ -316,3 +316,27 @@ describe('Connexion — une commande sans réponse ne pend pas pour toujours', (
     });
   });
 });
+
+describe('Connexion.connecter est idempotente', () => {
+  it('n ouvre PAS un second websocket quand la socket est déjà ouverte', async () => {
+    // La coquille connecte, puis le corps rappelle `connecter()` sur la MÊME instance. Sans
+    // cette garde, la seconde ouverture remplacerait `this.ws`, l'ancienne socket déclencherait
+    // son `onclose`, et la boucle de reconnexion partirait sans raison.
+    let ouvertures = 0;
+    class Ws {
+      readyState = 1;   // OPEN
+      onmessage: ((ev: any) => void) | null = null;
+      onclose: (() => void) | null = null;
+      send() {}
+      constructor(public url: string) { ouvertures++; }
+    }
+    const cx = new Connexion(
+      { access_token: 'a', refresh_token: 'r', clientId: 'c', expires: Date.now() + 3_600_000 } as any,
+      { origineWs: 'ws://test', WebSocketImpl: Ws as any, intervalFn: vi.fn() as any,
+        minuteurFn: vi.fn() as any, stockage: faux(null) } as any,
+    );
+    await cx.connecter();
+    await cx.connecter();
+    expect(ouvertures).toBe(1);
+  });
+});
