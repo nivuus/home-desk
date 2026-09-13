@@ -66,6 +66,23 @@ describe('demarrerPage — la BRANCHE DE TRANSITION (retirée à l étape 8 du p
     expect(demarrerAvecEcran).not.toHaveBeenCalled();
     expect(demarrer).toHaveBeenCalledWith(expect.anything(), '');
   });
+
+  it('un ?ecran= vide avec data-piece présent sert quand même le littéral', () => {
+    // Scénario réel de la mise en production, pas théorique : une page HISTORIQUE (qui porte
+    // `data-piece`) repointée avec une URL malformée où `?ecran=` est vide. C'est le seul cas où
+    // `if (nom)` et `if (nom !== null)` divergent : sans `data-piece` posé, les deux écritures
+    // retombent sur le même `demarrer(racine, '')` et rien ne les distingue (mesuré). Avec
+    // `data-piece` présent, `if (nom !== null)` partirait sur le transport avec un nom vide — la
+    // liste tapable, littéral ignoré — alors que `if (nom)` tombe dans la branche de transition
+    // et sert le littéral : le comportement d'avant, celui que la branche doit garantir.
+    const demarrer = vi.fn(async () => {});
+    const demarrerAvecEcran = vi.fn(async () => {});
+    const racine = racineAvec({ piece: 'bureau' });
+    void demarrerPage(racine, 'https://ha/local/wallpanel/bureau.html?ecran=',
+                      { demarrer, demarrerAvecEcran });
+    expect(demarrerAvecEcran).toHaveBeenCalledWith(racine, ECRANS.bureau);
+    expect(demarrer).not.toHaveBeenCalled();
+  });
 });
 
 describe('demarrerPage — ni l un ni l autre', () => {

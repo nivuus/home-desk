@@ -31,6 +31,18 @@ if not (APP / "node_modules").is_dir():
           "dans app/ pour activer ce test)")
     sys.exit(0)
 
+# Les pages HTML sont supprimees du disque AVANT le build, sans quoi ce test ne prouve rien sur
+# elles precisement. `npm run build` n'a jamais vide `dist/` : il ecrit les fichiers qu'on lui dit
+# d'ecrire. Si un generateur (`scripts/generer-pages.mjs`) cessait de produire l'un d'eux, l'ancien
+# fichier — deja commite — resterait tel quel sur le disque, identique au commit, donc invisible a
+# la comparaison `git status` plus bas. En les retirant d'abord, un fichier non regenere ressort en
+# suppression aux yeux de git, et le test echoue — c'est le comportement voulu. Sans risque : ces
+# fichiers sont commites, donc recuperables par `git checkout` si ce script s'interrompait ici.
+# Trouve par mutation lors de la tache 6 (2026-09-13) : retirer le bloc qui emet `index.html` de
+# `generer-pages.mjs` laissait ce test passer quand meme, tant que `dist/` n'etait pas nettoye.
+for page_html in DIST.glob("*.html"):
+    page_html.unlink()
+
 build = subprocess.run(["npm", "run", "build"], cwd=APP,
                        capture_output=True, text=True)
 if build.returncode != 0:
