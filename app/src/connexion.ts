@@ -274,20 +274,23 @@ export class Connexion {
    *  la réponse n'arrive jamais, et avant cette tâche la promesse restait en suspens POUR
    *  TOUJOURS — l'écran d'attente de la décision 10 devenait un écran d'attente permanent.
    *
-   *  Le minuteur n'est pas annulé : un drapeau (`regle`) rend le règlement idempotent, et le
-   *  rappel tardif ne fait rien. Annuler exigerait d'injecter aussi un `clearTimeout` pour
-   *  rester testable, pour économiser un minuteur de quinze secondes par commande — une
-   *  complication plus chère que ce qu'elle évite. */
+   *  Le minuteur n'est pas annulé ; il n'a pas besoin de l'être. Le premier règlement — par la
+   *  réponse HA ou par le minuteur, quel que soit celui qui arrive en premier — retire l'entrée
+   *  de `enAttenteCommandes` via `finir` ; si le minuteur sonne après coup, `enAttenteCommandes`
+   *  ne contient plus rien pour cet `id` et son rappel n'a plus personne à régler deux fois. Et
+   *  si le minuteur sonnait malgré tout avant la réponse HA (l'ordre inverse), régler une
+   *  promesse déjà réglée est un no-op de la spécification ECMAScript : `resolve`/`reject` d'un
+   *  exécuteur ne font plus rien après le premier appel, sans lever ni produire de rejet non
+   *  observé. Annuler le minuteur exigerait d'injecter aussi un `clearTimeout` pour rester
+   *  testable, pour économiser un minuteur de quinze secondes par commande — une complication
+   *  plus chère que ce qu'elle évite. */
   envoyerCommande(
     payload: Record<string, unknown>, delaiMs: number = DELAI_COMMANDE_MS,
   ): Promise<unknown> {
     return new Promise((resolve, reject) => {
       if (!this.ws) { reject(new Error('websocket indisponible')); return; }
       const id = this.id++;
-      let regle = false;
       const finir = <T>(suite: (v: T) => void) => (v: T) => {
-        if (regle) return;
-        regle = true;
         this.enAttenteCommandes.delete(id);
         suite(v);
       };
