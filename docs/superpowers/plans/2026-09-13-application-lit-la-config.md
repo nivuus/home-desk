@@ -1013,8 +1013,19 @@ describe('ecranDeLaPanne — la table complète, décor à CINQ pannes', () => {
   });
 
   it('« introuvable » sans liste connue invite à choisir, pas à réparer', () => {
-    expect(texteDe(ecranDeLaPanne('introuvable', 'Inconnu'))).toMatch(
-      /n'est pas un écran configuré/);
+    // Leçon 2, jouée jusqu'au bout ici aussi : épingler la phrase ENTIÈRE, pas seulement la
+    // moitié « description de la panne ». La moitié « geste » (vérifier l'adresse, ou créer
+    // l'écran depuis Paramètres) doit être gardée au même titre que les six autres écrans.
+    //
+    // Corrigé le 2026-09-13 : la première version de ce test faisait
+    // `toMatch(/n'est pas un écran configuré/)`. Mesuré en relecture — remplacer toute la
+    // moitié geste par le mot « Dommage. » laissait les 14 tests VERTS. Le seul écran du
+    // module dont l'action n'était gardée par rien, dans le module dont la docstring interdit
+    // le bouton mort en prose.
+    expect(texteDe(ecranDeLaPanne('introuvable', 'Inconnu'))).toBe(
+      "Écran inconnu « Inconnu » n'est pas un écran configuré sur ce Home Assistant. "
+      + "Vérifie l'adresse de cette tablette, ou crée cet écran depuis Paramètres > "
+      + 'Appareils et services > Tablettes murales.');
   });
 });
 ```
@@ -1035,11 +1046,17 @@ Créez `app/src/rendu/repli.ts` :
  *  laisse `#app` vide. Un mur blanc sur un écran mural ne dit rien à qui passe devant, et ne
  *  laisse aucune prise pour comprendre.
  *
- *  Règle propre à ce module : CHAQUE écran nomme un GESTE. Décrire une panne sans dire quoi
- *  faire est le « bouton mort en prose » que ce projet s'interdit — et son cas le plus coûteux
- *  est `integrationAbsente()` : avant qu'il existe, une installation neuve tombait sur
+ *  Règle propre à ce module : CHAQUE écran de PANNE nomme un GESTE. Décrire une panne sans dire
+ *  quoi faire est le « bouton mort en prose » que ce projet s'interdit — et son cas le plus
+ *  coûteux est `integrationAbsente()` : avant qu'il existe, une installation neuve tombait sur
  *  `erreurDemarrage()`, qui envoyait déboguer le réseau alors que Home Assistant avait répondu
  *  instantanément et correctement.
+ *
+ *  Exception nommée, pas oubliée : `ecranEnAttente()` ne nomme aucun geste, à dessein. Ce n'est
+ *  pas une panne mais un état transitoire qui se résout tout seul dès que la réponse de Home
+ *  Assistant arrive — demander un geste à quelqu'un pendant qu'un chargement est en cours serait
+ *  absurde. Une règle énoncée en absolu et fausse pour un cas sur sept serait elle-même une
+ *  prose qui ment.
  *
  *  Ces fonctions sont PURES : elles rendent un gabarit, ne touchent pas au DOM, n'appellent
  *  aucun transport. `demarrage.ts` les câble. Deux d'entre elles (`sessionAbsente`,
@@ -1197,6 +1214,7 @@ Expected: **moins de 1914** (environ 1897). Si le nombre a augmenté, du code ne
 | retirer `encodeURIComponent` | « rend un lien tapable par écran » (l'entrée à espace) |
 | `if (entrees.length === 0)` retiré | « retombe sur « aucun écran configuré » » |
 | dans `ecranDeLaPanne`, `case 'corrompu'` → `versionRefusee(nom)` | « associe chaque panne à SON écran » ET « rend un écran DIFFÉRENT pour chacune » |
+| remplacer la moitié GESTE du cas `'introuvable'` par un mot quelconque | « « introuvable » sans liste connue invite à choisir » — **ajoutée le 2026-09-13** : sans cette ligne, le seul écran dont l'action n'était pas gardée est passé entre les mailles de la table ET de la relecture de tâche |
 
 - [ ] **Step 8: Vérifier le type et committer**
 
