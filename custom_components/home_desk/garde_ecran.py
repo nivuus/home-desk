@@ -65,7 +65,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigSubentry
 
 from . import libelles, schema
-from .const import ERREUR_ECRAN_DEVIENDRAIT_INVALIDE, SOUS_ENTREE_ECRAN
+from .const import ERREUR_ECRAN_DEVIENDRAIT_INVALIDE, SOUS_ENTREE_ECRAN, VERSION_CONFIG
 
 
 def noms_utilises(entry: Any, *, exclure: str | None = None) -> frozenset[str]:
@@ -216,7 +216,23 @@ def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]]) -> No
     elle ICI, un import pourrait semer deux ecrans homonymes que le FORMULAIRE
     n'aurait jamais laisse coexister -- rendant l'un des deux
     DEFINITIVEMENT inatteignable par `home_desk/ecran` (websocket.py, qui
-    rend toujours le premier trouve)."""
+    rend toujours le premier trouve).
+
+    `version` EST POSEE ICI QUAND ELLE EST ABSENTE (ronde 1 de relecture,
+    le Critique) -- avant cette correction, un ecran SANS `version`
+    (`contrat/ecran.schema.json` ne la rend jamais requise : `schema.py`,
+    `vol.Optional("version")`) passait `schema.valider` (qui l'accepte
+    absente) et etait persiste tel quel, pour etre ensuite refuse a la
+    LECTURE par `websocket._resoudre` ("ne porte aucune version [...]
+    Recreez cet ecran") -- exactement le geste que l'import devait eviter,
+    mesure sur les trois ecrans REELS d'`app/src/ecran.ts` (aucun ne porte
+    `version`, aucune raison qu'un fichier ecrit a la main ou issu d'une
+    migration la porte). `websocket._resoudre` nomme deja `home_desk.
+    importer` parmi les portes non gardees qu'elle rattrape a la LECTURE ;
+    ce module la ferme desormais aussi a l'ECRITURE, au plus tot. Une
+    version PRESENTE mais DIFFERENTE de `VERSION_CONFIG` reste un refus NET
+    (une vraie incompatibilite, jamais une omission a corriger a la
+    place de l'operateur) -- nommee, jamais fondue avec le cas absent."""
     noms = [donnees.get("nom") for _titre, donnees in ecrans]
     doublons = sorted({nom for nom in noms if nom is not None and noms.count(nom) > 1})
     if doublons:
@@ -225,11 +241,28 @@ def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]]) -> No
             "deux ecrans homonymes rendraient l'un des deux inatteignable, "
             "renommez l'un d'eux dans le fichier avant de reessayer"
         )
-    for _titre, donnees in ecrans:
+
+    ecrans_normalises: list[tuple[str, dict]] = []
+    for titre, donnees in ecrans:
+        donnees = dict(donnees)
+        version = donnees.get("version")
+        if version is None:
+            donnees["version"] = VERSION_CONFIG
+        elif version != VERSION_CONFIG:
+            raise vol.Invalid(
+                f"l'ecran {titre!r} porte la version {version!r}, que ce "
+                f"composant ne reconnait pas (seule {VERSION_CONFIG!r} "
+                "l'est) -- mettez a jour l'integration home_desk avant de "
+                "reessayer, ou retirez ce champ 'version' du fichier pour "
+                "laisser l'import le poser lui-meme"
+            )
+        ecrans_normalises.append((titre, donnees))
+
+    for _titre, donnees in ecrans_normalises:
         schema.valider(donnees)
 
     nouvelles_sous_entrees: dict[str, ConfigSubentry] = {}
-    for titre, donnees in ecrans:
+    for titre, donnees in ecrans_normalises:
         sous_entree = ConfigSubentry(
             data=MappingProxyType(donnees),
             subentry_type=SOUS_ENTREE_ECRAN,

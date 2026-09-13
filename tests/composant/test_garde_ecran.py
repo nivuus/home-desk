@@ -23,6 +23,8 @@ egalite de comptage."""
 import ast
 import pathlib
 
+import pytest
+
 from custom_components.home_desk import garde_ecran
 from custom_components.home_desk.const import ERREUR_ECRAN_DEVIENDRAIT_INVALIDE
 
@@ -203,7 +205,7 @@ _PORTES_ECRITURE = (
     "async_update_and_abort",
     "async_update_reload_and_abort",
     # Ronde 2 de relecture (tache 8) : la CREATION, pas seulement la mise
-    # a jour -- la tache 9 (un importeur) sèmera des sous-entrees, et si
+    # a jour -- la tache 9 (un importeur) semera des sous-entrees, et si
     # elle le fait par `hass.config_entries.async_add_subentry(...)`
     # directement (hors du flow, qui passe par `self.async_create_entry`
     # puis le gestionnaire de flow), ce serait la TROISIEME porte que la
@@ -350,3 +352,90 @@ def test_localiser_champ_ne_tronque_aucune_des_quatre_formes():
             champ, mot_cle = _localiser_champ(err)
             assert champ == champ_attendu, f"{nom} : {champ!r} != {champ_attendu!r} (mot_cle={mot_cle!r})"
             assert mot_cle == "required"
+
+
+# ---------------------------------------------------------------------------
+# Tache 9 : `garde_ecran.importer_ecrans`, le SECOND site d'ecriture
+# legitime de ce module (le chemin de creation en masse pour
+# `home_desk.importer`, services.py) -- meme MECANISME que ci-dessus,
+# teste directement sans passer par le service HA.
+# ---------------------------------------------------------------------------
+
+
+def test_importer_ecrans_valide_tout_avant_d_ecrire_quoi_que_ce_soit():
+    """`hass` est un objet factice dont `config_entries._async_update_entry`
+    leve si on l'appelle : si `importer_ecrans` ecrivait AVANT d'avoir fini
+    de valider tous les ecrans, cette sonde le prouverait -- une preuve
+    plus dure qu'une simple assertion sur l'etat final, qui ne
+    distinguerait pas "jamais appele" de "appele puis annule"."""
+    import voluptuous as vol
+
+    class _ConfigEntriesQuiExplose:
+        @staticmethod
+        def _async_update_entry(*_args, **_kwargs):
+            raise AssertionError("importer_ecrans a ecrit alors qu'un ecran est invalide")
+
+    class _HassFactice:
+        config_entries = _ConfigEntriesQuiExplose()
+
+    ecrans = [
+        ("Valide", {
+            "nom": "Valide", "temperature": "sensor.t",
+            "ambiances": [], "commandes": [], "extrasMaison": [],
+            "synthese": [], "sources": [], "ouvrants": [],
+        }),
+        ("Invalide", {"nom": "Invalide"}),
+    ]
+
+    with pytest.raises(vol.Invalid):
+        garde_ecran.importer_ecrans(hass=_HassFactice(), entry=object(), ecrans=ecrans)
+
+
+def test_importer_ecrans_ecrit_en_UNE_SEULE_FOIS():
+    """Ronde 1 de relecture (tache 9, Mineur -- « la bascule indivisible »)
+    : la docstring de `garde_ecran.importer_ecrans` argumente sur dix
+    lignes qu'une SEULE ecriture reelle (`_async_update_entry`) rend la
+    bascule indivisible -- jamais gardee par un test avant cette ronde.
+    Remplacer cette ecriture unique par une boucle
+    `async_remove_subentry` + `async_add_subentry` par ecran produirait le
+    MEME etat final tout en ouvrant une FENETRE ou `entry.subentries` est
+    incomplet -- invisible a un test qui ne verifie que l'etat final.
+    Cette sonde compte les appels REELS plutot que l'etat :
+    `_async_update_entry` doit etre appele EXACTEMENT une fois, avec les
+    DEUX ecrans a la fois ; les deux autres portes ne doivent jamais
+    l'etre."""
+
+    class _ConfigEntriesFactice:
+        appels: list[tuple[str, tuple, dict]] = []
+
+        def _async_update_entry(self, *args, **kwargs):
+            self.appels.append(("_async_update_entry", args, kwargs))
+
+        def async_add_subentry(self, *args, **kwargs):
+            raise AssertionError("importer_ecrans ne doit jamais appeler async_add_subentry")
+
+        def async_remove_subentry(self, *args, **kwargs):
+            raise AssertionError("importer_ecrans ne doit jamais appeler async_remove_subentry")
+
+    class _HassFactice:
+        config_entries = _ConfigEntriesFactice()
+
+    ecrans = [
+        ("Un", {
+            "nom": "Un", "temperature": "sensor.t",
+            "ambiances": [], "commandes": [], "extrasMaison": [],
+            "synthese": [], "sources": [], "ouvrants": [],
+        }),
+        ("Deux", {
+            "nom": "Deux", "temperature": "sensor.t",
+            "ambiances": [], "commandes": [], "extrasMaison": [],
+            "synthese": [], "sources": [], "ouvrants": [],
+        }),
+    ]
+
+    garde_ecran.importer_ecrans(hass=_HassFactice(), entry=object(), ecrans=ecrans)
+
+    appels = _HassFactice.config_entries.appels
+    assert len(appels) == 1, f"attendu UNE seule ecriture, obtenu {len(appels)}"
+    _nom_appel, _args, kwargs = appels[0]
+    assert len(kwargs["subentries"]) == 2

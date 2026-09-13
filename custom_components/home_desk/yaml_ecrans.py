@@ -28,26 +28,46 @@ bibliotheque mure ne justifie de reecrire (voir `_scalaire`).
 
 `lire` fait le chemin inverse en deux passes : la premiere releve, ligne par
 ligne, celles qui NE SONT QUE des commentaires (jamais un commentaire de fin
-de ligne, que ce module n'ecrit jamais et ne sait donc pas relire) ; la
-seconde COMPOSE le texte (`yaml.SafeLoader.get_single_node`, la phase de
-PyYAML qui construit l'arbre de noeuds AVANT de batir les objets Python,
-seule a conserver le numero de ligne de chaque noeud) et construit chaque
-mapping a la main : un dict dont la ligne de depart suit IMMEDIATEMENT une
-ligne de commentaire recoit ce commentaire comme cle "note". Cela ne
-fonctionne que parce que `rendre` place TOUJOURS le commentaire juste
-au-dessus du bloc qu'il annote, seul sur sa ligne -- le format que ce module
-ECRIT est aussi le seul qu'il sait RELIRE ; un fichier `home_desk_ecrans.yaml`
-edite a la main qui respecte cette meme convention (commentaire nu,
-immediatement au-dessus) reste lisible, un commentaire place ailleurs est
-simplement ignore (perdu comme note, mais jamais confondu avec la mauvaise).
+de ligne, que ce module n'ecrit jamais et ne sait donc pas relire), avec LEUR
+COLONNE ; la seconde COMPOSE le texte (`yaml.SafeLoader.get_single_node`, la
+phase de PyYAML qui construit l'arbre de noeuds AVANT de batir les objets
+Python, seule a conserver la position de chaque noeud) et construit chaque
+mapping a la main : un dict recoit une cle "note" quand la ligne juste
+au-dessus de son demarrage est un commentaire dont la COLONNE est EXACTEMENT
+celle de ce mapping (`noeud.start_mark.column` -- verifie par execution :
+c'est la colonne de la PREMIERE CLE du mapping, jamais celle du "-" pour un
+element de liste, ni celle de la cle qui l'introduit pour une valeur nommee).
 
-LIMITE CONNUE, assumee plutot que masquee : une `note` qui contiendrait
-elle-meme un saut de ligne serait applatie (les sauts de ligne y sont
-remplaces par des espaces) avant d'etre ecrite -- sans quoi une note
-multiligne casserait la regle "un commentaire, une ligne" dont ce module
-depend pour se relire lui-meme. Aucun ecran reel de ce depot n'a jamais
-porte de note multiligne (le contrat ne l'interdit pas, mais rien ne
-l'exerce)."""
+Ronde 1 de relecture (Critique) : la premiere version de cette regle ne
+verifiait que la LIGNE ("juste au-dessus"), jamais la colonne -- un
+commentaire ORPHELIN place entre `ecrans:` et le premier `-` (l'en-tete
+qu'un operateur ajouterait a la main, par exemple) satisfaisait deja "juste
+au-dessus" et devenait une note RACINE INVENTEE sur le premier ecran,
+persistee au prochain import puis reecrite comme une VRAIE note au prochain
+export -- sans qu'aucun message ne le signale. La colonne ferme cet angle
+mort : `rendre` place TOUJOURS son commentaire a la MEME colonne que le
+premier champ du bloc qu'il annote, jamais a celle d'une cle parente ni du
+`-` qui le precede ; un fichier edite a la main qui respecte cette meme
+convention (commentaire nu, immediatement au-dessus, a la colonne exacte du
+bloc) reste lisible, un commentaire a une AUTRE colonne (ou ailleurs qu'une
+ligne juste au-dessus) est simplement ignore -- perdu comme note, mais
+jamais confondu avec la mauvaise.
+
+LIMITES CONNUES, assumees plutot que masquees :
+
+1. Une `note` qui contiendrait elle-meme un saut de ligne est applatie (les
+   sauts de ligne y deviennent des espaces) avant d'etre ecrite -- sans
+   quoi une note multiligne casserait la regle "un commentaire, une ligne"
+   dont ce module depend pour se relire lui-meme. Aucun ecran reel de ce
+   depot n'a jamais porte de note multiligne (le contrat ne l'interdit pas,
+   mais rien ne l'exerce).
+2. Un espace de tete ou de queue du texte d'une note SURVIT au
+   round-trip -- `_lignes_commentaires` ne retire que l'UNIQUE espace
+   separateur que `rendre` insere lui-meme apres "#", jamais davantage :
+   un fichier EDITE A LA MAIN qui ajoute ses propres espaces autour du
+   texte les verrait donc conserves, contrairement a un simple `.strip()`
+   qui les aurait avales en silence (mesure, corrigee en ronde 1 de
+   relecture)."""
 from __future__ import annotations
 
 from typing import Any
@@ -106,11 +126,21 @@ def _rendre_champ(cle: str, valeur: Any, indent: int) -> list[str]:
 
 def _rendre_element(item: Any, indent: int) -> list[str]:
     """Un ELEMENT de liste (une tuile, une source, un slot de minuteur, ou
-    -- ouvrants/etiquettesMinuteur -- une simple chaine), a INDENT (celui du
-    "-"). Le premier champ d'un dict est rendu comme les autres puis
-    "greffe" sur le "-" : `_rendre_champ` ne sait pas qu'il est le premier,
-    ce module se contente de remplacer les deux derniers espaces de tete de
-    sa toute premiere ligne par "- "."""
+    -- ouvrants/etiquettesMinuteur -- une simple chaine).
+
+    Ronde 1 de relecture (Mineur) : une version precedente de cette
+    docstring affirmait INDENT « celui du "-" » dans TOUS les cas -- faux,
+    verifie sur les deux appelants (`_rendre_champ`) : pour un element
+    SCALAIRE (`ouvrants`, `etiquettesMinuteur`), le "-" est bien emis A
+    INDENT (`f"{indent}- {valeur}"`). Pour un element MAPPING (une tuile,
+    une source...), INDENT est au contraire la colonne de sa PREMIERE CLE
+    -- le "-" se retrouve alors DEUX colonnes AVANT (`indent - 2`), jamais
+    a INDENT lui-meme : le premier champ est rendu comme les autres par
+    `_rendre_champ` (qui ignore qu'il est le premier) puis "greffe" sur un
+    "-" ajoute apres coup, en retirant deux espaces de tete a sa toute
+    premiere ligne. C'est cette MEME colonne (celle de la premiere cle,
+    jamais celle du "-") que `_construire` (la lecture) doit retrouver
+    pour reconnaitre une note -- voir sa docstring."""
     if not isinstance(item, dict):
         return [f"{' ' * indent}- {_scalaire(item)}"]
     note = item.get("note")
@@ -156,31 +186,55 @@ def rendre(ecrans: list[dict]) -> str:
     return "\n".join(lignes) + "\n"
 
 
-def _lignes_commentaires(texte: str) -> dict[int, str]:
-    """Numero de ligne (0-indexee) -> texte du commentaire porte par cette
-    ligne (sans le "# " ni les espaces de tete). Une ligne de commentaire
-    NUE seulement -- jamais un commentaire de fin de ligne, que `rendre`
-    n'ecrit jamais et que ce module ne pretend donc pas relire."""
-    commentaires: dict[int, str] = {}
+def _lignes_commentaires(texte: str) -> dict[int, tuple[str, int]]:
+    """Numero de ligne (0-indexee) -> (texte du commentaire, COLONNE de son
+    "#") pour toute ligne qui N'EST QUE un commentaire -- jamais un
+    commentaire de fin de ligne, que `rendre` n'ecrit jamais et que ce
+    module ne pretend donc pas relire.
+
+    Ronde 1 de relecture : seul le PREMIER espace suivant "#" (celui que
+    `_rendre_element`/`_rendre_champ` inserent toujours, `f"# {note}"`) est
+    retire -- jamais un `.strip()` du contenu entier, qui aurait aussi
+    avale un espace de tete ou de queue APPARTENANT au texte de la note
+    elle-meme (mesure : une note "  indentee" revenait "indentee"). Seule
+    l'indentation DE LA LIGNE (avant le "#") est retiree pour calculer sa
+    colonne -- jamais celle du contenu apres lui."""
+    commentaires: dict[int, tuple[str, int]] = {}
     for i, ligne in enumerate(texte.splitlines()):
-        nue = ligne.strip()
-        if nue.startswith("#"):
-            commentaires[i] = nue[1:].strip()
+        sans_tete = ligne.lstrip(" ")
+        if sans_tete.startswith("#"):
+            colonne = len(ligne) - len(sans_tete)
+            contenu = sans_tete[1:]
+            if contenu.startswith(" "):
+                contenu = contenu[1:]
+            commentaires[i] = (contenu, colonne)
     return commentaires
 
 
-def _construire(loader: yaml.SafeLoader, noeud: yaml.Node, commentaires: dict[int, str]) -> Any:
+def _construire(loader: yaml.SafeLoader, noeud: yaml.Node, commentaires: dict[int, tuple[str, int]]) -> Any:
     """Construit l'objet Python que NOEUD represente, en attribuant a tout
-    MAPPING dont la ligne de depart suit immediatement une ligne de
-    commentaire une cle "note" portant ce commentaire -- l'inverse exact de
-    `_rendre_champ`/`_rendre_element` (le commentaire d'un bloc est
-    TOUJOURS sur la ligne juste au-dessus de la premiere ligne de ce bloc,
-    dash compris pour un element de liste)."""
+    MAPPING une cle "note" quand la ligne juste au-dessus de son
+    demarrage est un commentaire dont la COLONNE est EXACTEMENT celle de
+    ce mapping (`noeud.start_mark.column`) -- jamais la ligne seule.
+
+    Ronde 1 de relecture (Critique) : verifie par execution que
+    `noeud.start_mark.column` vaut la colonne de la PREMIERE CLE du
+    mapping, que ce mapping soit un ELEMENT DE LISTE (sa colonne est alors
+    celle du contenu APRES le "- ", jamais celle du "-" lui-meme) ou la
+    VALEUR d'une cle nommee (sa colonne est alors celle de sa propre
+    premiere cle, jamais celle de la cle qui l'introduit -- `agencement:`
+    demarre une ligne AVANT `zones:`, la vraie premiere ligne du mapping
+    qu'il porte). `rendre` place TOUJOURS son commentaire a cette MEME
+    colonne (voir `_rendre_element`/`_rendre_champ`) : c'est ce qui ferme
+    le commentaire ORPHELIN qu'une simple regle "ligne du dessus" laissait
+    passer -- entre `ecrans:` et le premier `-`, par exemple, ou aucune
+    colonne ne correspond a aucun mapping tant qu'il n'est pas indente a la
+    colonne exacte d'un ecran reel."""
     if isinstance(noeud, yaml.MappingNode):
         resultat: dict[str, Any] = {}
-        note = commentaires.get(noeud.start_mark.line - 1)
-        if note is not None:
-            resultat["note"] = note
+        commentaire = commentaires.get(noeud.start_mark.line - 1)
+        if commentaire is not None and commentaire[1] == noeud.start_mark.column:
+            resultat["note"] = commentaire[0]
         for cle_noeud, valeur_noeud in noeud.value:
             cle = loader.construct_object(cle_noeud, deep=True)
             resultat[cle] = _construire(loader, valeur_noeud, commentaires)

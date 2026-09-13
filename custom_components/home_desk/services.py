@@ -39,14 +39,28 @@ from .const import DOMAIN, FICHIER_EXPORT_ECRANS, SERVICE_EXPORTER, SERVICE_IMPO
 def _lire_fichier(chemin: pathlib.Path) -> str:
     """E/S bloquante, jamais appelee directement depuis une coroutine --
     toujours via `hass.async_add_executor_job` (voir les deux services
-    ci-dessous). Home Assistant refuse les appels bloquants dans la boucle
-    d'evenements ; les tests de `pytest-homeassistant-custom-component` le
-    verifient."""
+    ci-dessous). Home Assistant refuse en PRODUCTION un appel bloquant fait
+    DEPUIS la boucle d'evenements.
+
+    Ronde 1 de relecture (Important, neuvieme docstring menteuse du
+    chantier) : la version precedente affirmait « les tests de
+    `pytest-homeassistant-custom-component` le verifient » -- FAUX, mesure
+    en inlinant cet appel SANS `async_add_executor_job` : les 186 tests
+    restent verts. Ce garde-fou de production (`hass.
+    verify_event_loop_thread`) est DESACTIVE pour cette suite
+    (`skip_for_tests=True`, propre a l'idiome de test de Home Assistant) --
+    la suite ne peut donc PAS voir une regression sur ce point par ce
+    chemin. Ce que `test_services.py` garde a la place : une sonde qui
+    verifie que `hass.async_add_executor_job` est REELLEMENT appele pour
+    `_lire_fichier`/`_ecrire_fichier` (`test_exporter_et_importer_font_
+    leur_ES_hors_de_la_boucle_d_evenements`) -- une preuve du CODE, pas du
+    garde-fou HA lui-meme, qu'aucune suite de ce depot ne peut exercer."""
     return chemin.read_text(encoding="utf-8")
 
 
 def _ecrire_fichier(chemin: pathlib.Path, texte: str) -> None:
-    """Le pendant en ecriture de `_lire_fichier`, meme regle."""
+    """Le pendant en ecriture de `_lire_fichier`, meme regle -- et la meme
+    limite de ce que ce depot peut prouver, voir sa docstring."""
     chemin.write_text(texte, encoding="utf-8")
 
 
@@ -119,11 +133,21 @@ async def _async_importer(call: ServiceCall) -> None:
         raise HomeAssistantError(f"import refuse, rien n'a ete ecrit : {err}") from err
 
 
+_SCHEMA_SANS_CHAMP = vol.Schema({})
+# Ronde 1 de relecture (Mineur) : ni l'un ni l'autre service ne prend de
+# champ (voir la docstring de module) -- sans un SCHEMA qui le dise, Home
+# Assistant AVALE en silence tout champ inconnu (`{"chemin": "..."}`, par
+# exemple) plutot que de le refuser : un bouton mort en miniature, le genre
+# de refus muet que ce depot s'interdit ailleurs. `vol.Schema({})` refuse
+# EXPLICITEMENT toute cle -- verifie par execution (`vol.Invalid: extra
+# keys not allowed`).
+
+
 def async_setup_services(hass: HomeAssistant) -> None:
     """Enregistre les deux services -- appelee par `__init__.async_setup_entry`,
     donc apres que l'entree existe (voir `_entree`)."""
-    hass.services.async_register(DOMAIN, SERVICE_EXPORTER, _async_exporter)
-    hass.services.async_register(DOMAIN, SERVICE_IMPORTER, _async_importer)
+    hass.services.async_register(DOMAIN, SERVICE_EXPORTER, _async_exporter, schema=_SCHEMA_SANS_CHAMP)
+    hass.services.async_register(DOMAIN, SERVICE_IMPORTER, _async_importer, schema=_SCHEMA_SANS_CHAMP)
 
 
 def async_unload_services(hass: HomeAssistant) -> None:
