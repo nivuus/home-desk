@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { lireJetons, doitRafraichir, rafraichir, delaiReconnexion, Connexion } from '../src/connexion';
+import { Connexion, RefusHA, lireJetons, doitRafraichir, rafraichir, delaiReconnexion } from '../src/connexion';
 
 const faux = (contenu: string | null) => ({ getItem: () => contenu, setItem: vi.fn() } as any);
 
@@ -105,5 +105,192 @@ describe('Connexion — surveillance du silence', () => {
     await connexion.connecter();
 
     expect(intervalFn).toHaveBeenCalledTimes(1);
+  });
+});
+
+/** Un faux websocket qui GARDE ce qu'on lui envoie et expose son `onmessage`, pour piloter
+ *  le protocole HA depuis le test. Le `FauxWebSocket` déjà présent plus haut suffit au test
+ *  de silence (il ne regarde que `intervalFn`) mais ne permet d'observer aucun envoi. */
+class WsCapture {
+  static derniere: WsCapture | undefined;
+  onmessage: ((ev: any) => void) | null = null;
+  onclose: (() => void) | null = null;
+  envoyes: any[] = [];
+  constructor(public url: string) { WsCapture.derniere = this; }
+  send(brut: string) { this.envoyes.push(JSON.parse(brut)); }
+  /** Rejoue un message venu de HA. */
+  recevoir(m: unknown) { this.onmessage?.({ data: JSON.stringify(m) }); }
+}
+
+function connexionDeTest(deps: Record<string, unknown> = {}) {
+  const jetons: any = {
+    access_token: 'a', refresh_token: 'r', clientId: 'c',
+    expires: Date.now() + 60 * 60_000,
+  };
+  return new Connexion(jetons, {
+    origineWs: 'ws://test',
+    WebSocketImpl: WsCapture as any,
+    intervalFn: vi.fn() as any,
+    stockage: faux(null),
+    ...deps,
+  } as any);
+}
+
+describe('Connexion — le code d un refus survit jusqu à l appelant', () => {
+  it('rejette un RefusHA qui PORTE le code, pas seulement le message', async () => {
+    // Décision 11 de la spec : `websocket.py` distingue quatre refus par leur CODE et ses
+    // messages sont du français Python sans accents, destinés au journal HA. Si le client ne
+    // garde que le message, les cinq dégradations deviennent indistinguables — et l'une
+    // d'elles (`unknown_command`) est produite par HA en anglais, donc intraduisible ici.
+    const cx = connexionDeTest();
+    await cx.connecter();
+    const ws = WsCapture.derniere!;
+    ws.recevoir({ type: 'auth_ok' });
+
+    const promesse = cx.envoyerCommande({ type: 'home_desk/ecran', nom: 'salon' });
+    const envoye = ws.envoyes.find((m) => m.type === 'home_desk/ecran')!;
+    ws.recevoir({
+      id: envoye.id, type: 'result', success: false,
+      error: { code: 'version_inconnue', message: 'la sous-entree ne porte aucune version' },
+    });
+
+    await expect(promesse).rejects.toBeInstanceOf(RefusHA);
+    await promesse.catch((e: RefusHA) => {
+      expect(e.code).toBe('version_inconnue');
+      expect(e.message).toBe('la sous-entree ne porte aucune version');
+    });
+  });
+
+  it('porte un code de repli plutôt que `undefined` quand HA n en donne aucun', async () => {
+    const cx = connexionDeTest();
+    await cx.connecter();
+    const ws = WsCapture.derniere!;
+    ws.recevoir({ type: 'auth_ok' });
+    const promesse = cx.envoyerCommande({ type: 'peu/importe' });
+    const envoye = ws.envoyes.find((m) => m.type === 'peu/importe')!;
+    ws.recevoir({ id: envoye.id, type: 'result', success: false });
+    await promesse.catch((e: RefusHA) => {
+      expect(e.code).toBe('inconnu');
+      expect(e.message).toBe('commande refusée');
+    });
+  });
+});
+
+describe('Connexion — prete() attend l authentification', () => {
+  it('ne se résout PAS tant que auth_ok n est pas arrivé', async () => {
+    // `connecter()` rend la main après avoir posé les gestionnaires, AVANT `auth_ok` : une
+    // commande envoyée dans la foulée appellerait `ws.send()` sur une socket en CONNECTING.
+    const cx = connexionDeTest();
+    await cx.connecter();
+    let resolue = false;
+    void cx.prete().then(() => { resolue = true; });
+    await Promise.resolve();
+    expect(resolue).toBe(false);
+
+    WsCapture.derniere!.recevoir({ type: 'auth_ok' });
+    await cx.prete();
+    expect(resolue).toBe(true);
+  });
+});
+
+describe('Connexion — abonnement à un événement quelconque', () => {
+  it('souscrit le type demandé et route sa charge utile', async () => {
+    // Décision 2 de la spec : « un événement de bus déclenche le re-rendu à chaud ». Avant
+    // ce correctif, `subscribe_events` ne portait que `state_changed` EN DUR et le
+    // répartiteur n'examinait un `event` que s'il portait `data.new_state` : un
+    // `home_desk_config_changed` tombait dans le vide SANS ERREUR.
+    const cx = connexionDeTest();
+    const vus: unknown[] = [];
+    cx.surEvenement('home_desk_config_changed', (d) => vus.push(d));
+    await cx.connecter();
+    const ws = WsCapture.derniere!;
+    ws.recevoir({ type: 'auth_ok' });
+
+    const souscriptions = ws.envoyes.filter((m) => m.type === 'subscribe_events');
+    expect(souscriptions.map((m) => m.event_type).sort())
+      .toEqual(['home_desk_config_changed', 'state_changed']);
+
+    ws.recevoir({
+      type: 'event',
+      event: { event_type: 'home_desk_config_changed', data: { nom: 'cuisine' } },
+    });
+    expect(vus).toEqual([{ nom: 'cuisine' }]);
+  });
+
+  it('ne livre à un abonné QUE son type d événement — décor à deux types', async () => {
+    // Leçon 3 : un décor à un seul sujet rend le test aveugle. Avec un seul type abonné, une
+    // implémentation qui livrerait TOUT à TOUS passerait.
+    const cx = connexionDeTest();
+    const config: unknown[] = [];
+    const autre: unknown[] = [];
+    cx.surEvenement('home_desk_config_changed', (d) => config.push(d));
+    cx.surEvenement('call_service', (d) => autre.push(d));
+    await cx.connecter();
+    const ws = WsCapture.derniere!;
+    ws.recevoir({ type: 'auth_ok' });
+
+    ws.recevoir({ type: 'event', event: { event_type: 'call_service', data: { x: 1 } } });
+    expect(config).toEqual([]);
+    expect(autre).toEqual([{ x: 1 }]);
+  });
+
+  it('laisse INTACT le chemin state_changed, qui ne passe pas par surEvenement', async () => {
+    // Contre-épreuve : les 1049 tests existants reposent sur `surChangement`. Un abonnement
+    // générique qui détournerait `state_changed` les casserait tous d'un coup.
+    const cx = connexionDeTest();
+    const etats: unknown[] = [];
+    cx.surChangement((e) => etats.push(e));
+    await cx.connecter();
+    const ws = WsCapture.derniere!;
+    ws.recevoir({ type: 'auth_ok' });
+    ws.recevoir({
+      type: 'event',
+      event: {
+        event_type: 'state_changed',
+        data: { new_state: { entity_id: 'light.x', state: 'on', attributes: { a: 1 } } },
+      },
+    });
+    expect(etats).toEqual([{ entity_id: 'light.x', state: 'on', attributes: { a: 1 } }]);
+  });
+});
+
+describe('Connexion — une commande sans réponse ne pend pas pour toujours', () => {
+  it('rejette passé le délai, plutôt que de figer l écran d attente', async () => {
+    // Si HA accepte la commande puis redémarre, la réponse n'arrive jamais. Sans délai, la
+    // promesse reste en suspens POUR TOUJOURS et l'écran d'attente « franc » de la
+    // décision 10 devient un écran d'attente PERMANENT — la panne muette que ce projet
+    // s'interdit.
+    let rappel: (() => void) | undefined;
+    const minuteurFn = vi.fn((fn: () => void) => { rappel = fn; return 1 as any; });
+    const cx = connexionDeTest({ minuteurFn });
+    await cx.connecter();
+    WsCapture.derniere!.recevoir({ type: 'auth_ok' });
+
+    const promesse = cx.envoyerCommande({ type: 'home_desk/ecran', nom: 'salon' });
+    expect(minuteurFn).toHaveBeenCalledTimes(1);
+    rappel!();
+
+    await expect(promesse).rejects.toBeInstanceOf(RefusHA);
+    await promesse.catch((e: RefusHA) => expect(e.code).toBe('delai_depasse'));
+  });
+
+  it('n arme aucun rejet tardif quand la réponse arrive à temps', async () => {
+    let rappel: (() => void) | undefined;
+    const minuteurFn = vi.fn((fn: () => void) => { rappel = fn; return 1 as any; });
+    const cx = connexionDeTest({ minuteurFn });
+    await cx.connecter();
+    const ws = WsCapture.derniere!;
+    ws.recevoir({ type: 'auth_ok' });
+
+    const promesse = cx.envoyerCommande({ type: 'home_desk/ecran', nom: 'salon' });
+    const envoye = ws.envoyes.find((m) => m.type === 'home_desk/ecran')!;
+    ws.recevoir({ id: envoye.id, type: 'result', success: true, result: { nom: 'salon' } });
+    await expect(promesse).resolves.toEqual({ nom: 'salon' });
+
+    // Le minuteur finit par sonner : il ne doit RIEN faire (la promesse est déjà réglée, et
+    // un second règlement serait silencieusement ignoré par le moteur de promesses — donc
+    // invisible). On vérifie qu'il ne lève pas et que rien ne change.
+    expect(() => rappel!()).not.toThrow();
+    await expect(promesse).resolves.toEqual({ nom: 'salon' });
   });
 });
