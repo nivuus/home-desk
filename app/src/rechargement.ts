@@ -25,10 +25,11 @@ export function armerRechargement(
   cx: AbonnableEvenements, nomEcran: string, recharger: () => void,
 ): void {
   cx.surEvenement(EVENEMENT, (donnees) => {
-    // Un événement sans nom exploitable est ignoré, jamais traité comme « recharge tout » :
-    // trois tablettes qui rechargent ensemble sur une charge utile malformée feraient trois
-    // allers-retours pour rien, et masqueraient le vrai défaut derrière un symptôme diffus.
-    if (typeof donnees.nom !== 'string') return;
+    // `nomEcran` est une chaîne : une charge utile dont `nom` est absent ou non textuel ne peut
+    // jamais lui être égale, donc cette même comparaison l'écarte — pas besoin d'une garde de
+    // type séparée. L'écarter plutôt que de recharger à l'aveugle est délibéré : trois tablettes
+    // qui rechargeraient ensemble sur une charge malformée feraient trois allers-retours pour
+    // rien, et masqueraient le vrai défaut derrière un symptôme diffus.
     if (donnees.nom !== nomEcran) return;
     recharger();
   });
