@@ -313,5 +313,15 @@
         "ecran_deviendrait_invalide": "This change would make the screen invalid: it was not saved. Open the \"{section}\" section to fix the inconsistency before continuing."
       }
     }
+  },
+  "services": {
+    "exporter": {
+      "name": "Export screens",
+      "description": "Writes the configuration of every screen to config/home_desk_ecrans.yaml. Notes become comments above what they justify, readable in a git log."
+    },
+    "importer": {
+      "name": "Import screens",
+      "description": "Reads config/home_desk_ecrans.yaml back and replaces every configured screen with its content. Validates the whole file before writing anything: a single invalid screen or a duplicate name refuses the entire import, nothing is changed."
+    }
   }
 }

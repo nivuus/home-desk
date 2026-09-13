@@ -57,12 +57,15 @@ SEUL segment — rien a tronquer, `localiser()` l'aurait pourtant vide).
 """
 from __future__ import annotations
 
+from types import MappingProxyType
 from typing import Any
 
 import voluptuous as vol
 
+from homeassistant.config_entries import ConfigSubentry
+
 from . import libelles, schema
-from .const import ERREUR_ECRAN_DEVIENDRAIT_INVALIDE
+from .const import ERREUR_ECRAN_DEVIENDRAIT_INVALIDE, SOUS_ENTREE_ECRAN
 
 
 def noms_utilises(entry: Any, *, exclure: str | None = None) -> frozenset[str]:
@@ -166,3 +169,72 @@ def persister_si_valide(
     else:
         flow._async_update(entry=entry, subentry=subentry, data=donnees_completes, **kwargs)
     return True
+
+
+def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]]) -> None:
+    """Tache 9 : le SECOND site d'ecriture legitime de ce module -- le
+    chemin de CREATION EN MASSE que ce garde protege, pour
+    `home_desk.importer` (services.py). `ecrans` : une liste de (titre,
+    donnees), `donnees` portant deja toutes les cles que `schema.ECRAN`
+    attend ("note" comprise partout ou le contrat l'autorise -- ce n'est
+    qu'un champ optionnel de plus pour `schema.valider`, aucun traitement
+    special ici).
+
+    ATOMIQUE (spec, brief tache 9) : les DEUX passes sont separees a
+    dessein. La premiere ne fait QUE valider, chaque ecran contre
+    `schema.valider` -- la MEME autorite que `verifier_ecran_complet`
+    invoque plus haut, invariants croises compris (`_invariants_croises`,
+    schema.py). Rien n'est ecrit tant qu'un seul echoue : un import
+    partiel laisserait la configuration dans un etat que personne n'a
+    voulu et que rien ne nomme, pire qu'un refus (docstring du brief). La
+    seconde ne construit les `ConfigSubentry` et n'ecrit qu'une fois la
+    premiere passee en entier.
+
+    REMPLACE ENTIEREMENT les sous-entrees actuelles de `entry` -- jamais une
+    fusion. C'est la lecture la plus honnete d'un "import" symetrique d'un
+    "export" qui, lui, enumere l'INTEGRALITE des ecrans actuels (voir
+    services.py) : le fichier est la verite entiere, pas un delta. C'est
+    aussi le chemin que `home_desk.importer` sert a la migration du plan 3c
+    (semer les ecrans du depot dans une installation neuve, ou aucune
+    sous-entree n'existe encore).
+
+    Une SEULE ecriture reelle (`_async_update_entry`, une des cinq portes
+    gardees par `test_garde_ecran_est_le_seul_module_a_appeler_une_porte_
+    d_ecriture` -- ce module en est exempte) : construire d'abord le dict
+    complet des nouvelles sous-entrees puis l'ecrire d'un coup, plutot
+    qu'un `async_add_subentry`/`async_remove_subentry` par ecran, est ce
+    qui rend la bascule elle-meme indivisible du point de vue de tout code
+    qui lirait `entry.subentries` entre-temps (il n'y a pas d'"entre-temps"
+    : un seul appel, synchrone, comme tout le reste de ce module).
+
+    CONTRAINTE AJOUTEE PAR CE MODULE, PAS PAR LE CONTRAT (a dire
+    explicitement, jamais en silence) : `nom` doit rester UNIQUE parmi
+    `ecrans` -- la meme regle que `noms_utilises`/`_valider_identite`
+    (config_flow.py) imposent a la CREATION/RECONFIGURATION d'un ecran par
+    le formulaire. `contrat/ecran.schema.json` ne porte et ne peut pas
+    porter cette contrainte (chaque sous-entree y est validee seule) ; sans
+    elle ICI, un import pourrait semer deux ecrans homonymes que le FORMULAIRE
+    n'aurait jamais laisse coexister -- rendant l'un des deux
+    DEFINITIVEMENT inatteignable par `home_desk/ecran` (websocket.py, qui
+    rend toujours le premier trouve)."""
+    noms = [donnees.get("nom") for _titre, donnees in ecrans]
+    doublons = sorted({nom for nom in noms if nom is not None and noms.count(nom) > 1})
+    if doublons:
+        raise vol.Invalid(
+            f"le fichier importe porte plusieurs ecrans nommes {doublons} -- "
+            "deux ecrans homonymes rendraient l'un des deux inatteignable, "
+            "renommez l'un d'eux dans le fichier avant de reessayer"
+        )
+    for _titre, donnees in ecrans:
+        schema.valider(donnees)
+
+    nouvelles_sous_entrees: dict[str, ConfigSubentry] = {}
+    for titre, donnees in ecrans:
+        sous_entree = ConfigSubentry(
+            data=MappingProxyType(donnees),
+            subentry_type=SOUS_ENTREE_ECRAN,
+            title=titre,
+            unique_id=None,
+        )
+        nouvelles_sous_entrees[sous_entree.subentry_id] = sous_entree
+    hass.config_entries._async_update_entry(entry, subentries=nouvelles_sous_entrees)

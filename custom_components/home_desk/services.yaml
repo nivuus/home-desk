@@ -1,0 +1,8 @@
+# Les noms/descriptions affiches par l'interface viennent des traductions
+# (translations/fr.json, translations/en.json, cle "services") -- pas d'ici,
+# c'est l'idiome actuel de Home Assistant (name/description directement
+# dans ce fichier est deprecie depuis la 2023.8). Ce fichier ne porte donc
+# que ce que les traductions NE PEUVENT PAS porter : la FORME de chaque
+# service. Aucun champ pour les deux : voir services.py pour pourquoi.
+exporter: {}
+importer: {}

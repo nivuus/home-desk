@@ -1,7 +1,7 @@
 """Tablettes murales — la configuration des ecrans vit ici, plus dans le bundle.
 
 Ce composant ne cree AUCUNE entite. Il detient une configuration, la valide, et
-la publie par websocket. C'est deliberé : une entite par ecran donnerait un etat
+la publie par websocket. C'est delibere : une entite par ecran donnerait un etat
 a synchroniser, un historique a purger et un registre a migrer, pour une donnee
 qui change trois fois par an.
 
@@ -71,17 +71,19 @@ from homeassistant.components import websocket_api
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from . import websocket
+from . import services, websocket
 from .const import DOMAIN, EVENEMENT_CHANGEMENT
 
 __all__ = ["DOMAIN", "async_setup_entry", "async_unload_entry"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Enregistre le transport (les deux commandes websocket) et l'ecouteur
-    qui emet `EVENEMENT_CHANGEMENT` a chaque ecriture d'une sous-entree."""
+    """Enregistre le transport (les deux commandes websocket, les deux
+    services d'export/import -- tache 9) et l'ecouteur qui emet
+    `EVENEMENT_CHANGEMENT` a chaque ecriture d'une sous-entree."""
     websocket_api.async_register_command(hass, websocket.ws_ecran)
     websocket_api.async_register_command(hass, websocket.ws_ecrans)
+    services.async_setup_services(hass)
 
     # L'instantane est capture ICI (a l'etat courant de `entry.subentries`),
     # jamais a `{}` : sans ce point de depart, la toute PREMIERE ecriture
@@ -141,5 +143,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Decharge l'entree."""
+    """Decharge l'entree. Desenregistre les deux services (tache 9) --
+    contrairement aux commandes websocket, que Home Assistant n'offre aucun
+    moyen de retirer (voir websocket.py), `hass.services.async_remove`
+    existe : `services.async_unload_services` en profite, symetrique de
+    `async_setup_services`."""
+    services.async_unload_services(hass)
     return True

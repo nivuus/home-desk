@@ -313,5 +313,15 @@
         "ecran_deviendrait_invalide": "Cette modification rendrait l'écran invalide : elle n'a pas été enregistrée. Ouvrez la section « {section} » pour corriger l'incohérence avant de continuer."
       }
     }
+  },
+  "services": {
+    "exporter": {
+      "name": "Exporter les écrans",
+      "description": "Écrit la configuration de tous les écrans dans config/home_desk_ecrans.yaml. Les notes redeviennent des commentaires au-dessus de ce qu'elles justifient, lisibles dans un git log."
+    },
+    "importer": {
+      "name": "Importer les écrans",
+      "description": "Relit config/home_desk_ecrans.yaml et remplace tous les écrans configurés par son contenu. Valide l'intégralité du fichier avant d'écrire quoi que ce soit : un seul écran invalide ou un nom en double refuse l'import entier, rien n'est modifié."
+    }
   }
 }

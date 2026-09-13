@@ -229,3 +229,19 @@ ERREUR_ECRAN_CORROMPU = "ecran_corrompu"
 # C'est une regle du FLOW (config_flow.py), pas du contrat -- posee a la
 # CREATION et a la RECONFIGURATION de l'identite (`_valider_identite`).
 ERREUR_NOM_DEJA_UTILISE = "nom_deja_utilise"
+
+# Tache 9 : les deux services qui font sortir/entrer la configuration du
+# depot HA (`.storage`) vers un fichier YAML du repertoire `config/` --
+# `services.py`, decrits pour l'interface par `services.yaml` et nommes
+# pour l'humain par translations/*.json (cle "services"). `importer` est
+# aussi l'entree de la migration du plan 3c (les ecrans actuels du depot,
+# aujourd'hui en dur dans app/src/ecran.ts, y entreront comme un fichier
+# EXPORTE une premiere fois a la main).
+SERVICE_EXPORTER = "exporter"
+SERVICE_IMPORTER = "importer"
+
+# Le chemin, RELATIF a `config/` (`hass.config.path(...)`), du fichier que
+# `home_desk.exporter` ecrit et que `home_desk.importer` relit -- publie
+# ici pour que ni l'un ni l'autre ne le retape, et pour qu'un test puisse
+# l'epingler sans lire le corps des deux services.
+FICHIER_EXPORT_ECRANS = "home_desk_ecrans.yaml"
