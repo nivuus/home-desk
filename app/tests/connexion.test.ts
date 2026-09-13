@@ -293,4 +293,26 @@ describe('Connexion — une commande sans réponse ne pend pas pour toujours', (
     expect(() => rappel!()).not.toThrow();
     await expect(promesse).resolves.toEqual({ nom: 'salon' });
   });
+
+  it('honore un délai explicite : minuteurFn le reçoit, et le message rendu porte SA durée', async () => {
+    // Deux choses non gardées jusqu'ici : que `delaiMs` est bien le délai TRANSMIS à
+    // `minuteurFn` (et non le défaut de 15 s ignoré en silence), et que le message français
+    // rendu à l'appelant porte la PHRASE ENTIÈRE avec la bonne durée — épingler seulement
+    // `e.code` laissait le texte libre de dire n'importe quoi (une durée fausse, de l'anglais,
+    // une phrase vide). 3000 ms → « 3 s » : franc, et différent du défaut (15 s), pour qu'un
+    // `Math.round` cassé ou un `delaiMs` ignoré rendent un texte visiblement faux.
+    let rappel: (() => void) | undefined;
+    const minuteurFn = vi.fn((fn: () => void, _delaiMs?: number) => { rappel = fn; return 1 as any; });
+    const cx = connexionDeTest({ minuteurFn });
+    await cx.connecter();
+    WsCapture.derniere!.recevoir({ type: 'auth_ok' });
+
+    const promesse = cx.envoyerCommande({ type: 'home_desk/ecran', nom: 'salon' }, 3000);
+    expect(minuteurFn.mock.calls[0][1]).toBe(3000);
+    rappel!();
+
+    await promesse.catch((e: RefusHA) => {
+      expect(e.message).toBe("Home Assistant n'a pas répondu en 3 s");
+    });
+  });
 });
