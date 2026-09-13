@@ -1658,4 +1658,35 @@ describe('demarrer — la coquille résout l écran avant de déléguer', () => 
     }));
     expect(creerConnexion).toHaveBeenCalledTimes(1);
   });
+
+  // Relecture finale (défaut Important, trouvé par mutation) : retirer `await cx.prete();` en
+  // tête de `tenterChargement()` fait passer la suite complète sans un souffle. C'est exactement
+  // la propriété pour laquelle `prete()` existe (tâche 1) : sans elle, la toute première commande
+  // websocket de l'application (`chargerEcran`) partirait sur une socket encore en CONNECTING.
+  // Le double ci-dessous rend une promesse de `prete()` CONTRÔLÉE par le test, pour observer
+  // l'ordre plutôt que de le supposer.
+  it('attend prete() avant tout échange avec Home Assistant', async () => {
+    let resoudrePrete: () => void = () => {};
+    const pretePromesse = new Promise<void>((r) => { resoudrePrete = r; });
+    const chargerEcran = vi.fn(async () => ({ ok: true as const, valeur: ecranDeNom('Salon') }));
+
+    const enCours = demarrer(document.createElement('div'), 'Salon', deps({
+      creerConnexion: () => ({
+        connecter: () => Promise.resolve(),
+        prete: () => pretePromesse,
+        surChangement: () => {}, surSilence: () => {},
+        appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
+      }),
+      chargerEcran,
+    }));
+
+    // Laisse `connecter()` se résoudre et `tenterChargement()` atteindre `await cx.prete()` —
+    // qui, lui, reste en attente tant que `resoudrePrete()` n'a pas été appelé.
+    await vider();
+    expect(chargerEcran).not.toHaveBeenCalled();
+
+    resoudrePrete();
+    await enCours;
+    expect(chargerEcran).toHaveBeenCalledTimes(1);
+  });
 });

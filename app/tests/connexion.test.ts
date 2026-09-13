@@ -339,4 +339,28 @@ describe('Connexion.connecter est idempotente', () => {
     await cx.connecter();
     expect(ouvertures).toBe(1);
   });
+
+  // Relecture finale : contre-épreuve de la garde ci-dessus. Sans ce test, une garde ÉLARGIE à
+  // `if (this.ws) return;` (au lieu de vérifier `readyState === 1`) laissait le test précédent
+  // vert, et n'était rattrapée que PAR ACCIDENT par un test d'un autre fichier
+  // (`pannes.test.ts`). Cette moitié de la règle — une socket FERMÉE doit pouvoir rouvrir —
+  // n'était épinglée nulle part à côté de l'autre moitié.
+  it('rouvre un nouveau websocket quand la socket est fermée (CLOSED)', async () => {
+    let ouvertures = 0;
+    class Ws {
+      readyState = 3;   // CLOSED
+      onmessage: ((ev: any) => void) | null = null;
+      onclose: (() => void) | null = null;
+      send() {}
+      constructor(public url: string) { ouvertures++; }
+    }
+    const cx = new Connexion(
+      { access_token: 'a', refresh_token: 'r', clientId: 'c', expires: Date.now() + 3_600_000 } as any,
+      { origineWs: 'ws://test', WebSocketImpl: Ws as any, intervalFn: vi.fn() as any,
+        minuteurFn: vi.fn() as any, stockage: faux(null) } as any,
+    );
+    await cx.connecter();
+    await cx.connecter();
+    expect(ouvertures).toBe(2);
+  });
 });
