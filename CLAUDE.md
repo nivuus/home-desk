@@ -136,6 +136,14 @@ suivantes par une convention de dépôt, sans filet automatique :
   contrat/` (la copie embarquée, lue par `schema.py` en production) reste
   périmée — `make test` refuse de passer si les deux divergent, mais rien
   n'empêche d'oublier la régénération avant de lancer `make test`.
+- **La couture par laquelle `schema.py` se dégonfle quand il atteint 500
+  lignes** — deux fois empruntée, et c'est la même : ce qui **nomme** une
+  faute est parti dans `fautes.py` (hiérarchie `_Faute*` et `motif()`), ce
+  qui la **lève** dans `validateurs.py` (les fabriques feuilles). Reste
+  dans `schema.py` ce qui **miroite** le contrat, et lui seul le lit —
+  `validateurs.py` ne contient aucun `pathlib.Path`, aucun JSON, ce qui
+  évite la dépendance circulaire. La prochaine extraction suit la même
+  ligne ; ne coupez pas à un nombre de lignes.
 
 ## Dettes connues du composant, reportées au 3b/3c
 
