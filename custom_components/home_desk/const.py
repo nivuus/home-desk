@@ -1,9 +1,19 @@
 """Les noms que ce composant publie, et qui ne doivent exister qu'ici.
 
-Chacun est lu par au moins deux modules. Les ecrire en dur a chaque endroit,
-c'est se donner rendez-vous avec une faute de frappe qu'aucun test ne voit :
-une commande websocket mal nommee ne leve pas, elle n'est simplement jamais
-appelee.
+La plupart sont lus par au moins deux modules -- les ecrire en dur a chaque
+endroit, c'est se donner rendez-vous avec une faute de frappe qu'aucun test
+ne voit : une commande websocket mal nommee ne leve pas, elle n'est
+simplement jamais appelee.
+
+Releve en relecture finale de branche : « chacun » etait faux, mesure --
+`ERREUR_ECRAN_INTROUVABLE`, `ERREUR_VERSION_INCONNUE`, `ERREUR_ECRAN_
+CORROMPU` (websocket.py) et `FICHIER_EXPORT_ECRANS` (services.py) ne sont
+lues QUE par UN SEUL module Python chacune, jamais deux. Elles restent ici
+quand meme : chacune est un CONTRAT PUBLIE hors de ce module Python (un
+code d'erreur websocket que `app/src/connexion.ts` lit par sa VALEUR, un
+nom de fichier qu'un OPERATEUR va chercher a la main dans `config/`) --
+c'est CETTE frontiere qui justifie une constante nommee, pas le nombre de
+lecteurs Python internes.
 """
 
 DOMAIN = "home_desk"
@@ -172,6 +182,13 @@ ERREUR_RECETTE_SANS_MODE = "recette_sans_mode"
 # "defaut" ; ici, plusieurs modes sont en jeu et celui qui echoue doit etre
 # nomme) — les deux messages different donc necessairement.
 ERREUR_BUDGET_INTENABLE_MODE = "budget_intenable_mode"
+
+# Releve en relecture finale de branche : `alerte`, dans `agencement.modes`,
+# doit en etre le PREMIER element (spec du 2026-09-12, « une alerte ne cede a
+# rien ») -- verifie par `schema._alerte_en_tete()`, rejoue par
+# SectionsObjetMixin.async_step_agencement (objets.py) via
+# `listes._ERREUR_PAR_MOT_CLE` comme les autres refus d'agencement.
+ERREUR_ALERTE_PAS_EN_TETE = "alerte_pas_en_tete"
 
 # Ronde 1 de relecture (Critique) : ni listes.py ni objets.py ne rejouaient
 # schema.valider() sur l'ECRAN COMPLET avant de persister — chacun ne

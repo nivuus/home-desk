@@ -29,7 +29,7 @@ requires:
 # Forcer le garde-manger imposerait un cout aux tablettes du salon et du
 # bureau, qui n'en ont aucun besoin. Le silence que cela produisait dans la
 # cuisine est corrige dans l'application elle-meme : `absenceNommee`, cf.
-# app/src/pieces.ts.
+# app/src/ecran.ts.
 #
 # Ni `apt:`, ni `wizard:`, ni hook `activate` — les trois deliberement.
 #

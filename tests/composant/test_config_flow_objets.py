@@ -64,7 +64,7 @@ async def test_le_TROISIEME_invariant_croise_est_refuse_a_la_saisie(hass, entree
         {
             "libelle": "Recette",
             "icone": "book",
-            "entite": "sensor.home_stock_next_meal",
+            "entite": "sensor.test_prochain_repas",
             "vue": "#recette",
         },
     )
@@ -213,10 +213,16 @@ async def test_agencement_conserve_l_ordre_soumis_des_zones_et_des_modes(hass, e
     descendre ») n'etait garde par AUCUN test — remplacer `list(...)` par
     `sorted(...)` (objets.py) passait les 123 tests d'alors. `zones` et
     `modes` sont ici DELIBEREMENT dans un ordre NON alphabetique : un
-    `sorted()` les rangerait differemment de ce que ce test exige."""
+    `sorted()` les rangerait differemment de ce que ce test exige.
+
+    `modes_soumis` garde "alerte" en PREMIERE position (relecture finale de
+    branche : `schema._alerte_en_tete()` refuse desormais tout autre ordre
+    quand "alerte" est present) -- le reste de la liste (`voiture`,
+    `defaut`) reste non trie pour continuer a distinguer cette garde d'un
+    `sorted()`."""
     subentry_id = await _creer_ecran(hass, entree)
     zones_soumises = ["commandes", "synthese", "ambiances"]
-    modes_soumis = ["defaut", "voiture", "alerte"]
+    modes_soumis = ["alerte", "voiture", "defaut"]
     assert zones_soumises != sorted(zones_soumises)
     assert modes_soumis != sorted(modes_soumis)
 

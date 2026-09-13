@@ -159,6 +159,33 @@ async def test_importer_deux_ecrans_homonymes_est_REFUSE(hass, entree):
     assert _ecrans(hass) == []
 
 
+async def test_importer_deux_ecrans_homonymes_APRES_ESPACES_est_REFUSE(hass, entree):
+    """Relecture finale de branche : `noms_utilises`/`_valider_identite`
+    (config_flow.py, ruling 41, tache 8) STRIPPENT `nom` avant de comparer
+    ET avant de persister -- "Salon"/"Salon " (un espace de queue en plus)
+    sont donc le MEME nom cote formulaire. Mesure AVANT cette correction :
+    `garde_ecran.importer_ecrans` comparait les `nom` BRUTS, laissant les
+    deux passer, persistes bruts, et servis TOUS LES DEUX par le transport
+    -- exactement ce que le formulaire n'aurait jamais laisse coexister.
+    `nom` est desormais strippe ICI AUSSI avant le calcul des doublons."""
+    ecran = {
+        "temperature": "sensor.t",
+        "ambiances": [], "commandes": [], "extrasMaison": [],
+        "synthese": [], "sources": [], "ouvrants": [],
+    }
+    texte = yaml_ecrans.rendre([
+        {"titre": "Un", "nom": "Salon", **ecran},
+        {"titre": "Deux", "nom": "Salon ", **ecran},
+    ])
+    _chemin_export(hass).write_text(texte, encoding="utf-8")
+
+    with pytest.raises(HomeAssistantError) as excinfo:
+        await hass.services.async_call(DOMAIN, "importer", blocking=True)
+
+    assert "import refuse, rien n'a ete ecrit" in str(excinfo.value)
+    assert _ecrans(hass) == []
+
+
 # ---------------------------------------------------------------------------
 # version -- ronde 1 de relecture, LE CRITIQUE : les trois ecrans reels
 # d'`app/src/ecran.ts` ne portent aucun champ `version` ; `schema.valider`

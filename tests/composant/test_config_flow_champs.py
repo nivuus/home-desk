@@ -213,11 +213,14 @@ async def test_extrasMaison_accepte_un_capteur_comme_le_vrai_Scanner_du_depot(ha
     version restreignait "entite" de $defs/bouton a light/cover/lock/switch,
     y compris pour `extrasMaison`. Or le SEUL extra reel du depot
     (app/src/ecran.ts, piece cuisine) est `{ libelle: 'Scanner', icone:
-    'scan', entite: 'sensor.home_stock_next_meal', ... }` — un `sensor`, hors
-    de cette liste. Ce test rejoue exactement cette tuile : elle doit passer,
-    sans quoi le SEUL extra reel du depot resterait irreproductible depuis
-    l'interface, à l'oppose du but de la tache (migrer les ecrans reels hors
-    du depot, cf. le brief)."""
+    'scan', entite: 'sensor.<un capteur reel de cette maison>', ... }` — un
+    `sensor`, hors de cette liste. Ce test rejoue cette tuile a l'identique,
+    SAUF l'`entite` elle-meme (inventee ci-dessous, releve en relecture
+    finale de branche : la valeur reelle n'a pas sa place dans une suite de
+    tests, seul son DOMAINE `sensor` est ce que ce test exerce) : elle doit
+    passer, sans quoi le SEUL extra reel du depot resterait irreproductible
+    depuis l'interface, a l'oppose du but de la tache (migrer les ecrans
+    reels hors du depot, cf. le brief)."""
     subentry_id = await _creer_ecran(hass, entree)
     flow = await _init_reconfigure(hass, entree, subentry_id)
     await hass.config_entries.subentries.async_configure(
@@ -228,7 +231,7 @@ async def test_extrasMaison_accepte_un_capteur_comme_le_vrai_Scanner_du_depot(ha
         {
             "libelle": "Scanner",
             "icone": "scan",
-            "entite": "sensor.home_stock_next_meal",
+            "entite": "sensor.test_prochain_repas",
             "lien": "/home-stock",
             "absenceNommee": "Garde-manger non installe",
         },
@@ -240,7 +243,7 @@ async def test_extrasMaison_accepte_un_capteur_comme_le_vrai_Scanner_du_depot(ha
         {
             "libelle": "Scanner",
             "icone": "scan",
-            "entite": "sensor.home_stock_next_meal",
+            "entite": "sensor.test_prochain_repas",
             "lien": "/home-stock",
             "absenceNommee": "Garde-manger non installe",
         }
@@ -317,7 +320,8 @@ async def test_service_a_demi_rempli_est_refuse_a_l_ajout(hass, entree):
     savoir que sa tuile est incomplete.
 
     Ronde 3 de relecture (Important 2) : la ronde 2 refusait bien, mais via
-    `schema.paire_service()` — un motif JSON Schema ("minItems") pose sur
+    `schema._paire_service()` (redevenue privee en ronde 4, releve en
+    relecture finale de branche) — un motif JSON Schema ("minItems") pose sur
     "base" (aucun champ surligne), pour un message reellement affiche
     "Ce champ n'est pas valide : : minItems." Charabia, corrige : le refus
     porte maintenant `ERREUR_SERVICE_INCOMPLET`, pose sur le champ

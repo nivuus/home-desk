@@ -1,7 +1,11 @@
 # `contrat/` — ce que l'application et l'intégration partagent
 
-Trois fichiers, versionnés, lus des DEUX côtés : par `app/src/` en TypeScript,
-et par `custom_components/home_desk/` en Python (plan 3).
+Cinq fichiers, versionnés, lus des DEUX côtés : par `app/src/` en TypeScript,
+et par `custom_components/home_desk/` en Python (plan 3). Le tableau
+ci-dessous n'en nomme que trois — `budget.json`, `icones.json`,
+`ecran.schema.json` ; les deux autres, `cas-budget.json` et
+`cas-schema.json`, sont les corpus partagés décrits plus bas
+(« Les deux tables de cas »), pas des règles.
 
 | Fichier | Écrit par | Pourquoi il est ici |
 |---|---|---|
@@ -12,13 +16,17 @@ et par `custom_components/home_desk/` en Python (plan 3).
 **Rien de cette maison n'entre ici.** Pas d'`entity_id`, pas de nom de pièce :
 ces fichiers partent chez toutes les maisons.
 
-**`version`** est porté par chaque fichier, dans l'intention qu'une
-configuration d'une `version` inconnue soit un jour refusée net, jamais
-rendue à moitié. **Cette garantie n'est pas encore tenue** : `version` n'est
-lu par aucun code de `app/src/`, et il n'est même pas `required` dans
-`ecran.schema.json`. Elle sera tenue par la résolution côté intégration
-(plan 3), au moment où celle-ci validera un écran avant de l'appliquer — pas
-avant, et pas ici.
+**`version`** est porté par `ecran.schema.json`, dans l'intention qu'une
+configuration d'une `version` inconnue soit refusée net, jamais rendue à
+moitié. **Cette garantie est tenue depuis la tâche 8** (plan 3) :
+`websocket._resoudre` (`custom_components/home_desk/websocket.py`) refuse
+net un écran dont la `version` diffère de `VERSION_CONFIG`, et
+`garde_ecran.importer_ecrans` (tâche 9) la pose elle-même quand un écran
+importé ne la porte pas plutôt que de la laisser absente. `version` reste
+`Optional`, jamais `required`, dans `ecran.schema.json` — c'est
+délibéré : le contrat ne peut valider qu'un écran À LA FOIS, jamais
+comparer sa version à celle que le composant reconnaît ; c'est
+l'intégration qui porte cette comparaison, pas le schéma.
 
 ## Ce que le schéma ne vérifie PAS
 
@@ -27,11 +35,9 @@ entre champs. JSON Schema sait exprimer ce genre de règle (`if`/`then`,
 comme `synthese.allOf` le fait déjà pour `operateur`/`valeur`) — c'est ce que
 l'`allOf` racine fait désormais pour `blocDefaut: "voiture"` → `voiture` et
 pour `modes` contenant `"minuteur"` → `minuteurs` non vide (plan 2, tâche 6).
-Il reste une dette de ce genre, consignée ici parce que le seul lecteur futur
-de ces fichiers est l'implémenteur Python du plan 3, et qu'un journal de
-travail ne part pas avec le dépôt :
-
-- **`version` n'est ni `required` ni lu**, voir ci-dessus.
+La dette qui restait de ce genre (`version` ni `required` ni lue) est
+tenue depuis la tâche 8, voir ci-dessus — il n'en reste aucune ouverte ici
+au moment d'écrire ces lignes.
 
 ## Ce répertoire est copié dans le composant
 
@@ -46,7 +52,7 @@ si les deux divergent.
 committez le résultat.** Sans ce geste, la mesure que vous venez de publier
 n'atteint pas le formulaire qui s'en sert pour refuser une saisie.
 
-## Les trois tables de cas
+## Les deux tables de cas
 
 `cas-budget.json` (tâche 4) est un corpus de vérité pour le budget de hauteur : chaque cas donne
 un mode, une rangée d'ambiance, des zones (`null` = les quatre du défaut) et une hauteur utile, et

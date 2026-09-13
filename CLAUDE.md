@@ -80,9 +80,96 @@ registry. Leur retrait est une **dette de `home-manager`**, pas d'ici.
 
 ## Style
 
-Scripts de test autonomes lancés par `make test`, pas de pytest, pas de
-dépendance hors `python3` + PyYAML — c'est le style du dépôt `installer`. La
-suite vitest de l'application a sa propre cible, `make test-app`.
+`make test` reste des scripts de test autonomes, pas de pytest, pas de
+dépendance hors `python3` + PyYAML — c'est le style du dépôt `installer`,
+et sa raison d'être est de tourner sur la cible d'installation, qui n'a
+rien d'autre. **Cette règle est restreinte à `make test`** (décision 8 de
+la spec `docs/superpowers/specs/2026-09-12-config-ecrans-depuis-ha-design.md`),
+pas supprimée : `custom_components/home_desk/` a apporté une **troisième**
+suite, `make test-composant` (`tests/composant/`), qui **est** pytest et
+tire `pytest-homeassistant-custom-component` (Home Assistant complet) —
+nécessaire pour tester un composant HA, impossible en scripts autonomes.
+La suite vitest de l'application garde sa propre cible, `make test-app`.
+Relevé en relecture finale de branche : cette règle disait encore
+« pas de pytest » sans restriction après que `make test-composant` a été
+livré — un nouveau venu en aurait conclu, à tort, que cette troisième
+suite viole l'accord de travail.
+
+## Invariants du composant `custom_components/home_desk/`, à connaître avant d'y toucher
+
+Relevé en relecture finale de branche : nulle part ailleurs qu'ici avant
+cette section. Les deux premières sont gardées par un test AST
+(`ast.walk`, pas une convention qu'on espère respectée) ; les deux
+suivantes par une convention de dépôt, sans filet automatique :
+
+- **Le site d'écriture unique.** Six « portes d'écriture » Home Assistant
+  (`_async_update`, `async_update_subentry`, `async_update_and_abort`,
+  `async_update_reload_and_abort`, `async_add_subentry`,
+  `_async_update_entry` — cette dernière est l'ancêtre privé commun aux
+  deux premières citées ci-dessus pour la création/suppression) ne
+  peuvent être appelées que depuis `garde_ecran.py`
+  (`tests/composant/test_garde_ecran.py::
+  test_garde_ecran_est_le_seul_module_a_appeler_une_porte_d_ecriture`,
+  table `_PORTES_ECRITURE`). `garde_ecran.persister_si_valide` (mise à
+  jour d'une sous-entrée) et `garde_ecran.importer_ecrans` (tâche 9,
+  création en masse) sont les deux seuls appelants légitimes.
+- **`formulaire.py` est le seul module autorisé à appeler
+  `async_show_form(..., data_schema=...)`**
+  (`tests/composant/test_config_flow.py::
+  test_formulaire_est_le_seul_module_a_appeler_async_show_form_avec_un_data_schema`) :
+  un formulaire construit ailleurs échapperait à la mise en page commune.
+- **Le corpus partagé `contrat/cas-budget.json` et `contrat/cas-schema.json`**,
+  lu par DEUX suites chacun (`app/tests/cas-*.test.ts` en TypeScript/ajv,
+  `tests/composant/test_budget.py`/`test_schema.py` en Python/voluptuous) :
+  un cas présent d'un côté et absent de l'autre est impossible, c'est le
+  même fichier. Voir `contrat/README.md`.
+- **Après toute modification d'un fichier de `contrat/` : `make contrat`,
+  et committez le résultat.** Sans ce geste, `custom_components/home_desk/
+  contrat/` (la copie embarquée, lue par `schema.py` en production) reste
+  périmée — `make test` refuse de passer si les deux divergent, mais rien
+  n'empêche d'oublier la régénération avant de lancer `make test`.
+
+## Dettes connues du composant, reportées au 3b/3c
+
+Relevées en relecture finale de branche — un registre de bord qui ne part
+pas avec le dépôt (`.superpowers/`, git-ignoré) ne vaut rien pour la
+prochaine tâche :
+
+- **`dist/wallpanel.css:114-115` porte trois IP de tablettes**
+  (`192.168.0.159`, `.218`, `.138`, dans un commentaire de mesure Fully
+  Kiosk). Aucune garde ne les cherche : `tests/test_dist_portable.py`
+  scanne bien `dist/` (`INTERDITS`), mais cette liste ne connaît que deux
+  chemins de fichier (`/opt/nivuus/HomeAssistant`, `/home/mallanic`),
+  aucune IP. Le littéral `"192.168.0.1"` qu'`INTERDITS_COMPOSANT` porte
+  plus bas dans le même fichier ne s'applique QU'à
+  `custom_components/home_desk/`, un répertoire différent — et même
+  transposé sur `dist/`, il ne matche `.159`/`.138` que par coïncidence de
+  préfixe (`"192.168.0.1" in "192.168.0.159"` est vrai), jamais `.218`.
+  Dette antérieure à cette branche, à trancher en 3c (un motif
+  `192\.168\.0\.\d+`, sur `dist/` cette fois, ou accepter que ces trois IP
+  sortent avec `dist/`).
+- **Quatre champs racine du contrat n'ont aucune porte de saisie** :
+  `aspirateur`, `aspirateurMaison`, `listesTachesExtra`, `delorean`. Les
+  trois écrans réels les portent, ils **survivent** à toute édition
+  passant par le formulaire (vérifié — aucune section ne les retire), mais
+  aucune section ne permet de les CRÉER ou de les MODIFIER depuis Home
+  Assistant. Déclarés hors périmètre à la tâche 7 et repris par aucune
+  tâche depuis : sans cette ligne, ils disparaissent de la mémoire du
+  projet.
+- **Une entité inconnue du registre HA devrait donner un avertissement,
+  jamais un refus** (décision 7 de la spec citée ci-dessus) — non
+  implémenté : le formulaire accepte aujourd'hui n'importe quel
+  `entity_id` bien formé (`light.nexiste_pas` y compris) sans même un
+  avertissement (`errors={}` et `description_placeholders={}`). Un vrai
+  morceau (lecture du registre d'entités HA), reporté au 3b plutôt que
+  bâclé en fin de branche.
+- **Le préalable sur `app/src/connexion.ts:149-150`**, qui jette
+  `error.code` d'une erreur websocket et n'en garde que le `message` :
+  bloquant pour toute tâche qui voudrait distinguer les refus HA côté
+  application par leur code plutôt que par leur texte. `services.py`/
+  `garde_ecran.py` (tâche 9) ne passent jamais par ce chemin (erreurs de
+  SERVICE HA, pas de commande websocket) et ne le présupposent pas, mais
+  la dette reste ouverte pour la prochaine tâche qui y touchera.
 
 ## Dette d'environnement connue, à ne pas réparer ici
 

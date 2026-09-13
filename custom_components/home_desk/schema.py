@@ -38,6 +38,7 @@ import voluptuous as vol
 from .const import VERSION_CONFIG
 from .fautes import (
     _Faute,
+    _FauteAlertePremiere,
     _FauteConst,
     _FauteEnum,
     _FauteMaximum,
@@ -253,6 +254,63 @@ def _uniques():
     return valider
 
 
+def _alerte_en_tete():
+    """CONTRAINTE AJOUTEE PAR CE COMPOSANT, PAS PAR LE CONTRAT (a dire
+    explicitement, meme doctrine que l'unicite de `nom` entre ecrans,
+    garde_ecran.importer_ecrans) : `alerte`, present dans `modes`, doit en
+    etre le PREMIER element -- spec du 2026-09-12, « Invariants verifies
+    par le schema » : « alerte en premiere position si present (une alerte
+    ne cede a rien) ».
+
+    Releve en relecture finale de branche : cet invariant etait DECRIT par
+    la spec mais jamais VERIFIE nulle part -- ni par le contrat JSON
+    (`contrat/ecran.schema.json` ne porte aucune contrainte d'ORDRE sur
+    `modes`), ni par ce module. Mesure : `modes: ["defaut", "media",
+    "alerte"]` passait `schema.AGENCEMENT` et `schema.valider` tels quels.
+    `modePrincipal` (app/src/modes.ts) rend le PREMIER mode actif de cette
+    liste dont la condition tient -- un agencement ainsi saisi ferait
+    ceder une alerte reelle au mode media des que celui-ci joue, exactement
+    ce que la spec interdit ("une alerte ne cede a rien"). Ferme ICI,
+    plutot que dans le contrat JSON : cette regle ne peut pas se lire comme
+    une contrainte inter-champs SUR UN SEUL ecran independamment du reste
+    (elle porte sur l'ORDRE d'une seule liste), mais elle n'est pas non
+    plus exprimee par `contains`/`uniqueItems` -- l'exprimer en JSON Schema
+    exigerait un `prefixItems` conditionnel, un chantier de contrat
+    (`make contrat`, cote ajv/TypeScript compris) hors du perimetre de
+    cette correction ; ce module la verifie donc SEUL, comme `_uniques()`
+    verifie deja `uniqueItems` sans que ce soit une contrainte du contrat."""
+
+    def valider(valeur):
+        if "alerte" in valeur and valeur[0] != "alerte":
+            raise _FauteAlertePremiere(
+                "'alerte', si present, doit etre le PREMIER mode de la liste "
+                "(une alerte ne cede a rien)"
+            )
+        return valeur
+
+    return valider
+
+
+def _trie():
+    """Releve en relecture finale de branche : `modulateurs` n'a pas
+    d'ordre significatif (spec du 2026-09-12, « Invariants verifies par le
+    schema » : « le schema le normalise en ensemble trie, pour qu'un diff
+    d'export ne bruite pas ») -- jamais applique avant cette correction :
+    `AGENCEMENT` conservait l'ordre SOUMIS, comme `zones`/`modes` (ou
+    l'ordre EST significatif, voir `test_agencement_conserve_l_ordre_
+    soumis_des_zones_et_des_modes`, test_config_flow_objets.py). Deux
+    exports du meme ecran, `modulateurs` choisis dans un ordre different
+    au formulaire, produisaient donc un diff YAML bruyant
+    (`yaml_ecrans.rendre`) pour un reordonnancement sans aucun effet sur le
+    rendu -- `CONDITIONS_MODULATEURS` (app/src/modes.ts) ne lit jamais
+    l'ordre, seulement l'appartenance."""
+
+    def valider(valeur):
+        return sorted(valeur)
+
+    return valider
+
+
 ENTITE = _motif_chaine(_ENTITE_PATTERN)
 
 
@@ -361,9 +419,9 @@ AGENCEMENT = vol.Schema(
         ),
         vol.Optional("blocDefaut"): _enum(frozenset(BLOC_DEFAUT)),
         vol.Required("modes"): vol.All(
-            [_enum(frozenset(MODES))], _uniques(), vol.Contains("defaut")
+            [_enum(frozenset(MODES))], _uniques(), vol.Contains("defaut"), _alerte_en_tete()
         ),
-        vol.Required("modulateurs"): vol.All([_enum(frozenset(MODULATEURS))], _uniques()),
+        vol.Required("modulateurs"): vol.All([_enum(frozenset(MODULATEURS))], _uniques(), _trie()),
         vol.Optional("note"): _chaine(),
     },
     extra=vol.PREVENT_EXTRA,

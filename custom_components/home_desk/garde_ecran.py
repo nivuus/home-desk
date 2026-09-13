@@ -209,7 +209,7 @@ def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]]) -> No
 
     CONTRAINTE AJOUTEE PAR CE MODULE, PAS PAR LE CONTRAT (a dire
     explicitement, jamais en silence) : `nom` doit rester UNIQUE parmi
-    `ecrans` -- la meme regle que `noms_utilises`/`_valider_identite`
+    `ecrans` -- la MEME regle que `noms_utilises`/`_valider_identite`
     (config_flow.py) imposent a la CREATION/RECONFIGURATION d'un ecran par
     le formulaire. `contrat/ecran.schema.json` ne porte et ne peut pas
     porter cette contrainte (chaque sous-entree y est validee seule) ; sans
@@ -217,6 +217,17 @@ def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]]) -> No
     n'aurait jamais laisse coexister -- rendant l'un des deux
     DEFINITIVEMENT inatteignable par `home_desk/ecran` (websocket.py, qui
     rend toujours le premier trouve).
+
+    Releve en relecture finale de branche : "la MEME regle" ci-dessus etait
+    fausse jusqu'a cette correction -- `_valider_identite` STRIPPE `nom`
+    avant de comparer ET avant de persister (ronde 2, tache 8 : "salon "
+    passait sinon les gardes mais se stockait brut) ; cette fonction
+    comparait les `nom` BRUTS. Mesure : "Salon"/"Salon " importes ensemble
+    passaient tous deux, persistes bruts, et le transport les servait
+    l'un ET l'autre -- exactement la regression que le ruling 41 (tache 8)
+    avait fermee cote formulaire. `nom` est desormais strippe ICI AUSSI,
+    avant le calcul des doublons ET avant l'ecriture -- la meme valeur
+    normalisee des deux cotes, jamais deux regles qui se ressemblent.
 
     `version` EST POSEE ICI QUAND ELLE EST ABSENTE (ronde 1 de relecture,
     le Critique) -- avant cette correction, un ecran SANS `version`
@@ -233,18 +244,18 @@ def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]]) -> No
     version PRESENTE mais DIFFERENTE de `VERSION_CONFIG` reste un refus NET
     (une vraie incompatibilite, jamais une omission a corriger a la
     place de l'operateur) -- nommee, jamais fondue avec le cas absent."""
-    noms = [donnees.get("nom") for _titre, donnees in ecrans]
-    doublons = sorted({nom for nom in noms if nom is not None and noms.count(nom) > 1})
-    if doublons:
-        raise vol.Invalid(
-            f"le fichier importe porte plusieurs ecrans nommes {doublons} -- "
-            "deux ecrans homonymes rendraient l'un des deux inatteignable, "
-            "renommez l'un d'eux dans le fichier avant de reessayer"
-        )
-
     ecrans_normalises: list[tuple[str, dict]] = []
     for titre, donnees in ecrans:
         donnees = dict(donnees)
+        # Releve en relecture finale de branche : STRIPPE ICI, avant le
+        # calcul des doublons ET avant l'ecriture -- la MEME regle que
+        # `_valider_identite` (config_flow.py), jamais une comparaison sur
+        # le brut qui laisserait passer "Salon"/"Salon " comme deux noms
+        # distincts. Seule une chaine est strippee : `schema.valider`
+        # (plus bas) refuse deja un `nom` absent ou d'un autre type, donc
+        # rien ici n'a besoin de le supposer present.
+        if isinstance(donnees.get("nom"), str):
+            donnees["nom"] = donnees["nom"].strip()
         version = donnees.get("version")
         if version is None:
             donnees["version"] = VERSION_CONFIG
@@ -257,6 +268,15 @@ def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]]) -> No
                 "laisser l'import le poser lui-meme"
             )
         ecrans_normalises.append((titre, donnees))
+
+    noms = [donnees.get("nom") for _titre, donnees in ecrans_normalises]
+    doublons = sorted({nom for nom in noms if nom is not None and noms.count(nom) > 1})
+    if doublons:
+        raise vol.Invalid(
+            f"le fichier importe porte plusieurs ecrans nommes {doublons} -- "
+            "deux ecrans homonymes rendraient l'un des deux inatteignable, "
+            "renommez l'un d'eux dans le fichier avant de reessayer"
+        )
 
     for _titre, donnees in ecrans_normalises:
         schema.valider(donnees)

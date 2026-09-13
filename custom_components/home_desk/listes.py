@@ -104,6 +104,7 @@ from .const import (
     ACTION_ENREGISTRER,
     ACTION_MONTER,
     ACTION_SUPPRIMER,
+    ERREUR_ALERTE_PAS_EN_TETE,
     ERREUR_ALLUMEE_INCOMPLETE,
     ERREUR_CHAMP_ELEMENT_REQUIS,
     ERREUR_CHAMP_INCONNU,
@@ -186,6 +187,12 @@ _ERREUR_PAR_MOT_CLE: dict[str, str] = {
     # de {motif} interpole) : la fuite de la ronde 3/4 ne peut donc pas
     # reapparaitre meme pour un mot-cle qu'on aurait oublie.
     "contains": ERREUR_CHAMP_ELEMENT_REQUIS,
+    # Releve en relecture finale de branche : "alerte" doit rester le
+    # PREMIER mode de la liste si present (schema._alerte_en_tete(), pas un
+    # mot-cle JSON Schema -- voir fautes._FauteAlertePremiere). Atteint par
+    # SectionsObjetMixin.async_step_agencement (objets.py), MEME mecanisme
+    # que "contains" juste au-dessus.
+    "alertePremiere": ERREUR_ALERTE_PAS_EN_TETE,
 }
 
 __all__ = ["SectionsListeMixin"]

@@ -77,6 +77,21 @@ class _FauteUniqueItems(_Faute):
     mot_cle = "uniqueItems"
 
 
+class _FauteAlertePremiere(_Faute):
+    """Releve en relecture finale de branche : `alerte`, si present dans
+    `agencement.modes`, doit en etre le PREMIER element (spec du
+    2026-09-12, section « Invariants verifies par le schema » : « alerte en
+    premiere position si present -- une alerte ne cede a rien »).
+    `contrat/ecran.schema.json` ne l'exprime PAS (comme `uniqueItems`/
+    `contains` sur `modes`, il le pourrait — mais cette regle est ajoutee
+    par ce composant, jamais par le contrat, voir schema.py) : `mot_cle`
+    n'est donc PAS un mot-cle JSON Schema, contrairement a ses voisines
+    ci-dessus -- `motif()`/le corpus partage (`contrat/cas-schema.json`) ne
+    l'exercent jamais, seul `tests/composant/test_schema.py` la garde
+    directement."""
+    mot_cle = "alertePremiere"
+
+
 def localiser(err: vol.Invalid) -> tuple[list, str]:
     """Le CHEMIN et le MOT-CLE JSON Schema d'une faute — l'analyse que
     `motif()` formate pour le corpus, partagee ici (ronde 4 de relecture)

@@ -131,3 +131,39 @@ def test_zones_modes_modulateurs_blocdefaut_sont_des_listes_ordonnees_selon_le_c
         _module_schema.MODES, _module_schema.MODULATEURS,
     ):
         assert isinstance(valeurs, list)
+
+
+_AGENCEMENT_MINIMAL = {"zones": ["commandes"], "modes": ["defaut"], "modulateurs": []}
+
+
+def test_alerte_doit_etre_le_premier_mode_si_present():
+    """Releve en relecture finale de branche : la spec (2026-09-12,
+    « Invariants verifies par le schema ») exige « alerte en premiere
+    position si present (une alerte ne cede a rien) » -- jamais verifie
+    nulle part avant cette correction. Mesure : `modes: ["defaut", "media",
+    "alerte"]` passait `schema.AGENCEMENT` tel quel. `modePrincipal`
+    (app/src/modes.ts) rend le PREMIER mode actif de cette liste : un tel
+    agencement ferait ceder une alerte reelle au mode media."""
+    _module_schema.AGENCEMENT({**_AGENCEMENT_MINIMAL, "modes": ["alerte", "defaut"]})
+    _module_schema.AGENCEMENT({**_AGENCEMENT_MINIMAL, "modes": ["defaut"]})
+
+    with pytest.raises(vol.Invalid) as capture:
+        _module_schema.AGENCEMENT({**_AGENCEMENT_MINIMAL, "modes": ["media", "alerte", "defaut"]})
+    assert motif(capture.value) == "/modes: alertePremiere"
+
+
+def test_modulateurs_sont_normalises_en_ensemble_trie():
+    """Spec (2026-09-12) : « `modulateurs` n'a pas d'ordre significatif : le
+    schema le normalise en ensemble trie, pour qu'un diff d'export ne
+    bruite pas. » Releve en relecture finale de branche : jamais applique
+    -- `schema.AGENCEMENT` conservait l'ordre SOUMIS (voir
+    `test_agencement_conserve_l_ordre_soumis_des_zones_et_des_modes`,
+    test_config_flow_objets.py, qui ne porte QUE sur `zones`/`modes`, pas
+    `modulateurs`) : deux exports du MEME ecran, modulateurs choisis dans
+    un ordre different, auraient produit un diff YAML bruyant pour un
+    reordonnancement sans effet (le rendu, `CONDITIONS_MODULATEURS.ts`,
+    ne lit jamais l'ordre)."""
+    valide = _module_schema.AGENCEMENT(
+        {**_AGENCEMENT_MINIMAL, "modulateurs": ["delorean", "chaleur", "invites"]}
+    )
+    assert valide["modulateurs"] == ["chaleur", "delorean", "invites"]

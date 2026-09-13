@@ -77,7 +77,10 @@ INTERDITS_COMPOSANT = INTERDITS + ("home-manager", "/opt/nivuus", "192.168.0.1")
 
 for rel in suivis("custom_components/home_desk"):
     chemin = REPO / rel
-    if chemin.suffix not in (".py", ".json"):
+    # Releve en relecture finale de branche : ".yaml" manquait ici --
+    # services.yaml (tache 9) echappait entierement a cette garde, seul
+    # fichier suivi du composant hors .py/.json (mesure : git ls-files).
+    if chemin.suffix not in (".py", ".json", ".yaml"):
         continue
     texte = chemin.read_text(encoding="utf-8", errors="replace")
     for interdit in INTERDITS_COMPOSANT:
