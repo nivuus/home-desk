@@ -472,7 +472,7 @@ class SectionsListeMixin:
                     if not errors:
                         # Decision 7 : AVERTIT, ne refuse jamais -- generique
                         # a toute section via `registre.entites_dans` (recursif).
-                        inconnues = entites_inconnues(self.hass, entites_dans(valide))
+                        inconnues = entites_inconnues(self.hass, entites_dans(valide, cle))
                         if inconnues:
                             description_placeholders["entites_inconnues"] = ", ".join(inconnues)
                         nouveaux = list(elements)

@@ -168,14 +168,15 @@ async def test_aucune_entite_inconnue_ne_produit_aucun_avertissement(hass, entre
 
 
 async def test_une_entite_inconnue_AVERTIT_dans_le_squelette_des_sections(hass, entree):
-    """Ruling 10 (supplement), deuxieme mutation de la table : le cablage
-    dans `_async_step_section_element` (listes.py) n'est garde par AUCUN
-    test du brief -- celui-ci le garde, sur le MEME patron (decor a deux
-    entites, une connue une inconnue) qu'a l'identite. Une tuile de
-    "commandes" porte deux champs entite (`entite`, `cible`) : `entite`
-    CONNUE, `cible` INCONNUE."""
+    """Ronde de correction 1 (defaut A) : decor RICHE, c'est tout l'enjeu.
+    Une tuile de "commandes" porte ENSEMBLE : `entite` INCONNUE, `cible`
+    CONNUE (inscrite au registre), et TROIS champs de texte libre dont la
+    valeur A LA FORME d'un `entity_id` (`libelle`, `lien`, `note`). Seule
+    l'entite reellement inconnue doit etre citee -- les trois textes
+    libres, meme en forme d'entite, ne doivent PAS l'etre : c'est le test
+    qui tombait avec le filtrage par FORME (ronde 1 de la tache)."""
     er.async_get(hass).async_get_or_create(
-        "light", "demo", "u1", suggested_object_id="salon")
+        "switch", "demo", "u1", suggested_object_id="salon")
     subentry_id = await _creer_ecran(hass, entree)
 
     flow = await _init_reconfigure(hass, entree, subentry_id)
@@ -184,19 +185,50 @@ async def test_une_entite_inconnue_AVERTIT_dans_le_squelette_des_sections(hass, 
     await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"],
-        {"libelle": "Lampe", "icone": "bulb", "entite": "light.salon",
-         "cible": "switch.nexiste_absolument_pas"})
+        {"libelle": "tv.salon", "icone": "bulb",
+         "entite": "light.nexiste_absolument_pas", "cible": "switch.salon",
+         "lien": "media_player.html", "note": "reglages.avances"})
 
     # ACCEPTE : la tuile s'enregistre (FORM = le menu "commandes", pas un
     # refus) -- une entite peut arriver plus tard.
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
     assert resultat.get("errors", {}) == {}
     entry = hass.config_entries.async_get_entry(entree.entry_id)
-    assert entry.subentries[subentry_id].data["commandes"][0]["cible"] == (
-        "switch.nexiste_absolument_pas"
+    assert entry.subentries[subentry_id].data["commandes"][0]["entite"] == (
+        "light.nexiste_absolument_pas"
     )
 
-    # ET AVERTIT, en ne citant QUE l'inconnue.
+    # ET AVERTIT, en ne citant QUE l'inconnue -- jamais `cible` (connue), ni
+    # `libelle`/`lien`/`note` (du texte libre qui a la FORME d'une entite,
+    # mais n'EN EST PAS UNE au contrat).
     placeholders = str(resultat["description_placeholders"])
-    assert "switch.nexiste_absolument_pas" in placeholders
-    assert "light.salon" not in placeholders
+    assert "light.nexiste_absolument_pas" in placeholders
+    assert "switch.salon" not in placeholders
+    assert "tv.salon" not in placeholders
+    assert "media_player.html" not in placeholders
+    assert "reglages.avances" not in placeholders
+
+
+async def test_une_entite_inconnue_AVERTIT_pour_une_section_a_element_nu(hass, entree):
+    """Le cas qui casse une approche naive (defaut A) : `ouvrants` a pour
+    element une chaine NUE, sans cle autour -- sans passer `cle` au site
+    d'appel, cet avertissement disparaitrait entierement pour cette
+    section."""
+    subentry_id = await _creer_ecran(hass, entree)
+
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "ouvrants"})
+    await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"entite": "binary_sensor.nexiste_absolument_pas"})
+
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+    assert resultat.get("errors", {}) == {}
+    entry = hass.config_entries.async_get_entry(entree.entry_id)
+    assert entry.subentries[subentry_id].data["ouvrants"] == [
+        "binary_sensor.nexiste_absolument_pas"
+    ]
+    assert "binary_sensor.nexiste_absolument_pas" in str(
+        resultat["description_placeholders"]
+    )

@@ -54,16 +54,12 @@ async def test_une_entite_connue_de_l_ETAT_mais_absente_du_registre_n_avertit_pa
 
 
 # ---------------------------------------------------------------------------
-# `entites_dans` : l'extraction generique qui rend le cablage possible dans
-# le squelette des sections (`listes.py`), qui ne connait pas a l'avance
-# quels champs d'une section sont des entites (huit formes differentes).
+# `entites_dans` : l'extraction DERIVEE DU CONTRAT (ronde de correction 1,
+# defaut A) qui rend le cablage possible dans le squelette des sections
+# (`listes.py`) SANS deviner par la FORME ce que le contrat DIT -- un champ
+# de texte libre dont la valeur ressemble a un `entity_id` (`libelle:
+# "tv.salon"`, `lien: "media_player.html"`) ne doit JAMAIS etre cite.
 # ---------------------------------------------------------------------------
-
-
-def test_entites_dans_extrait_les_chaines_qui_ont_la_forme_d_un_entity_id():
-    assert entites_dans("light.salon") == ["light.salon"]
-    assert entites_dans("pas une entite") == []
-    assert entites_dans("Portail") == []
 
 
 def test_entites_dans_recurse_dans_un_dict_et_une_liste():
@@ -78,3 +74,40 @@ def test_entites_dans_recurse_dans_un_dict_et_une_liste():
     assert set(entites_dans(candidat)) == {
         "cover.portail", "sensor.titre_1", "sensor.titre_2",
     }
+
+
+def test_entites_dans_ignore_le_texte_libre_meme_en_forme_d_entity_id():
+    """LE test du defaut A : un decor RICHE, tout ensemble -- une entite,
+    et trois champs de texte libre dont la valeur A LA FORME d'un
+    `entity_id`. Seule la vraie entite doit ressortir."""
+    candidat = {
+        "entite": "light.salon",
+        "libelle": "tv.salon",
+        "lien": "media_player.html",
+        "note": "reglages.avances",
+    }
+    assert entites_dans(candidat) == ["light.salon"]
+
+
+def test_entites_dans_descend_dans_un_champ_imbrique_sans_cle_reconnue():
+    """`allumee` ($defs/source) n'est lui-meme PAS `$ref: entite` -- un objet
+    imbrique qui porte `entite` dedans. Sans la descente inconditionnelle
+    sous une cle non reconnue, `allumee.entite` serait invisible."""
+    candidat = {"allumee": {"entite": "input_boolean.presence", "etats": ["on"]}}
+    assert entites_dans(candidat) == ["input_boolean.presence"]
+
+
+def test_entites_dans_pour_une_section_a_element_nu_traite_la_valeur_comme_l_entite():
+    """`ouvrants`/`listesTachesExtra` : l'element EST l'entite, une chaine
+    NUE sans cle autour -- `cle` porte l'information que la FORME ne peut
+    pas donner."""
+    assert entites_dans("binary_sensor.porte", cle="ouvrants") == ["binary_sensor.porte"]
+    assert entites_dans("todo.taches", cle="listesTachesExtra") == ["todo.taches"]
+
+
+def test_entites_dans_sans_cle_reconnue_ignore_une_chaine_nue():
+    """Le pendant negatif : une chaine nue d'une section dont l'element
+    N'EST PAS une entite au contrat (`etiquettesMinuteur`, un simple
+    libelle) ne doit jamais etre traitee comme telle."""
+    assert entites_dans("light.salon") == []
+    assert entites_dans("Pates", cle="etiquettesMinuteur") == []
