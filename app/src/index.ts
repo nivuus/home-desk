@@ -1,10 +1,7 @@
 import './styles/jetons.css';
 import './styles/base.css';
-import { ECRANS } from './ecran';
-import { demarrerAvecEcran } from './demarrage';
+import { demarrerPage } from './page';
 
 const racine = document.getElementById('app')!;
-const nomPiece = racine.dataset.piece as keyof typeof ECRANS;
-const piece = ECRANS[nomPiece];
 
-void demarrerAvecEcran(racine, piece);
+void demarrerPage(racine, location.href);

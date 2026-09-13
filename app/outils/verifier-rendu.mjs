@@ -849,6 +849,34 @@ export function lireIdentifiants() {
   return { url: (process.env.HA_URL ?? env.HA_URL).replace(/\/$/, ''), token: env.HA_TOKEN };
 }
 
+/** L'URL d'une piece. Deux formes coexistent pendant la migration (plan 3b/3c) :
+ *   - historique : `/local/wallpanel/<cle>.html`, la page qui lit `data-piece` ;
+ *   - neuve : `/local/wallpanel/index.html?ecran=<nom>`, celle qui interroge Home Assistant.
+ *  Le verificateur doit savoir verifier LES DEUX tant que les deux sont servies — verifier
+ *  seulement la neuve laisserait le retour arriere des etapes 5 a 7 sans controle, et c'est
+ *  precisement ce retour arriere qui justifie la branche de transition. */
+const FORME_URL = process.env.WALLPANEL_URL === 'ecran' ? 'ecran' : 'historique';
+const NOM_ECRAN = { salon: 'Salon', bureau: 'Bureau', cuisine: 'Cuisine' };
+function urlPiece(haUrl, cle, requete = '') {
+  if (FORME_URL === 'ecran') {
+    const sep = requete.startsWith('?') ? '&' : requete ? '&' : '';
+    return `${haUrl}/local/wallpanel/index.html?ecran=${encodeURIComponent(NOM_ECRAN[cle] ?? cle)}`
+      + (requete ? sep + requete.replace(/^\?/, '') : '');
+  }
+  return `${haUrl}/local/wallpanel/${cle}.html${requete}`;
+}
+/** Vrai quand `actuelle` (l'URL de la page, déjà interprétée par `page.url()`) est déjà sur la
+ *  piece `cle`, sous la forme actuellement mesurée — appelé avant `allerSurPage` pour éviter un
+ *  aller-retour réseau inutile quand la page y est déjà. */
+function estSurPage(actuelle, cle) {
+  if (!actuelle) return false;
+  if (FORME_URL === 'ecran') {
+    return actuelle.pathname === '/local/wallpanel/index.html'
+      && actuelle.searchParams.get('ecran') === (NOM_ECRAN[cle] ?? cle);
+  }
+  return actuelle.pathname === `/local/wallpanel/${cle}.html`;
+}
+
 export function fabriquerJetons(url, token) {
   // `expires` est un epoch ms, pas un délai — cf. `connexion.ts`. Le jeton lu dans .mcp.json est
   // un jeton d'accès longue durée (HA), donc une expiration lointaine évite tout rafraîchissement
@@ -1829,7 +1857,7 @@ async function verifierPagesReelles(nav, { deploye = false } = {}) {
         // présence de ces points d'injection, jamais le rendu, mais autant rester au plus près de ce
         // qu'une vraie tablette charge (jamais ce paramètre) pour tout ce qui n'en a pas besoin.
         const essai = vue.recetteEssai ? '?essai=1' : '';
-        await page.goto(`${HA_URL}/local/wallpanel/${piece}.html${essai}${vue.hash}`, { waitUntil: 'load', timeout: 20000 });
+        await page.goto(urlPiece(HA_URL, piece, `${essai}${vue.hash}`), { waitUntil: 'load', timeout: 20000 });
         await page.waitForTimeout(3500);   // laisse le websocket s'authentifier et pousser get_states
         if (vue.recetteEssai) {
           // Tâche 12 (round 1, point 9) : sans neutralisation, ces trois vues restent exposées à
@@ -2254,8 +2282,8 @@ export async function attendreEcranVivant(page, limiteMs = 15_000) {
 async function allerSurPage(page, HA_URL, nomPage) {
   let actuelle;
   try { actuelle = new URL(page.url()); } catch { actuelle = null; }
-  if (actuelle && actuelle.pathname === `/local/wallpanel/${nomPage}.html`) return;
-  await page.goto(`${HA_URL}/local/wallpanel/${nomPage}.html?essai=1`, { waitUntil: 'load', timeout: 20000 });
+  if (estSurPage(actuelle, nomPage)) return;
+  await page.goto(urlPiece(HA_URL, nomPage, '?essai=1'), { waitUntil: 'load', timeout: 20000 });
   await page.waitForTimeout(3500);
   await page.clock.setFixedTime(JOUR_COURT);
   await attendreEcranVivant(page);
@@ -2776,7 +2804,7 @@ async function verifierDecompteMinuteur(nav, HA_URL, jetons, bundle) {
   page.on('pageerror', (err) => erreursPage.push(err.message));
 
   try {
-    await page.goto(`${HA_URL}/local/wallpanel/cuisine.html?essai=1`, { waitUntil: 'load', timeout: 20000 });
+    await page.goto(urlPiece(HA_URL, 'cuisine', '?essai=1'), { waitUntil: 'load', timeout: 20000 });
     await page.waitForTimeout(3500);
 
     // LE RÉVEIL D'ABORD, `attendreEcranVivant` ENSUITE — l'ordre inverse est un faux échec
@@ -2968,7 +2996,7 @@ async function verifierModes(nav, HA_URL, jetons, bundle) {
   let bandeau = null;
 
   try {
-    await page.goto(`${HA_URL}/local/wallpanel/salon.html?essai=1`, { waitUntil: 'load', timeout: 20000 });
+    await page.goto(urlPiece(HA_URL, 'salon', '?essai=1'), { waitUntil: 'load', timeout: 20000 });
     await page.waitForTimeout(3500);
 
     const injecteurPresent = await page.evaluate(() => typeof window.__injecter === 'function');
@@ -4113,7 +4141,7 @@ async function verifierCadreSansDvh(nav, HA_URL, jetons, bundle, pieces, heure) 
     const page = await ctx.newPage();
     await page.clock.install({ time: heure });
     try {
-      await page.goto(`${HA_URL}/local/wallpanel/${piece}.html`, { waitUntil: 'load', timeout: 20000 });
+      await page.goto(urlPiece(HA_URL, piece), { waitUntil: 'load', timeout: 20000 });
       await page.waitForTimeout(3500);
       const m = await page.evaluate(mesurerCadre);
       const problemes = jugerCadre(m);
