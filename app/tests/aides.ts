@@ -52,6 +52,10 @@ export function connexionFactice(...sequence: ('succes' | 'echec')[]): Connexion
     // la vue « Recette »). Aucun des tests qui utilisent ce double n'ouvre cette vue : rejeter est
     // la réponse la plus honnête — c'est ce que fait `Connexion` sur une socket fermée.
     envoyerCommande: async () => { throw new Error('websocket indisponible'); },
+    // Tâche 5 du plan 3b : `ConnexionLike` porte aussi `surEvenement` (rechargement à chaud).
+    // Aucun des tests qui utilisent ce double n'édite l'écran depuis Home Assistant pendant le
+    // test, donc pas besoin de faire autre chose que satisfaire le type.
+    surEvenement: () => {},
   };
 }
 
@@ -189,6 +193,9 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
       surSilence: (cb) => { silencer = cb; },
       listerTaches,
       envoyerCommande,
+      // Tâche 5 du plan 3b : aucun de ces tests ne pousse `home_desk_config_changed`, donc pas
+      // besoin de faire autre chose que satisfaire le type.
+      surEvenement: () => {},
     }),
     // L'écran est fourni directement : ces tests montent un écran CONNU, ils n'ont rien à
     // apprendre du transport. Mais ils traversent quand même la coquille — écran d'attente,

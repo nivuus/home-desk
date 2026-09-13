@@ -18,6 +18,7 @@ import {
   sessionAbsente, erreurDemarrage, ecranEnAttente, choisirEcran, ecranDeLaPanne,
 } from './rendu/repli';
 import { creerAppui, type ConnexionAppelable } from './interaction';
+import { armerRechargement } from './rechargement';
 import { creerGeste } from './geste';
 import { listesTachesPiece, aplatirTaches, repartirTaches, creerCochage, creerArmement } from './cochage';
 import { collecterAlertes, dernierMouvement } from './alertes';
@@ -153,6 +154,8 @@ export type ConnexionLike = {
    *  serveur (`InsufficientStock`, déjà traduit en français par le composant) est AFFICHABLE —
    *  ce qu'un `appelerService`, envoi sans réponse, ne permet pas. */
   envoyerCommande(payload: Record<string, unknown>): Promise<unknown>;
+  /** Tâche 5 du plan 3b : le rechargement à chaud s'abonne par ici. */
+  surEvenement(type: string, cb: (donnees: Record<string, unknown>) => void): void;
 } & ConnexionAppelable;
 
 export type DependancesDemarrage = {
@@ -165,6 +168,9 @@ export type DependancesDemarrage = {
    *  transition (`index.ts`, `data-piece`) serve le littéral par la même porte. */
   chargerEcran: (cx: TransportConfig, nom: string) => Promise<Resultat<Ecran>>;
   listerEcrans: (cx: TransportConfig) => Promise<Resultat<EntreeListe[]>>;
+  /** Tâche 5 du plan 3b : remplace `location.reload()` dans les tests, pour qu'ils n'aient pas à
+   *  recharger une vraie page. */
+  recharger?: () => void;
 };
 
 /** Démarre l'écran de la pièce donnée dans `racine`. Ne lève jamais : la promesse couvre tout
@@ -1964,6 +1970,19 @@ export async function demarrer(
   // corps peut la rappeler sans ouvrir un second websocket.
   const cx = (deps.creerConnexion ?? ((j: Jetons) => new Connexion(j)))(jetons);
   const depsDuCorps: Partial<DependancesDemarrage> = { ...deps, creerConnexion: () => cx };
+
+  // Armé AVANT `connecter()` : `surEvenement` mémorise l'abonnement et la souscription part au
+  // premier `auth_ok`, puis est REJOUÉE à chaque reconnexion (cf. `connexion.ts`). Armé une
+  // seule fois pour la durée de vie de la page, jamais à chaque tentative — même invariant que
+  // `surChangement`/`surSilence`, et même raison : les tableaux de rappels de `Connexion`
+  // grossiraient indéfiniment.
+  //
+  // Le rechargement passe par `location.reload()` plutôt que par un redessin interne : la
+  // configuration touche TOUT (agencement, modes, budget, minuteurs, sources), et rejouer un
+  // démarrage complet dans une page déjà montée demanderait de défaire proprement des minuteurs,
+  // des abonnements et un moteur d'animation — beaucoup de code neuf, pour une page qui se
+  // recharge en moins d'une seconde sur une Fire 7 et dont personne ne regarde l'état local.
+  armerRechargement(cx, nomEcran, deps.recharger ?? (() => location.reload()));
 
   const proposerLaListe = async (): Promise<void> => {
     const liste = await listerEcransFn(cx);
