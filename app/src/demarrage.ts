@@ -2,7 +2,7 @@
  *  le bandeau, et rattrape *tout* échec pour ne jamais laisser `#app` vide (ronde de correction
  *  1 — un mur blanc, sans message, n'aide personne). Isolé d'`index.ts` pour être testable sans
  *  dépendre d'un vrai WebSocket : voir `ConnexionLike` et `DependancesDemarrage`. */
-import { html, render, type TemplateResult } from 'lit';
+import { html, render } from 'lit';
 import { Connexion, lireJetons, delaiReconnexion, type Jetons, type EvenementEtat } from './connexion';
 import { intervalFnParDefaut, minuteurFnParDefaut } from './minuteurs';
 import { Etat } from './etat';
@@ -14,6 +14,7 @@ import { rendreCorps, brancherAppui, brancherGeste, rendreAlerte, rendreHorsLign
 import { rendreNuit } from './rendu/nuit';
 import { rendreMaison, brancherAppuiMaison, brancherGesteMaison } from './rendu/maison';
 import { rendreTaches, brancherCochageTaches } from './rendu/taches';
+import { sessionAbsente, erreurDemarrage } from './rendu/repli';
 import { creerAppui, type ConnexionAppelable } from './interaction';
 import { creerGeste } from './geste';
 import { listesTachesPiece, aplatirTaches, repartirTaches, creerCochage, creerArmement } from './cochage';
@@ -151,25 +152,6 @@ export type DependancesDemarrage = {
   minuteurFn: typeof setTimeout;
   maintenant: () => Date;
 };
-
-/** Sans session HA ouverte sur la tablette, on explique plutôt que d'afficher du blanc. */
-function sessionAbsente(): TemplateResult {
-  return html`<div class="cap"><div class="heure">Session</div>
-    <div class="phrase">Ouvre Home Assistant sur cette tablette et connecte-toi,
-    puis recharge cette page.</div></div>`;
-}
-
-/** `connecter()` peut échouer bien après « pas de jeton du tout » : `rafraichir()` lève si HA
- *  refuse le jeton de rafraîchissement (révoqué) ou si le réseau coupe au mauvais moment — ce
- *  qui arrive d'autant plus que le serveur HA est aussi le point d'accès Wi-Fi de la maison.
- *  Sans écran dédié, `render()` n'a jamais lieu et `#app` reste vide : un mur blanc, sans
- *  indice, pour qui passe devant. */
-function erreurDemarrage(): TemplateResult {
-  return html`<div class="cap"><div class="heure">Connexion impossible</div>
-    <div class="phrase">L'écran n'arrive pas à joindre la maison. Ça peut venir du réseau ou
-    de la session : une nouvelle tentative va avoir lieu automatiquement. Si ça persiste,
-    réouvre Home Assistant sur cette tablette et reconnecte-toi.</div></div>`;
-}
 
 /** Démarre l'écran de la pièce donnée dans `racine`. Ne lève jamais : la promesse couvre tout
  *  ce que fait `tenter()`, y compris son initialisation (`creerConnexion`, `surChangement`,
