@@ -125,7 +125,12 @@ describe('ecranDeLaPanne — la table complète, décor à CINQ pannes', () => {
   });
 
   it('« introuvable » sans liste connue invite à choisir, pas à réparer', () => {
-    expect(texteDe(ecranDeLaPanne('introuvable', 'Inconnu'))).toMatch(
-      /n'est pas un écran configuré/);
+    // Leçon 2, jouée jusqu'au bout ici aussi : épingler la phrase ENTIÈRE, pas seulement la
+    // moitié « description de la panne ». La moitié « geste » (vérifier l'adresse, ou créer
+    // l'écran depuis Paramètres) doit être gardée au même titre que les six autres écrans.
+    expect(texteDe(ecranDeLaPanne('introuvable', 'Inconnu'))).toBe(
+      "Écran inconnu « Inconnu » n'est pas un écran configuré sur ce Home Assistant. "
+      + "Vérifie l'adresse de cette tablette, ou crée cet écran depuis Paramètres > "
+      + 'Appareils et services > Tablettes murales.');
   });
 });
