@@ -26,18 +26,23 @@ media) -- un ensemble plat contenant `nom` aurait fait REAPPARAITRE le
 defaut A pour `sources.nom`, par son propre correctif. `entites_dans`
 descend desormais dans la VALEUR et dans le SOUS-SCHEMA qui la decrit, EN
 PARALLELE, plutot que dans un ensemble de noms deconnecte du chemin.
+
+Ronde de correction 2 (reserve 2) : ce module lisait lui-meme `contrat/
+ecran.schema.json` -- une SECONDE lecture du meme fichier que `schema.py`
+revendique lire SEUL (voir sa docstring : « Reste dans schema.py ce qui
+MIROITE le contrat, et LUI SEUL le lit »). Il importe desormais
+`schema.SCHEMA_JSON`, deja lu une fois la-bas, jamais un second
+`pathlib.Path` + `json.loads` ICI -- la meme regle que `validateurs.py`
+respecte deja (aucun des deux ne contient plus ni `pathlib` ni `json`).
 """
 from __future__ import annotations
 
-import json
-import pathlib
 from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
-_CHEMIN_SCHEMA = pathlib.Path(__file__).parent / "contrat" / "ecran.schema.json"
-SCHEMA_JSON = json.loads(_CHEMIN_SCHEMA.read_text(encoding="utf-8"))
+from .schema import SCHEMA_JSON
 
 
 def entites_inconnues(hass: HomeAssistant, entites: list[str]) -> list[str]:

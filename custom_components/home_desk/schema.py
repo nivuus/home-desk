@@ -54,9 +54,15 @@ from .fautes import (
 # Clouee par test_schema_lit_le_contrat_embarque (tests/composant/test_schema.py).
 CHEMIN_SCHEMA = pathlib.Path(__file__).parent / "contrat" / "ecran.schema.json"
 
-_SCHEMA_JSON = json.loads(CHEMIN_SCHEMA.read_text(encoding="utf-8"))
+# Publique (ronde de correction 2, tache 7) : ce module reste le SEUL a LIRE
+# le contrat embarque (voir la docstring de module) -- `registre.py` avait
+# ouvert sa PROPRE lecture du meme fichier pour descendre valeur/sous-schema
+# en parallele (`entites_dans`), une seconde copie que ce module existe pour
+# empecher. Meme raisonnement que `HAUTEUR_MIN`/`HAUTEUR_MAX` ci-dessous : le
+# JSON deja lu, publie une seule fois, ici.
+SCHEMA_JSON = json.loads(CHEMIN_SCHEMA.read_text(encoding="utf-8"))
 
-_DEFS = _SCHEMA_JSON["$defs"]
+_DEFS = SCHEMA_JSON["$defs"]
 
 _ICONES = frozenset(_DEFS["bouton"]["properties"]["icone"]["enum"])
 _OPERATEURS = frozenset(_DEFS["synthese"]["properties"]["operateur"]["enum"])
@@ -69,8 +75,8 @@ _VUE_PATTERN = re.compile(_DEFS["bouton"]["properties"]["vue"]["pattern"])
 # fasse plus tard sur l'ecran complet. Les bornes viennent du contrat une
 # seule fois, ici ; les redupliquer en dur dans config_flow.py aurait ete
 # exactement la seconde copie que ce fichier existe pour empecher.
-HAUTEUR_MIN = _SCHEMA_JSON["properties"]["hauteurUtile"]["minimum"]
-HAUTEUR_MAX = _SCHEMA_JSON["properties"]["hauteurUtile"]["maximum"]
+HAUTEUR_MIN = SCHEMA_JSON["properties"]["hauteurUtile"]["minimum"]
+HAUTEUR_MAX = SCHEMA_JSON["properties"]["hauteurUtile"]["maximum"]
 
 # Ronde 2 de relecture (tache 8) : DERIVEE du contrat, exactement comme
 # HAUTEUR_MIN/HAUTEUR_MAX ci-dessus -- jamais un `1` retape a la main. La
@@ -78,7 +84,7 @@ HAUTEUR_MAX = _SCHEMA_JSON["properties"]["hauteurUtile"]["maximum"]
 # son commentaire affirmait a tort que `version` serait « propre a
 # home_desk, pas au contrat partage avec ajv » : FAUX, mesure --
 # `contrat/ecran.schema.json:10` porte `"version": {"const": 1}`, le MEME
-# fichier que `_SCHEMA_JSON` lit ligne 59 et qu'ajv consomme aussi. Ce qui
+# fichier que `SCHEMA_JSON` lit ligne 57 et qu'ajv consomme aussi. Ce qui
 # est propre a home_desk, c'est seulement l'ABSENCE de cas sur `version`
 # dans `contrat/cas-schema.json` (compte : 0) -- la mesure d'un trou de
 # couverture du corpus partage, pas une dispense de le lire depuis lui.
@@ -87,7 +93,7 @@ HAUTEUR_MAX = _SCHEMA_JSON["properties"]["hauteurUtile"]["maximum"]
 # `VERSION_CONFIG` (const.py) sans repercuter le contrat (ou l'inverse),
 # l'import de ce module echoue net plutot que de laisser les deux copies
 # diverger en silence.
-VERSION_SCHEMA: int = _SCHEMA_JSON["properties"]["version"]["const"]
+VERSION_SCHEMA: int = SCHEMA_JSON["properties"]["version"]["const"]
 assert VERSION_SCHEMA == VERSION_CONFIG, (
     f"contrat/ecran.schema.json declare version={VERSION_SCHEMA!r} mais "
     f"const.VERSION_CONFIG vaut {VERSION_CONFIG!r} -- les deux doivent "
