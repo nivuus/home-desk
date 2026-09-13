@@ -19,7 +19,15 @@ a zero des DEUX cotes a la fois, donc rester VERT. Remplace par
 `test_garde_ecran_est_le_seul_module_a_appeler__async_update`, sur le MEME
 idiome que `test_formulaire_est_le_seul_module_a_appeler_async_show_form_
 avec_un_data_schema` (test_config_flow.py) : une EXISTENCE, jamais une
-egalite de comptage."""
+egalite de comptage.
+
+Relecture finale de branche (deuxieme ronde) : les tests de
+`garde_ecran.importer_ecrans` (tache 9) sont partis dans
+`test_garde_ecran_importer.py` -- ce fichier depassait 500 lignes une
+fois deux tests de plus ajoutes a ce mecanisme-la. Seam reel : ces deux
+fonctions (`verifier_ecran_complet` ici, `importer_ecrans` la-bas) sont
+les deux SEULS appelants legitimes du site d'ecriture unique, mais ne
+partagent aucune fixture -- chaque fichier construit ses propres factices."""
 import ast
 import pathlib
 
@@ -212,6 +220,18 @@ _PORTES_ECRITURE = (
     # docstring de `websocket._resoudre` nomme deja -- jamais gardee tant
     # qu'elle n'est appelee nulle part. Fermee ICI, avant d'exister.
     "async_add_subentry",
+    # Relecture finale de branche (deuxieme ronde) : `async_remove_
+    # subentry` manquait ICI par NOM -- un appel direct et litteral a
+    # `hass.config_entries.async_remove_subentry(...)` depuis un module
+    # AUTRE que garde_ecran.py n'etait PAS attrape par ce test, meme si
+    # `CLAUDE.md` la declarait deja parmi les "portes fermees" : un test
+    # AST scanne des NOMS D'ATTRIBUT syntaxiques dans CE depot, jamais le
+    # code interne de Home Assistant -- que cette methode delegue ENSUITE
+    # a `_async_update_entry` (voir plus bas) ne rend pas un appel qui la
+    # NOMME, elle, visible a ce scanner. Mesure : retirer ce nom et
+    # appeler `async_remove_subentry` directement dans un fichier hors de
+    # garde_ecran.py laissait ce test VERT.
+    "async_remove_subentry",
     # Ronde 3 de relecture (tache 8) : `async_add_subentry` ET
     # `async_remove_subentry` deleguent tous les deux a une methode
     # PRIVEE commune, `_async_update_entry(entry, subentries=...)`
@@ -222,7 +242,9 @@ _PORTES_ECRITURE = (
     # pendant que ce test restait VERT. C'est l'ANCETRE COMMUN des deux
     # portes de creation/suppression : la surveiller couvre ses
     # DESCENDANTS d'un coup, un chemin plus court que celui nomme au
-    # dessus.
+    # dessus -- et desormais redondant avec l'ajout ci-dessus pour le cas
+    # PRECIS d'`async_remove_subentry`, garde quand meme pour le cas d'un
+    # appel qui sauterait LES DEUX portes publiques.
     "_async_update_entry",
 )
 
@@ -295,7 +317,13 @@ def test_garde_ecran_est_le_seul_module_a_appeler_une_porte_d_ecriture():
     AUSSI plutot que laissee implicite — la tache 7 (ronde 4) avait pris
     soin de noircir cette limite pour la mutation SUR LA SOUS-ENTREE ;
     cette ronde le fait desormais pour la mutation SUR L'ENTREE elle-meme,
-    la meme limite structurelle rencontree une deuxieme fois."""
+    la meme limite structurelle rencontree une deuxieme fois.
+
+    Relecture finale de branche (deuxieme ronde) : SIX portes desormais,
+    `async_remove_subentry` ayant rejoint la table par son PROPRE nom
+    (voir le commentaire a cote de son entree dans `_PORTES_ECRITURE`) --
+    la limite residuelle ci-dessus reste identique, `object.__setattr__`
+    ne nommant par definition aucune des six."""
     composant_dir = pathlib.Path(__file__).resolve().parents[2] / "custom_components" / "home_desk"
     fautifs: dict[str, set[str]] = {}
     for chemin in composant_dir.glob("*.py"):
@@ -354,88 +382,3 @@ def test_localiser_champ_ne_tronque_aucune_des_quatre_formes():
             assert mot_cle == "required"
 
 
-# ---------------------------------------------------------------------------
-# Tache 9 : `garde_ecran.importer_ecrans`, le SECOND site d'ecriture
-# legitime de ce module (le chemin de creation en masse pour
-# `home_desk.importer`, services.py) -- meme MECANISME que ci-dessus,
-# teste directement sans passer par le service HA.
-# ---------------------------------------------------------------------------
-
-
-def test_importer_ecrans_valide_tout_avant_d_ecrire_quoi_que_ce_soit():
-    """`hass` est un objet factice dont `config_entries._async_update_entry`
-    leve si on l'appelle : si `importer_ecrans` ecrivait AVANT d'avoir fini
-    de valider tous les ecrans, cette sonde le prouverait -- une preuve
-    plus dure qu'une simple assertion sur l'etat final, qui ne
-    distinguerait pas "jamais appele" de "appele puis annule"."""
-    import voluptuous as vol
-
-    class _ConfigEntriesQuiExplose:
-        @staticmethod
-        def _async_update_entry(*_args, **_kwargs):
-            raise AssertionError("importer_ecrans a ecrit alors qu'un ecran est invalide")
-
-    class _HassFactice:
-        config_entries = _ConfigEntriesQuiExplose()
-
-    ecrans = [
-        ("Valide", {
-            "nom": "Valide", "temperature": "sensor.t",
-            "ambiances": [], "commandes": [], "extrasMaison": [],
-            "synthese": [], "sources": [], "ouvrants": [],
-        }),
-        ("Invalide", {"nom": "Invalide"}),
-    ]
-
-    with pytest.raises(vol.Invalid):
-        garde_ecran.importer_ecrans(hass=_HassFactice(), entry=object(), ecrans=ecrans)
-
-
-def test_importer_ecrans_ecrit_en_UNE_SEULE_FOIS():
-    """Ronde 1 de relecture (tache 9, Mineur -- « la bascule indivisible »)
-    : la docstring de `garde_ecran.importer_ecrans` argumente sur dix
-    lignes qu'une SEULE ecriture reelle (`_async_update_entry`) rend la
-    bascule indivisible -- jamais gardee par un test avant cette ronde.
-    Remplacer cette ecriture unique par une boucle
-    `async_remove_subentry` + `async_add_subentry` par ecran produirait le
-    MEME etat final tout en ouvrant une FENETRE ou `entry.subentries` est
-    incomplet -- invisible a un test qui ne verifie que l'etat final.
-    Cette sonde compte les appels REELS plutot que l'etat :
-    `_async_update_entry` doit etre appele EXACTEMENT une fois, avec les
-    DEUX ecrans a la fois ; les deux autres portes ne doivent jamais
-    l'etre."""
-
-    class _ConfigEntriesFactice:
-        appels: list[tuple[str, tuple, dict]] = []
-
-        def _async_update_entry(self, *args, **kwargs):
-            self.appels.append(("_async_update_entry", args, kwargs))
-
-        def async_add_subentry(self, *args, **kwargs):
-            raise AssertionError("importer_ecrans ne doit jamais appeler async_add_subentry")
-
-        def async_remove_subentry(self, *args, **kwargs):
-            raise AssertionError("importer_ecrans ne doit jamais appeler async_remove_subentry")
-
-    class _HassFactice:
-        config_entries = _ConfigEntriesFactice()
-
-    ecrans = [
-        ("Un", {
-            "nom": "Un", "temperature": "sensor.t",
-            "ambiances": [], "commandes": [], "extrasMaison": [],
-            "synthese": [], "sources": [], "ouvrants": [],
-        }),
-        ("Deux", {
-            "nom": "Deux", "temperature": "sensor.t",
-            "ambiances": [], "commandes": [], "extrasMaison": [],
-            "synthese": [], "sources": [], "ouvrants": [],
-        }),
-    ]
-
-    garde_ecran.importer_ecrans(hass=_HassFactice(), entry=object(), ecrans=ecrans)
-
-    appels = _HassFactice.config_entries.appels
-    assert len(appels) == 1, f"attendu UNE seule ecriture, obtenu {len(appels)}"
-    _nom_appel, _args, kwargs = appels[0]
-    assert len(kwargs["subentries"]) == 2

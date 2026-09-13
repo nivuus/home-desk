@@ -102,17 +102,25 @@ cette section. Les deux premières sont gardées par un test AST
 (`ast.walk`, pas une convention qu'on espère respectée) ; les deux
 suivantes par une convention de dépôt, sans filet automatique :
 
-- **Le site d'écriture unique.** Six « portes d'écriture » Home Assistant
+- **Le site d'écriture unique.** Sept « portes d'écriture » Home Assistant
   (`_async_update`, `async_update_subentry`, `async_update_and_abort`,
-  `async_update_reload_and_abort`, `async_add_subentry`,
-  `_async_update_entry` — cette dernière est l'ancêtre privé commun aux
-  deux premières citées ci-dessus pour la création/suppression) ne
-  peuvent être appelées que depuis `garde_ecran.py`
+  `async_update_reload_and_abort` — les QUATRE portes de MISE A JOUR —,
+  `async_add_subentry` et `async_remove_subentry` — les DEUX portes de
+  CRÉATION/SUPPRESSION —, et `_async_update_entry`, l'ancêtre privé
+  COMMUN de ces deux dernières, jamais des quatre premières) ne peuvent
+  être appelées que depuis `garde_ecran.py`
   (`tests/composant/test_garde_ecran.py::
   test_garde_ecran_est_le_seul_module_a_appeler_une_porte_d_ecriture`,
   table `_PORTES_ECRITURE`). `garde_ecran.persister_si_valide` (mise à
   jour d'une sous-entrée) et `garde_ecran.importer_ecrans` (tâche 9,
-  création en masse) sont les deux seuls appelants légitimes.
+  création en masse) sont les deux seuls appelants légitimes. Relevé en
+  relecture finale de branche (deuxième ronde) : cette section (première
+  ronde) omettait purement et simplement `async_remove_subentry` de son
+  compte (« Six » portes listées, aucune n'étant celle-ci) — un appel
+  direct à cette porte, PAR SON PROPRE NOM, hors de `garde_ecran.py` ne
+  tombait sur AUCUN test (mesuré : absente aussi de `_PORTES_ECRITURE`
+  dans le code, pas seulement de cette phrase). Corrigée aux deux
+  endroits.
 - **`formulaire.py` est le seul module autorisé à appeler
   `async_show_form(..., data_schema=...)`**
   (`tests/composant/test_config_flow.py::
@@ -135,19 +143,40 @@ Relevées en relecture finale de branche — un registre de bord qui ne part
 pas avec le dépôt (`.superpowers/`, git-ignoré) ne vaut rien pour la
 prochaine tâche :
 
-- **`dist/wallpanel.css:114-115` porte trois IP de tablettes**
-  (`192.168.0.159`, `.218`, `.138`, dans un commentaire de mesure Fully
-  Kiosk). Aucune garde ne les cherche : `tests/test_dist_portable.py`
-  scanne bien `dist/` (`INTERDITS`), mais cette liste ne connaît que deux
-  chemins de fichier (`/opt/nivuus/HomeAssistant`, `/home/mallanic`),
-  aucune IP. Le littéral `"192.168.0.1"` qu'`INTERDITS_COMPOSANT` porte
-  plus bas dans le même fichier ne s'applique QU'à
-  `custom_components/home_desk/`, un répertoire différent — et même
-  transposé sur `dist/`, il ne matche `.159`/`.138` que par coïncidence de
-  préfixe (`"192.168.0.1" in "192.168.0.159"` est vrai), jamais `.218`.
-  Dette antérieure à cette branche, à trancher en 3c (un motif
-  `192\.168\.0\.\d+`, sur `dist/` cette fois, ou accepter que ces trois IP
-  sortent avec `dist/`).
+- **Les trois IP de tablettes (`192.168.0.159`/`.218`/`.138`) apparaissent
+  à QUATRE endroits**, pas un seul (relevé une première fois de façon
+  incomplète en première ronde de relecture finale, corrigé ici) :
+  `app/src/styles/base.css:38-39` (la SOURCE dont `dist/wallpanel.css` est
+  bâti — le commentaire de mesure Fully Kiosk), `app/outils/
+  verifier-rendu.mjs:979-980`, et `app/README.md:18-20`, qui porte un
+  TABLEAU des trois IP avec leurs `entity_id` de capture d'écran. Aucune
+  garde ne les cherche nulle part : `tests/test_dist_portable.py` scanne
+  bien `dist/` (`INTERDITS`), mais cette liste ne connaît que deux chemins
+  de fichier (`/opt/nivuus/HomeAssistant`, `/home/mallanic`), aucune IP ;
+  et `app/`, lui, n'est scanné par AUCUNE garde de portabilité. Le
+  littéral `"192.168.0.1"` qu'`INTERDITS_COMPOSANT` porte dans le même
+  fichier ne s'applique QU'à `custom_components/home_desk/`, un
+  répertoire différent — et même transposé, il ne matche `.159`/`.138` que
+  par coïncidence de préfixe (`"192.168.0.1" in "192.168.0.159"` est
+  vrai), jamais `.218`. Dette antérieure à cette branche, à trancher en 3c
+  (un motif `192\.168\.0\.\d+` sur les quatre fichiers, ou accepter que
+  ces IP restent).
+- **Au-delà des IP, `dist/wallpanel.js` embarque la configuration
+  littérale COMPLÈTE de cette maison** — mesuré : 69 `entity_id` distincts
+  (`grep -oE '"[a-z_]+\.[a-z0-9_]+"' dist/wallpanel.js | sort -u | wc -l`),
+  serrure (`lock.aqara_smart_lock_u200_lite`), rideaux, deux aspirateurs
+  (`vacuum.aspirateur_chambre`/`_cuisine`), quatre `media_player`, toutes
+  les entités de la voiture (`sensor.peugeot_e208_*`,
+  `binary_sensor.peugeot_e208_*`, `button.peugeot_e208_*`)... Par le
+  critère que cette branche s'applique À ELLE-MÊME en retirant
+  `sensor.home_stock_next_meal` des TESTS (une entité réelle n'a rien à
+  faire hors d'`app/src/ecran.ts`) — voir les trois petites choses
+  ci-dessous — c'est la MÊME dette, cent fois plus grosse : `dist/` est un
+  bundle COMPILÉ depuis `app/src/ecran.ts`, qui EST la seule couture vers
+  cette maison (décision ci-dessus) ; le distribuer, c'est distribuer
+  cette maison. Non nommée ailleurs avant cette ligne. Aucune décision de
+  trancher n'est prise ici — seulement le constat, pour que la prochaine
+  tâche qui touche à `dist/` ou à la portabilité du dépôt le trouve.
 - **Quatre champs racine du contrat n'ont aucune porte de saisie** :
   `aspirateur`, `aspirateurMaison`, `listesTachesExtra`, `delorean`. Les
   trois écrans réels les portent, ils **survivent** à toute édition

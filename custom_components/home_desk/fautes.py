@@ -77,19 +77,32 @@ class _FauteUniqueItems(_Faute):
     mot_cle = "uniqueItems"
 
 
-class _FauteAlertePremiere(_Faute):
-    """Releve en relecture finale de branche : `alerte`, si present dans
-    `agencement.modes`, doit en etre le PREMIER element (spec du
-    2026-09-12, section « Invariants verifies par le schema » : « alerte en
-    premiere position si present -- une alerte ne cede a rien »).
-    `contrat/ecran.schema.json` ne l'exprime PAS (comme `uniqueItems`/
-    `contains` sur `modes`, il le pourrait — mais cette regle est ajoutee
-    par ce composant, jamais par le contrat, voir schema.py) : `mot_cle`
-    n'est donc PAS un mot-cle JSON Schema, contrairement a ses voisines
-    ci-dessus -- `motif()`/le corpus partage (`contrat/cas-schema.json`) ne
-    l'exercent jamais, seul `tests/composant/test_schema.py` la garde
-    directement."""
-    mot_cle = "alertePremiere"
+class _FauteAlertePremiere(_FauteConst):
+    """Releve en relecture finale de branche, DEUX fois. D'abord : `alerte`,
+    si present dans `agencement.modes`, doit en etre le PREMIER element
+    (spec du 2026-09-12, section « Invariants verifies par le schema » :
+    « alerte en premiere position si present -- une alerte ne cede a
+    rien ») -- desormais porte par `contrat/ecran.schema.json` lui-meme
+    (un `allOf` racine : `contains: {const: alerte}` -> `then:
+    {prefixItems: [{const: alerte}]}`, verifie a l'execution contre ajv),
+    au lieu d'une contrainte ajoutee par ce seul composant. `mot_cle` HERITE
+    donc de `_FauteConst` ("const") plutot que d'en inventer un ("alertePremiere",
+    la premiere version de cette classe, ronde precedente) : c'est le mot-cle
+    JSON Schema REEL que produit ajv pour cette regle (`prefixItems[0].const`),
+    et `contrat/cas-schema.json` en porte desormais un cas partage, motif
+    "/agencement/modes/0: const" -- les deux implementations tombent enfin
+    sur le MEME verdict, pour le MEME motif.
+
+    Ensuite : une SOUS-CLASSE distincte de `_FauteConst` reste necessaire
+    malgre le mot-cle partage, pour que `objets.async_step_agencement`
+    puisse distinguer PAR TYPE (`isinstance`, pas par mot_cle -- deux
+    mot_cle identiques ne peuvent pas porter deux messages differents dans
+    `listes._ERREUR_PAR_MOT_CLE`, un dict a plat) ce refus PRECIS d'un
+    refus `const` quelconque ailleurs (`version`, `delorean`...) et lui
+    donner son propre message, qui NOMME le geste (voir objets.py) --
+    la relecture finale de branche a mesure qu'un message qui se contente
+    de NOMMER la regle, sans le geste, est insuffisant des que le champ est
+    une liste de cases a cocher plutot qu'un simple champ texte."""
 
 
 def localiser(err: vol.Invalid) -> tuple[list, str]:

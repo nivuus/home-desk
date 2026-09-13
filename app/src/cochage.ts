@@ -11,12 +11,12 @@ import type { Ecran } from './ecran';
 
 /** Entités `todo.*` à afficher sur la vue « Tâches » de cette pièce : celles déjà déclarées dans
  *  `piece.synthese` (`todo.maintenance` partout, `todo.travail` au bureau, les DLC en cuisine —
- *  jamais dupliquées avec la ligne de synthèse, c'est la MÊME source, cf. `pieces.ts`) suivies de
+ *  jamais dupliquées avec la ligne de synthèse, c'est la MÊME source, cf. `ecran.ts`) suivies de
  *  `piece.listesTachesExtra` (vide partout sauf en cuisine, où la liste de courses n'a pas sa place
  *  dans `synthese` — ce n'est pas un écart à signaler, cf. docstring de `Ecran.listesTachesExtra`).
  *
  *  `horsTaches` : la seule échappatoire à la collecte automatique, et elle n'est posée qu'une fois
- *  (la ligne DLC du SALON, cf. son docstring dans `pieces.ts`). Sans elle, déclarer un compte de
+ *  (la ligne DLC du SALON, cf. son docstring dans `ecran.ts`). Sans elle, déclarer un compte de
  *  DLC à l'entrée y ferait aussi apparaître la liste, qu'on ne coche pas d'un canapé.
  *
  *  L'ORDRE est une décision : `synthese` d'abord, dans son ordre de déclaration, puis les extras.
@@ -36,7 +36,7 @@ export function listesTachesPiece(piece: Ecran): string[] {
 /** Nom court affiché en sous-titre de chaque ligne (cf. `TacheAffichee.liste`) — sans lui, deux
  *  tâches de listes différentes seraient indiscernables à l'écran, exactement le défaut déjà
  *  corrigé une fois sur la ligne de synthèse elle-même (todo.maintenance vs todo.travail,
- *  « indiscernables avant ce correctif », cf. `pieces.ts`). Repli sur le nom brut de l'entité
+ *  « indiscernables avant ce correctif », cf. `ecran.ts`). Repli sur le nom brut de l'entité
  *  (sans le préfixe `todo.`) pour une liste non prévue ici — jamais un sous-titre vide qui
  *  masquerait la provenance de la tâche. */
 const LIBELLES_LISTE: Record<string, string> = {

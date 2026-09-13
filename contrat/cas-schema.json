@@ -45,6 +45,10 @@
                                 "modulateurs": [], "blocDefaut": "previsions"}}},
     {"nom": "des zones sans commandes sont refusees", "valide": false,
      "motif": "/agencement/zones: contains",
-     "modifie": {"agencement": {"zones": ["synthese"], "modes": ["defaut"], "modulateurs": []}}}
+     "modifie": {"agencement": {"zones": ["synthese"], "modes": ["defaut"], "modulateurs": []}}},
+    {"nom": "alerte presente mais pas en premiere position est refusee", "valide": false,
+     "motif": "/agencement/modes/0: const",
+     "modifie": {"agencement": {"zones": ["commandes"],
+                                "modes": ["defaut", "media", "alerte"], "modulateurs": []}}}
   ]
 }

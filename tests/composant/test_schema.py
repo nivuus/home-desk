@@ -143,13 +143,25 @@ def test_alerte_doit_etre_le_premier_mode_si_present():
     nulle part avant cette correction. Mesure : `modes: ["defaut", "media",
     "alerte"]` passait `schema.AGENCEMENT` tel quel. `modePrincipal`
     (app/src/modes.ts) rend le PREMIER mode actif de cette liste : un tel
-    agencement ferait ceder une alerte reelle au mode media."""
+    agencement ferait ceder une alerte reelle au mode media.
+
+    Deuxieme relecture finale de branche : cette regle est desormais
+    PORTEE PAR LE CONTRAT (`contrat/ecran.schema.json`, `allOf` racine
+    `contains`/`prefixItems`) -- `motif()` doit donc rendre EXACTEMENT ce
+    qu'ajv rend pour le meme cas (verifie par execution cote TypeScript,
+    `app/tests/cas-schema.test.ts`), pas un mot-cle invente. Voir
+    `contrat/cas-schema.json`, cas "alerte presente mais pas en premiere
+    position est refusee", qui rejoue ce MEME motif depuis le corpus
+    partage -- ce test-ci verifie la regle directement sur `AGENCEMENT`
+    seul (le chemin qu'emprunte `objets.async_step_agencement`), le
+    corpus la verifie sur l'ECRAN COMPLET (le chemin qu'emprunte
+    `schema.valider`) : les deux chemins, un seul motif."""
     _module_schema.AGENCEMENT({**_AGENCEMENT_MINIMAL, "modes": ["alerte", "defaut"]})
     _module_schema.AGENCEMENT({**_AGENCEMENT_MINIMAL, "modes": ["defaut"]})
 
     with pytest.raises(vol.Invalid) as capture:
         _module_schema.AGENCEMENT({**_AGENCEMENT_MINIMAL, "modes": ["media", "alerte", "defaut"]})
-    assert motif(capture.value) == "/modes: alertePremiere"
+    assert motif(capture.value) == "/modes/0: const"
 
 
 def test_modulateurs_sont_normalises_en_ensemble_trie():

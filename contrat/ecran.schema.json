@@ -81,6 +81,26 @@
         "required": ["minuteurs"],
         "properties": { "minuteurs": { "minItems": 1 } }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "agencement": {
+            "properties": { "modes": { "contains": { "const": "alerte" } } },
+            "required": ["modes"]
+          }
+        },
+        "required": ["agencement"]
+      },
+      "then": {
+        "properties": {
+          "agencement": {
+            "properties": {
+              "modes": { "prefixItems": [ { "const": "alerte" } ] }
+            }
+          }
+        }
+      }
     }
   ],
   "$defs": {

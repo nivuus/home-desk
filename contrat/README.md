@@ -16,28 +16,50 @@ ci-dessous n'en nomme que trois — `budget.json`, `icones.json`,
 **Rien de cette maison n'entre ici.** Pas d'`entity_id`, pas de nom de pièce :
 ces fichiers partent chez toutes les maisons.
 
-**`version`** est porté par `ecran.schema.json`, dans l'intention qu'une
-configuration d'une `version` inconnue soit refusée net, jamais rendue à
-moitié. **Cette garantie est tenue depuis la tâche 8** (plan 3) :
-`websocket._resoudre` (`custom_components/home_desk/websocket.py`) refuse
-net un écran dont la `version` diffère de `VERSION_CONFIG`, et
-`garde_ecran.importer_ecrans` (tâche 9) la pose elle-même quand un écran
-importé ne la porte pas plutôt que de la laisser absente. `version` reste
-`Optional`, jamais `required`, dans `ecran.schema.json` — c'est
-délibéré : le contrat ne peut valider qu'un écran À LA FOIS, jamais
-comparer sa version à celle que le composant reconnaît ; c'est
-l'intégration qui porte cette comparaison, pas le schéma.
+**`version`** est porté par `ecran.schema.json` (`"version": {"const": 1}`),
+dans l'intention qu'une configuration d'une `version` inconnue soit
+refusée net, jamais rendue à moitié. **Le schéma tient déjà LA MOITIÉ de
+cette garantie, mesuré à ajv** : une `version` PRÉSENTE mais différente
+de `1` (`{version: 2}`, par exemple) est bien refusée par `const` — ce que
+le schéma NE PEUT PAS faire, puisque `version` reste `Optional` (jamais
+`required`) dans `ecran.schema.json`, c'est refuser une `version` ABSENTE
+: un écran qui ne la porte pas du tout passe le schéma sans un mot.
+**Cette seconde moitié est tenue depuis la tâche 8** (plan 3), par
+l'intégration, pas par le contrat : `websocket._resoudre`
+(`custom_components/home_desk/websocket.py`) refuse net de SERVIR un
+écran dont la `version` diffère de `VERSION_CONFIG`, et
+`garde_ecran.importer_ecrans` (tâche 9) POSE elle-même `VERSION_CONFIG`
+quand un écran importé ne porte pas `version`, plutôt que de la laisser
+absente jusqu'à la lecture. `version` reste `Optional` délibérément : le
+contrat ne valide qu'un écran À LA FOIS, il n'a aucune notion de « la
+version que CE composant reconnaît aujourd'hui » (une propriété de
+l'intégration qui l'exécute, pas de la forme de l'écran) — seule
+l'intégration peut porter cette seconde moitié de la garantie.
 
 ## Ce que le schéma ne vérifie PAS
 
 `ecran.schema.json` prouve la FORME d'un écran, pas toutes ses dépendances
 entre champs. JSON Schema sait exprimer ce genre de règle (`if`/`then`,
 comme `synthese.allOf` le fait déjà pour `operateur`/`valeur`) — c'est ce que
-l'`allOf` racine fait désormais pour `blocDefaut: "voiture"` → `voiture` et
-pour `modes` contenant `"minuteur"` → `minuteurs` non vide (plan 2, tâche 6).
-La dette qui restait de ce genre (`version` ni `required` ni lue) est
-tenue depuis la tâche 8, voir ci-dessus — il n'en reste aucune ouverte ici
-au moment d'écrire ces lignes.
+l'`allOf` racine fait désormais pour `blocDefaut: "voiture"` → `voiture`,
+pour `modes` contenant `"minuteur"` → `minuteurs` non vide (plan 2, tâche 6),
+et pour `modes` contenant `"alerte"` → `alerte` EN PREMIÈRE POSITION
+(relecture finale de branche, deuxième ronde — `prefixItems` conditionnel,
+vérifié à ajv ; `contrat/cas-schema.json` en porte un cas partagé). La dette
+qui restait de ce genre (`version` ni `required` ni lue) est tenue depuis
+la tâche 8, voir ci-dessus.
+
+**Ce qui reste hors de portée du schéma, structurellement, pas par
+oubli** : `agencement.modulateurs` est NORMALISÉ en ensemble trié côté
+Python (`schema._trie()`, relecture finale de branche, deuxième ronde —
+« un diff d'export ne doit pas bouger pour un réordonnancement sans
+effet ») mais ce N'EST PAS une règle de VALIDATION que JSON Schema (ou
+ajv) pourrait exprimer : un schéma valide une forme, il ne transforme
+jamais la donnée qu'il valide. Il n'existe donc, et ne peut exister,
+aucun équivalent TypeScript de ce tri — sans conséquence pratique
+aujourd'hui, puisque `app/src/` ne fait jamais que LIRE des `modulateurs`
+déjà écrits (par HA ou à la main dans `ecran.ts`), jamais les
+reconstruire.
 
 ## Ce répertoire est copié dans le composant
 

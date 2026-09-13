@@ -22,7 +22,8 @@ from homeassistant.helpers import selector
 
 from . import libelles, schema
 from .budget import BUDGET, verifier_budget
-from .const import ERREUR_BUDGET_INTENABLE_MODE, ERREUR_CHAMP_INVALIDE
+from .const import ERREUR_ALERTE_PAS_EN_TETE, ERREUR_BUDGET_INTENABLE_MODE, ERREUR_CHAMP_INVALIDE
+from .fautes import _FauteAlertePremiere
 from .formulaire import reafficher
 # Ronde 1 de relecture (Critique) : verifie l'ecran COMPLET avant tout
 # persist — voir garde_ecran.py. `async_step_agencement` et
@@ -162,8 +163,26 @@ class SectionsObjetMixin:
             try:
                 valide = schema.AGENCEMENT(candidat)
             except vol.Invalid as err:
-                champ, mot_cle = _localiser_champ(err)
-                errors[champ] = _ERREUR_PAR_MOT_CLE.get(mot_cle, ERREUR_CHAMP_INVALIDE)
+                # Relecture finale de branche (deuxieme ronde) : `err` peut
+                # etre une `vol.MultipleInvalid` -- meme deballage que
+                # `_localiser_champ` (listes.py) fait pour lire le mot-cle,
+                # necessaire ICI aussi pour l'isinstance ci-dessous.
+                premiere = err.errors[0] if isinstance(err, vol.MultipleInvalid) else err
+                if isinstance(premiere, _FauteAlertePremiere):
+                    # Cas special, PAS via `_ERREUR_PAR_MOT_CLE` : cette
+                    # faute herite du mot-cle "const" de `_FauteConst`
+                    # (pour que `contrat/cas-schema.json` partage le MEME
+                    # motif qu'ajv, voir schema._alerte_en_tete()) -- mais
+                    # "const" y est deja pris par un tout autre message
+                    # (ERREUR_CHAMP_VALEUR_FIGEE, un champ fige a une seule
+                    # valeur, jamais une histoire d'ORDRE). Distinguee par
+                    # TYPE, jamais par mot-cle : deux mot-cle identiques ne
+                    # peuvent pas porter deux messages differents dans un
+                    # dict a plat.
+                    errors["modes"] = ERREUR_ALERTE_PAS_EN_TETE
+                else:
+                    champ, mot_cle = _localiser_champ(err)
+                    errors[champ] = _ERREUR_PAR_MOT_CLE.get(mot_cle, ERREUR_CHAMP_INVALIDE)
             else:
                 # rangee_ambiance : MEME formule que app/src/demarrage.ts
                 # (`piece.ambiances.length > 0 || (piece.minuteurs?.length

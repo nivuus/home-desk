@@ -278,11 +278,22 @@ def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]]) -> No
             "renommez l'un d'eux dans le fichier avant de reessayer"
         )
 
-    for _titre, donnees in ecrans_normalises:
-        schema.valider(donnees)
+    # Releve en relecture finale de branche (deuxieme ronde) : la valeur de
+    # RETOUR de `schema.valider` etait jetee -- `donnees` (le brut deja
+    # normalise ci-dessus) etait persiste tel quel, jamais la version que
+    # `schema.valider` VALIDE ET NORMALISE (`_trie()` sur `modulateurs`,
+    # entre autres). Mesure : les trois ecrans reels importes puis
+    # ouverts/enregistres SANS RIEN changer par "Blocs et modes"
+    # produisaient un `modulateurs` TRIE (le formulaire, lui, persiste
+    # bien la valeur validee) -- l'import, seul, gardait le brut. Le
+    # prochain export portait alors un diff pour un geste nul, exactement
+    # ce que `_trie()` existe pour eviter.
+    ecrans_valides: list[tuple[str, dict]] = [
+        (titre, schema.valider(donnees)) for titre, donnees in ecrans_normalises
+    ]
 
     nouvelles_sous_entrees: dict[str, ConfigSubentry] = {}
-    for titre, donnees in ecrans_normalises:
+    for titre, donnees in ecrans_valides:
         sous_entree = ConfigSubentry(
             data=MappingProxyType(donnees),
             subentry_type=SOUS_ENTREE_ECRAN,

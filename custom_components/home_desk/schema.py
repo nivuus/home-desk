@@ -26,7 +26,14 @@ depuis ce JSON plutot que retranscrits en dur : une troisieme copie a la main,
 a cote de celle deja generee dans ecran.schema.json depuis icones.json,
 serait exactement la sorte de divergence silencieuse que ce fichier existe
 pour empecher.
-"""
+
+Les validateurs FEUILLE (`_chaine`, `_enum`, `_const`, `_uniques`...) vivent
+dans `validateurs.py`, separes d'ici en relecture finale de branche
+(deuxieme ronde) pour la MEME raison que `fautes.py` (ronde 3, tache 6) :
+une couture reelle, pas une coupe arbitraire pour rester sous 500 lignes.
+Ce module reste le SEUL a LIRE le contrat embarque ; `validateurs.py` ne
+fait que composer des fabriques pures, parametrees par ce que CE module
+en tire (`HAUTEUR_MIN`/`HAUTEUR_MAX`, notamment)."""
 from __future__ import annotations
 
 import json
@@ -37,18 +44,8 @@ import voluptuous as vol
 
 from .const import VERSION_CONFIG
 from .fautes import (
-    _Faute,
-    _FauteAlertePremiere,
-    _FauteConst,
-    _FauteEnum,
-    _FauteMaximum,
-    _FauteMaxItems,
     _FauteMinItems,
-    _FauteMinLength,
-    _FauteMinimum,
-    _FautePattern,
     _FauteType,
-    _FauteUniqueItems,
     localiser,
     motif,
 )
@@ -126,190 +123,27 @@ MODULATEURS: list[str] = list(_DEFS["agencement"]["properties"]["modulateurs"]["
 
 
 # --------------------------------------------------------------------------
-# Validateurs feuille. Chacun leve une des `_Faute*` de fautes.py, dediee au
-# mot-cle JSON Schema qu'il traduit ("type", "pattern", "minimum", "enum",
-# ...) — jamais un vol.Invalid generique avec error_type="..." (voir
-# fautes.py pour le pourquoi de cette hierarchie).
+# Validateurs feuille : DEPLACES dans validateurs.py en relecture finale de
+# branche (deuxieme ronde), pour rester sous 500 lignes -- meme couture que
+# celle qui avait deja produit fautes.py (ronde 3, tache 6). `hauteur_utile`
+# reste l'exception : sa fabrique (`_hauteur_utile`) vit la-bas, mais SA
+# VALEUR PUBLIQUE (bornee par le contrat EMBARQUE que SEUL ce module lit)
+# est composee ICI, pour que `config_flow.py`/`objets.py` continuent de la
+# lire comme `schema.hauteur_utile`, sans aucun changement d'interface.
 # --------------------------------------------------------------------------
+from .validateurs import (  # noqa: E402
+    _alerte_en_tete,
+    _chaine,
+    _const,
+    _enum,
+    _hauteur_utile,
+    _motif_chaine,
+    _paire_service,
+    _trie,
+    _uniques,
+)
 
-
-def _chaine(min_len: int = 0):
-    """Un `str`, avec au besoin une longueur minimale (`minLength`)."""
-
-    def valider(valeur):
-        if not isinstance(valeur, str):
-            raise _FauteType("attendu une chaine")
-        if min_len and len(valeur) < min_len:
-            raise _FauteMinLength(f"longueur minimale {min_len}")
-        return valeur
-
-    return valider
-
-
-def _motif_chaine(regex: re.Pattern, min_len: int = 0):
-    """Un `str` qui doit en plus respecter un `pattern`."""
-
-    def valider(valeur):
-        if not isinstance(valeur, str):
-            raise _FauteType("attendu une chaine")
-        if min_len and len(valeur) < min_len:
-            raise _FauteMinLength(f"longueur minimale {min_len}")
-        if not regex.match(valeur):
-            raise _FautePattern("ne respecte pas le motif attendu")
-        return valeur
-
-    return valider
-
-
-def _enum(valeurs):
-    def valider(valeur):
-        if valeur not in valeurs:
-            raise _FauteEnum(f"doit etre parmi {sorted(valeurs)}")
-        return valeur
-
-    return valider
-
-
-def _const(attendu):
-    """Le pendant de `"const": ...` : type ET valeur, sans confondre 1 et True."""
-
-    def valider(valeur):
-        if type(valeur) is not type(attendu) or valeur != attendu:
-            raise _FauteConst(f"doit valoir {attendu!r}")
-        return valeur
-
-    return valider
-
-
-def hauteur_utile(valeur):
-    """Publique : reutilisee telle quelle par config_flow.py (EcranSubentryFlow),
-    pour que le formulaire de saisie refuse la MEME plage que schema.valider().
-    Le nom sans prefixe EST l'interface ; ne pas le re-prefixer sans repercuter
-    l'import de config_flow.py."""
-    if isinstance(valeur, bool) or not isinstance(valeur, int):
-        raise _FauteType("attendu un entier")
-    if valeur < HAUTEUR_MIN:
-        raise _FauteMinimum(f"minimum {HAUTEUR_MIN}")
-    if valeur > HAUTEUR_MAX:
-        raise _FauteMaximum(f"maximum {HAUTEUR_MAX}")
-    return valeur
-
-
-def _paire_service():
-    """Le pendant de `"service": {"minItems": 2, "maxItems": 2, "items":
-    {"type": "string", "minLength": 1}}`. Ecrit a la main plutot qu'avec
-    `vol.Length` : ce dernier ne distingue pas minItems de maxItems dans sa
-    classe, et son message ("length must be...") ne survivrait pas plus que
-    error_type au passage dans un dict — la meme fragilite qui a motive
-    `_Faute` ci-dessus, appliquee ici puisque le cout marginal est nul une
-    fois la hierarchie en place.
-
-    PRIVEE de nouveau depuis la ronde 4 de relecture. La ronde 2 l'avait
-    rendue publique (`paire_service`, sans prefixe) en affirmant que
-    `listes_champs._construire_donnee_bouton` la REUTILISAIT pour refuser
-    une paire `service_domaine`/`service_action` a demi remplie — la ronde 3
-    a retire cette reutilisation (le motif JSON Schema qu'elle produisait,
-    "minItems" pose sur "base", etait illisible pour un humain ; voir
-    `listes_champs.ServiceIncomplet`) SANS corriger cette affirmation, qui
-    est devenue fausse au moment meme ou elle l'ecrivait — sixieme
-    docstring menteuse du chantier. Aucun appelant hors de ce module ne
-    l'utilise plus (`grep paire_service`, verifie) : redevenue privee.
-
-    La regle « exactement deux elements » vit donc desormais a DEUX
-    endroits, assume : ICI (validation finale de `schema.BOUTON`, la SEULE
-    garantie que `contrat/ecran.schema.json` exige vraiment) et dans
-    `listes_champs.ServiceIncomplet` (le refus lisible, a la saisie). Les
-    deux sont necessaires — une saisie complete peut toujours produire un
-    `service` invalide par un autre chemin que le formulaire (import direct
-    d'une config, par exemple) — mais c'est une duplication DELIBEREE,
-    nommee ici plutot que cachee."""
-    chaine_non_vide = _chaine(1)
-
-    def valider(valeur):
-        if not isinstance(valeur, list):
-            raise _FauteType("attendu une liste")
-        if len(valeur) < 2:
-            raise _FauteMinItems("service attend exactement 2 elements")
-        if len(valeur) > 2:
-            raise _FauteMaxItems("service attend exactement 2 elements")
-        return [chaine_non_vide(v) for v in valeur]
-
-    return valider
-
-
-def _uniques():
-    """Le pendant de `"uniqueItems": true`. Remplace `vol.Unique()` pour la
-    meme raison que `_paire_service` remplace `vol.Length` : rester dans
-    notre propre hierarchie d'exceptions plutot que dans le vocabulaire
-    interne de voluptuous."""
-
-    def valider(valeur):
-        vus = []
-        for item in valeur:
-            if item in vus:
-                raise _FauteUniqueItems(f"doublon : {item!r}")
-            vus.append(item)
-        return valeur
-
-    return valider
-
-
-def _alerte_en_tete():
-    """CONTRAINTE AJOUTEE PAR CE COMPOSANT, PAS PAR LE CONTRAT (a dire
-    explicitement, meme doctrine que l'unicite de `nom` entre ecrans,
-    garde_ecran.importer_ecrans) : `alerte`, present dans `modes`, doit en
-    etre le PREMIER element -- spec du 2026-09-12, « Invariants verifies
-    par le schema » : « alerte en premiere position si present (une alerte
-    ne cede a rien) ».
-
-    Releve en relecture finale de branche : cet invariant etait DECRIT par
-    la spec mais jamais VERIFIE nulle part -- ni par le contrat JSON
-    (`contrat/ecran.schema.json` ne porte aucune contrainte d'ORDRE sur
-    `modes`), ni par ce module. Mesure : `modes: ["defaut", "media",
-    "alerte"]` passait `schema.AGENCEMENT` et `schema.valider` tels quels.
-    `modePrincipal` (app/src/modes.ts) rend le PREMIER mode actif de cette
-    liste dont la condition tient -- un agencement ainsi saisi ferait
-    ceder une alerte reelle au mode media des que celui-ci joue, exactement
-    ce que la spec interdit ("une alerte ne cede a rien"). Ferme ICI,
-    plutot que dans le contrat JSON : cette regle ne peut pas se lire comme
-    une contrainte inter-champs SUR UN SEUL ecran independamment du reste
-    (elle porte sur l'ORDRE d'une seule liste), mais elle n'est pas non
-    plus exprimee par `contains`/`uniqueItems` -- l'exprimer en JSON Schema
-    exigerait un `prefixItems` conditionnel, un chantier de contrat
-    (`make contrat`, cote ajv/TypeScript compris) hors du perimetre de
-    cette correction ; ce module la verifie donc SEUL, comme `_uniques()`
-    verifie deja `uniqueItems` sans que ce soit une contrainte du contrat."""
-
-    def valider(valeur):
-        if "alerte" in valeur and valeur[0] != "alerte":
-            raise _FauteAlertePremiere(
-                "'alerte', si present, doit etre le PREMIER mode de la liste "
-                "(une alerte ne cede a rien)"
-            )
-        return valeur
-
-    return valider
-
-
-def _trie():
-    """Releve en relecture finale de branche : `modulateurs` n'a pas
-    d'ordre significatif (spec du 2026-09-12, « Invariants verifies par le
-    schema » : « le schema le normalise en ensemble trie, pour qu'un diff
-    d'export ne bruite pas ») -- jamais applique avant cette correction :
-    `AGENCEMENT` conservait l'ordre SOUMIS, comme `zones`/`modes` (ou
-    l'ordre EST significatif, voir `test_agencement_conserve_l_ordre_
-    soumis_des_zones_et_des_modes`, test_config_flow_objets.py). Deux
-    exports du meme ecran, `modulateurs` choisis dans un ordre different
-    au formulaire, produisaient donc un diff YAML bruyant
-    (`yaml_ecrans.rendre`) pour un reordonnancement sans aucun effet sur le
-    rendu -- `CONDITIONS_MODULATEURS` (app/src/modes.ts) ne lit jamais
-    l'ordre, seulement l'appartenance."""
-
-    def valider(valeur):
-        return sorted(valeur)
-
-    return valider
-
+hauteur_utile = _hauteur_utile(HAUTEUR_MIN, HAUTEUR_MAX)
 
 ENTITE = _motif_chaine(_ENTITE_PATTERN)
 

@@ -1,20 +1,25 @@
 """Les noms que ce composant publie, et qui ne doivent exister qu'ici.
 
-La plupart sont lus par au moins deux modules -- les ecrire en dur a chaque
-endroit, c'est se donner rendez-vous avec une faute de frappe qu'aucun test
-ne voit : une commande websocket mal nommee ne leve pas, elle n'est
-simplement jamais appelee.
+Les ecrire en dur a chaque endroit, c'est se donner rendez-vous avec une
+faute de frappe qu'aucun test ne voit : une commande websocket mal nommee
+ne leve pas, elle n'est simplement jamais appelee.
 
-Releve en relecture finale de branche : « chacun » etait faux, mesure --
-`ERREUR_ECRAN_INTROUVABLE`, `ERREUR_VERSION_INCONNUE`, `ERREUR_ECRAN_
-CORROMPU` (websocket.py) et `FICHIER_EXPORT_ECRANS` (services.py) ne sont
-lues QUE par UN SEUL module Python chacune, jamais deux. Elles restent ici
-quand meme : chacune est un CONTRAT PUBLIE hors de ce module Python (un
-code d'erreur websocket que `app/src/connexion.ts` lit par sa VALEUR, un
-nom de fichier qu'un OPERATEUR va chercher a la main dans `config/`) --
-c'est CETTE frontiere qui justifie une constante nommee, pas le nombre de
-lecteurs Python internes.
-"""
+Releve en relecture finale de branche, DEUX fois de suite sur ce meme
+paragraphe : « chacun est lu par au moins deux modules » etait faux
+(premiere correction : « la plupart » -- FAUX AUSSI, mesure a nouveau,
+cette fois par un script qui compte reellement les lecteurs de chaque
+constante dans `custom_components/home_desk/*.py` plutot que d'estimer :
+sur les 40 constantes de ce fichier, 30 n'ont qu'UN SEUL lecteur Python,
+10 en ont deux ou plus -- 25%, pas « la plupart »). La justification ne
+depend pourtant pas de ce compte, et reste juste pour les 30 : chacune
+est un CONTRAT PUBLIE hors de ce module Python -- un code d'erreur
+websocket qu'`app/src/connexion.ts` lit par sa VALEUR, un nom de fichier
+qu'un OPERATEUR va chercher a la main dans `config/`, un nom de service
+appele par une automatisation YAML qui ne lit jamais ce fichier. C'est
+CETTE frontiere qui justifie une constante nommee, jamais le nombre de
+lecteurs Python internes -- un compte qui, ayant deja change de valeur
+deux fois dans ce seul fichier, ne merite pas d'etre retente une
+troisieme."""
 
 DOMAIN = "home_desk"
 
@@ -185,9 +190,14 @@ ERREUR_BUDGET_INTENABLE_MODE = "budget_intenable_mode"
 
 # Releve en relecture finale de branche : `alerte`, dans `agencement.modes`,
 # doit en etre le PREMIER element (spec du 2026-09-12, « une alerte ne cede a
-# rien ») -- verifie par `schema._alerte_en_tete()`, rejoue par
-# SectionsObjetMixin.async_step_agencement (objets.py) via
-# `listes._ERREUR_PAR_MOT_CLE` comme les autres refus d'agencement.
+# rien ») -- verifie par `schema._alerte_en_tete()`, portee aussi par le
+# contrat JSON (`contrat/ecran.schema.json`, `allOf` racine). PAS attribue
+# via `listes._ERREUR_PAR_MOT_CLE` (contrairement aux autres refus
+# d'agencement) : l'exception (`fautes._FauteAlertePremiere`) HERITE du
+# mot-cle "const" pour partager son motif avec ajv (voir schema.py), un
+# mot-cle deja pris par un message sans rapport (ERREUR_CHAMP_VALEUR_FIGEE)
+# -- SectionsObjetMixin.async_step_agencement (objets.py) distingue donc ce
+# refus par le TYPE de l'exception, pas par son mot-cle.
 ERREUR_ALERTE_PAS_EN_TETE = "alerte_pas_en_tete"
 
 # Ronde 1 de relecture (Critique) : ni listes.py ni objets.py ne rejouaient

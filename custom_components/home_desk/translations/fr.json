@@ -310,7 +310,7 @@
         "champ_element_requis": "Cette liste doit contenir un élément que l'écran exige (« Commandes » pour les zones, « Défaut » pour les modes).",
         "recette_sans_mode": "Cette tuile ouvre la vue Recette, mais le mode « recette » n'est pas dans les modes de l'écran (section « Blocs et modes ») : l'écran n'affichera jamais le point de reprise de la recette sur l'accueil. Ajoutez le mode « recette » dans « Blocs et modes » avant d'enregistrer cette tuile.",
         "budget_intenable_mode": "Le mode {mode} déborde de {debordement} px avec ces zones. Augmentez la hauteur utile, retirez une zone, ou retirez ce mode.",
-        "alerte_pas_en_tete": "Le mode « Alerte », s'il est présent, doit être le premier de la liste : une alerte ne doit céder à aucun autre mode.",
+        "alerte_pas_en_tete": "Une alerte ne doit céder à aucun autre mode : décochez tous les modes ci-dessus, puis recochez-les dans l'ordre voulu en commençant par « Alerte ».",
         "ecran_deviendrait_invalide": "Cette modification rendrait l'écran invalide : elle n'a pas été enregistrée. Ouvrez la section « {section} » pour corriger l'incohérence avant de continuer."
       }
     }
