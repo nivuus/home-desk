@@ -1696,4 +1696,40 @@ describe('demarrer — la coquille résout l écran avant de déléguer', () => 
     await enCours;
     expect(chargerEcran).toHaveBeenCalledTimes(1);
   });
+
+  // Défaut Important trouvé en relecture : `tests/rechargement.test.ts` garde solidement le
+  // MODULE `armerRechargement` en isolation, mais rien ne prouvait que la coquille l'appelle
+  // réellement — retirer l'appel de câblage dans `demarrer()` laissait toute la suite verte.
+  // Capture le rappel passé à `surEvenement` (même patron que `surChangement: (cb) => { emettre
+  // = cb; }` ci-dessus) et injecte un `recharger` espion par `deps.recharger`, pour qu'aucun
+  // `location.reload()` réel ne parte pendant le test. Décor à DEUX noms d'écran, même raison
+  // que dans `tests/rechargement.test.ts` : avec un seul, un branchement qui rechargerait sur
+  // TOUT événement passerait ce test sans qu'on s'en aperçoive.
+  it('propage home_desk_config_changed jusqu au recharger injecté, filtré par nom (branchement réel)', async () => {
+    let evenementCb: ((donnees: Record<string, unknown>) => void) | undefined;
+    const recharger = vi.fn();
+
+    await demarrer(document.createElement('div'), 'Salon', deps({
+      recharger,
+      chargerEcran: async () => ({ ok: true as const, valeur: ecranDeNom('Salon') }),
+      creerConnexion: () => ({
+        connecter: () => Promise.resolve(),
+        prete: () => Promise.resolve(),
+        surChangement: () => {}, surSilence: () => {},
+        appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
+        surEvenement: (type: string, cb: (donnees: Record<string, unknown>) => void) => {
+          if (type === 'home_desk_config_changed') evenementCb = cb;
+        },
+      }),
+    }));
+
+    // Le nom de CET écran ('Salon') recharge.
+    evenementCb!({ nom: 'Salon' });
+    expect(recharger).toHaveBeenCalledTimes(1);
+
+    // Le nom d'un AUTRE écran ('Cuisine') ne recharge pas une seconde fois — le filtre marche
+    // tel que branché, pas seulement dans le module isolé.
+    evenementCb!({ nom: 'Cuisine' });
+    expect(recharger).toHaveBeenCalledTimes(1);
+  });
 });
