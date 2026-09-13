@@ -218,21 +218,28 @@ comme CONSTAT mesuré ; la spec porte la décision.
   cette maison. Non nommée ailleurs avant cette ligne. Aucune décision de
   trancher n'est prise ici — seulement le constat, pour que la prochaine
   tâche qui touche à `dist/` ou à la portabilité du dépôt le trouve.
-- **Quatre champs racine du contrat n'ont aucune porte de saisie** :
-  `aspirateur`, `aspirateurMaison`, `listesTachesExtra`, `delorean`. Les
-  trois écrans réels les portent, ils **survivent** à toute édition
-  passant par le formulaire (vérifié — aucune section ne les retire), mais
-  aucune section ne permet de les CRÉER ou de les MODIFIER depuis Home
-  Assistant. Déclarés hors périmètre à la tâche 7 et repris par aucune
-  tâche depuis : sans cette ligne, ils disparaissent de la mémoire du
-  projet.
-- **Une entité inconnue du registre HA devrait donner un avertissement,
-  jamais un refus** (décision 7 de la spec citée ci-dessus) — non
-  implémenté : le formulaire accepte aujourd'hui n'importe quel
-  `entity_id` bien formé (`light.nexiste_pas` y compris) sans même un
-  avertissement (`errors={}` et `description_placeholders={}`). Un vrai
-  morceau (lecture du registre d'entités HA), reporté au 3b plutôt que
-  bâclé en fin de branche.
+- **Un champ racine du contrat n'a toujours aucune porte de saisie** :
+  `aspirateurMaison`. La tâche 7 en a ouvert trois (`aspirateur`,
+  `listesTachesExtra`, `delorean`) ; celui-là reste dehors à dessein. Son
+  vrai blocage est le littéral `'vacuum.aspirateur_cuisine'` écrit en dur
+  dans `rendu/maison.ts` : le rendre éditable depuis Home Assistant avant
+  de traiter ce littéral livrerait un bouton à demi mort. Part au plan 3c.
+- **Une entité inconnue du registre HA donne un avertissement, jamais un
+  refus** (décision 7 de la spec citée ci-dessus) — tenue à la tâche 7 :
+  `custom_components/home_desk/registre.py` (`entites_inconnues`,
+  `entites_dans`) lit le registre ET l'état (une entité créée en YAML ou
+  par template répond sans être au registre) et remplit
+  `description_placeholders["entites_inconnues"]` sans jamais toucher
+  `errors`, câblé aux DEUX entrées de l'identité
+  (`EcranSubentryFlow.async_step_user`/`async_step_identite`,
+  `config_flow.py`) et au squelette des sections « liste »
+  (`SectionsListeMixin._async_step_section_element`, `listes.py`). Gardé
+  par `tests/composant/test_registre.py` (le module) et
+  `tests/composant/test_config_flow_champs_libres.py`
+  (`test_une_entite_inconnue_AVERTIT_au_lieu_de_REFUSER_a_la_creation`,
+  `..._en_reconfiguration`, `..._dans_le_squelette_des_sections`) — les
+  trois câblages, mutés un par un en relecture de tâche 7, tombent
+  chacun sous le test qui lui correspond.
 - **Le préalable sur `app/src/connexion.ts:149-150`**, qui jette
   `error.code` d'une erreur websocket et n'en garde que le `message` :
   bloquant pour toute tâche qui voudrait distinguer les refus HA côté

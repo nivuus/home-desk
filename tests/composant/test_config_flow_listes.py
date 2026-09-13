@@ -194,18 +194,19 @@ def test_listes_ne_reexporte_plus_SECTIONS_ni_Section():
     assert "Section" not in listes.__all__
 
 
-def test_sections_declare_les_huit_sections_attendues():
+def test_sections_declare_les_neuf_sections_attendues():
     """Ronde 1 (Important I2, tache 6) : `ambiances` n'etait exercee par
     AUCUN test — la retirer de `SECTIONS` laissait la suite verte. Assertion
     STATIQUE en plus du test parametre ci-dessous : retirer une section
     change le nombre de tests COLLECTES (signal faible), mais fait tomber
     CELLE-CI (signal fort).
 
-    Tache 7 : `sources`, `minuteurs` et `etiquettesMinuteur` rejoignent les
-    cinq premieres — HUIT sections desormais, jamais cinq."""
+    Tache 7 : `sources`, `minuteurs`, `etiquettesMinuteur` puis
+    `listesTachesExtra` rejoignent les cinq premieres — NEUF sections
+    desormais, jamais cinq."""
     assert set(SECTIONS) == {
         "commandes", "ambiances", "extrasMaison", "ouvrants", "synthese",
-        "sources", "minuteurs", "etiquettesMinuteur",
+        "sources", "minuteurs", "etiquettesMinuteur", "listesTachesExtra",
     }
 
 
@@ -277,7 +278,7 @@ async def test_monter_descendre_supprimer_fonctionnent_sur_les_cinq_sections(has
 # ---------------------------------------------------------------------------
 
 
-async def test_remplir_les_huit_sections_rend_l_ecran_entierement_validable(hass, entree):
+async def test_remplir_les_neuf_sections_rend_l_ecran_entierement_validable(hass, entree):
     """Le plan ne portait de ligne de menu ni pour `temperature`, ni pour
     `extrasMaison`, ni pour `ouvrants` — trois champs RACINE requis du
     contrat qu'AUCUNE tache ne couvrait, la sous-entree ne serait donc
@@ -301,7 +302,7 @@ async def test_remplir_les_huit_sections_rend_l_ecran_entierement_validable(hass
         await hass.config_entries.subentries.async_configure(flow["flow_id"], donnee)
 
     subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
-    schema.valider(dict(subentry.data))  # ne leve plus : les huit sections suffisent
+    schema.valider(dict(subentry.data))  # ne leve plus : les neuf sections suffisent
 
 
 async def test_un_ecran_dont_aucune_section_n_a_jamais_ete_ouverte_est_deja_validable(
@@ -326,7 +327,7 @@ async def test_un_ecran_dont_aucune_section_n_a_jamais_ete_ouverte_est_deja_vali
         assert subentry.data[cle] == [], (
             f"{cle!r} doit exister, VIDE, des la creation — jamais absente")
 
-    schema.valider(dict(subentry.data))  # ne leve plus : les huit sections, vides, suffisent
+    schema.valider(dict(subentry.data))  # ne leve plus : les neuf sections, vides, suffisent
 
 
 # ---------------------------------------------------------------------------

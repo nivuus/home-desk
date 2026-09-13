@@ -205,7 +205,7 @@ ERREUR_ALERTE_PAS_EN_TETE = "alerte_pas_en_tete"
 # verifiait que SA PROPRE forme (schema.BOUTON, schema.AGENCEMENT,
 # schema.VOITURE...), aveugle aux invariants CROISES entre sections (mode
 # "minuteur" sans slot, blocDefaut "voiture" sans objet voiture). Depuis que
-# la sous-entree est valide DES SA CREATION (SECTIONS initialise les huit
+# la sous-entree est valide DES SA CREATION (SECTIONS initialise les neuf
 # sections « liste » a [], donc "sources" ne manque plus), cette
 # integration peut s'offrir l'invariant inverse : un ecran valide DOIT LE
 # RESTER a chaque etape qui persiste. `garde_ecran.verifier_ecran_complet`

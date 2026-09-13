@@ -1,8 +1,8 @@
 """Le CATALOGUE des sections « liste » de la famille $defs/bouton,
 $defs/synthese et ouvrants (scalaire) : leurs champs, leurs selecteurs, la
 construction et l'affichage d'un element. `listes.py` porte le SQUELETTE
-(choisir/ajouter/modifier/monter/descendre/supprimer), identique pour les
-huit sections ; ce module porte ce qui DIFFERE pour CETTE famille —
+(choisir/ajouter/modifier/monter/descendre/supprimer), identique pour toutes les
+sections ; ce module porte ce qui DIFFERE pour CETTE famille —
 exactement la couture que la tache 6 decrit (« elles different par leurs
 champs, pas par leur forme »).
 
@@ -284,6 +284,15 @@ SECTIONS: dict[str, Section] = {
     ),
     "ouvrants": Section(
         "ouvrants", lambda el: el, _valider_ouvrant, _schema_ouvrant,
+        _construire_donnee_ouvrant, _afficher_ouvrant,
+    ),
+    # Tache 7 : `listesTachesExtra` (racine du contrat) a EXACTEMENT la meme
+    # forme qu'`ouvrants` (`contrat/ecran.schema.json` : un tableau
+    # d'`entite` nue, pas d'objets) -- le meme quatuor de fonctions, un des
+    # trois champs racine qui n'avait AUCUNE porte de saisie
+    # (`aspirateurMaison` reste dette du 3c, cf. CLAUDE.md).
+    "listesTachesExtra": Section(
+        "listesTachesExtra", lambda el: el, _valider_ouvrant, _schema_ouvrant,
         _construire_donnee_ouvrant, _afficher_ouvrant,
     ),
     "synthese": Section(

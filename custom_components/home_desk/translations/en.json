@@ -57,12 +57,14 @@
       "step": {
         "user": {
           "title": "Identity and budget",
-          "description": "The screen's name, the displayed temperature sensor, and the tablet's usable height, in pixels.",
+          "description": "The screen's name, the displayed temperature sensor, and the tablet's usable height, in pixels. Entities entered but missing from the Home Assistant registry, to check (an entity may appear later): {entites_inconnues}",
           "data": {
             "nom": "Name",
             "hauteurUtile": "Usable height (px)",
             "temperature": "Temperature sensor",
-            "note": "Note"
+            "note": "Note",
+            "aspirateur": "Vacuum",
+            "delorean": "DeLorean"
           }
         },
         "reconfigure": {
@@ -77,18 +79,21 @@
             "sources": "Media sources",
             "minuteurs": "Timers",
             "etiquettesMinuteur": "Timer labels",
+            "listesTachesExtra": "Extra task lists",
             "agencement": "Blocks and modes",
             "voiture": "Car"
           }
         },
         "identite": {
           "title": "Identity and budget",
-          "description": "The screen's name, the displayed temperature sensor, and the tablet's usable height, in pixels.",
+          "description": "The screen's name, the displayed temperature sensor, and the tablet's usable height, in pixels. Entities entered but missing from the Home Assistant registry, to check (an entity may appear later): {entites_inconnues}",
           "data": {
             "nom": "Name",
             "hauteurUtile": "Usable height (px)",
             "temperature": "Temperature sensor",
-            "note": "Note"
+            "note": "Note",
+            "aspirateur": "Vacuum",
+            "delorean": "DeLorean"
           }
         },
         "commandes": {
@@ -176,6 +181,21 @@
         },
         "ouvrants_element": {
           "title": "Opening",
+          "data": {
+            "entite": "Entity",
+            "geste": "Action"
+          }
+        },
+        "listesTachesExtra": {
+          "title": "Extra task lists",
+          "description": "Pick an existing list to move or remove it, or check \"Add\" for a new one.",
+          "data": {
+            "choix": "Existing list",
+            "nouveau": "Add a list"
+          }
+        },
+        "listesTachesExtra_element": {
+          "title": "Extra task list",
           "data": {
             "entite": "Entity",
             "geste": "Action"

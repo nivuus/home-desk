@@ -1,9 +1,9 @@
 """Le squelette commun des sections « liste » du menu d'un ecran : tuiles de
-commande, rangee d'ambiance, tuiles « extras maison », ouvrants surveilles, et
-ligne de synthese. Cinq sections, UNE SEULE forme — choisir/ajouter, modifier,
-monter, descendre, supprimer — ecrite ici une fois et reutilisee par
-`EcranSubentryFlow` (config_flow.py) pour les cinq ; la tache 7 y ajoute les
-minuteurs de la meme facon. Ce que chaque section a de PARTICULIER (ses
+commande, rangee d'ambiance, tuiles « extras maison », ouvrants surveilles,
+ligne de synthese, sources media, minuteurs et `listesTachesExtra`. UNE
+SEULE forme — choisir/ajouter, modifier, monter, descendre, supprimer —
+ecrite ici une fois et reutilisee par `EcranSubentryFlow` (config_flow.py)
+pour toutes. Ce que chaque section a de PARTICULIER (ses
 champs, ses selecteurs, la construction/l'affichage d'un element) vit dans
 `listes_champs.py` — separe d'ici pour rester sous 500 lignes chacun, jamais
 a un compte de lignes arbitraire : c'est la couture que la tache 6 decrit
@@ -146,6 +146,9 @@ from .listes_champs import SECTIONS, Section, ChampVide, ServiceIncomplet
 # (`SECTIONS`, `Section`, `ChampVide`, `ServiceIncomplet`, deja communs aux
 # DEUX modules) ; `AllumeeIncomplete` n'est necessaire qu'ICI.
 from .listes_champs_sources import AllumeeIncomplete
+# Decision 7 de la spec, tenue a la tache 7 : une entite inconnue du
+# registre AVERTIT, ne refuse jamais (voir registre.py).
+from .registre import entites_dans, entites_inconnues
 
 # Ronde 4 de relecture : table DERIVEE des mots-cles que `fautes._Faute`
 # (et voluptuous/probatio eux-memes, pour "required"/"additionalProperties")
@@ -285,7 +288,12 @@ class SectionsListeMixin:
             section_courante=cle, data_updates={cle: elements},
         )
 
-    async def _async_step_section(self, cle: str, user_input: dict[str, Any] | None):
+    async def _async_step_section(
+        self,
+        cle: str,
+        user_input: dict[str, Any] | None = None,
+        description_placeholders: dict[str, str] | None = None,
+    ):
         section = SECTIONS[cle]
         subentry = self._get_reconfigure_subentry()
         elements = self._elements(subentry, cle)
@@ -305,9 +313,14 @@ class SectionsListeMixin:
             # metier d'EcranSubentryFlow.async_step_user (config_flow.py).
             errors["nouveau"] = ERREUR_SELECTION_MANQUANTE
 
-        return reafficher(self, cle, _schema_choix(elements, section), user_input, errors)
+        return reafficher(
+            self, cle, _schema_choix(elements, section), user_input, errors,
+            description_placeholders,
+        )
 
-    async def _async_step_section_element(self, cle: str, user_input: dict[str, Any] | None):
+    async def _async_step_section_element(
+        self, cle: str, user_input: dict[str, Any] | None = None
+    ):
         """Le formulaire d'un element, plus ses quatre gestes (`geste`,
         champ present uniquement en EDITION — ajouter un element vierge n'a
         rien a monter, descendre ou supprimer). `monter`/`descendre` sont
@@ -457,6 +470,11 @@ class SectionsListeMixin:
                         if "recette" not in modes_actuels:
                             errors["base"] = ERREUR_RECETTE_SANS_MODE
                     if not errors:
+                        # Decision 7 : AVERTIT, ne refuse jamais -- generique
+                        # a toute section via `registre.entites_dans` (recursif).
+                        inconnues = entites_inconnues(self.hass, entites_dans(valide))
+                        if inconnues:
+                            description_placeholders["entites_inconnues"] = ", ".join(inconnues)
                         nouveaux = list(elements)
                         if index is not None:
                             nouveaux[index] = valide
@@ -466,7 +484,9 @@ class SectionsListeMixin:
                             entry, subentry, cle, nouveaux, errors, description_placeholders
                         ):
                             self._index_courant = None
-                            return await self._async_step_section(cle, None)
+                            return await self._async_step_section(
+                                cle, None, description_placeholders
+                            )
 
         return reafficher(
             self,

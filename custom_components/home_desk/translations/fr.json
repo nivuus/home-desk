@@ -57,12 +57,14 @@
       "step": {
         "user": {
           "title": "Identité et budget",
-          "description": "Le nom de l'écran, le capteur de température affiché, et la hauteur utile de la tablette, en pixels.",
+          "description": "Le nom de l'écran, le capteur de température affiché, et la hauteur utile de la tablette, en pixels. Entités saisies mais absentes du registre de Home Assistant, à vérifier (une entité peut arriver plus tard) : {entites_inconnues}",
           "data": {
             "nom": "Nom",
             "hauteurUtile": "Hauteur utile (px)",
             "temperature": "Capteur de température",
-            "note": "Note"
+            "note": "Note",
+            "aspirateur": "Aspirateur",
+            "delorean": "DeLorean"
           }
         },
         "reconfigure": {
@@ -77,18 +79,21 @@
             "sources": "Sources média",
             "minuteurs": "Minuteurs",
             "etiquettesMinuteur": "Étiquettes de minuteur",
+            "listesTachesExtra": "Listes de tâches supplémentaires",
             "agencement": "Blocs et modes",
             "voiture": "Voiture"
           }
         },
         "identite": {
           "title": "Identité et budget",
-          "description": "Le nom de l'écran, le capteur de température affiché, et la hauteur utile de la tablette, en pixels.",
+          "description": "Le nom de l'écran, le capteur de température affiché, et la hauteur utile de la tablette, en pixels. Entités saisies mais absentes du registre de Home Assistant, à vérifier (une entité peut arriver plus tard) : {entites_inconnues}",
           "data": {
             "nom": "Nom",
             "hauteurUtile": "Hauteur utile (px)",
             "temperature": "Capteur de température",
-            "note": "Note"
+            "note": "Note",
+            "aspirateur": "Aspirateur",
+            "delorean": "DeLorean"
           }
         },
         "commandes": {
@@ -176,6 +181,21 @@
         },
         "ouvrants_element": {
           "title": "Ouvrant",
+          "data": {
+            "entite": "Entité",
+            "geste": "Action"
+          }
+        },
+        "listesTachesExtra": {
+          "title": "Listes de tâches supplémentaires",
+          "description": "Choisissez une liste existante pour la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.",
+          "data": {
+            "nouveau": "Ajouter une liste",
+            "choix": "Liste existante"
+          }
+        },
+        "listesTachesExtra_element": {
+          "title": "Liste de tâches supplémentaire",
           "data": {
             "entite": "Entité",
             "geste": "Action"

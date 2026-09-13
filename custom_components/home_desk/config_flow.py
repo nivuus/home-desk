@@ -75,6 +75,7 @@ n'est redupliquee ici.
 """
 from __future__ import annotations
 
+from functools import partial
 from typing import Any
 
 import voluptuous as vol
@@ -114,6 +115,9 @@ from .listes_champs import SECTIONS
 # dans leur PROPRE mixin, `objets.py` — extrait de ce module pour rester
 # sous 500 lignes (meme couture que `listes.py`/`listes_champs.py`).
 from .objets import SectionsObjetMixin
+# Decision 7 de la spec, tenue a la tache 7 : une entite inconnue du
+# registre AVERTIT, ne refuse jamais (voir registre.py).
+from .registre import entites_inconnues
 
 # `temperature` ($defs/entite) : le capteur que l'ecran affiche en bandeau.
 # Ronde 1 de relecture (tache 6) : c'etait un champ RACINE requis du contrat
@@ -173,6 +177,15 @@ SCHEMA_IDENTITE = vol.Schema(
         ): int,
         vol.Required("temperature"): selector.EntitySelector(selector.EntitySelectorConfig()),
         vol.Optional("note"): str,
+        # Plan 3b : deux des quatre champs racine SANS porte de saisie (spec
+        # amendee du 2026-09-13) -- les trois ecrans reels les portent et
+        # survivaient a toute edition, mais ne pouvaient ni se creer ni se
+        # modifier depuis HA. Optionnels : le contrat les porte `Optional`.
+        vol.Optional("aspirateur"): selector.EntitySelector(selector.EntitySelectorConfig()),
+        # `delorean` est `const: true` au contrat : une case a cocher.
+        # Decochee, la cle doit etre RETIREE (`False` y est REFUSE) -- voir
+        # `_valider_identite`, meme filtre que "note", DEUX sites.
+        vol.Optional("delorean"): bool,
     }
 )
 
@@ -212,8 +225,16 @@ def _valider_identite(user_input: dict[str, Any], *, noms_existants: frozenset[s
         description_placeholders["max"] = str(schema.HAUTEUR_MAX)
         return errors, description_placeholders, None
     # Ronde 1 (tache 6) : `note` vide etait PERSISTE ("" reste "") la ou le
-    # contrat la veut ABSENTE (Optional, jamais une chaine vide).
-    donnee = {k: v for k, v in user_input.items() if not (k == "note" and v == "")}
+    # contrat la veut ABSENTE (Optional, jamais une chaine vide). Ruling 15
+    # (tache 7) : `delorean` decochee arrive comme `False` -- MEME filtre,
+    # sinon PERSISTE alors que le contrat la porte `const: true` (`False` y
+    # est REFUSE) -- plus aucun ecran ne pourrait s'enregistrer des qu'on
+    # ouvre ce formulaire sans cocher la case. Second site : `async_step_
+    # identite`, qui retire aussi la cle de `nouvelles_donnees`.
+    donnee = {
+        k: v for k, v in user_input.items()
+        if not (k == "note" and v == "") and not (k == "delorean" and v is False)
+    }
     donnee["nom"] = nom  # le STRIPPE, jamais le brut
     return errors, description_placeholders, donnee
 
@@ -298,22 +319,27 @@ class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFl
             )
             if donnee is not None:
                 donnee["version"] = VERSION_CONFIG
-                # Ronde 3 de relecture (Important 1) : une section
-                # jamais ouverte ne persistait RIEN — la cle restait
-                # ABSENTE, pas vide, alors que le contrat exige les
-                # cinq cles de liste a la RACINE (vol.Required dans
-                # schema.py). Les vrais ecrans du depot le prouvent
-                # (`salon` ne porte jamais ambiances/extrasMaison,
-                # `bureau` ne porte jamais ouvrants/extrasMaison) :
-                # MEME faute de classe que le Critique de la ronde 1
-                # (un champ absent du formulaire disparaissait de la
-                # donnee), ici au niveau des SECTIONS entieres plutot
-                # que de leurs champs. Semees ICI, DERIVEES de
-                # `SECTIONS` — jamais recopiees a la main, jamais
-                # ecrasees si l'appelant les portait deja.
+                # Ronde 3 de relecture (Important 1) : une section jamais
+                # ouverte ne persistait RIEN -- la cle restait ABSENTE, pas
+                # vide, alors que le contrat exige les cinq cles de liste a
+                # la RACINE. Semees ICI, DERIVEES de `SECTIONS` -- jamais
+                # recopiees a la main, jamais ecrasees si deja portees.
                 for cle in SECTIONS:
                     donnee.setdefault(cle, [])
-                return self.async_create_entry(title=donnee["nom"], data=donnee)
+                # Decision 7 : AVERTIT, ne refuse jamais -- une entite peut
+                # arriver plus tard. Ruling 18 : `_valider_identite` est une
+                # fonction de MODULE sans acces a `hass` ; l'appel vit donc
+                # ICI, dans le step, qui porte `self.hass`.
+                inconnues = entites_inconnues(
+                    self.hass,
+                    [v for v in (donnee.get("temperature"), donnee.get("aspirateur")) if v],
+                )
+                if inconnues:
+                    description_placeholders["entites_inconnues"] = ", ".join(inconnues)
+                return self.async_create_entry(
+                    title=donnee["nom"], data=donnee,
+                    description_placeholders=description_placeholders,
+                )
 
         # Reaffiche la saisie precedente (nom, note) apres un refus : sans ce
         # pre-remplissage, un budget intenable effacerait aussi ce que
@@ -323,41 +349,43 @@ class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFl
         return reafficher(self, "user", SCHEMA_IDENTITE, user_input, errors, description_placeholders)
 
     async def async_step_reconfigure(
-        self, user_input: dict[str, Any] | None = None
+        self,
+        user_input: dict[str, Any] | None = None,
+        description_placeholders: dict[str, str] | None = None,
     ) -> SubentryFlowResult:
-        """Point d'entree d'une sous-entree EXISTANTE. Un menu vers les huit
+        """Point d'entree d'une sous-entree EXISTANTE. Un menu vers les
         sections « liste » de `listes_champs.SECTIONS` (tuiles de commande,
         rangee d'ambiance, extras maison, ouvrants, ligne de synthese,
-        sources media, slots de minuteur, etiquettes de minuteur — les trois
-        dernieres ajoutees a la tache 7), plus les DEUX sections « objet »
-        de cette meme tache (`agencement` — « Blocs et modes » — et
-        `voiture`), qui n'ont pas leur place dans `SECTIONS` : ce ne sont
-        pas des collections d'elements choisis un par un, mais un objet
-        unique par ecran.
+        sources media, slots de minuteur, etiquettes de minuteur,
+        `listesTachesExtra` — les quatre dernieres ajoutees a la tache 7),
+        plus les DEUX sections « objet » de cette meme tache (`agencement` —
+        « Blocs et modes » — et `voiture`), qui n'ont pas leur place dans
+        `SECTIONS` : ce ne sont pas des collections d'elements choisis un
+        par un, mais un objet unique par ecran.
+
+        `description_placeholders`, si fourni (decision 7) : l'avertissement
+        d'entite inconnue calcule par `async_step_identite` avant de revenir
+        ICI -- optionnel, ce step restant appelable directement par HA.
 
         Ronde de tache 7 (a rapporter, pas a taire) : le brief decrit QUATRE
-        nouvelles lignes de menu (Sources media, Blocs et modes, Minuteurs,
-        Voiture). Ce menu en ajoute CINQ : les slots de minuteur et les
+        nouvelles lignes de menu. Ce menu en ajoute SIX (`listesTachesExtra`
+        comprise, ruling du supplement) : les slots de minuteur et les
         etiquettes proposees (`etiquettesMinuteur`, un champ RACINE distinct
-        du contrat) sont deux sections DIFFERENTES au sens du contrat, et
-        les fusionner sous une seule ligne « Minuteurs » aurait exige un
-        sous-menu dedie — une divergence entre le mecanisme generique
-        (`SECTIONS`, un menu = une cle) et un cas particulier, pour un gain
-        cosmetique qu'aucun test n'exige. Chaque ligne reste directement
-        tracable a UNE cle du contrat, ce qui a paru preferable.
+        du contrat) sont deux sections DIFFERENTES au sens du contrat --
+        les fusionner sous une seule ligne aurait exige un sous-menu dedie
+        pour un gain cosmetique qu'aucun test n'exige. Chaque ligne reste
+        tracable a UNE cle du contrat.
 
         Ronde 1 de relecture (Important I4) : `"identite"` rejoint ce menu.
         Avant cette ronde, `nom`/`hauteurUtile`/`temperature`/`note`
         n'etaient saisis QU'A LA CREATION (`async_step_user`) — aucune
         entree de ce menu n'y ramenait jamais, les rendant IMMUABLES a vie.
-        Le message de `budget_intenable_mode` recommandait pourtant
-        « augmentez la hauteur utile » : un remede qui n'avait aucune porte
-        d'entree dans l'interface. `async_step_identite` reutilise
-        `SCHEMA_IDENTITE` et les memes trois gardes que la creation
-        (`_valider_identite`)."""
+        `async_step_identite` reutilise `SCHEMA_IDENTITE` et les memes
+        gardes que la creation (`_valider_identite`)."""
         return self.async_show_menu(
             step_id="reconfigure",
             menu_options=["identite", *SECTIONS, "agencement", "voiture"],
+            description_placeholders=description_placeholders,
         )
 
     async def async_step_identite(
@@ -384,7 +412,7 @@ class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFl
         description_placeholders: dict[str, str] = {}
         valeurs_affichees = {
             cle: subentry.data[cle]
-            for cle in ("nom", "hauteurUtile", "temperature", "note")
+            for cle in ("nom", "hauteurUtile", "temperature", "note", "aspirateur", "delorean")
             if cle in subentry.data
         }
 
@@ -399,102 +427,64 @@ class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFl
                 nouvelles_donnees.update(donnee)
                 if "note" not in donnee:
                     nouvelles_donnees.pop("note", None)
+                # Ruling 15, SECOND site : `.update()` est une UNION qui ne
+                # retire jamais une cle deja PERSISTEE -- sans ce jumeau,
+                # decocher une case DEJA cochee ne la retirerait jamais.
+                if "delorean" not in donnee:
+                    nouvelles_donnees.pop("delorean", None)
+                entites = [
+                    v for v in (
+                        nouvelles_donnees.get("temperature"),
+                        nouvelles_donnees.get("aspirateur"),
+                    ) if v
+                ]
+                inconnues = entites_inconnues(self.hass, entites)
+                if inconnues:
+                    description_placeholders["entites_inconnues"] = ", ".join(inconnues)
                 if garde_ecran.persister_si_valide(
                     self, entry, subentry, nouvelles_donnees, errors, description_placeholders,
                     section_courante="identite", titre=nouvelles_donnees["nom"],
                 ):
-                    return await self.async_step_reconfigure()
+                    return await self.async_step_reconfigure(
+                        description_placeholders=description_placeholders
+                    )
 
         return reafficher(
             self, "identite", SCHEMA_IDENTITE, valeurs_affichees, errors, description_placeholders
         )
 
-    # Les SEIZE relais (8 sections x 2 steps, depuis que la tache 7 porte
-    # sources/minuteurs/etiquettesMinuteur a huit) qu'exige `listes.
-    # SectionsListeMixin` : HA appelle un step par SON NOM (`getattr(flow,
-    # f"async_step_{step_id}")`), donc pas de facon generique de les eviter
-    # — mais chacun ne fait qu'UN appel, et c'est `_async_step_section`/
-    # `_async_step_section_element` qui portent toute la logique, une seule
-    # fois, pour les huit sections.
-    async def async_step_commandes(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        return await self._async_step_section("commandes", user_input)
+    def __getattr__(self, nom: str) -> Any:
+        """Les relais (2 steps x N sections, `listes_champs.SECTIONS`) qu'exige
+        `listes.SectionsListeMixin`, rendus generiques.
 
-    async def async_step_commandes_element(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        return await self._async_step_section_element("commandes", user_input)
+        Home Assistant appelle un step PAR SON NOM
+        (`getattr(flow, f"async_step_{step_id}")`, `data_entry_flow.py`) et
+        verifie son existence par `hasattr` : il faut donc que ces noms
+        repondent, mais rien n'oblige a les ECRIRE. Seize methodes d'un
+        appel chacune coutaient 82 lignes dans un fichier qui plafonne a
+        500, et toute section « liste » supplementaire en coutait dix de
+        plus -- la neuvieme (`listesTachesExtra`, tache 7) faisait franchir
+        le plafond.
 
-    async def async_step_ambiances(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        return await self._async_step_section("ambiances", user_input)
+        `__getattr__` n'est appele QUE si la recherche normale echoue : les
+        vraies methodes (`async_step_user`, `_async_step_section`...)
+        gagnent toujours.
 
-    async def async_step_ambiances_element(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        return await self._async_step_section_element("ambiances", user_input)
-
-    async def async_step_synthese(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        return await self._async_step_section("synthese", user_input)
-
-    async def async_step_synthese_element(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        return await self._async_step_section_element("synthese", user_input)
-
-    async def async_step_extrasMaison(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        return await self._async_step_section("extrasMaison", user_input)
-
-    async def async_step_extrasMaison_element(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        return await self._async_step_section_element("extrasMaison", user_input)
-
-    async def async_step_ouvrants(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        return await self._async_step_section("ouvrants", user_input)
-
-    async def async_step_ouvrants_element(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        return await self._async_step_section_element("ouvrants", user_input)
-
-    # Tache 7 : les TROIS sections « liste » qu'elle ajoute (sources media,
-    # slots de minuteur, etiquettes de minuteur) reutilisent le MEME
-    # squelette, six relais de plus.
-    async def async_step_sources(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        return await self._async_step_section("sources", user_input)
-
-    async def async_step_sources_element(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        return await self._async_step_section_element("sources", user_input)
-
-    async def async_step_minuteurs(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        return await self._async_step_section("minuteurs", user_input)
-
-    async def async_step_minuteurs_element(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        return await self._async_step_section_element("minuteurs", user_input)
-
-    async def async_step_etiquettesMinuteur(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        return await self._async_step_section("etiquettesMinuteur", user_input)
-
-    async def async_step_etiquettesMinuteur_element(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        return await self._async_step_section_element("etiquettesMinuteur", user_input)
+        CE QUI COMPTE ICI, c'est le `raise AttributeError` final. Sans lui,
+        `hasattr` rendrait vrai pour N'IMPORTE QUEL nom, et
+        `_raise_if_step_does_not_exist` cesserait de proteger : une faute de
+        frappe dans un identifiant de step ne leverait plus `UnknownStep`,
+        elle partirait dans le squelette d'une section inexistante et
+        casserait plus loin, ailleurs, sans rapport visible avec sa cause.
+        Couvre aussi les noms DUNDER que Python cherche tout seul
+        (`__deepcopy__`...) : ils ne commencent pas par `async_step_`, donc
+        y retombent -- le comportement correct."""
+        if nom.startswith("async_step_"):
+            reste = nom.removeprefix("async_step_")
+            if reste.endswith("_element"):
+                section = reste.removesuffix("_element")
+                if section in SECTIONS:
+                    return partial(self._async_step_section_element, section)
+            elif reste in SECTIONS:
+                return partial(self._async_step_section, reste)
+        raise AttributeError(nom)

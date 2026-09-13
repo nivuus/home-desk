@@ -1,6 +1,6 @@
 """Le garde qui protege l'invariant que cette integration peut desormais
 s'offrir : depuis que `schema.valider()` passe des la creation d'une
-sous-entree (`listes_champs.SECTIONS` initialise les huit sections « liste »
+sous-entree (`listes_champs.SECTIONS` initialise les sections « liste »
 a `[]`, voir le rapport de tache 7), un ecran valide doit RESTER valide a
 CHAQUE etape qui persiste — jamais verifie sur SA SEULE forme locale
 (schema.BOUTON, schema.AGENCEMENT, schema.VOITURE...), qui ne voit pas les

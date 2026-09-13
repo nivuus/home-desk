@@ -35,6 +35,8 @@ ELEMENTS_VALIDES = {
         "entite": "sensor.test_synthese", "texte": "Texte test", "operateur": "==", "valeur": "ok",
     },
     "ouvrants": {"entite": "binary_sensor.test_ouvrant"},
+    # Tache 7 : meme forme qu'`ouvrants` (un tableau d'`entite` nue).
+    "listesTachesExtra": {"entite": "todo.test_liste_taches"},
     "sources": {
         "nom": "Source test",
         "titre": ["sensor.test_titre"],
@@ -172,7 +174,7 @@ def _variante(cle: str, i: int):
     exercer monter/descendre/supprimer sur les CINQ sections, pas
     seulement "commandes")."""
     base = ELEMENTS_VALIDES[cle]
-    if cle == "ouvrants":
+    if cle in ("ouvrants", "listesTachesExtra"):
         return {**base, "entite": f"{base['entite']}_{i}"}
     if cle == "synthese":
         return {**base, "texte": f"{base['texte']} {i}"}

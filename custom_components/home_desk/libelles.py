@@ -41,7 +41,7 @@ def _langue(hass) -> str:
 def section(hass, cle: str) -> str:
     """Le libelle humain d'une cle de section, celui du menu de
     reconfiguration (`config_subentries.ecran.step.reconfigure.
-    menu_options`) — ce menu couvre deja les huit sections « liste » ET les
+    menu_options`) — ce menu couvre deja les sections « liste » ET les
     deux sections « objet » (agencement, voiture). Repli sur `cle` elle-meme
     si absente : ne doit jamais arriver pour une cle reelle, mais ne doit
     jamais lever pour autant (un texte degrade vaut mieux qu'un flow casse)."""

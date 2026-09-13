@@ -43,7 +43,7 @@ from . import garde_ecran
 # Ronde 2 de relecture : `_localiser_champ` vivait ICI seule jusqu'a cette
 # ronde — la ronde 1 avait corrige la troncature de `fautes.localiser()`
 # pour agencement/voiture en la croyant limitee a ces deux formes, alors
-# que `listes.py` portait EXACTEMENT le meme defaut pour les huit sections
+# que `listes.py` portait EXACTEMENT le meme defaut pour les sections
 # « liste » (voir sa propre docstring pour la mesure). Une seule
 # implementation desormais, definie dans `listes.py`, importee ICI.
 from .listes import _ERREUR_PAR_MOT_CLE, _localiser_champ
