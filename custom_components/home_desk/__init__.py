@@ -40,7 +40,29 @@ sous-entree souffrait du meme angle mort : elle disparait de
 `entry.subentries`, donc la boucle qui ne visite QUE les sous-entrees
 PRESENTES ne l'aurait jamais vue. `_async_sur_mise_a_jour` emet donc
 l'ANCIEN nom pour toute sous-entree RENOMMEE (en plus du nouveau) ou
-DISPARUE, et le NOUVEAU nom pour toute sous-entree creee ou modifiee."""
+DISPARUE, et le NOUVEAU nom pour toute sous-entree creee ou modifiee.
+
+Ronde 2 de relecture : la regle est SUPPRESSION et RENOMMAGE, PAS « tout
+nom qui cesse d'etre servable » -- deux AUTRES gestes rendent aussi des
+noms injoignables (retirer l'integration, decharger l'entree) et
+n'emettent RIEN. Delibere, pas un troisieme angle mort : un DECHARGEMENT
+passe aussi par `async_unload_entry` lors d'un simple RECHARGEMENT
+(reglages modifies, redemarrage de Home Assistant) -- emettre
+naivement a ce moment ferait tirer l'evenement a chaque redemarrage, pour
+des ecrans qui n'ont pourtant pas change. `websocket._sous_entrees` degrade
+deja proprement vers `[]` pour ce cas (deuxieme degradation de la spec,
+voir websocket.py) : une tablette qui interroge apres coup recoit une
+liste vide ou `not_found`, jamais un mur blanc -- mais elle ne le
+DECOUVRE qu'en interrogeant, pas par un evenement pousse.
+
+Ronde 2 de relecture (Mineur) : l'instantane porte desormais `(data,
+titre)`, pas seulement `data` -- `titre` (`ConfigSubentry.title`) est un
+champ de FIL depuis que `ws_ecrans` l'expose separement de `nom` (ronde 1),
+et il est renommable INDEPENDAMMENT de `data` par le geste GENERIQUE de
+Home Assistant. Sans ce second membre, renommer le SEUL titre (`data`
+inchange) ne declenchait aucun evenement : une tablette affichait alors un
+titre perime indefiniment, un ecart qui n'existait pas avant que `titre`
+devienne un champ de fil."""
 from __future__ import annotations
 
 from typing import Any
@@ -66,41 +88,50 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # suivant le demarrage de Home Assistant sur une sous-entree deja
     # existante et INCHANGEE (un simple redemarrage, par exemple un rechargement
     # d'une AUTRE sous-entree) serait vue a tort comme un changement.
-    dernieres_donnees: dict[str, Any] = {
-        sous_entree.subentry_id: sous_entree.data for sous_entree in entry.subentries.values()
+    #
+    # Ronde 2 de relecture (Mineur) : le tuple `(data, titre)`, pas
+    # seulement `data` -- voir la docstring de module.
+    dernier_etat: dict[str, tuple[Any, str]] = {
+        sous_entree.subentry_id: (sous_entree.data, sous_entree.title)
+        for sous_entree in entry.subentries.values()
     }
 
     async def _async_sur_mise_a_jour(hass: HomeAssistant, entry: ConfigEntry) -> None:
-        """Compare les `data` de chaque sous-entree a celles DEJA VUES, DANS
-        LES DEUX SENS -- ronde 1 de relecture (Important).
+        """Compare `(data, titre)` de chaque sous-entree a l'etat DEJA VU,
+        DANS LES DEUX SENS -- ronde 1 de relecture (Important).
 
         Premiere passe : toute sous-entree VUE avant mais absente
         aujourd'hui a ete SUPPRIMEE -- emet son ANCIEN nom (elle a cesse
         d'etre servable, une tablette qui l'affichait doit l'apprendre) et
-        oublie son instantane.
+        oublie son instantane (ronde 2 : sans ce `pop`, un nom mort
+        reapparaitrait a CHAQUE ecriture suivante, pour toujours -- pas
+        seulement une fuite memoire).
 
-        Seconde passe : toute sous-entree dont les `data` DIFFERENT de
-        l'instantane -- creation (rien vu avant) ou modification. Si son
-        `nom` a change (un RENOMMAGE), l'ANCIEN nom est emis EN PLUS du
-        nouveau : la tablette qui affichait l'ancien nom ne l'apprendrait
-        sinon jamais (elle n'ecoute que ce nom-la). Comparer sur `data`
-        entier, pas sur `nom` seul, reste necessaire par ailleurs : un
-        changement qui laisse le nom inchange (ajouter une tuile, par
-        exemple) doit aussi notifier."""
+        Seconde passe : toute sous-entree dont `(data, titre)` DIFFERE de
+        l'instantane -- creation (rien vu avant), modification de `data`,
+        OU renommage du seul `titre` (ronde 2 : le geste GENERIQUE de Home
+        Assistant, independant de `nom`). Si `nom` a change (un
+        RENOMMAGE), l'ANCIEN nom est emis EN PLUS du nouveau : la tablette
+        qui affichait l'ancien nom ne l'apprendrait sinon jamais (elle
+        n'ecoute que ce nom-la). Comparer sur l'etat ENTIER, pas sur `nom`
+        seul, reste necessaire par ailleurs : un changement qui laisse le
+        nom inchange (ajouter une tuile, renommer le seul titre) doit
+        aussi notifier."""
         ids_actuels = set(entry.subentries)
-        for subentry_id in [i for i in dernieres_donnees if i not in ids_actuels]:
-            donnees_disparues = dernieres_donnees.pop(subentry_id)
+        for subentry_id in [i for i in dernier_etat if i not in ids_actuels]:
+            donnees_disparues, _titre_disparu = dernier_etat.pop(subentry_id)
             nom_disparu = donnees_disparues.get("nom")
             if nom_disparu is not None:
                 hass.bus.async_fire(EVENEMENT_CHANGEMENT, {"nom": nom_disparu})
 
         for sous_entree in entry.subentries.values():
-            donnees_avant = dernieres_donnees.get(sous_entree.subentry_id)
-            if donnees_avant == sous_entree.data:
+            etat_avant = dernier_etat.get(sous_entree.subentry_id)
+            etat_apres = (sous_entree.data, sous_entree.title)
+            if etat_avant == etat_apres:
                 continue
-            dernieres_donnees[sous_entree.subentry_id] = sous_entree.data
+            dernier_etat[sous_entree.subentry_id] = etat_apres
             nom_apres = sous_entree.data.get("nom")
-            nom_avant = donnees_avant.get("nom") if donnees_avant is not None else None
+            nom_avant = etat_avant[0].get("nom") if etat_avant is not None else None
             if nom_avant is not None and nom_avant != nom_apres:
                 hass.bus.async_fire(EVENEMENT_CHANGEMENT, {"nom": nom_avant})
             hass.bus.async_fire(EVENEMENT_CHANGEMENT, {"nom": nom_apres})

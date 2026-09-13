@@ -202,6 +202,14 @@ _PORTES_ECRITURE = (
     "async_update_subentry",
     "async_update_and_abort",
     "async_update_reload_and_abort",
+    # Ronde 2 de relecture (tache 8) : la CREATION, pas seulement la mise
+    # a jour -- la tache 9 (un importeur) sèmera des sous-entrees, et si
+    # elle le fait par `hass.config_entries.async_add_subentry(...)`
+    # directement (hors du flow, qui passe par `self.async_create_entry`
+    # puis le gestionnaire de flow), ce serait la TROISIEME porte que la
+    # docstring de `websocket._resoudre` nomme deja -- jamais gardee tant
+    # qu'elle n'est appelee nulle part. Fermee ICI, avant d'exister.
+    "async_add_subentry",
 )
 
 

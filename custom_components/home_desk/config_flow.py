@@ -178,23 +178,24 @@ SCHEMA_IDENTITE = vol.Schema(
 
 
 def _valider_identite(user_input: dict[str, Any], *, noms_existants: frozenset[str] = frozenset()) -> tuple[dict[str, str], dict[str, str], dict[str, Any] | None]:
-    """Les QUATRE gardes communes a la CREATION (`EcranSubentryFlow.
-    async_step_user`) et a la RECONFIGURATION (`async_step_identite`, ronde 1
-    de relecture — Important I4) : nom non vide, nom non DEJA UTILISE par un
-    autre ecran (ronde 1 — `nom` est la cle primaire du transport websocket,
-    voir `garde_ecran.noms_utilises`), budget du mode le moins cher, bornes
-    de hauteur. `noms_existants` (calcule par l'appelant, seul a savoir
-    EXCLURE la sous-entree en reconfiguration) est vide a la creation. Rend
-    `(errors, description_placeholders, donnee)`, `donnee` etant `None` sauf
-    si les quatre gardes passent."""
+    """Les QUATRE gardes communes a la CREATION et a la RECONFIGURATION
+    (`async_step_user`/`async_step_identite`) : nom non vide, nom non DEJA
+    UTILISE (`garde_ecran.noms_utilises` -- `nom` est la cle primaire du
+    transport websocket), budget du mode le moins cher, bornes de hauteur.
+    `noms_existants` est vide a la creation. Rend `(errors,
+    description_placeholders, donnee)`, `donnee` etant `None` sauf si les
+    quatre gardes passent."""
     errors: dict[str, str] = {}
     description_placeholders: dict[str, str] = {}
-    if not user_input["nom"].strip():
+    # Ronde 2 (tache 8) : `nom` STRIPPE ICI, reutilise pour vide/unicite/
+    # persistance -- "salon " passait sinon les deux gardes mais se stockait brut.
+    nom = user_input["nom"].strip()
+    if not nom:
         errors["nom"] = ERREUR_NOM_VIDE
         return errors, description_placeholders, None
-    if user_input["nom"] in noms_existants:
+    if nom in noms_existants:
         errors["nom"] = ERREUR_NOM_DEJA_UTILISE
-        description_placeholders["nom"] = user_input["nom"]
+        description_placeholders["nom"] = nom
         return errors, description_placeholders, None
     deborde = verifier_budget(
         "defaut", rangee_ambiance=True, hauteur_utile=user_input["hauteurUtile"]
@@ -213,6 +214,7 @@ def _valider_identite(user_input: dict[str, Any], *, noms_existants: frozenset[s
     # Ronde 1 (tache 6) : `note` vide etait PERSISTE ("" reste "") la ou le
     # contrat la veut ABSENTE (Optional, jamais une chaine vide).
     donnee = {k: v for k, v in user_input.items() if not (k == "note" and v == "")}
+    donnee["nom"] = nom  # le STRIPPE, jamais le brut
     return errors, description_placeholders, donnee
 
 
@@ -366,11 +368,9 @@ class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFl
         quatre gardes que la creation (`_valider_identite`), l'unicite du
         `nom` EXCLUANT cette sous-entree elle-meme, PUIS `garde_ecran.
         persister_si_valide` (ronde 1, Critique ; ronde 2, LE site
-        d'ecriture unique) : changer la hauteur utile ne peut
-        aujourd'hui casser aucun invariant croise du contrat, mais
-        l'appliquer ICI AUSSI, uniformement avec chaque autre step qui
-        persiste, coute une ligne et evite d'avoir a s'en souvenir le jour
-        ou une regle future en ajouterait un qui le pourrait.
+        d'ecriture unique) : changer la hauteur utile ne peut aujourd'hui
+        casser aucun invariant croise, mais l'appliquer ICI AUSSI evite
+        d'avoir a s'en souvenir le jour ou une regle future le pourrait.
 
         Ronde 2 de relecture (point 4) : `titre=nouvelles_donnees["nom"]`
         — mesure, `_async_update` etait appele SANS `title=` ; renommer un

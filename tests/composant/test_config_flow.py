@@ -272,6 +272,33 @@ async def test_creer_un_second_ecran_du_meme_nom_est_refuse(hass, entree):
     assert len(entry.subentries) == 1, "le second ecran refuse ne doit RIEN persister"
 
 
+async def test_un_nom_avec_un_espace_final_est_le_MEME_homonyme(hass, entree):
+    """Ronde 2 de relecture : sonde du relecteur -- creer "salon" puis
+    "salon " (espace final) passait sans un mot, `home_desk/ecrans`
+    rendant deux lignes indiscernables a l'oeil. La cause etait une
+    asymetrie : le vide etait juge `.strip()`, l'unicite comparee BRUTE,
+    et le nom persiste BRUT. `_valider_identite` strippe desormais `nom`
+    UNE FOIS, reutilise pour les trois : ce test verifie que "salon " est
+    bien traite comme le MEME nom que "salon", refuse comme homonyme."""
+    premier = await hass.config_entries.subentries.async_init(
+        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        context={"source": config_entries.SOURCE_USER})
+    resultat = await hass.config_entries.subentries.async_configure(
+        premier["flow_id"], {**IDENTITE_MINIMALE, "nom": "salon"})
+    assert resultat["type"] is data_entry_flow.FlowResultType.CREATE_ENTRY
+
+    second = await hass.config_entries.subentries.async_init(
+        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        context={"source": config_entries.SOURCE_USER})
+    resultat = await hass.config_entries.subentries.async_configure(
+        second["flow_id"], {**IDENTITE_MINIMALE, "nom": "salon "})
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+    assert resultat["errors"]["nom"] == ERREUR_NOM_DEJA_UTILISE
+
+    entry = hass.config_entries.async_get_entry(entree.entry_id)
+    assert len(entry.subentries) == 1
+
+
 async def test_nom_vide_est_refuse_a_la_saisie(hass, entree):
     """Ronde 1 de relecture (Mineur -> corrige) : dette de la tache 5. `nom`
     vide (ou blanc) etait accepte et PERSISTE, alors que le contrat exige

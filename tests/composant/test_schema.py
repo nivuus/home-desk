@@ -92,6 +92,25 @@ def test_schema_lit_reellement_son_contrat_embarque(monkeypatch):
             "nommer le contrat embarque sans le lire ne suffit pas.")
 
 
+def test_la_version_du_contrat_est_celle_que_le_composant_reconnait():
+    """Ronde 2 de relecture (tache 8) : le nombre `1` existait en trois
+    copies sans lien (const.py, `contrat/ecran.schema.json`, `_const(1)`
+    ecrit a la main dans schema.py) -- `VERSION_SCHEMA` est maintenant
+    DERIVEE du contrat (comme `HAUTEUR_MIN`/`HAUTEUR_MAX`) et couplee a
+    `VERSION_CONFIG` par une assertion a l'import. Ce test epingle la
+    valeur par un LITTERAL (`1`), et prouve que la contrainte est encore
+    REELLEMENT appliquee -- une regression qui la retirerait
+    (`_const(VERSION_SCHEMA)` -> `vol.Any(int)`) laisserait n'importe
+    quelle version passer, invisible sans ce test fonctionnel."""
+    assert _module_schema.VERSION_CONFIG == 1
+    assert _module_schema.VERSION_SCHEMA == 1
+
+    with pytest.raises(vol.Invalid):
+        valider({**CORPUS["minimal"], "version": 2})
+
+    valider({**CORPUS["minimal"], "version": 1})
+
+
 def test_zones_modes_modulateurs_blocdefaut_sont_des_listes_ordonnees_selon_le_contrat():
     """Ronde 2 de relecture : correction PREVENTIVE, mise en place avant
     qu'aucun formulaire ne consomme ces quatre vocabulaires — exactement la

@@ -74,6 +74,29 @@ _VUE_PATTERN = re.compile(_DEFS["bouton"]["properties"]["vue"]["pattern"])
 HAUTEUR_MIN = _SCHEMA_JSON["properties"]["hauteurUtile"]["minimum"]
 HAUTEUR_MAX = _SCHEMA_JSON["properties"]["hauteurUtile"]["maximum"]
 
+# Ronde 2 de relecture (tache 8) : DERIVEE du contrat, exactement comme
+# HAUTEUR_MIN/HAUTEUR_MAX ci-dessus -- jamais un `1` retape a la main. La
+# ronde 1 avait couple `_const(1)` a `const.VERSION_CONFIG` (import), mais
+# son commentaire affirmait a tort que `version` serait « propre a
+# home_desk, pas au contrat partage avec ajv » : FAUX, mesure --
+# `contrat/ecran.schema.json:10` porte `"version": {"const": 1}`, le MEME
+# fichier que `_SCHEMA_JSON` lit ligne 59 et qu'ajv consomme aussi. Ce qui
+# est propre a home_desk, c'est seulement l'ABSENCE de cas sur `version`
+# dans `contrat/cas-schema.json` (compte : 0) -- la mesure d'un trou de
+# couverture du corpus partage, pas une dispense de le lire depuis lui.
+#
+# L'assertion ci-dessous fait du contrat l'AUTORITE : si quelqu'un change
+# `VERSION_CONFIG` (const.py) sans repercuter le contrat (ou l'inverse),
+# l'import de ce module echoue net plutot que de laisser les deux copies
+# diverger en silence.
+VERSION_SCHEMA: int = _SCHEMA_JSON["properties"]["version"]["const"]
+assert VERSION_SCHEMA == VERSION_CONFIG, (
+    f"contrat/ecran.schema.json declare version={VERSION_SCHEMA!r} mais "
+    f"const.VERSION_CONFIG vaut {VERSION_CONFIG!r} -- les deux doivent "
+    "rester identiques : le second est la version de FORME que ce "
+    "composant sait lire, le premier est celle que le contrat publie."
+)
+
 # Publique pour la meme raison : listes.py construit le SelectSelector
 # d'`operateur` de la ligne de synthese sur CES quatre valeurs, jamais une
 # liste ecrite a la main a cote de _OPERATEURS. LISTE, pas _OPERATEURS
@@ -356,14 +379,13 @@ AGENCEMENT = vol.Schema(
 
 _ECRAN_STRUCTURE = vol.Schema(
     {
-        # Ronde 1 de relecture (Mineur) : COUPLE a `const.VERSION_CONFIG`,
-        # jamais un "1" retape a la main -- avant cette correction, le
-        # nombre existait en TROIS copies sans lien (const.py, `contrat/
-        # ecran.schema.json`, et ce `_const(1)`) : une coincidence
-        # numerique, pas un couplage. `contrat/cas-schema.json` ne porte
-        # d'ailleurs AUCUN cas sur `version` (compte : 0) -- ce champ est
-        # propre a home_desk, pas au contrat partage avec ajv.
-        vol.Optional("version"): _const(VERSION_CONFIG),
+        # Ronde 2 de relecture (tache 8) : `_const(VERSION_SCHEMA)`, DERIVEE
+        # du contrat (voir sa definition plus haut, a cote de HAUTEUR_MIN),
+        # et non plus `_const(VERSION_CONFIG)` -- la ronde 1 avait couple
+        # a la constante Python, mais la valeur qui compte ICI est celle
+        # QUE LE CONTRAT PUBLIE, l'assertion module-level garantissant deja
+        # que les deux ne peuvent pas diverger silencieusement.
+        vol.Optional("version"): _const(VERSION_SCHEMA),
         vol.Required("nom"): _chaine(1),
         vol.Optional("note"): _chaine(),
         vol.Optional("hauteurUtile"): hauteur_utile,

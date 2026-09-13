@@ -83,6 +83,35 @@ async def test_ecrans_distingue_le_titre_du_nom(hass, ws_client, entree):
     assert reponse["result"] == [{"nom": "salon", "titre": "Salon (etage)"}]
 
 
+async def test_ecrans_rend_les_deux_lignes_meme_si_l_une_est_corrompue(hass, ws_client, entree):
+    """Ronde 2 de relecture : la regle « `home_desk/ecrans` ne revalide
+    JAMAIS » etait affirmee trois fois (docstring de module, docstring de
+    `ws_ecrans`, rapport de tache) mais gardee par AUCUN test -- corrige
+    ici. Decor a DEUX ecrans, l'un d'eux prive de plusieurs champs
+    RACINE requis (`temperature`, `commandes`, `sources`...) -- un ecran
+    que `schema.valider()` refuserait net. `ws_ecrans` ne l'appelle
+    jamais : les DEUX lignes doivent rester, le corrompu inclus, pour que
+    la PREMIERE degradation (le selecteur d'ecran) reste utilisable meme
+    quand un ecran est casse."""
+    await _creer_ecran(hass, entree, nom="salon")
+    await _creer_ecran(hass, entree, nom="cuisine")
+    cuisine_id = _subentry_id_par_nom(hass, entree.entry_id, "cuisine")
+    entry, _ = _subentry(hass, entree.entry_id)
+    subentry_corrompue = entry.subentries[cuisine_id]
+    hass.config_entries.async_update_subentry(
+        entry, subentry_corrompue, data={"nom": "cuisine"}
+    )
+
+    await ws_client.send_json_auto_id({"type": "home_desk/ecrans"})
+    reponse = await ws_client.receive_json()
+
+    assert reponse["success"] is True
+    assert reponse["result"] == [
+        {"nom": "salon", "titre": "salon"},
+        {"nom": "cuisine", "titre": "cuisine"},
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Les trois refus nommes -- ceux qui comptent vraiment (brief, tache 8)
 # ---------------------------------------------------------------------------
@@ -298,12 +327,61 @@ async def test_l_instantane_initial_evite_un_faux_positif_au_redemarrage(hass, e
 async def test_supprimer_un_ecran_emet_son_ANCIEN_nom(hass, entree):
     """Meme angle mort que le renommage, pour la SUPPRESSION : une
     sous-entree retiree disparait de `entry.subentries`, donc une boucle
-    qui ne visite QUE les sous-entrees PRESENTES ne l'aurait jamais vue."""
-    subentry_id = await _creer_ecran(hass, entree, nom="salon")
+    qui ne visite QUE les sous-entrees PRESENTES ne l'aurait jamais vue.
+
+    Ronde 2 de relecture : decor a DEUX ecrans (la meme pauvrete que le
+    relecteur venait de corriger sur le test voisin) -- supprimer
+    "cuisine" ne doit emettre QUE son nom, jamais celui de "salon",
+    inchange."""
+    await _creer_ecran(hass, entree, nom="salon")
+    await _creer_ecran(hass, entree, nom="cuisine")
+    cuisine_id = _subentry_id_par_nom(hass, entree.entry_id, "cuisine")
     entry = hass.config_entries.async_get_entry(entree.entry_id)
     evenements = async_capture_events(hass, "home_desk_config_changed")
 
-    hass.config_entries.async_remove_subentry(entry, subentry_id)
+    hass.config_entries.async_remove_subentry(entry, cuisine_id)
+    await hass.async_block_till_done()
+
+    assert [e.data for e in evenements] == [{"nom": "cuisine"}]
+
+
+async def test_l_instantane_est_purge_a_la_suppression(hass, entree):
+    """Ronde 2 de relecture (Important) : sans le `.pop(subentry_id)` de la
+    premiere passe, un nom SUPPRIME resterait dans l'instantane pour
+    toujours -- il redeviendrait `donnees_avant is None` a chaque
+    comparaison future, donc CHAQUE ecriture suivante sur N'IMPORTE QUEL
+    autre ecran reemettrait ce nom mort, indefiniment. Pas de l'hygiene
+    memoire : un invariant du bus. Decor a deux ecrans : supprimer
+    "cuisine" puis modifier "salon" ne doit jamais reemettre "cuisine"."""
+    await _creer_ecran(hass, entree, nom="salon")
+    await _creer_ecran(hass, entree, nom="cuisine")
+    cuisine_id = _subentry_id_par_nom(hass, entree.entry_id, "cuisine")
+    entry = hass.config_entries.async_get_entry(entree.entry_id)
+    hass.config_entries.async_remove_subentry(entry, cuisine_id)
+    await hass.async_block_till_done()
+
+    evenements = async_capture_events(hass, "home_desk_config_changed")
+    salon_id = _subentry_id_par_nom(hass, entree.entry_id, "salon")
+    subentry_salon = entry.subentries[salon_id]
+    hass.config_entries.async_update_subentry(
+        entry, subentry_salon, data={**subentry_salon.data, "note": "une note"}
+    )
+    await hass.async_block_till_done()
+
+    assert [e.data for e in evenements] == [{"nom": "salon"}]
+
+
+async def test_renommer_le_seul_titre_emet_aussi_l_evenement(hass, entree):
+    """Ronde 2 de relecture (Mineur) : `titre` est devenu un champ de FIL
+    (ronde 1, `test_ecrans_distingue_le_titre_du_nom`) sans que l'ecouteur
+    ne le surveille -- renommer SEULEMENT le titre (le geste GENERIQUE de
+    Home Assistant, `data` inchangee) n'emettait rien, et une tablette
+    aurait affiche un titre perime indefiniment."""
+    await _creer_ecran(hass, entree, nom="salon")
+    entry, subentry = _subentry(hass, entree.entry_id)
+    evenements = async_capture_events(hass, "home_desk_config_changed")
+
+    hass.config_entries.async_update_subentry(entry, subentry, title="Salon (etage)")
     await hass.async_block_till_done()
 
     assert [e.data for e in evenements] == [{"nom": "salon"}]
