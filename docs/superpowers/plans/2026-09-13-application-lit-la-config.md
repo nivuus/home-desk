@@ -1274,7 +1274,13 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 **La contrainte qui décide de la forme :** `demarrage.ts` fait 1914 lignes et son corps est une fermeture géante où `tenter()` capture `piece`. Le découper est un chantier à part. **On ne le découpe donc pas** : on renomme l'entrée, on ajoute une coquille de ~60 lignes devant, et le corps ne change pas d'une ligne. C'est ce qui rend cette tâche relisable — un diff où le corps n'apparaît pas.
 
-**Et la propriété qui rend 3c abordable :** les 12 fichiers de tests qui lisent `ECRANS` (292 références) ne changent pas d'une ligne. `monterDemarrage` absorbe tout, et passe désormais par la coquille — donc chacun de ces tests exerce le chemin neuf sans le savoir.
+**Et la propriété qui rend 3c abordable :** les fichiers de tests qui lisent `ECRANS` ne voient **ni leurs assertions ni leur décor** réécrits. `monterDemarrage` absorbe le changement de signature pour tous ceux qui passent par lui, et il traverse désormais la coquille — donc chacun de ces tests exerce le chemin neuf sans le savoir.
+
+> **Corrigé le 2026-09-13, après mesure.** Ce paragraphe disait « les 12 fichiers ne changent pas d'une ligne ». C'était **faux dès l'origine** : la liste des appelants de `demarrer()` avait été établie avec un `grep | head`, et deux fichiers étaient plus bas dans la sortie tronquée. `app/tests/navigation.test.ts` appelle `demarrer()` **treize fois directement**, `app/tests/pannes.test.ts` également — sans passer par `monterDemarrage`. Ces appels exigent un renommage mécanique en `demarrerAvecEcran`.
+>
+> Mesuré après exécution : sur les 13 fichiers de tests qui mentionnent `ECRANS`, **11 sont byte-identiques** (`md5sum` comparé avant/après). Les deux qui changent sont `demarrage.test.ts` — qui porte les tests de cette tâche, donc légitimement — et `navigation.test.ts`, dont le diff ne contient **rien** hors le renommage et l'ajout de `prete: () => Promise.resolve()` au double de connexion : zéro assertion, zéro décor, zéro littéral.
+>
+> L'invariant utile n'était donc pas « byte-identique » mais **« aucune assertion ni aucun décor à réécrire »** — et celui-là tient. Un renommage mécanique n'est pas une réécriture.
 
 - [ ] **Step 1: Écrire les tests qui échouent**
 
@@ -1548,8 +1554,7 @@ Ajoutez à la FIN de `app/src/demarrage.ts` :
  *  C'est le point d'entrée de l'application depuis que la configuration vit dans Home Assistant
  *  (spec du 2026-09-12). Il résout l'écran, puis délègue à `demarrerAvecEcran` qui n'a pas
  *  changé d'une ligne — c'est cette séparation qui a permis d'introduire le transport sans
- *  toucher aux 1900 lignes du corps, ni aux 292 références à `ECRANS` des douze fichiers de
- *  tests qui le montent.
+ *  toucher aux 1900 lignes du corps, ni aux assertions des fichiers de tests qui le montent.
  *
  *  Ne lève jamais. Les cinq pannes se répartissent en trois familles, et le traitement DIFFÈRE :
  *   - `reseau` : on retente, en repli exponentiel, indéfiniment. C'est la seule que le temps
@@ -1664,11 +1669,19 @@ void demarrerAvecEcran(racine, piece);
 Run: `npm --prefix app test`
 Expected: 49 fichiers, **1092** tests, 0 échec.
 
-**Les 12 fichiers qui lisent `ECRANS` ne doivent PAS avoir été modifiés.** Vérifiez-le :
+**Les fichiers qui lisent `ECRANS` ne doivent voir ni assertion ni décor réécrits.** Deux
+d'entre eux changent légitimement — `demarrage.test.ts` (il porte les tests de cette tâche) et
+`navigation.test.ts` (13 appels directs à `demarrer()`, renommage mécanique). Vérifiez que les
+autres sont intacts, et que le diff des deux exceptions ne contient QUE le renommage :
 
 ```bash
 git diff --name-only | grep -E 'tests/(corps|ecran|orchestration|maison|modes|nuit|budget|agencement|cochage|navigation|contrat-schema)\.test\.ts' \
-  && echo "ECHEC : un fichier qui lit ECRANS a ete modifie" || echo "OK : les 292 references intactes"
+  && echo "ECHEC : un fichier qui lit ECRANS a ete modifie" || echo "OK : les references intactes"
+
+# Et la contre-epreuve sur les deux exceptions : rien hors le renommage
+git diff <BASE> app/tests/navigation.test.ts | grep -E '^[-+]' | grep -v '^[-+][-+][-+]' \
+  | grep -vE "demarrer|demarrerAvecEcran|prete: \(\) => Promise.resolve\(\)," | wc -l
+# attendu : 0
 ```
 
 - [ ] **Step 8: Jouer les mutations**

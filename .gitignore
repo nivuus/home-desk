@@ -3,3 +3,6 @@ node_modules/
 __pycache__/
 *.pyc
 .venv-composant/
+
+# Cache de vitest, cree a la racine du worktree quand la suite tourne.
+.vite/
