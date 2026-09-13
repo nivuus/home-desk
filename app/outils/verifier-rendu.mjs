@@ -859,9 +859,14 @@ const FORME_URL = process.env.WALLPANEL_URL === 'ecran' ? 'ecran' : 'historique'
 const NOM_ECRAN = { salon: 'Salon', bureau: 'Bureau', cuisine: 'Cuisine' };
 function urlPiece(haUrl, cle, requete = '') {
   if (FORME_URL === 'ecran') {
-    const sep = requete.startsWith('?') ? '&' : requete ? '&' : '';
+    // Ronde de correction 1 (2026-09-13) : l'ancien ternaire (`requete.startsWith('?') ? '&' :
+    // requete ? '&' : ''`) avait ses deux branches non vides identiques ('&') -- mort, il ne
+    // distinguait jamais rien. Consequence reelle : `#maison`/`#minuteur` passent `requete` sans
+    // `?` (leur `essai` vaut ''), et la forme neuve produisait `?ecran=Salon&#maison` au lieu de
+    // `?ecran=Salon#maison`. Corrige : `&` seulement quand `requete` porte deja un `?`.
+    const sep = requete.startsWith('?') ? '&' : '';
     return `${haUrl}/local/wallpanel/index.html?ecran=${encodeURIComponent(NOM_ECRAN[cle] ?? cle)}`
-      + (requete ? sep + requete.replace(/^\?/, '') : '');
+      + sep + requete.replace(/^\?/, '');
   }
   return `${haUrl}/local/wallpanel/${cle}.html${requete}`;
 }
