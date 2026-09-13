@@ -1917,10 +1917,37 @@ Expected: 50 fichiers, **1097** tests, 0 échec.
 
 | Mutation | Test qui doit tomber |
 |---|---|
-| `if (donnees.nom !== nomEcran) return;` retiré | « ne recharge PAS sur l événement d un AUTRE écran » |
-| `typeof donnees.nom !== 'string'` retiré | « ignore un événement sans nom » |
-| `'home_desk_config_changed'` → `'home_desk_changed'` | « s abonne à home_desk_config_changed » |
+| `if (donnees.nom !== nomEcran) return;` retiré | « ne recharge PAS sur l événement d un AUTRE écran » **et** « ignore un événement sans nom » — les deux, parce que c'est la même comparaison qui les couvre |
+| ~~`typeof donnees.nom !== 'string'` retiré~~ | **LIGNE RETIRÉE le 2026-09-13.** Cette garde était structurellement MORTE : `nomEcran` est typé `string`, donc aucune valeur non textuelle ne peut lui être égale, et la comparaison suivante rejette déjà tout ce qu'elle rejetterait. **Aucun décor ne peut les distinguer.** La garde a été supprimée, et son commentaire — qui était vrai mais attribuait le comportement à la mauvaise ligne — déplacé sur celle qui le produit. |
+| `'home_desk_config_changed'` → `'home_desk_changed'` | « s abonne à home_desk_config_changed » (et 3 autres en cascade) |
 | se désabonner après le premier appel | « recharge à CHAQUE édition » |
+
+**Et les trois mutations du CÂBLAGE, dans `app/src/demarrage.ts` — ajoutées le 2026-09-13,
+après qu'une relecture a mesuré que leur absence laissait un trou béant :**
+
+| Mutation | Test qui doit tomber |
+|---|---|
+| supprimer entièrement l'appel `armerRechargement(cx, nomEcran, …)` de `demarrer()` | le test d'intégration du câblage |
+| `deps.recharger ?? (() => location.reload())` → `() => location.reload()` en dur | idem |
+| passer une chaîne fixe à `armerRechargement` au lieu du paramètre `nomEcran` | idem |
+
+> **Pourquoi ces trois lignes existent.** Avant elles, la table ne mutait que `rechargement.ts`.
+> Mesuré en relecture : on pouvait **supprimer l'appel `armerRechargement(...)` de `demarrer()`**
+> — c'est-à-dire la fonctionnalité que cette tâche livre — et les 1102 tests restaient **verts**.
+> Le module était impeccablement gardé, son branchement ne l'était pas du tout. Les treize
+> doubles de connexion complétés satisfaisaient le type (`surEvenement: () => {}`) sans qu'aucun
+> ne capture le rappel ni ne pousse d'événement à travers `demarrer()`.
+>
+> **C'est la première leçon de ce dépôt montée d'un cran : un test qui garde un MODULE ne garde
+> pas son BRANCHEMENT.** Toute tâche qui livre un module ET son câblage doit muter les deux.
+
+**Le test d'intégration qui les ferme** (dans `app/tests/demarrage.test.ts`, pas dans
+`rechargement.test.ts`) : monter `demarrer(...)` avec un double qui **capture** le rappel de
+`surEvenement` — le patron existe déjà dans ce fichier avec `surChangement: (cb) => { emettre = cb; }` —,
+injecter un `recharger` espion par `deps`, pousser un événement au nom de l'écran monté (l'espion
+est appelé), puis au nom d'un **autre** écran (il ne l'est pas). Le décor à deux noms reste la
+règle : le premier test prouve que le filtre marche *dans le module*, celui-ci qu'il marche *tel
+que branché*.
 
 - [ ] **Step 7: Committer**
 
