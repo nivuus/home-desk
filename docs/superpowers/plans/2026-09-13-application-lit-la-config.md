@@ -497,20 +497,22 @@ Puis remplacez `envoyerCommande` (l. 197-204) :
    *  la réponse n'arrive jamais, et avant cette tâche la promesse restait en suspens POUR
    *  TOUJOURS — l'écran d'attente de la décision 10 devenait un écran d'attente permanent.
    *
-   *  Le minuteur n'est pas annulé : un drapeau (`regle`) rend le règlement idempotent, et le
-   *  rappel tardif ne fait rien. Annuler exigerait d'injecter aussi un `clearTimeout` pour
-   *  rester testable, pour économiser un minuteur de quinze secondes par commande — une
-   *  complication plus chère que ce qu'elle évite. */
+   *  Le minuteur n'est pas annulé, et il n'a pas besoin de l'être : le premier règlement RETIRE
+   *  l'entrée de `enAttenteCommandes` (donc le second chemin ne trouve plus rien à appeler), et
+   *  un second règlement d'une promesse déjà réglée est un no-op garanti par ECMAScript.
+   *  Annuler exigerait d'injecter aussi un `clearTimeout` pour rester testable, pour économiser
+   *  un minuteur de quinze secondes par commande — une complication plus chère que ce qu'elle
+   *  évite. */
   envoyerCommande(
     payload: Record<string, unknown>, delaiMs: number = DELAI_COMMANDE_MS,
   ): Promise<unknown> {
     return new Promise((resolve, reject) => {
       if (!this.ws) { reject(new Error('websocket indisponible')); return; }
       const id = this.id++;
-      let regle = false;
+      // `finir` centralise le retrait de l'entree : c'est LUI le mecanisme d'idempotence, pas
+      // un drapeau. Corrige le 2026-09-13 apres mesure — un drapeau `regle` avait ete ecrit ici,
+      // et retirer sa garde ne faisait tomber AUCUN des 1057 tests : il ne gardait rien.
       const finir = <T>(suite: (v: T) => void) => (v: T) => {
-        if (regle) return;
-        regle = true;
         this.enAttenteCommandes.delete(id);
         suite(v);
       };
@@ -535,7 +537,7 @@ Run: `npm --prefix app test -- connexion`
 Expected: PASS.
 
 Run: `npm --prefix app test`
-Expected: 47 fichiers, **1058** tests (1049 + 9 neufs), 0 échec. **Si un test existant tombe, ne le modifiez pas** : c'est que le routage des événements ou `auth_ok` a changé de comportement, et c'est le défaut, pas le test.
+Expected: 47 fichiers, **1057** tests (1049 + les 8 `it(...)` du Step 1), 0 échec. **Si un test existant tombe, ne le modifiez pas** : c'est que le routage des événements ou `auth_ok` a changé de comportement, et c'est le défaut, pas le test.
 
 - [ ] **Step 8: Jouer les mutations (leçon 4)**
 
@@ -549,7 +551,7 @@ Cassez chacune de ces lignes, vérifiez que le test attendu tombe, remettez-la :
 | retirer la boucle `for (const type of this.rappelsEvenement.keys())` | « souscrit le type demandé » |
 | `this.rappelsEvenement.get(m.event.event_type)` → livrer à tous les rappels | « ne livre QUE son type » |
 | retirer l'appel à `this.deps.minuteurFn` | « rejette passé le délai » |
-| retirer la garde `if (regle) return` | « n arme aucun rejet tardif » (le second règlement deviendrait observable) |
+| ~~retirer la garde `if (regle) return`~~ | **LIGNE RETIREE.** Mesure du 2026-09-13 : cette garde ne tue aucun test, et c'est JUSTE — l'idempotence vient du retrait de l'entree de `enAttenteCommandes` plus le no-op de specification sur une promesse deja reglee, jamais d'un drapeau. Le drapeau et cette ligne ont ete supprimes ensemble. Une table de mutations qui promet un test impossible pousse a fabriquer un test creux, exactement le decor que ce plan interdit ailleurs. |
 
 Si une mutation NE FAIT TOMBER AUCUN test, la règle n'est pas gardée : écrivez le test manquant avant de continuer.
 
@@ -580,7 +582,7 @@ prouvees une fois et gardees zero fois.
   d attente franc de la decision 10 devenait permanent.
 
 Le chemin state_changed est laisse INTACT, et un test le prouve.
-vitest 47 fichiers / 1058 tests.
+vitest 47 fichiers / 1057 tests.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
@@ -798,7 +800,7 @@ Run: `npm --prefix app test -- configuration`
 Expected: PASS (13 tests).
 
 Run: `npm --prefix app test`
-Expected: 48 fichiers, **1071** tests, 0 échec.
+Expected: 48 fichiers, **1070** tests, 0 échec.
 
 - [ ] **Step 5: Jouer les mutations**
 
@@ -833,7 +835,7 @@ Une liste vide est un SUCCES, jamais une panne : HA joignable sans ecran
 configure dit ou aller en creer un, HA injoignable parle de reseau, et
 les confondre remplace un conseil juste par un conseil faux.
 
-vitest 48 fichiers / 1071 tests.
+vitest 48 fichiers / 1070 tests.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
@@ -1177,7 +1179,7 @@ Run: `npm --prefix app test -- repli`
 Expected: PASS (13 tests).
 
 Run: `npm --prefix app test`
-Expected: 49 fichiers, **1084** tests, 0 échec. Les tests existants qui vérifient l'écran de session et l'écran d'erreur (`app/tests/demarrage.test.ts`, `app/tests/pannes.test.ts`) doivent passer **sans modification** — c'est la contre-épreuve du déménagement.
+Expected: 49 fichiers, **1083** tests, 0 échec. Les tests existants qui vérifient l'écran de session et l'écran d'erreur (`app/tests/demarrage.test.ts`, `app/tests/pannes.test.ts`) doivent passer **sans modification** — c'est la contre-épreuve du déménagement.
 
 - [ ] **Step 6: Vérifier que `demarrage.ts` a bien RÉTRÉCI**
 
@@ -1228,7 +1230,7 @@ qu il deplace est une modification deguisee en rangement. demarrage.ts
 retrecit de 18 lignes -- il en fait 1914, presque quatre fois le plafond
 de 500, et ce lot ne doit pas l aggraver.
 
-vitest 49 fichiers / 1084 tests.
+vitest 49 fichiers / 1083 tests.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
@@ -1642,7 +1644,7 @@ void demarrerAvecEcran(racine, piece);
 - [ ] **Step 7: Lancer les tests**
 
 Run: `npm --prefix app test`
-Expected: 49 fichiers, **1093** tests, 0 échec.
+Expected: 49 fichiers, **1092** tests, 0 échec.
 
 **Les 12 fichiers qui lisent `ECRANS` ne doivent PAS avoir été modifiés.** Vérifiez-le :
 
@@ -1699,7 +1701,7 @@ et la page repartait en reconnexion sans qu aucune coupure ait eu lieu.
 Une seule instance aussi pour ne pas rouvrir la fuite de minuteur que la
 ronde de correction 2 avait fermee.
 
-vitest 49 fichiers / 1093 tests.
+vitest 49 fichiers / 1092 tests.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
@@ -1878,7 +1880,7 @@ Enfin, complétez le double de `monterDemarrage` (`app/tests/aides.ts`) et celui
 - [ ] **Step 5: Lancer les tests**
 
 Run: `npm --prefix app test`
-Expected: 50 fichiers, **1098** tests, 0 échec.
+Expected: 50 fichiers, **1097** tests, 0 échec.
 
 - [ ] **Step 6: Jouer les mutations**
 
@@ -1917,7 +1919,7 @@ demanderait de defaire proprement minuteurs, abonnements et moteur
 d animation -- beaucoup de code neuf pour une page qui se recharge en
 moins d une seconde.
 
-vitest 50 fichiers / 1098 tests.
+vitest 50 fichiers / 1097 tests.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
@@ -2189,7 +2191,7 @@ npm --prefix app run build
 ls dist/*.html                    # attendu : index.html, salon.html, bureau.html, cuisine.html
 grep -c '@EMPREINTE@' dist/index.html   # attendu : 0 (versionner.mjs a fait son travail)
 grep -c 'data-piece' dist/index.html    # attendu : 0
-npm --prefix app test             # attendu : 51 fichiers, 1105 tests
+npm --prefix app test             # attendu : 51 fichiers, 1104 tests
 npx --prefix app tsc --noEmit -p app/tsconfig.json
 wc -l app/src/demarrage.ts        # attendu : inchangé depuis T5, et < 1914 + ce que T4/T5 ont ajouté
 git add -A
@@ -2226,7 +2228,7 @@ verifier-rendu.mjs apprend la forme neuve SANS desapprendre l ancienne
 (WALLPANEL_URL=ecran) : verifier seulement la neuve laisserait sans
 controle le retour arriere qui justifie la branche.
 
-vitest 51 fichiers / 1105 tests, make test 5/5.
+vitest 51 fichiers / 1104 tests, make test 5/5.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 make test
