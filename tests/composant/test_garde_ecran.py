@@ -210,6 +210,18 @@ _PORTES_ECRITURE = (
     # docstring de `websocket._resoudre` nomme deja -- jamais gardee tant
     # qu'elle n'est appelee nulle part. Fermee ICI, avant d'exister.
     "async_add_subentry",
+    # Ronde 3 de relecture (tache 8) : `async_add_subentry` ET
+    # `async_remove_subentry` deleguent tous les deux a une methode
+    # PRIVEE commune, `_async_update_entry(entry, subentries=...)`
+    # (`config_entries.py:2583`) -- verifie par sonde : un appel DIRECT a
+    # cette methode (en sautant les deux portes publiques ci-dessus) seme
+    # reellement une sous-entree INVALIDE (`{"nom": "porte-derobee"}`,
+    # aucun champ requis), confirme en relisant `entry.subentries` --
+    # pendant que ce test restait VERT. C'est l'ANCETRE COMMUN des deux
+    # portes de creation/suppression : la surveiller couvre ses
+    # DESCENDANTS d'un coup, un chemin plus court que celui nomme au
+    # dessus.
+    "_async_update_entry",
 )
 
 
@@ -262,7 +274,26 @@ def test_garde_ecran_est_le_seul_module_a_appeler_une_porte_d_ecriture():
     arbre syntaxique » peut prouver. Le mutant EST attrape ailleurs — voir
     `test_supprimer_le_dernier_minuteur_alors_que_le_mode_minuteur_est_
     actif_est_refuse` (test_config_flow_objets.py), qui joue desormais ce
-    role EN CONNAISSANCE DE CAUSE, pas par accident."""
+    role EN CONNAISSANCE DE CAUSE, pas par accident.
+
+    Ronde 3 de relecture (tache 8) : `_async_update_entry` rejoint les
+    CINQ portes desormais nommees — l'ANCETRE COMMUN de `async_add_
+    subentry` ET `async_remove_subentry` (`config_entries.py:2583`),
+    mesure par sonde : un appel DIRECT a cette methode privee, en
+    sautant les deux portes publiques, seme une sous-entree INVALIDE
+    (`{"nom": "porte-derobee"}`) pendant que ce test restait VERT — un
+    chemin plus COURT que celui nomme pour `async_add_subentry` seul.
+    La LIMITE RESIDUELLE, une fois cette cinquieme porte fermee, reste
+    EXACTEMENT celle du paragraphe precedent : `object.__setattr__`
+    direct sur `entry.subentries` (un dict MUTABLE, contrairement au
+    dataclass GELE de `ConfigSubentry` — mais tout aussi accessible a
+    quiconque possede une reference `entry`) contournerait les CINQ
+    portes nommees sans en appeler aucune. MEME classe de dette que
+    celle deja ecrite ci-dessus pour `ConfigSubentry.data`, ecrite ICI
+    AUSSI plutot que laissee implicite — la tache 7 (ronde 4) avait pris
+    soin de noircir cette limite pour la mutation SUR LA SOUS-ENTREE ;
+    cette ronde le fait desormais pour la mutation SUR L'ENTREE elle-meme,
+    la meme limite structurelle rencontree une deuxieme fois."""
     composant_dir = pathlib.Path(__file__).resolve().parents[2] / "custom_components" / "home_desk"
     fautifs: dict[str, set[str]] = {}
     for chemin in composant_dir.glob("*.py"):
