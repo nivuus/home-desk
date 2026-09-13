@@ -341,7 +341,7 @@ def test_garde_ecran_est_le_seul_module_a_appeler_une_porte_d_ecriture():
 
 
 # ---------------------------------------------------------------------------
-# Point 2 de la ronde 2 : `listes._localiser_champ` (le meme mecanisme que
+# Point 2 de la ronde 2 : `listes_erreurs._localiser_champ` (le meme mecanisme que
 # `garde_ecran.verifier_ecran_complet`, applique cette fois aux HUIT
 # sections « liste ») ne tronque plus le nom du champ pour "required".
 # ---------------------------------------------------------------------------
@@ -362,7 +362,7 @@ def test_localiser_champ_ne_tronque_aucune_des_quatre_formes():
     (test_config_flow_champs.py)."""
     import voluptuous as vol
     from custom_components.home_desk import schema
-    from custom_components.home_desk.listes import _localiser_champ
+    from custom_components.home_desk.listes_erreurs import _localiser_champ
 
     cas = (
         ("BOUTON/entite", schema.BOUTON, {"libelle": "x", "icone": "bulb"}, "entite"),

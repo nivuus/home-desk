@@ -116,7 +116,7 @@ def _cles_attendues() -> set[str]:
         f"/config_subentries/ecran/error/{ERREUR_SERVICE_INCOMPLET}",
         # Tache 7 : les deux regles hors-schema, et les deux refus qui
         # etaient jusque-la un FILET non exerce (`allumee_incomplet`,
-        # `champ_element_requis` — voir listes._ERREUR_PAR_MOT_CLE et
+        # `champ_element_requis` — voir listes_erreurs._ERREUR_PAR_MOT_CLE et
         # listes_champs_sources.AllumeeIncomplete).
         f"/config_subentries/ecran/error/{ERREUR_ALLUMEE_INCOMPLETE}",
         f"/config_subentries/ecran/error/{ERREUR_CHAMP_ELEMENT_REQUIS}",
@@ -409,7 +409,7 @@ def test_le_champ_invalide_n_interpole_plus_de_motif(langue):
     (« {motif} DOIT etre dans la phrase ») — exactement la fuite que la
     ronde 4 corrige, clouee ici par le propre test qui la garantissait.
     `ERREUR_CHAMP_INVALIDE` ne reste que le REPLI d'un mot-cle imprevu
-    (chaque mot-cle CONNU a desormais son propre code, `listes.
+    (chaque mot-cle CONNU a desormais son propre code, `listes_erreurs.
     _ERREUR_PAR_MOT_CLE`) : son message est STATIQUE, jamais un `{motif}`
     JSON Schema montre a un humain."""
     traductions = json.loads(

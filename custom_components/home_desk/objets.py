@@ -45,8 +45,10 @@ from . import garde_ecran
 # pour agencement/voiture en la croyant limitee a ces deux formes, alors
 # que `listes.py` portait EXACTEMENT le meme defaut pour les sections
 # « liste » (voir sa propre docstring pour la mesure). Une seule
-# implementation desormais, definie dans `listes.py`, importee ICI.
-from .listes import _ERREUR_PAR_MOT_CLE, _localiser_champ
+# implementation partagee depuis lors -- extraite dans `listes_erreurs.py`
+# en ronde de correction 1 (defaut B), ce module en important deja les DEUX
+# noms ENSEMBLE etant la preuve que la couture etait deja separable.
+from .listes_erreurs import _ERREUR_PAR_MOT_CLE, _localiser_champ
 
 # Tache 7 : « Blocs et modes » (agencement) n'est PAS une section « liste »
 # (listes.py) — un OBJET unique par ecran, jamais une collection d'elements
@@ -165,7 +167,7 @@ class SectionsObjetMixin:
             except vol.Invalid as err:
                 # Relecture finale de branche (deuxieme ronde) : `err` peut
                 # etre une `vol.MultipleInvalid` -- meme deballage que
-                # `_localiser_champ` (listes.py) fait pour lire le mot-cle,
+                # `_localiser_champ` (listes_erreurs.py) fait pour lire le mot-cle,
                 # necessaire ICI aussi pour l'isinstance ci-dessous.
                 premiere = err.errors[0] if isinstance(err, vol.MultipleInvalid) else err
                 if isinstance(premiere, _FauteAlertePremiere):

@@ -20,7 +20,7 @@ import voluptuous as vol
 from homeassistant import data_entry_flow
 
 from conftest import _commandes, _creer_ecran, _init_reconfigure
-from custom_components.home_desk import listes, schema
+from custom_components.home_desk import listes_erreurs, schema
 from custom_components.home_desk.const import (
     ERREUR_CHAMP_FORMAT_INVALIDE,
     ERREUR_CHAMP_INVALIDE,
@@ -59,14 +59,14 @@ def test_required_a_un_message_qui_dit_quoi_faire():
     Home Assistant avant meme d'atteindre notre step — required n'est donc
     plus ATTEIGNABLE via le flow reel aujourd'hui, sur AUCUNE des cinq
     sections. Verifie directement le MECANISME (`schema.localiser` +
-    `listes._ERREUR_PAR_MOT_CLE`) malgre tout, pour le jour ou un futur
+    `listes_erreurs._ERREUR_PAR_MOT_CLE`) malgre tout, pour le jour ou un futur
     champ requis (tache 7, minuteurs) le rendra de nouveau atteignable —
     et le message qu'il produirait des aujourd'hui."""
     with pytest.raises(vol.Invalid) as excinfo:
         schema.BOUTON({"icone": "bulb", "entite": "light.test"})  # "libelle" absent
     _, mot_cle = schema.localiser(excinfo.value)
     assert mot_cle == "required"
-    assert listes._ERREUR_PAR_MOT_CLE[mot_cle] == ERREUR_CHAMP_REQUIS
+    assert listes_erreurs._ERREUR_PAR_MOT_CLE[mot_cle] == ERREUR_CHAMP_REQUIS
     for langue in ("fr", "en"):
         message = _message_erreur(langue, ERREUR_CHAMP_REQUIS)
         assert "required" not in message and "{motif}" not in message and ":" not in message
@@ -146,7 +146,7 @@ def test_champ_invalide_n_interpole_plus_aucun_motif():
     $defs/entite) ne peut produire aujourd'hui. Son message est desormais
     STATIQUE : verifie qu'il ne porte plus AUCUN `{motif}` a interpoler --
     la fuite ne peut donc plus reapparaitre, meme pour un mot-cle qu'on
-    aurait oublie d'ajouter a `listes._ERREUR_PAR_MOT_CLE`."""
+    aurait oublie d'ajouter a `listes_erreurs._ERREUR_PAR_MOT_CLE`."""
     for langue in ("fr", "en"):
         message = _message_erreur(langue, ERREUR_CHAMP_INVALIDE)
         assert "{motif}" not in message

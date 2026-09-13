@@ -259,7 +259,7 @@ async def test_agencement_alerte_pas_en_tete_est_refuse_a_la_saisie(hass, entree
     """Relecture finale de branche (deuxieme ronde) : `ERREUR_ALERTE_PAS_
     EN_TETE` etait le SEUL des 27 codes d'erreur de formulaire cite nulle
     part dans `tests/composant/` -- mesure : retirer son entree de la
-    table des messages (`_ERREUR_PAR_MOT_CLE`, listes.py, ou desormais le
+    table des messages (`_ERREUR_PAR_MOT_CLE`, listes_erreurs.py, ou desormais le
     cas special d'`objets.py`) laissait les 208 tests d'alors verts, et le
     formulaire retombait sur le charabia « Ce champ n'est pas valide »
     (le meme que la ronde 3 de la tache 6 avait corrige). Ce test epingle
