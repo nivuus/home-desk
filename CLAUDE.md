@@ -30,9 +30,33 @@
 - **Les `id:` des sept automations de `packages/home_desk.yaml` sont ceux de
   production.** Ils fixent l'`entity_id` des entités `automation.*` dans le
   registre ; les changer perdrait l'historique et les traces.
-- **`app/src/ecran.ts` est la seule couture vers cette maison.** N'ajoutez
-  jamais d'`entity_id` en dur ailleurs : c'est ce qui garde la
-  paramétrisation bon marché le jour où elle deviendra utile.
+- **`app/src/ecran.ts` est la couture PRINCIPALE vers cette maison, et il
+  faut savoir qu'elle n'est pas la seule.** N'ajoutez jamais d'`entity_id`
+  en dur ailleurs : c'est ce qui garde la paramétrisation bon marché.
+  **Corrigé le 2026-09-13** — cette ligne disait « la SEULE couture », et
+  c'était faux ; mesuré sur `app/src/` :
+
+  | | Distincts |
+  |---|---|
+  | `entity_id` distincts, tous fichiers | **69** |
+  | dans `ecran.ts` | **54** (113 occurrences) |
+  | apparaissant dans un AUTRE fichier | 30 |
+  | dont aussi dans `ecran.ts`, donc emportés avec lui | **15** |
+  | **survivraient au retrait des littéraux** | **15** (14 propres à cette maison, plus `sun.sun`) |
+
+  Les quinze vivent dans `rendu/maison.ts` (table `TOUTE_LA_MAISON`),
+  `demarrage.ts` (les quatre `calendar.*`, `weather.maison`,
+  `input_boolean.mode_invites`, `input_number.duree_minuteur_cuisine`,
+  `sun.sun`), `alertes.ts` (les trois `binary_sensor.tablette_*_mouvement`,
+  les trois capteurs de présence, le distributeur de croquettes), puis
+  `garde-manger.ts`, `rendu/defaut.ts`, `rendu/bandeau.ts`,
+  `rendu/nuit.ts`. **Aucune garde ne cherche un `entity_id` dans `app/`** :
+  `tests/test_dist_portable.py` ne scanne que `dist/` et
+  `custom_components/`. La règle était juste, écrite ici, et gardée zéro
+  fois — le motif que ce dépôt a payé douze fois sur la branche 3a. Le
+  périmètre est tranché par la spec du 2026-09-12 amendée (objectif 1) :
+  la CONFIGURATION D'ÉCRAN part, les listes communes et les capteurs
+  d'ambiance restent, nommés.
 - **`custom_components/vignette/manifest.json` pointe vers ce dépôt.** Il
   annonçait `github.com/nivuus/vignette`, qui rend 404 (mesuré le 2026-09-05).
   Le composant n'a pas de dépôt propre : cette copie **est** l'original.
@@ -149,7 +173,15 @@ suivantes par une convention de dépôt, sans filet automatique :
 
 Relevées en relecture finale de branche — un registre de bord qui ne part
 pas avec le dépôt (`.superpowers/`, git-ignoré) ne vaut rien pour la
-prochaine tâche :
+prochaine tâche.
+
+**Toutes ont été tranchées le 2026-09-13** dans
+`docs/superpowers/specs/2026-09-12-config-ecrans-depuis-ha-design.md`
+(section « Amendements du 2026-09-13 ») : les quatre champs racine
+deviennent éditables (trois en 3b, `aspirateurMaison` en 3c), le préalable
+`connexion.ts` se règle en transportant le `code` du refus, et les IP des
+tablettes partent avec le lot de portabilité du 3c. Cette section reste ici
+comme CONSTAT mesuré ; la spec porte la décision.
 
 - **Les trois IP de tablettes (`192.168.0.159`/`.218`/`.138`) apparaissent
   à QUATRE endroits**, pas un seul (relevé une première fois de façon
@@ -180,8 +212,9 @@ prochaine tâche :
   `sensor.home_stock_next_meal` des TESTS (une entité réelle n'a rien à
   faire hors d'`app/src/ecran.ts`) — voir les trois petites choses
   ci-dessous — c'est la MÊME dette, cent fois plus grosse : `dist/` est un
-  bundle COMPILÉ depuis `app/src/ecran.ts`, qui EST la seule couture vers
-  cette maison (décision ci-dessus) ; le distribuer, c'est distribuer
+  bundle COMPILÉ depuis `app/src/ecran.ts`, la couture principale vers
+  cette maison (décision ci-dessus, corrigée : elle n'est pas la seule,
+  quinze `entity_id` vivent ailleurs) ; le distribuer, c'est distribuer
   cette maison. Non nommée ailleurs avant cette ligne. Aucune décision de
   trancher n'est prise ici — seulement le constat, pour que la prochaine
   tâche qui touche à `dist/` ou à la portabilité du dépôt le trouve.
