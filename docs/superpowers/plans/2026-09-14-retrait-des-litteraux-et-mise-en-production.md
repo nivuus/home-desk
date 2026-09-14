@@ -895,6 +895,173 @@ git commit -m "feat(tools): comment register -- 178 ranges, three verdicts, fail
 
 ---
 
+### Task 12: Attacher les 143 notes — le registre devient un transport, pas un constat
+
+> **Tâche ajoutée en cours d'exécution (ruling R7).** Elle s'exécute **ici**, entre la tâche 3 et la tâche 4. Elle porte le numéro 12 parce que les numéros 4 à 11 étaient déjà pris et que les renuméroter invaliderait les briefs déjà extraits.
+
+**Le trou, et comment il a été trouvé.** L'implémenteur de la tâche 3 a signalé, dans son propre rapport, que les **143 plages classées `attachee` ne sont exécutées par aucun code** : le registre dit où chaque commentaire doit aller, et rien ne l'y met. Il avait raison, et c'est un défaut du plan, pas de sa tâche.
+
+La spec ne laisse aucun doute sur ce qui est attendu (§ « La migration », étape 1) :
+
+> *« `app/outils/exporter-ecrans.mjs` lit `ECRANS` et produit le YAML que `home_desk.importer` avale. Il passe par l'AST TypeScript pour récupérer les **commentaires qui précèdent chaque littéral** et les poser en `note:` — la majorité des ~300 lignes, attachées à ce qu'elles justifient. »*
+
+Sans cette tâche, la régression n°3 que le README doit annoncer — *« Le raisonnement quitte le dépôt. Les `note` sont sauvegardées avec HA »* — serait **un mensonge** : le raisonnement ne quitterait pas le dépôt, il serait **supprimé**, et le registre ne serait que l'inventaire de ce qu'on a perdu au lieu du manifeste de ce qu'on a déplacé.
+
+**Files:**
+- Modify: `app/outils/exporter-ecrans.mjs` (le mode `--json` attache, le registre gagne sa colonne de chemin)
+- Modify: `app/outils/verdicts-commentaires.tsv` si un verdict `attachee` se révèle impossible à attacher
+- Test: `app/tests/migration-notes.test.ts` (créé, **JETABLE**)
+
+**Interfaces:**
+- Consomme : `chargerEcrans()`, `ecransPourImport()`, `plagesDeCommentaire()`, `enNote()`, `SEPARATEUR_NOTE` (tâches 2 et 3).
+- Produit : `attacherNotes(ECRANS, plages, verdicts) -> { ecrans, attachements }`, où `attachements` est la liste `{ligne, chemin, lignesDeNote}` — une entrée par plage `attachee` — et `chargerVerdicts() -> Map<number, string>`.
+
+- [ ] **Step 1: Mesurer où une `note` a le droit d'atterrir**
+
+Mesuré le 2026-09-14 sur `contrat/ecran.schema.json` — **sept emplacements, et un seul refus** :
+
+| Emplacement | `note` permise ? |
+|---|---|
+| la racine d'un écran | oui |
+| `minuteurs[]` | oui |
+| `voiture` | oui |
+| `$defs/bouton` (donc `commandes[]`, `ambiances[]`, `extrasMaison[]`, `aspirateurMaison`) | oui |
+| `$defs/synthese` | oui |
+| `$defs/source` | oui |
+| `agencement` | oui |
+| **`$defs/source.allumee`** | **NON** |
+
+Refais cette mesure toi-même avant d'écrire, et **dérive la table du schéma** — ne la recopie pas. Une huitième place qui apparaîtrait au contrat doit être trouvée par le code, pas par ce tableau.
+
+- [ ] **Step 2: Écrire le test qui échoue — les 143 notes doivent arriver quelque part**
+
+Créer `app/tests/migration-notes.test.ts` :
+
+```ts
+/** JETABLE — part à la tâche 10, avec l'outil et les littéraux.
+ *
+ *  Le registre de la tâche 3 dit où chaque commentaire doit aller. Ce test vérifie qu'il Y VA.
+ *  Sans lui, la régression n°3 du README (« le raisonnement quitte le dépôt ») serait fausse :
+ *  le raisonnement ne partirait pas, il serait supprimé — et personne ne le remarquerait. */
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { ECRANS } from '../src/ecran';
+import { attacherNotes, chargerVerdicts, plagesDeCommentaire } from '../outils/exporter-ecrans.mjs';
+
+const source = readFileSync(new URL('../src/ecran.ts', import.meta.url), 'utf8');
+const verdicts = chargerVerdicts();
+const { ecrans, attachements } = attacherNotes(ECRANS, plagesDeCommentaire(source), verdicts);
+
+/** Toutes les valeurs de clé `note`, à toute profondeur. */
+function notesDe(n: unknown): string[] {
+  if (Array.isArray(n)) return n.flatMap(notesDe);
+  if (n && typeof n === 'object') {
+    const o = n as Record<string, unknown>;
+    return Object.entries(o).flatMap(([k, v]) => (k === 'note' ? [String(v)] : notesDe(v)));
+  }
+  return [];
+}
+
+describe('les notes arrivent où le registre le dit', () => {
+  it('attache EXACTEMENT une fois chaque verdict « attachee »', () => {
+    const attendus = [...verdicts.values()].filter((v) => v.startsWith('attachee')).length;
+    expect(attachements).toHaveLength(attendus);
+    expect(new Set(attachements.map((a) => a.ligne)).size).toBe(attendus);
+  });
+
+  it('n’attache jamais une note à un endroit que le contrat refuse', () => {
+    // `source.allumee` est le seul objet du contrat SANS `note` — mesuré le 2026-09-14.
+    for (const { chemin } of attachements) expect(chemin).not.toMatch(/\.allumee$/);
+  });
+
+  it('ne DÉTRUIT aucune des trois notes que la donnée portait déjà', () => {
+    const avant = notesDe(ECRANS);
+    expect(avant).toHaveLength(3);
+    const apres = notesDe(ecrans).join('\n');
+    for (const note of avant) expect(apres).toContain(note);
+  });
+
+  it('porte le nombre de lignes de chaque note, et il y en a des multilignes', () => {
+    expect(attachements.every((a) => a.lignesDeNote >= 1)).toBe(true);
+    expect(attachements.some((a) => a.lignesDeNote > 1)).toBe(true);
+  });
+});
+```
+
+- [ ] **Step 3: Lancer, vérifier qu'il échoue**
+
+Run: `npm --prefix app test -- migration-notes`
+Expected: FAIL — `attacherNotes` et `chargerVerdicts` n'existent pas encore.
+
+- [ ] **Step 4: Construire l'index position → chemin, par l'AST**
+
+**C'est le seul endroit du chantier où l'AST touche à la donnée, et la frontière est nette :** il donne des **positions**, jamais des **valeurs**. Reconstruire une valeur depuis l'AST serait écrire un second interpréteur de TypeScript, et c'est là qu'un cas limite disparaît ; lire la position d'un littéral d'objet, non.
+
+```js
+/** Pour chaque littéral d'objet sous la déclaration `ECRANS`, sa position de début et le chemin
+ *  qui y mène (`cuisine.commandes[2]`). On n'en tire AUCUNE valeur : uniquement des positions.
+ *  Les valeurs viennent toutes de l'évaluation, comme pour le reste de l'outil. */
+export function indexerObjets(source) { /* ts.createSourceFile puis descente récursive */ }
+```
+
+Descends la déclaration `ECRANS` : à chaque `PropertyAssignment` empile le nom de la clé, à chaque `ArrayLiteralExpression` empile l'index, et enregistre `{debut, fin, chemin}` pour chaque `ObjectLiteralExpression` rencontrée.
+
+- [ ] **Step 5: Attacher, avec la règle de remontée**
+
+Une plage `attachee` se rattache à **l'objet qui la suit** — mais un commentaire peut précéder une simple propriété (`// la porte d'entrée`, juste au-dessus de `entite: '…'`). La note appartient alors à **l'objet englobant le plus proche qui accepte une `note`** au contrat.
+
+Trois règles, et l'outil **échoue** plutôt que de deviner :
+
+1. **Aucun objet ne suit la plage** → échec, en nommant la ligne : ce verdict `attachee` est faux, il doit devenir `type` ou `orpheline:<raison>` dans `verdicts-commentaires.tsv`. **Corrige le verdict, jamais l'outil.**
+2. **L'objet trouvé n'accepte pas de `note`** (aujourd'hui : `source.allumee` seul) → remonte au premier englobant qui l'accepte ; si aucun n'accepte, échec en nommant la ligne.
+3. **L'objet porte DÉJÀ une `note`** (les trois de `ECRANS`) → **joins**, avec `SEPARATEUR_NOTE`, la note existante en premier. **N'écrase jamais** : ces trois-là sont les seules que l'auteur ait délibérément écrites comme notes.
+
+- [ ] **Step 6: Faire attacher le mode `--json`, et donner son chemin au registre**
+
+`--json` exporte désormais les écrans **enrichis**. Et le registre (`--registre`) remplit sa colonne `chemin_ou_raison` avec le chemin réel pour chaque `attachee` — c'est ce qui le rend auditable ligne à ligne, et c'est exactement ce que la spec décrit : « devenue la `note` de tel chemin, p. ex. `cuisine.commandes[3].note` ».
+
+- [ ] **Step 7: Lancer l'outil de bout en bout et MESURER ce qui est arrivé**
+
+```bash
+cd app && node outils/exporter-ecrans.mjs --json ../ecrans-exportes.json \
+  && node outils/exporter-ecrans.mjs --registre ../registre-commentaires.tsv \
+  && python3 outils/rendre-ecrans-yaml.py ../ecrans-exportes.json ../home_desk_ecrans.yaml
+cd .. && python3 -c "
+import json
+d = json.load(open('ecrans-exportes.json'))
+def notes(n):
+    if isinstance(n, dict):
+        if 'note' in n: yield n['note']
+        for v in n.values(): yield from notes(v)
+    elif isinstance(n, list):
+        for v in n: yield from notes(v)
+t = [x for e in d for x in notes(e)]
+print('objets portant une note :', len(t))
+print('caracteres de raisonnement transportes :', sum(len(x) for x in t))"
+```
+
+Expected: le nombre d'objets portant une note est **cohérent avec les 143 `attachee`**, et il sera **inférieur** — plusieurs plages se rattachent au même objet et s'y joignent. **Reporte le chiffre réel ET l'écart, avec son explication.** Un écart non expliqué est une perte.
+
+- [ ] **Step 8: Vérifier que le YAML porte le raisonnement, et que l'aller-retour tient toujours**
+
+`yaml_ecrans.rendre` rend les `note` **en commentaires YAML**, et `lire` les re-parse en champs `note` : c'est ce qui fait qu'une note reste lisible par l'humain qui ouvre le fichier sur l'hôte. L'aller-retour intégré au rendeur (tâche 2) est donc la garde de ce transport, et il devient beaucoup plus exigeant qu'avant.
+
+Expected: `rendre-ecrans-yaml.py` sort en **code 0**, stderr vide, et le YAML est nettement plus long qu'avant (**407 lignes** sans les notes). Donne les deux nombres. **Si l'aller-retour se rompt sur une note**, c'est un vrai défaut de `yaml_ecrans.py` qui mordrait à l'import réel : corrige-le là-bas, avec un test dans `tests/composant/test_yaml_ecrans.py`, jamais en contournant depuis l'outil.
+
+- [ ] **Step 9: Lancer les trois suites et committer**
+
+```bash
+npm --prefix app test
+make test
+git status --porcelain
+git add app/outils/exporter-ecrans.mjs app/outils/verdicts-commentaires.tsv app/tests/migration-notes.test.ts
+git commit -m "feat(tools): attach the classified comments as notes -- the register now moves reasoning"
+```
+
+**Vérifie que ni `ecrans-exportes.json`, ni `home_desk_ecrans.yaml`, ni `registre-commentaires.tsv` n'apparaissent dans `git status --porcelain`.** Ils portent désormais, en plus des 54 `entity_id`, l'intégralité du raisonnement de cette maison.
+
+---
+
 ### Task 4: Les trois épreuves de fidélité
 
 **JETABLES, toutes les trois.** Elles importent `ECRANS` : elles sont jetables **par construction** et partent dans le même commit que lui (tâche 10).
@@ -942,17 +1109,25 @@ describe('niveau 1 — la donnée', () => {
 
   it.each(Object.entries(ECRANS))('%s : champ par champ, version comprise', (_cle, ecran) => {
     const exporte = exportes.find((e) => e.nom === ecran.nom)!;
-    expect(exporte).toEqual({ titre: ecran.nom, version: 1, ...ecran });
+    // AMENDÉ (ruling R7) : l'export ATTACHE les 143 commentaires classés `attachee` en `note`
+    // (tâche 12). L'égalité stricte est donc fausse par construction — ce qu'il faut prouver,
+    // c'est que **rien d'AUTRE qu'une `note`** n'a bougé. `sansNotes` retire récursivement
+    // toute clé `note` des deux côtés ; les notes elles-mêmes sont gardées par
+    // `migration-notes.test.ts`, qui les compte contre le registre.
+    expect(sansNotes(exporte)).toEqual(sansNotes({ titre: ecran.nom, version: 1, ...ecran }));
   });
 
   it('porte 54 entity_id distincts en 113 occurrences', () => {
-    const tous = JSON.stringify(exportes).match(/"[a-z_]+\.[a-z0-9_]+"/g) ?? [];
+    // Sur `sansNotes`, obligatoirement : les commentaires d'`ecran.ts` CITENT des entity_id
+    // en prose, et une fois attachés en `note` (tâche 12) ils feraient monter les deux
+    // compteurs sans qu'aucune donnée n'ait bougé. Les 54/113 mesurent la DONNÉE.
+    const tous = JSON.stringify(exportes.map(sansNotes)).match(/"[a-z_]+\.[a-z0-9_]+"/g) ?? [];
     expect(tous.length).toBe(113);
     expect(new Set(tous).size).toBe(54);
   });
 
   it('les répartit par domaine comme la spec l’a mesuré', () => {
-    const tous = JSON.stringify(exportes).match(/"([a-z_]+)\.[a-z0-9_]+"/g) ?? [];
+    const tous = JSON.stringify(exportes.map(sansNotes)).match(/"([a-z_]+)\.[a-z0-9_]+"/g) ?? [];
     const parDomaine: Record<string, number> = {};
     for (const d of new Set(tous)) {
       const domaine = d.slice(1).split('.')[0];
@@ -965,6 +1140,8 @@ describe('niveau 1 — la donnée', () => {
   });
 });
 ```
+
+> **`sansNotes(x)` est une aide locale de ce fichier** : une copie profonde de `x` dont toute clé `note` a été retirée, à toute profondeur. Écris-la, cinq lignes. Elle s'applique **des deux côtés**, donc les trois `note` que `ECRANS` portait déjà disparaissent aussi de la comparaison — c'est voulu : `migration-notes.test.ts` (tâche 12) garde qu'elles ne sont pas détruites, et c'est son travail, pas celui-ci.
 
 > **Le motif `"[a-z_]+\.[a-z0-9_]+"` attrape ce qui RESSEMBLE à un `entity_id` dans le JSON sérialisé, guillemets compris.** Il peut attraper un faux positif (une `vue` comme `"#recette.en_cours"` n'en est pas une) ou en manquer un. C'est voulu : **le même motif** a produit les chiffres 54/113 de la mesure du 2026-09-14, sur le même contenu. Ce que le test garde, c'est que **le compte ne bouge pas**, pas que le motif soit une définition d'`entity_id`. Si vous améliorez le motif, re-mesurez et changez les trois nombres dans le même commit.
 
@@ -1818,6 +1995,7 @@ export function demarrerPage(
 git rm app/outils/exporter-ecrans.mjs app/outils/rendre-ecrans-yaml.py \
        app/outils/verdicts-commentaires.tsv \
        app/tests/migration-donnee.test.ts app/tests/migration-rendu.test.ts \
+       app/tests/migration-notes.test.ts \
        tests/test_registre_commentaires.py \
        app/gabarits/piece.html \
        dist/salon.html dist/bureau.html dist/cuisine.html
