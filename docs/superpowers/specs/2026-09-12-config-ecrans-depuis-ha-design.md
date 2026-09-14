@@ -237,8 +237,13 @@ La règle de `CLAUDE.md` est donc **restreinte à `make test`**, pas supprimée.
 
 ### 9. Un seul HTML, l'identité vient de l'URL
 
-`/local/wallpanel/index.html?ecran=salon`. Sans état, sans build par pièce,
+`/local/wallpanel/index.html?ecran=Salon`. Sans état, sans build par pièce,
 lisible dans Fully Kiosk. `dist/` passe de trois HTML à un.
+
+**Corrigé en relecture finale de branche** : cette section écrivait
+`?ecran=salon`, en minuscules. `websocket.py` apparie `data["nom"]`
+**exactement**, et `app/src/ecran.ts` porte `nom: 'Salon'` — la casse
+compte, `?ecran=salon` rendrait `not_found`.
 
 **Le nom du fichier est explicite, et ce n'est pas une coquetterie.** *Corrigé le
 2026-09-13* : la spec écrivait `/local/wallpanel/?ecran=salon`, qui rendrait
@@ -274,7 +279,10 @@ if (m.success) p.resolve(m.result);
 else p.reject(new Error(m.error?.message ?? 'commande refusée'));
 ```
 
-En face, `websocket.py` a investi dans le code : `ecran_introuvable`,
+En face, `websocket.py` a investi dans le code : `not_found` *(corrigé en
+relecture finale de branche — cette section écrivait `ecran_introuvable`,
+le nom cosmétique de la constante Python `ERREUR_ECRAN_INTROUVABLE`, pas
+la valeur réellement transportée : `const.py:232`)*,
 `version_inconnue`, `ecran_corrompu`, plus `invalid_format` de Home Assistant.
 Leurs `message` sont du **français Python sans accents**, jamais passés par
 `translations/` : ce sont des diagnostics de développeur destinés au journal HA,
@@ -503,7 +511,7 @@ laisse `#app` vide — la règle posée par la ronde de correction 1.
 
 | Cas | Code sur le fil | Ce que l'écran montre |
 |---|---|---|
-| `?ecran=` absent ou inconnu | `ecran_introuvable` | La liste des écrans configurés, tapable. Pas un mur blanc, pas un « salon » deviné. |
+| `?ecran=` absent ou inconnu | `not_found` *(corrigé en relecture finale de branche ; portait `ecran_introuvable`, voir `const.py:232`)* | La liste des écrans configurés, tapable. Pas un mur blanc, pas un « salon » deviné. |
 | HA joignable, aucun écran configuré | — (liste vide) | « Aucun écran configuré » et où aller le faire. |
 | HA injoignable au démarrage | — (réseau) | L'écran d'attente, puis le bandeau hors ligne existant. |
 | Config d'une `version` inconnue | `version_inconnue` / `ecran_corrompu` | Refus net et message. Jamais un rendu à moitié. |
@@ -774,7 +782,7 @@ mécanisme qu'on est justement en train de valider. Elles fusionnent.
 | **2** | **Dépôt du paquet de transition** : le commit qui porte ENCORE les littéraux, les trois pages historiques et la branche `data-piece`. Puis `check_config`, puis redémarrage HA. | `check_config` propre **avant** le redémarrage. HA remonte, l'intégration est proposée à l'ajout. **Et les trois pages historiques rendent à l'identique** — `verifier-rendu.mjs --deploye` plus une capture par tablette comparée à l'étape 1. C'est la preuve que rien n'a encore bougé. | Redéployer l'archive de l'étape 1, `check_config`, redémarrer. |
 | **3** | **Créer l'intégration, vide.** Paramètres > Appareils et services > Tablettes murales. Aucun écran. | L'entrée existe ; `home_desk/ecrans` rend `[]` ; les trois tablettes sont inchangées. | Supprimer l'entrée de configuration. |
 | **4** | **Importer les trois écrans** : déposer le YAML en `config/home_desk_ecrans.yaml`, appeler `home_desk.importer`. | **La porte de fidélité** : `home_desk/ecrans` rend trois lignes, `home_desk/ecran` rend chacune, et chaque objet rendu **égale le littéral correspondant** champ par champ, `version: 1` comprise — le niveau 1 ci-dessus, exécuté contre l'instance réelle et non contre le harnais. | `importer` est atomique et total : ré-importer un fichier corrigé, ou supprimer l'entrée (retour à l'étape 3). |
-| **5** | **Repointer UNE tablette : la cuisine** — `fully_kiosk.set_config` (`startURL` → `/local/wallpanel/index.html?ecran=cuisine`), puis `button.tablette_cuisine_load_start_url`. L'écran le plus riche : minuteurs, recette, courses, `absenceNommee`. | L'écran se lève sans rester bloqué sur l'attente. Capture comparée à l'étape 1. `verifier-rendu.mjs` sur la nouvelle URL. **Les cinq dégradations sondées sur place**, en tapant les URL à la main. | `set_config` avec l'URL **relevée à l'étape 1** + rechargement → page historique → branche `data-piece` → littéral. |
+| **5** | **Repointer UNE tablette : la cuisine** — `fully_kiosk.set_config` (`startURL` → `/local/wallpanel/index.html?ecran=Cuisine`, **majuscule** — `websocket.py` apparie `data["nom"]` exactement et `app/src/ecran.ts` porte `nom: 'Cuisine'` ; `?ecran=cuisine` rendrait `not_found`, corrigé en relecture finale de branche), puis `button.tablette_cuisine_load_start_url`. L'écran le plus riche : minuteurs, recette, courses, `absenceNommee`. | L'écran se lève sans rester bloqué sur l'attente. Capture comparée à l'étape 1. `verifier-rendu.mjs` sur la nouvelle URL. **Les cinq dégradations sondées sur place**, en tapant les URL à la main. | `set_config` avec l'URL **relevée à l'étape 1** + rechargement → page historique → branche `data-piece` → littéral. |
 | **6** | **Vivre avec, 24 heures.** | Aucun mur blanc, aucune tuile morte ; les minuteurs se lancent, la vue Recette s'ouvre, la liste de courses se coche. **Et l'épreuve propre à ce chantier** : éditer une tuile depuis HA et voir l'écran se recharger tout seul (`home_desk_config_changed`) — la promesse « édition vivante » se prouve ici, pas en test. | Identique à 5. |
 | **7** | **Repointer le salon, puis le bureau**, un à la fois. Le salon porte la voiture et la DeLorean ; le bureau l'agenda et `todo.travail`. | Identique à 5, par tablette. | Identique à 5, par tablette. |
 | **8** | **Le commit de retrait, puis le redéploiement.** Retirer les littéraux, l'outil, ses trois épreuves, les trois pages historiques, la branche `data-piece` ; basculer les 12 fichiers de tests sur les écrans de référence ; `npm run build` ; committer ; installer. | **Les trois suites vertes AVANT le déploiement** — attention, `test_dist_a_jour` relance `npm run build` et compare à HEAD **commité**. Après : les trois tablettes rechargent seules et rendent à l'identique. | **Redéployer l'archive de l'étape 1 en entier.** Pas « recopier trois HTML » : sans leur bundle d'époque, trois pages dont la branche `data-piece` n'existe plus donnent trois murs blancs. |
