@@ -119,3 +119,27 @@ def test_une_note_multiligne_est_aplatie_pas_perdue_ni_cassee():
     texte = yaml_ecrans.rendre([ecran])
     resultat = yaml_ecrans.lire(texte)
     assert resultat[0]["commandes"][0]["note"] == "premiere ligne seconde ligne"
+
+
+def test_une_note_multiligne_jointe_survit_a_l_aller_retour():
+    """`rendre` APLATIT une note multiligne (limitation mesuree au plan 3a,
+    gardee par le test juste au-dessus). Sans separateur explicite, deux
+    phrases se collent en une seule, illisible, et personne ne le voit.
+    L'outil d'export du plan 3c joint donc les lignes d'une plage de
+    commentaire par `SEPARATEUR_NOTE` (" — ", tiret cadratin entoure
+    d'espaces) AVANT d'ecrire la note ; ce test garde la moitie qui RESTE
+    une fois l'outil parti (plan 3c, tache 10) : que la chaine ainsi jointe
+    traverse `rendre`/`lire` intacte, separateur non-ASCII compris.
+
+    Ecrit avec le separateur REEL de l'outil et non son approximation ASCII
+    "--" : un test qui n'exerce pas la chaine reellement produite ne garde
+    rien. La note est posee a la RACINE de l'ecran, ou 143 des 178 plages
+    d'`ecran.ts` atterrissent."""
+    ecran = {
+        "titre": "Zone A", "nom": "Alpha",
+        "temperature": "sensor.zone_a_temperature",
+        "note": "Premiere phrase. — Seconde phrase, qui vivait sur une autre ligne.",
+        "ambiances": [], "commandes": [], "synthese": [],
+        "extrasMaison": [], "sources": [], "ouvrants": [],
+    }
+    assert yaml_ecrans.lire(yaml_ecrans.rendre([ecran])) == [ecran]
