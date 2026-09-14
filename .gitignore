@@ -14,6 +14,9 @@ __pycache__/
 
 # Produits de l'outil d'export du plan 3c (JETABLES, cf. app/outils/exporter-ecrans.mjs).
 # Ils portent la configuration REELLE de cette maison : ils ne doivent jamais entrer dans git.
-/home_desk_ecrans.yaml
-/ecrans-exportes.json
-/registre-commentaires.tsv
+# Non ancres (pas de `/` de tete) : l'usage documente est `cd app && node
+# outils/exporter-ecrans.mjs --json ../ecrans-exportes.json`, et un `../` oublie ecrit le
+# fichier dans `app/` au lieu de la racine. Ces noms doivent etre ignores ou qu'ils atterrissent.
+home_desk_ecrans.yaml
+ecrans-exportes.json
+registre-commentaires.tsv

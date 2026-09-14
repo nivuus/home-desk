@@ -24,18 +24,21 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const RACINE = path.resolve(import.meta.dirname, '..');
-const VERSION_CONFIG = 1;   // `const.VERSION_CONFIG` côté Python, `schema._const` au contrat.
+// Recopie manuelle de `VERSION_CONFIG` dans `custom_components/home_desk/const.py:30`. Outil
+// jetable : pas de lecture croisée pour une seule constante, mais le nom du fichier et de la
+// constante ici rendent la dérive trouvable par `grep VERSION_CONFIG`.
+const VERSION_CONFIG = 1;
 
 /** Compile `src/ecran.ts` dans un fichier temporaire et l'importe. On passe par le disque plutôt
  *  que par un `data:` URL pour que les imports relatifs du module résolvent normalement. */
 export async function chargerEcrans() {
   const repertoire = await fs.mkdtemp(path.join(os.tmpdir(), 'export-ecrans-'));
   const sortie = path.join(repertoire, 'ecran.mjs');
-  await build({
-    entryPoints: [path.join(RACINE, 'src', 'ecran.ts')],
-    outfile: sortie, bundle: true, format: 'esm', platform: 'node', logLevel: 'silent',
-  });
   try {
+    await build({
+      entryPoints: [path.join(RACINE, 'src', 'ecran.ts')],
+      outfile: sortie, bundle: true, format: 'esm', platform: 'node', logLevel: 'silent',
+    });
     const module = await import(pathToFileURL(sortie).href);
     return module.ECRANS;
   } finally {
@@ -47,7 +50,7 @@ export async function chargerEcrans() {
  *  `version` (que `websocket._resoudre` vérifie EN PREMIER) et `titre` (`ConfigSubentry.title`,
  *  qu'`_async_exporter` place à côté des champs du contrat et qu'`_async_importer` re-extrait). */
 function pourImport(ecran) {
-  return { titre: ecran.nom, version: VERSION_CONFIG, ...ecran };
+  return { ...ecran, titre: ecran.nom, version: VERSION_CONFIG };
 }
 
 export function ecransPourImport(ECRANS) {

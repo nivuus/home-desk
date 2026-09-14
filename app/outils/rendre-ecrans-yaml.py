@@ -36,6 +36,24 @@ def main(source: pathlib.Path, destination: pathlib.Path) -> int:
     # meme portee que l'import lui-meme.
     relu = yaml_ecrans.lire(texte)
     if relu != ecrans:
+        # `zip` tronque en silence si les deux listes n'ont pas la meme longueur --
+        # exactement le cas ou le diagnostic compte le plus (un ecran entier avale ou
+        # duplique par l'aller-retour). Nommer d'abord ce qui manque d'un cote ou de
+        # l'autre, avant la comparaison champ par champ sur ce qui s'apparie encore.
+        if len(ecrans) != len(relu):
+            noms_ecrits = {e.get("nom", "?") for e in ecrans}
+            noms_relus = {e.get("nom", "?") for e in relu}
+            print(
+                f"ALLER-RETOUR ROMPU : {len(ecrans)} ecran(s) ecrit(s), "
+                f"{len(relu)} relu(s).",
+                file=sys.stderr,
+            )
+            absents_a_la_relecture = sorted(noms_ecrits - noms_relus)
+            if absents_a_la_relecture:
+                print(f"  absents a la relecture : {absents_a_la_relecture}", file=sys.stderr)
+            en_trop_a_la_relecture = sorted(noms_relus - noms_ecrits)
+            if en_trop_a_la_relecture:
+                print(f"  en trop a la relecture : {en_trop_a_la_relecture}", file=sys.stderr)
         for attendu, obtenu in zip(ecrans, relu):
             for cle in sorted(set(attendu) | set(obtenu)):
                 if attendu.get(cle) != obtenu.get(cle):
