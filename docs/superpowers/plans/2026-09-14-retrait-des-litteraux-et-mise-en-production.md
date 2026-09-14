@@ -365,8 +365,10 @@ async def test_une_entite_inconnue_AVERTIT_au_lieu_de_REFUSER(hass, entree):
         "un AVERTISSEMENT ne refuse pas : la valeur est persistee")
     placeholders = resultat["description_placeholders"]
     assert "vacuum.nexiste_absolument_pas" in placeholders["entites_inconnues"]
-    assert "verifier" in placeholders["entites_inconnues"].lower(), (
-        "la phrase de traduction, pas la liste nue")
+    assert "vérifier" in placeholders["entites_inconnues"], (
+        "la phrase de traduction, pas la liste nue -- et l'accent EST dans la chaine "
+        "francaise de l'application (`fr.json` : « a verifier » s'ecrit « à vérifier »). "
+        "`.lower()` ne retire pas les accents : chercher \"verifier\" nu ne matcherait jamais.")
 ```
 
 - [ ] **Step 7: Lancer les tests, vérifier qu'ils échouent**
@@ -855,30 +857,33 @@ cd app && node outils/exporter-ecrans.mjs --registre ../registre-commentaires.ts
 
 Expected au premier passage : `code=1` et la liste des plages non classées. On complète `verdicts-commentaires.tsv`, on relance. **Fini quand `code=0` et que la somme des trois verdicts égale 178.**
 
-- [ ] **Step 5: Poser le cas de jointure dans le corpus partagé**
+- [ ] **Step 5: Garder la jointure là où elle vit vraiment — dans `yaml_ecrans`**
 
-`contrat/cas-notes.json` — le corpus partagé est lu par **deux** suites (TypeScript/ajv et Python/voluptuous), donc un cas présent d'un côté et absent de l'autre est impossible : c'est le même fichier. Voir `contrat/README.md`.
+> **Correction du scan de pré-vol (ruling R1).** Le plan prévoyait ici un `contrat/cas-notes.json` « lu par les deux suites du corpus partagé ». C'était faux : **aucune tâche ne le branchait à quoi que ce soit**, et le côté TypeScript ne rend jamais de YAML — une `note` n'y est qu'une chaîne. Un fichier de corpus que personne ne lit est très exactement « une règle juste, écrite une fois, gardée zéro fois », le motif que ce dépôt paie en boucle. **L'aplatissement est une propriété de `yaml_ecrans.py`, qui SURVIT à la migration** : c'est donc sa suite qui doit la garder, et la garde reste après la tâche 10.
 
-```json
-{
-  "$commentaire": "Une note multiligne survit a l'aller-retour YAML en se joignant par SEPARATEUR_NOTE. yaml_ecrans.rendre aplatit : sans separateur, deux phrases se collent en une seule.",
-  "cas": [
-    {
-      "nom": "note multiligne jointe",
-      "note": "Premiere phrase. — Seconde phrase, qui vivait sur une autre ligne.",
-      "lignes_origine": 2
+Ajouter un cas à `tests/composant/test_yaml_ecrans.py` :
+
+```python
+def test_une_note_multiligne_survit_a_l_aller_retour():
+    """`rendre` APLATIT une note multiligne (limitation mesuree au plan 3a).
+    Sans separateur explicite, deux phrases se collent en une seule, illisible,
+    et personne ne le voit. L'outil d'export du plan 3c joint par
+    `SEPARATEUR_NOTE` (' -- ') ; ce test garde la moitie qui RESTE une fois
+    l'outil parti : que la chaine jointe traverse rendre/lire intacte."""
+    ecran = {
+        "titre": "Zone A", "version": 1, "nom": "Alpha",
+        "temperature": "sensor.zone_a_temperature",
+        "note": "Premiere phrase. -- Seconde phrase, qui vivait sur une autre ligne.",
+        "ambiances": [], "commandes": [], "synthese": [],
+        "extrasMaison": [], "sources": [], "ouvrants": [],
     }
-  ]
-}
+    assert yaml_ecrans.lire(yaml_ecrans.rendre([ecran])) == [ecran]
 ```
 
-puis, **obligatoire** :
+Run: `make test-composant PYTHON=/root/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14`
+Expected: PASS. **Si ce test échoue**, c'est une vraie limitation de `yaml_ecrans` qui mordrait à l'import réel de l'étape 4 de la production : corrigez-la **dans `yaml_ecrans.py`**, jamais dans l'outil.
 
-```bash
-make contrat && git add contrat custom_components/home_desk/contrat && make test
-```
-
-Expected: `contrat embarque : N fichiers`, puis `make test` **5/5** — `test_contrat_embarque.py` refuse de passer si la copie embarquée diverge de la source.
+`contrat/` n'est pas touché, donc **pas de `make contrat`** ici.
 
 - [ ] **Step 6: Committer**
 
@@ -1814,9 +1819,11 @@ git rm app/outils/exporter-ecrans.mjs app/outils/rendre-ecrans-yaml.py \
        app/outils/verdicts-commentaires.tsv \
        app/tests/migration-donnee.test.ts app/tests/migration-rendu.test.ts \
        tests/test_registre_commentaires.py \
-       app/tests/page.test.ts app/gabarits/piece.html \
+       app/gabarits/piece.html \
        dist/salon.html dist/bureau.html dist/cuisine.html
 ```
+
+**`app/tests/page.test.ts` n'est PAS dans cette liste, à dessein** (ruling R3 du scan de pré-vol) : voir juste en dessous.
 
 > **`page.test.ts` : lisez-le avant de le supprimer.** Ses cinq références à `ECRANS` testent la branche `data-piece` et meurent avec elle — mais le fichier teste aussi **la priorité de `?ecran=` sur `data-piece`** et **la chute vers la dégradation n°1 quand il n'y a rien**. Cette dernière survit : gardez-la, dans ce fichier réduit ou dans `repli.test.ts`. Supprimer le fichier entier retirerait la garde de la dégradation n°1, que **rien d'autre ne porte**.
 
