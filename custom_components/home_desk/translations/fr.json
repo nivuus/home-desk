@@ -82,7 +82,8 @@
             "etiquettesMinuteur": "Étiquettes de minuteur",
             "listesTachesExtra": "Listes de tâches supplémentaires",
             "agencement": "Blocs et modes",
-            "voiture": "Voiture"
+            "voiture": "Voiture",
+            "aspirateur_maison": "Aspirateur de la pièce"
           }
         },
         "identite": {
@@ -305,6 +306,17 @@
             "demarrerClim": "Démarrer la climatisation",
             "arreterClim": "Arrêter la climatisation",
             "note": "Note"
+          }
+        },
+        "aspirateur_maison": {
+          "title": "Aspirateur de la pièce",
+          "description": "Remplace la tuile « Aspirateur » générique de la vue « Toute la maison » par un appareil propre à cette pièce. Cochez « Pas d'aspirateur de pièce » pour revenir à la tuile générique.{entites_inconnues}",
+          "data": {
+            "sans_aspirateur_maison": "Pas d'aspirateur de pièce",
+            "libelle": "Libellé", "icone": "Icône", "entite": "Entité", "cible": "Cible",
+            "service_domaine": "Service — domaine", "service_action": "Service — action",
+            "lien": "Lien", "vue": "Vue", "epingle": "Épinglée",
+            "absenceNommee": "Texte quand l'entité est muette", "note": "Note"
           }
         }
       },

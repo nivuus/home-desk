@@ -383,14 +383,14 @@ class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFl
         `async_step_identite` reutilise `SCHEMA_IDENTITE` et les memes
         gardes que la creation (`_valider_identite`).
 
-        C1 : seul ECRAN qu'atteignent `async_step_identite` ET `objets.
-        SectionsObjetMixin.async_step_voiture` apres un persist reussi --
-        sa description porte donc `{entites_inconnues}` (translations/
-        *.json), avec un defaut "" ICI pour les appelants qui ne le
-        calculent pas eux-memes (ouverture directe, retrait de la voiture)."""
+        C1 : seul ECRAN qu'atteignent `async_step_identite` et les sections
+        « objet » d'entite unique de `objets.SectionsObjetMixin` (voiture,
+        aspirateur_maison -- 3c/1) apres un persist reussi -- sa description
+        porte donc `{entites_inconnues}` (translations/*.json), defaut ""
+        ICI pour les appelants qui ne le calculent pas eux-memes."""
         return self.async_show_menu(
             step_id="reconfigure",
-            menu_options=["identite", *SECTIONS, "agencement", "voiture"],
+            menu_options=["identite", *SECTIONS, "agencement", "voiture", "aspirateur_maison"],
             description_placeholders={"entites_inconnues": "", **(description_placeholders or {})},
         )
 

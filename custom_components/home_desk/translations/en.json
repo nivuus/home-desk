@@ -82,7 +82,8 @@
             "etiquettesMinuteur": "Timer labels",
             "listesTachesExtra": "Extra task lists",
             "agencement": "Blocks and modes",
-            "voiture": "Car"
+            "voiture": "Car",
+            "aspirateur_maison": "Room vacuum"
           }
         },
         "identite": {
@@ -305,6 +306,17 @@
             "demarrerClim": "Start air conditioning",
             "arreterClim": "Stop air conditioning",
             "note": "Note"
+          }
+        },
+        "aspirateur_maison": {
+          "title": "Room vacuum",
+          "description": "Replaces the generic \"Vacuum\" tile of the \"Whole house\" view with a device specific to this room. Check \"No room vacuum\" to go back to the generic tile.{entites_inconnues}",
+          "data": {
+            "sans_aspirateur_maison": "No room vacuum",
+            "libelle": "Label", "icone": "Icon", "entite": "Entity", "cible": "Target",
+            "service_domaine": "Service — domain", "service_action": "Service — action",
+            "lien": "Link", "vue": "View", "epingle": "Pinned",
+            "absenceNommee": "Text when the entity is unavailable", "note": "Note"
           }
         }
       },

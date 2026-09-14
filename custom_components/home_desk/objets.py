@@ -22,9 +22,22 @@ from homeassistant.helpers import selector
 
 from . import libelles, schema
 from .budget import BUDGET, verifier_budget
-from .const import ERREUR_ALERTE_PAS_EN_TETE, ERREUR_BUDGET_INTENABLE_MODE, ERREUR_CHAMP_INVALIDE
+from .const import (
+    ERREUR_ALERTE_PAS_EN_TETE,
+    ERREUR_BUDGET_INTENABLE_MODE,
+    ERREUR_CHAMP_INVALIDE,
+    ERREUR_CHAMP_VIDE,
+    ERREUR_SERVICE_INCOMPLET,
+)
 from .fautes import _FauteAlertePremiere
 from .formulaire import reafficher
+from .listes_champs import (
+    ChampVide,
+    ServiceIncomplet,
+    _afficher_bouton,
+    _construire_donnee_bouton,
+    _schema_bouton,
+)
 # Ronde 1 de relecture (Critique) : verifie l'ecran COMPLET avant tout
 # persist — voir garde_ecran.py. `async_step_agencement` et
 # `async_step_voiture` en avaient besoin au MEME titre que listes.py
@@ -127,6 +140,21 @@ SCHEMA_VOITURE = vol.Schema(
         },
         vol.Optional("note"): str,
     }
+)
+
+# Le dernier des quatre champs racine du contrat a recevoir sa porte de
+# saisie (plan 3c, tache 1) : un `Bouton` UNIQUE ($ref: #/$defs/bouton),
+# qui REMPLACE la tuile generique « Aspirateur » de la vue « Toute la
+# maison » (`rendu/maison.ts`, ASPIRATEUR_GENERIQUE) quand il est declare.
+# Les dix champs du bouton ne sont pas retapes ici : `_schema_bouton`,
+# `_construire_donnee_bouton` et `_afficher_bouton` (listes_champs.py) sont
+# la SEULE adresse canonique de $defs/bouton, la meme regle que ce depot
+# applique partout ailleurs (schema.py, budget.py, listes_erreurs.py).
+#
+# La case qui RETIRE la section, jamais un champ du contrat : elle ne quitte
+# pas ce formulaire (meme doctrine que `sans_voiture`, cf. async_step_voiture).
+SCHEMA_ASPIRATEUR_MAISON = _schema_bouton(editable=False).extend(
+    {vol.Optional("sans_aspirateur_maison", default=False): selector.BooleanSelector()}
 )
 
 
@@ -327,4 +355,72 @@ class SectionsObjetMixin:
 
         return reafficher(
             self, "voiture", SCHEMA_VOITURE, valeurs_affichees, errors, description_placeholders
+        )
+
+    async def async_step_aspirateur_maison(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """« Aspirateur de la piece » : un Bouton UNIQUE qui REMPLACE l'entree
+        generique « Aspirateur » de la vue « Toute la maison »
+        (`rendu/maison.ts`, ASPIRATEUR_GENERIQUE) — jamais une tuile de plus.
+
+        Le dernier des quatre champs racine a recevoir sa porte de saisie. Son
+        blocage n'etait pas ici mais dans l'application : tant que la
+        substitution se faisait par comparaison a un `entity_id` litteral,
+        ouvrir ce formulaire livrait un bouton a demi mort. Corrige a l'etape
+        precedente de cette meme tache, et dans cet ordre-la.
+
+        L'id du step est `aspirateur_maison` (snake_case, un nom de methode
+        Python) ; la cle du contrat reste `aspirateurMaison` (camelCase) —
+        `async_step_aspirateurMaison` n'aurait pas ete un nom Python valide
+        dans ce style. `translations/*.json` fait le pont entre les deux."""
+        entry = self._get_entry()
+        subentry = self._get_reconfigure_subentry()
+        errors: dict[str, str] = {}
+        description_placeholders: dict[str, str] = {}
+        existant = subentry.data.get("aspirateurMaison")
+        valeurs_affichees = _afficher_bouton(existant)
+
+        if user_input is not None:
+            valeurs_affichees = user_input
+            if user_input.get("sans_aspirateur_maison"):
+                donnees = dict(subentry.data)
+                donnees.pop("aspirateurMaison", None)
+                if garde_ecran.persister_si_valide(
+                    self, entry, subentry, donnees, errors, description_placeholders,
+                    section_courante="aspirateur_maison",
+                ):
+                    return await self.async_step_reconfigure()
+            else:
+                try:
+                    candidat = _construire_donnee_bouton(user_input, existant)
+                    valide = schema.BOUTON(candidat)
+                except ServiceIncomplet as err:
+                    errors[err.champ_vide] = ERREUR_SERVICE_INCOMPLET
+                except ChampVide as err:
+                    errors[err.champ] = ERREUR_CHAMP_VIDE
+                except vol.Invalid as err:
+                    champ, mot_cle = _localiser_champ(err)
+                    errors[champ] = _ERREUR_PAR_MOT_CLE.get(mot_cle, ERREUR_CHAMP_INVALIDE)
+                else:
+                    # Decision 7 : AVERTIT, ne refuse jamais. Le placeholder est
+                    # TOUJOURS pose (C1 de la relecture finale du 3b) : un
+                    # `description_placeholders` sans la cle fait lever HA sur
+                    # une description qui la porte.
+                    description_placeholders["entites_inconnues"] = (
+                        avertissement_entites_inconnues(
+                            self.hass, entites_dans(valide, "aspirateurMaison"))
+                    )
+                    donnees = {**subentry.data, "aspirateurMaison": valide}
+                    if garde_ecran.persister_si_valide(
+                        self, entry, subentry, donnees, errors, description_placeholders,
+                        section_courante="aspirateur_maison",
+                    ):
+                        return await self.async_step_reconfigure(
+                            description_placeholders=description_placeholders
+                        )
+
+        return reafficher(
+            self, "aspirateur_maison", SCHEMA_ASPIRATEUR_MAISON,
+            valeurs_affichees, errors, description_placeholders,
         )

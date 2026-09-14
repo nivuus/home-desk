@@ -289,8 +289,9 @@ SECTIONS: dict[str, Section] = {
     # Tache 7 : `listesTachesExtra` (racine du contrat) a EXACTEMENT la meme
     # forme qu'`ouvrants` (`contrat/ecran.schema.json` : un tableau
     # d'`entite` nue, pas d'objets) -- le meme quatuor de fonctions, un des
-    # trois champs racine qui n'avait AUCUNE porte de saisie
-    # (`aspirateurMaison` reste dette du 3c, cf. CLAUDE.md).
+    # quatre champs racine qui n'avait AUCUNE porte de saisie
+    # (`aspirateurMaison`, le dernier des quatre, a la sienne depuis le
+    # plan 3c, tache 1 -- objets.py, section « objet »).
     "listesTachesExtra": Section(
         "listesTachesExtra", lambda el: el, _valider_ouvrant, _schema_ouvrant,
         _construire_donnee_ouvrant, _afficher_ouvrant,
