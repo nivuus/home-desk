@@ -73,6 +73,26 @@ considérer comme compromis, pas comme « nettoyé ».
 Sans ce relevé, l'étape 1 n'a rien à remettre en cas de retour arrière — c'est
 la valeur exacte que les retours arrière des étapes 5 et 7 (§ 4) rechargent.
 
+### 1.3 Une deuxième décision à prendre avant de commencer : où poser l'archive
+
+Le retour arrière des étapes 2 et 8 (§ 4) repose sur un mouvement atomique
+(`cp -a` puis deux renommages POSIX) qui **n'est atomique que si l'archive de
+l'étape 1 et `config/www/wallpanel/` vivent sur le même système de fichiers**
+— un `mv` entre systèmes de fichiers différents retombe sur une copie puis une
+suppression, ce qui rouvre exactement la fenêtre que ce geste doit éviter.
+
+**Question ouverte, à trancher maintenant, avant l'étape 1** : cette maison
+a-t-elle déjà un endroit conventionnel, sur le même système de fichiers que
+`config/www/wallpanel/`, où poser une archive datée avant un geste à risque ?
+Recherché dans ce dépôt : aucune convention nommée pour ce chemin, ni dans
+`hooks/install.py`, ni dans la spec, ni dans `CLAUDE.md`. Si une convention
+existe ailleurs dans cette maison, l'utiliser. Sinon, la décider maintenant et
+l'écrire ici :
+
+**Chemin retenu pour l'archive de l'étape 1 : _______________ (à remplir
+avant de commencer, par le propriétaire — sur le même système de fichiers que
+`config/www/wallpanel/`).**
+
 ---
 
 ## 2. Un avertissement de lecture, à connaître avant d'ouvrir le fichier
@@ -175,10 +195,11 @@ fichiers » de la spec d'origine**, mesuré le 2026-09-12 avant que la branche
 de transition n'ajoute `index.html` — un compte qui daterait vite,
 mentionné ici pour qu'on ne s'étonne pas de l'écart si quelqu'un recompare à
 la spec. Les trois `startURL` sont écrites. L'archive existe **hors** de la
-cible (pas seulement sur l'hôte qui va être modifié) — sur le **même système
-de fichiers** que `config/www/wallpanel/` (par exemple, un autre répertoire
-sous `/opt/nivuus/home-manager/`), condition dont dépend le retour arrière de
-l'étape 2 (voir plus bas).
+cible (pas seulement sur l'hôte qui va être modifié) et est posée au chemin
+**choisi et écrit en § 1.3**, sur le même système de fichiers que
+`config/www/wallpanel/`. **La porte de l'étape 1 ne se valide pas tant que ce
+chemin n'a pas été choisi et écrit** : c'est de lui que dépend l'atomicité du
+retour arrière des étapes 2 et 8 (§ 4).
 
 **Ce que ce comptage révèle, et qui sert à l'étape 2** : à la date de cette
 mesure, l'hôte **ne porte pas d'`index.html`**. Le bundle actuellement
@@ -212,7 +233,7 @@ par fichier, pour la même raison qu'au dépôt : trois clients rechargent tout
 seuls, et une fenêtre où le répertoire est à moitié remplacé leur servirait un
 mélange des deux bundles. C'est exactement l'algorithme que
 `hooks/install.py` applique lui-même à chaque dépôt
-(`replace_tree()`, `hooks/install.py:107-124` : copie vers un voisin
+(`replace_tree()`, `hooks/install.py:107-138` : copie vers un voisin
 temporaire sur le même système de fichiers, puis deux renommages atomiques,
 puis suppression de l'ancien) :
 
@@ -222,7 +243,7 @@ puis suppression de l'ancien) :
 # système de fichiers : un `mv` entre systèmes de fichiers différents n'est
 # pas atomique (il retombe sur une copie puis une suppression), ce qui rouvre
 # exactement la fenêtre qu'on cherche à éviter.
-ARCHIVE=/opt/nivuus/home-manager/archives/wallpanel-2026-09-14   # chemin écrit à l'étape 1
+ARCHIVE=/opt/nivuus/home-manager/archives/wallpanel-2026-09-14   # chemin choisi en § 1.3, écrit au journal de l'étape 1
 CIBLE=/opt/nivuus/home-manager/config/www/wallpanel
 
 cp -a "$ARCHIVE" "$CIBLE.new"
@@ -253,13 +274,8 @@ spec. `packages/installer` (lu pour cette ronde :
 commande pour redéployer un paquet déjà installé sur un hôte en service ;
 ce n'est donc pas un chemin pour ce geste.
 
-**Question ouverte, à trancher avant l'étape 2** : cette maison a-t-elle déjà
-un endroit conventionnel, sur le même système de fichiers que
-`config/www/wallpanel/`, où poser une archive datée avant un geste à risque ?
-Si oui, l'étape 1 doit écrire ce chemin plutôt que d'en inventer un
-(`/opt/nivuus/home-manager/archives/…` ci-dessus est un exemple, pas une
-convention confirmée). Si non, le déciderait maintenant plutôt que pendant
-l'opération.
+Où poser cette archive, et pourquoi c'est décidé en amont plutôt qu'ici :
+§ 1.3.
 
 ### Étape 3 — Créer l'intégration, vide
 
