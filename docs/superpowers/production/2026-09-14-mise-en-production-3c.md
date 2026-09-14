@@ -404,8 +404,36 @@ le service `home_desk.importer`.
    diff <(sudo cat /opt/nivuus/home-manager/config/home_desk_ecrans.yaml) ./home_desk_ecrans.yaml
    ```
 
-   Un `diff` vide prouve que l'aller-retour **stockage** est fidèle — l'import
-   n'a rien perdu, rien déformé.
+   **Corrigé le 2026-09-14 : ce critère est trop fort, et il a échoué sur du
+   vide.** Le `diff` n'était pas vide — et pourtant l'import n'avait rien perdu.
+   L'écart, identique sur les trois écrans et seul de tout le fichier :
+   `agencement.modulateurs` réordonné (`invites` passe de la tête à la queue),
+   plus la place de la clé `titre` dans la table.
+
+   Le fichier de migration et le composant sont **deux rédacteurs différents**
+   du même contenu : exiger d'eux le même octet, c'est mesurer leur style, pas
+   leur fidélité. Or l'ordre de `modulateurs` ne porte aucun sens — le contrat
+   le déclare `uniqueItems: true` sur un `enum` de trois valeurs (un ensemble,
+   pas une séquence), et `app/src/modes.ts:153` le dit en toutes lettres :
+   « L'ordre de la liste déclarée n'a donc AUCUNE importance ici — on rend dans
+   l'ordre de `CONDITIONS_MODULATEURS` ». L'application réordonne de toute
+   façon.
+
+   **Les deux contrôles qui remplacent le `diff` d'octets**, et qui prouvent
+   davantage :
+
+   a. **Égalité de STRUCTURE** entre le fichier importé et le fichier
+      réexporté : relire les deux avec `yaml_ecrans.lire` et comparer les
+      objets champ par champ. Un écart d'ordre dans une liste que le contrat
+      déclare `uniqueItems` se nomme et se tolère ; tout autre écart — une
+      valeur, une clé perdue, une longueur — est une faute.
+   b. **Point fixe du composant** : `exporter` → `importer` → `exporter` doit
+      rendre un fichier **identique octet pour octet**. C'est là que le `diff`
+      d'octets est le bon outil, parce que les deux côtés ont alors le même
+      rédacteur.
+
+   Mesuré le 2026-09-14 : (a) un seul écart, l'ordre de `modulateurs`, sur les
+   trois écrans ; (b) point fixe atteint, `sha256` identique.
 
 2. **Le rendu.** Le `diff` vide ne prouve que le stockage, pas ce que la
    tablette affiche : deux structures identiques peuvent produire un rendu
@@ -545,10 +573,10 @@ permettra, après coup, de dire ce qui s'est réellement passé plutôt que ce q
 | Étape | Date | Heure | Qui | Ce qui a été observé à la porte |
 |---|---|---|---|---|
 | 1 — Filet et relevé | 2026-09-14 | 16 h 09 – 16 h 21 | Claude | **Porte franchie.** Sauvegarde 378 Mo vérifiée (`tar` lisible de bout en bout, gestionnaire `idle`). Archive `backups-home-desk-20260914/` : 10 fichiers, identique octet pour octet à la cible, même système de fichiers (périph. 65024). Empreinte servie `v=aaa1261229`. Trois `startURL` relevées (§ 1.2). **Réserve dite, non levée : pas de copie hors-hôte.** |
-| 2 — Paquet de transition + redémarrage | | | | |
-| 3 — Intégration vide | | | | |
-| 4 — Import des trois écrans | | | | |
-| 5 — Cuisine repointée | | | | |
+| 2 — Paquet de transition + redémarrage | 2026-09-14 | 16 h 25 – 16 h 33 | Claude | **Porte franchie.** Trois suites vertes avant le geste. `check_config` code 0, zéro ligne d'erreur. Dépôt par `hooks/install.py` (code 0, aucun avertissement `configuration.yaml` — les deux lignes y étaient déjà). 11 fichiers, empreinte `v=c3190c3011`, aucun résidu `.new`/`.old`. Redémarrage 16 h 27 h 42, remontée ~60 s, **1 781 entités = compte d'avant**. `home_desk` proposé à l'ajout, 0 entrée. Les trois tablettes ont rechargé seules (automation `tablettes_reload_browser_apres_demarrage_ha`, 16 h 29 h 32) et rendent juste — captures des trois relues. |
+| 3 — Intégration vide | 2026-09-14 | 16 h 41 | Claude | **Porte franchie.** Entrée « Tablettes murales » créée par le flux (`create_entry`), état `loaded`, `num_subentries: 0`. Les trois tablettes inchangées, aucune erreur au journal HA. |
+| 4 — Import des trois écrans | 2026-09-14 | 16 h 43 – 16 h 47 | Claude | **Porte franchie, avec le critère corrigé** (voir § 4, étape 4). YAML déposé (`sha256` identique à la source), `home_desk.importer` appelé : `num_subentries: 3`. Fidélité prouvée par égalité de structure (seul écart : l'ordre de `modulateurs`, sans portée) et par le point fixe `exporter→importer→exporter` (`sha256` identique). |
+| 5 — Cuisine repointée | 2026-09-14 | 16 h 54 – 16 h 58 | Claude | **PORTE ÉCHOUÉE — retour arrière exécuté, maison rétablie.** Voir le compte rendu ci-dessous. |
 | 6 — 24 heures, cuisine | | | | |
 | 7a — Salon repointé | | | | |
 | 7b — Salon, 24 heures | | | | |
@@ -591,3 +619,81 @@ sur l'hôte qui va être modifié. La copie hors-hôte réclamée par la porte
 n'existe pas : elle reste une décision du propriétaire (§ 1.3, dernier
 paragraphe). L'étape 1 est déclarée franchie **avec** cette réserve dite, pas
 en la passant sous silence.
+
+---
+
+### Compte rendu de l'étape 5 — 2026-09-14, 16 h 54 : la porte échoue, le filet tient
+
+**Le geste.** `fully_kiosk.set_config` sur la tablette de la cuisine,
+`key: startURL`, valeur `http://<hôte-HA>:8123/local/wallpanel/index.html?ecran=Cuisine`,
+puis `button.tablette_cuisine_load_start_url`. Bascule constatée immédiatement.
+
+**Un piège évité en chemin, qui méritait de l'être.** Le registre porte **deux**
+appareils Fully Kiosk nommés « Tablette Cuisine » : l'un désactivé
+(`disabled_by: user`, « Tablette Cuisine 22 »), l'autre vivant. Choisir par le
+nom aurait envoyé la commande à l'appareil mort, sans erreur et sans effet.
+L'appareil a été résolu **en remontant depuis l'entité déjà relevée**
+(`sensor.tablette_cuisine_current_page` → son `device_id`), jamais par son
+libellé. À refaire ainsi aux étapes 7a et 7b.
+
+**Ce que la tablette a affiché.** La structure est là — rangée Ambiance,
+bloc Entretien, bouton « Toute la maison ». **Les états des entités, non :**
+
+| Attendu (page historique, même instant) | Obtenu sur `?ecran=Cuisine` |
+|---|---|
+| « ☀ 29° » et « Il fait 23,2° ici. » | météo absente, il ne reste que « DEMAIN » |
+| Tuiles « Fermer / Ouvert » et « Hotte / Éteint » | **absentes** |
+| « Courses / 15 » | « Courses / Garde-manger non installé » |
+| Vue Recette disponible | « Recette / Garde-manger non installé » |
+| « Tout est fermé — 22 produits à consommer » | « Tout est fermé, rien à signaler » |
+| Thème clair | thème sombre |
+
+**Le diagnostic va aussi loin que la mesure le permet, et pas plus loin.**
+
+- **Ce n'est PAS la configuration importée.** Vérifié dans le YAML relu depuis
+  Home Assistant : l'écran Cuisine porte bien ses quatre commandes — `Hotte`
+  (`light.hotte`), `Rideau` (`cover.rideau_cuisine`), `Courses`, `Recette`. Rien
+  n'a été perdu à l'import, ce que la porte de l'étape 4 avait déjà prouvé deux
+  fois.
+- **Ce n'est PAS le code de rendu.** Le même `wallpanel.js`, déposé à
+  l'étape 2, rend la cuisine parfaitement par la branche `data-piece` — la
+  capture du retour arrière le montre, identique à celle de l'étape 1.
+- **C'est donc le chemin des ÉTATS sur la branche `?ecran=`**, celle que
+  `page.ts` fait partir vers `demarrage.demarrer` plutôt que vers
+  `demarrerAvecEcran`. Le symptôme est cohérent de bout en bout : **aucune**
+  entité ne résout. Les deux tuiles sans `absenceNommee` sont filtrées et
+  disparaissent ; les deux qui en portent une restent, inertes, et affichent
+  leur libellé — exactement le comportement prévu pour une entité muette. La
+  météo suit la même règle.
+
+**La piste pour la correction, à vérifier avant d'y toucher.** Les trois
+épreuves de fidélité du plan (`app/tests/migration-*.test.ts`) montent par
+`monterDemarrage` (`app/tests/aides.ts`), et le niveau 3 compare le littéral à
+l'importé. Reste à établir si l'une d'elles exerce réellement la séquence
+`demarrer` → abonnement aux états — ou si toutes passent par le même point
+d'entrée, celui qui fonctionne. Si c'est le cas, c'est le motif que ce dépôt
+connaît par cœur : **un test qui garde un MODULE ne garde pas son
+BRANCHEMENT.** Les 1 148 tests verts n'ont rien attrapé parce qu'ils
+n'observaient pas ce branchement-là.
+
+**Le retour arrière.** `startURL` remise à la valeur relevée à l'étape 1
+(`.../cuisine.html`), puis rechargement. Capture de contrôle à 16 h 58 :
+identique à celle de l'étape 1 — météo, « Fermer / Ouvert », « Hotte / Éteint »,
+« Courses / 15 », « Tout est fermé — 22 produits à consommer », thème clair.
+**Quatre minutes entre le geste et le rétablissement.**
+
+**Ce que cet échec démontre, et qui n'est pas rien.** La branche de transition
+`data-piece` a fait exactement ce pour quoi elle a été posée, et elle a coûté
+sa place dans le bundle pour ce seul instant. Sans elle, la cuisine serait
+restée dans cet état jusqu'à un nouveau déploiement complet — et les trois
+tablettes avec, puisque le bundle est remplacé d'un bloc. C'est l'arbitrage du
+plan 3b qui se paie ici, une fois, et qui se rembourse.
+
+**État de la maison à la clôture de cette session :** les trois tablettes sur
+leurs pages historiques, servies par le bundle de l'étape 2, rendu vérifié
+identique au bundle d'avant. L'intégration « Tablettes murales » est installée
+et porte les trois écrans importés — **elle ne pilote aucune tablette**. Rien
+ne dépend d'elle tant qu'aucune `startURL` ne pointe sur `index.html`.
+
+**Les étapes 6, 7 et 8 ne s'ouvrent pas** tant que l'étape 5 n'a pas passé sa
+porte.
