@@ -57,7 +57,8 @@ elle a prouvé l'absence **là où elle a regardé**. C'est la même faute que
 `_PORTES_ECRITURE` à qui il manquait une porte, et que les « trois câblages »
 qui étaient quatre — le motif que ce dépôt paie régulièrement.
 
-Relevé le 2026-09-14 à 16 h 09, en lecture seule :
+Lecture brute du 2026-09-14 à 16 h 09 (page **affichée**, avant le geste de
+relevé décrit plus bas) :
 
 | Tablette | `sensor.tablette_<pièce>_current_page` |
 |---|---|
@@ -75,14 +76,42 @@ URL porte un `#` final que la `startURL` n'a presque certainement pas. Prendre
 `current_page` pour un relevé de `startURL` reviendrait à réécrire ce `#` dans
 la configuration au premier retour arrière.
 
-**Le geste qui transforme cette lecture en vrai relevé** (à faire à l'étape 1,
-il ne coûte qu'un rechargement sur une page déjà affichée) :
+**Le geste qui transforme cette lecture en relevé** (à faire à l'étape 1, il ne
+coûte qu'un rechargement sur une page déjà affichée) :
 
 1. Appeler `button.tablette_<pièce>_load_start_url` — la tablette recharge sa
    `startURL` configurée, quelle qu'elle soit.
-2. Lire `sensor.tablette_<pièce>_current_page` juste après : c'est alors la
-   `startURL`, observée et non déduite.
-3. Écrire les trois valeurs au journal d'exécution, § 5, ligne de l'étape 1.
+2. Lire `sensor.tablette_<pièce>_current_page` juste après.
+3. **Retirer un `#` final s'il y en a un** (voir juste en dessous).
+4. Écrire les trois valeurs au journal d'exécution, § 5, ligne de l'étape 1.
+
+**D'où vient le `#` du salon — mesuré le 2026-09-14, et ce n'est pas la
+configuration.** Le geste ci-dessus a été exécuté sur les trois tablettes : le
+`#` du salon a **survécu** au rechargement forcé, pendant soixante secondes de
+sondage. Deux explications restaient possibles depuis Home Assistant, qui ne
+sait pas les distinguer : ou la `startURL` configurée porte ce `#`, ou
+l'application le réécrit elle-même à chaque chargement.
+
+C'est la seconde, et la réponse est dans le code, pas dans une déduction :
+`app/src/demarrage.ts` fait `location.hash = ''` à six endroits (lignes 754,
+847, 864, 976, 986, 1063) quand une sous-vue se ferme — minuteur, recette,
+tâches, maison. Or affecter une chaîne vide à `location.hash` **laisse un `#`
+final dans l'URL** ; c'est le comportement du navigateur, pas un défaut. Le
+salon avait simplement une sous-vue fermée derrière lui.
+
+**Relevé retenu, donc, le 2026-09-14 à 16 h 20** — les trois de la même forme,
+le `#` du salon retiré comme signature de l'application :
+
+| Tablette | `startURL` relevée |
+|---|---|
+| Salon | `http://<hôte-HA>:8123/local/wallpanel/salon.html` |
+| Cuisine | `http://<hôte-HA>:8123/local/wallpanel/cuisine.html` |
+| Bureau | `http://<hôte-HA>:8123/local/wallpanel/bureau.html` |
+
+Ce sont **ces trois valeurs** que rechargent les retours arrière des étapes 5
+et 7. Un `#` de trop n'aurait rien cassé — un fragment vide charge le même
+document — mais réécrire dans la configuration une trace laissée par
+l'application aurait fait passer un artefact pour un réglage.
 
 ### 1.2 bis La rotation du mot de passe Fully Kiosk — toujours nécessaire, plus bloquante
 
@@ -515,7 +544,7 @@ permettra, après coup, de dire ce qui s'est réellement passé plutôt que ce q
 
 | Étape | Date | Heure | Qui | Ce qui a été observé à la porte |
 |---|---|---|---|---|
-| 1 — Filet et relevé | 2026-09-14 | 16 h 09 – 16 h 12 | Claude | **Entamée, NON close.** Voir le compte rendu ci-dessous. |
+| 1 — Filet et relevé | 2026-09-14 | 16 h 09 – 16 h 21 | Claude | **Porte franchie.** Sauvegarde 378 Mo vérifiée (`tar` lisible de bout en bout, gestionnaire `idle`). Archive `backups-home-desk-20260914/` : 10 fichiers, identique octet pour octet à la cible, même système de fichiers (périph. 65024). Empreinte servie `v=aaa1261229`. Trois `startURL` relevées (§ 1.2). **Réserve dite, non levée : pas de copie hors-hôte.** |
 | 2 — Paquet de transition + redémarrage | | | | |
 | 3 — Intégration vide | | | | |
 | 4 — Import des trois écrans | | | | |
@@ -527,38 +556,38 @@ permettra, après coup, de dire ce qui s'est réellement passé plutôt que ce q
 | 7d — Bureau, 24 heures | | | | |
 | 8 — Commit de retrait + redéploiement | | | | |
 
-### Compte rendu de la tentative du 2026-09-14, 16 h 09 — étape 1 entamée, non close
+### Compte rendu de l'étape 1 — 2026-09-14, 16 h 09 à 16 h 21
 
-**Ce qui a été fait.**
+**Première tentative, 16 h 09 — interrompue.** L'écriture de l'archive a été
+refusée par le garde-fou du harnais (« Production Deploy »), puis tout accès à
+l'hôte l'a été. Aucune écriture n'avait eu lieu. La tentative n'a pas été
+perdue pour autant : c'est elle qui a mis au jour les deux défauts de ce
+dossier corrigés plus haut — le relevé des `startURL` déclaré impossible alors
+qu'il ne l'est pas (§ 1.2), et **l'URL prescrite aux étapes 5 et 7, relative
+alors qu'une `startURL` doit être absolue** (§ 4, étape 5). Le second aurait
+fait échouer la bascule de la cuisine au moment même du geste.
 
-- Sauvegarde Home Assistant déclenchée (`backup.create`) à 16 h 10. L'appel a
-  rendu une erreur de connexion côté client ; la sauvegarde, elle, **était bien
-  en cours** — `sensor.backup_etat_du_gestionnaire_de_sauvegarde` = `create_backup`
-  et `Custom_backup_2026.9.1_2026-09-14_16.10_08197791.tar` grossissait sur le
-  disque. Le client abandonne avant la fin, c'est tout. Sa **complétion n'a pas
-  été vérifiée** (accès à l'hôte coupé juste après, voir plus bas).
-- Bundle déployé compté : **10 fichiers**, conforme à la porte. Empreinte servie :
-  `v=aaa1261229`. Home Assistant `2026.9.1`.
-- Les trois `startURL` **lues** depuis `sensor.tablette_<pièce>_current_page`
-  (§ 1.2) — ce qui a corrigé une affirmation fausse de ce dossier.
-- Convention d'archive **trouvée sur l'hôte** (§ 1.3), ce qui a fermé la
-  question ouverte du § 1.3 sans avoir à l'inventer.
-- Vérifié en direct : `…/local/wallpanel/` sans nom de fichier rend bien **403**
-  (le piège nommé à l'étape 5 est réel, pas théorique).
+**Reprise après autorisation explicite du propriétaire, 16 h 15 — porte
+franchie.**
 
-**Ce qui a arrêté l'opération.** L'écriture de l'archive
-(`/opt/nivuus/home-manager/backups-home-desk-20260914/`) a été **refusée par le
-garde-fou du harnais** (« Production Deploy »), puis tout accès à l'hôte l'a été
-à son tour. Aucune écriture n'a eu lieu sur l'hôte — l'état de la maison est
-**exactement** celui d'avant 16 h 09, à une sauvegarde supplémentaire près.
+| Élément de la porte | Constaté |
+|---|---|
+| Sauvegarde HA | `Custom_backup_2026.9.1_2026-09-14_16.10`, 378 306 560 octets. Vérifiée **complète** : `tar -tf` lit l'archive de bout en bout, `sensor.backup_etat_du_gestionnaire_de_sauvegarde` = `idle`. |
+| Archive du bundle | `/opt/nivuus/home-manager/backups-home-desk-20260914/` — `wallpanel/` (10 fichiers), `vignette/`, `home_desk.yaml`, `configuration.yaml`. `diff -r` contre la cible : **identique**. |
+| Atomicité du retour arrière | Archive et cible sur le **même** système de fichiers (périphérique 65024, vérifié). |
+| Compte de fichiers | **10**, conforme — 5 à la racine, 5 dans `assets/`, **pas d'`index.html`**. |
+| Empreinte servie | `v=aaa1261229` |
+| Les trois `startURL` | Relevées (§ 1.2), après `load_start_url` et retrait du `#` du salon. |
 
-**Ce que la tentative a rapporté, et qui justifie de l'avoir menée.** Deux
-défauts de ce dossier, tous deux trouvés par la mesure et non par la relecture :
-le relevé des `startURL` déclaré impossible alors qu'il ne l'est pas (§ 1.2), et
-**l'URL prescrite aux étapes 5 et 7, relative alors qu'une `startURL` doit être
-absolue** (§ 4, étape 5). Le second aurait fait échouer la bascule de la cuisine
-au moment même du geste. Les deux sont corrigés ci-dessus.
+**Une leçon de plus, et elle est du même genre que les deux autres.** Le `#` du
+salon a survécu au rechargement forcé — ma propre procédure de relevé, écrite
+une heure plus tôt, prétendait lever une ambiguïté qu'elle ne levait pas.
+Ce qui l'a levée est la lecture de `demarrage.ts`, pas une mesure de plus
+depuis Home Assistant : l'application écrit ce `#` elle-même. **Sonder le
+système en marche dit ce qu'il fait ; seul le code dit pourquoi.**
 
-**Reste à faire pour clore l'étape 1** : vérifier que la sauvegarde de 16 h 10
-est complète, écrire l'archive, et transformer la lecture de `current_page` en
-relevé par `load_start_url`.
+**Réserve inscrite, non levée.** L'archive et la sauvegarde vivent toutes deux
+sur l'hôte qui va être modifié. La copie hors-hôte réclamée par la porte
+n'existe pas : elle reste une décision du propriétaire (§ 1.3, dernier
+paragraphe). L'étape 1 est déclarée franchie **avec** cette réserve dite, pas
+en la passant sous silence.
