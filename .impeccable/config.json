@@ -11,6 +11,12 @@
         ],
         "createdAt": "2026-09-14T12:23:05.396Z",
         "reason": "Claude: faux positif mesure. La regle vise une bordure coloree epaisse sur le COTE d'une carte. Ici (.media::after, l. 358) c'est une barre de PROGRESSION de lecture media de 4px sur le bord BAS -- 'left:0; right:0; bottom:0' -- dont le remplissage est pilote par la variable --progression. Le commentaire au-dessus dit qu'elle reprend le meme mecanisme que .commande.jauge et n'ajoute AUCUNE hauteur. C'est un afficheur de donnee, pas un accent decoratif."
+      },
+      {
+        "rule": "overused-font",
+        "value": "roboto",
+        "createdAt": "2026-09-14T12:37:55.683Z",
+        "reason": "Claude: tablettes murales Android sous Fully Kiosk. La pile est 'Roboto, system-ui, sans-serif' : Roboto est la police SYSTEME de la plateforme cible, pas un choix d identite. S aligner sur le systeme est le comportement voulu ici."
       }
     ]
   }
