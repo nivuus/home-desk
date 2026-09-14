@@ -88,8 +88,11 @@ portait.
 documentée et acceptée du module `yaml_ecrans` (posée au plan 3a), pas un
 défaut introduit par ce chantier. Conséquence concrète : la note de la
 cuisine, qui joint dix-huit commentaires du code source, devient **une seule
-ligne de commentaire d'environ 1 900 caractères** dans
-`config/home_desk_ecrans.yaml`. Ouvrir ce fichier dans un éditeur qui ne
+ligne de commentaire de plus de 1 500 caractères** (1 584 caractères mesurés
+le 2026-09-14 sur le fichier de travail produit par l'outil — la valeur exacte
+dépendra du fichier réellement produit à l'étape 4, l'ordre de grandeur est ce
+qui compte) dans `config/home_desk_ecrans.yaml`. Ouvrir ce fichier dans un
+éditeur qui ne
 retourne pas la ligne donnera l'impression d'un fichier cassé ou d'un unique
 bloc illisible à cet endroit — il ne l'est pas, c'est le format attendu.
 
@@ -156,10 +159,33 @@ actuellement servie par `wallpanel.js`. Archiver la version du paquet
 Home Assistant dans le journal (§ 5).
 
 **Porte.** La sauvegarde Home Assistant est listée et non vide. La copie
-datée porte les 8 fichiers du bundle actuel (`salon.html`, `bureau.html`,
-`cuisine.html`, `wallpanel.js`, `wallpanel.css`, `assets/`). Les trois
-`startURL` sont écrites. L'archive existe **hors** de la cible (pas seulement
-sur l'hôte qui va être modifié).
+datée porte **10 fichiers** — mesuré directement sur l'hôte le 2026-09-14,
+sur le bundle déposé le 2026-09-05 :
+
+```
+config/www/wallpanel/
+    bureau.html   cuisine.html   salon.html   wallpanel.css   wallpanel.js
+    assets/
+        DSEG14Classic-Bold.woff2   DSEG7Classic-Bold.woff2
+        eclair.webp   firepath_384.webm   flux_264.webm
+```
+
+(5 fichiers à la racine, 5 dans `assets/`.) **Ce compte remplace le « 8
+fichiers » de la spec d'origine**, mesuré le 2026-09-12 avant que la branche
+de transition n'ajoute `index.html` — un compte qui daterait vite,
+mentionné ici pour qu'on ne s'étonne pas de l'écart si quelqu'un recompare à
+la spec. Les trois `startURL` sont écrites. L'archive existe **hors** de la
+cible (pas seulement sur l'hôte qui va être modifié) — sur le **même système
+de fichiers** que `config/www/wallpanel/` (par exemple, un autre répertoire
+sous `/opt/nivuus/home-manager/`), condition dont dépend le retour arrière de
+l'étape 2 (voir plus bas).
+
+**Ce que ce comptage révèle, et qui sert à l'étape 2** : à la date de cette
+mesure, l'hôte **ne porte pas d'`index.html`**. Le bundle actuellement
+déployé est celui d'avant le plan 3b — il n'a jamais vu la branche
+`data-piece`. La porte de l'étape 2 doit donc constater **11 fichiers** après
+le dépôt du paquet de transition (les 10 ci-dessus, plus `index.html`) : un
+compte qui se vérifie d'un coup d'œil, pas une impression.
 
 **Retour arrière.** Sans objet — rien n'a encore changé.
 
@@ -169,17 +195,71 @@ sur l'hôte qui va être modifié).
 pages historiques (`salon.html`, `bureau.html`, `cuisine.html`) et la branche
 de transition `data-piece`. Valider la configuration
 (`docker exec homeassistant python -m homeassistant --script check_config
--c /config`). Redémarrer Home Assistant, à l'heure écrite au § 3.1.
+-c /config`). Redémarrer Home Assistant, à l'heure écrite au § 3, point 1.
 
 **Porte.** `check_config` propre **avant** le redémarrage. Home Assistant
 remonte, l'intégration `home_desk` est proposée à l'ajout dans Paramètres >
-Appareils et services. **Et les trois pages historiques rendent à
-l'identique** : `verifier-rendu.mjs --deploye` plus une capture par tablette,
-comparée à la copie de l'étape 1. C'est la preuve que rien n'a encore bougé
-pour l'occupant de la maison, même si le code sous-jacent a changé.
+Appareils et services. `config/www/wallpanel/` porte **11 fichiers** — les 10
+de l'étape 1 plus `index.html` (voir l'étape 1, ce que le comptage révèle).
+**Et les trois pages historiques rendent à l'identique** : `verifier-rendu.mjs
+--deploye` plus une capture par tablette, comparée à la copie de l'étape 1.
+C'est la preuve que rien n'a encore bougé pour l'occupant de la maison, même
+si le code sous-jacent a changé.
 
-**Retour arrière.** Redéployer l'archive de l'étape 1, `check_config`,
-redémarrer.
+**Retour arrière.** Remettre la copie datée de l'étape 1 sur
+`config/www/wallpanel/`, en **un seul mouvement atomique** — jamais fichier
+par fichier, pour la même raison qu'au dépôt : trois clients rechargent tout
+seuls, et une fenêtre où le répertoire est à moitié remplacé leur servirait un
+mélange des deux bundles. C'est exactement l'algorithme que
+`hooks/install.py` applique lui-même à chaque dépôt
+(`replace_tree()`, `hooks/install.py:107-124` : copie vers un voisin
+temporaire sur le même système de fichiers, puis deux renommages atomiques,
+puis suppression de l'ancien) :
+
+```bash
+# Sur l'hôte, en root. ARCHIVE = la copie datée écrite à l'étape 1,
+# CIBLE = le répertoire réellement servi. Les deux DOIVENT être sur le même
+# système de fichiers : un `mv` entre systèmes de fichiers différents n'est
+# pas atomique (il retombe sur une copie puis une suppression), ce qui rouvre
+# exactement la fenêtre qu'on cherche à éviter.
+ARCHIVE=/opt/nivuus/home-manager/archives/wallpanel-2026-09-14   # chemin écrit à l'étape 1
+CIBLE=/opt/nivuus/home-manager/config/www/wallpanel
+
+cp -a "$ARCHIVE" "$CIBLE.new"
+mv "$CIBLE" "$CIBLE.old"
+mv "$CIBLE.new" "$CIBLE"
+rm -rf "$CIBLE.old"
+```
+
+Puis `check_config`, puis redémarrer.
+
+**D'où vient cette commande, et sa limite.** Elle n'est pas une commande
+existante trouvée dans le dépôt : c'est la reproduction directe, à la main,
+de l'algorithme de `replace_tree()` — la seule fonction de ce dépôt qui fait
+exactement ce geste. Aucun outil prêt à l'emploi ne l'expose en dehors de ce
+hook : `hooks/install.py` dit lui-même (règle 3, ligne 28) que « réexécuter ce
+hook est le seul mécanisme de mise à jour », mais son point d'entrée
+(`main()`) dépose **toujours** `HERE/dist` — le `dist/` du dépôt depuis lequel
+le hook s'exécute — jamais un chemin d'archive arbitraire ; l'utiliser pour ce
+retour arrière obligerait à extraire un clone du dépôt `home-desk` au commit
+qui était `HEAD` juste avant cette étape, puis à exécuter
+`echo '{}' | python3 hooks/install.py --phase install --root /` depuis ce
+clone — ce qui redéploierait aussi `custom_components/vignette`,
+`custom_components/home_desk` et `packages/home_desk.yaml` depuis cet ancien
+commit, un périmètre plus large que le seul bundle et non discuté par la
+spec. `packages/installer` (lu pour cette ronde :
+`packages/installer/installer/README.md`) est confirmé comme un installeur de
+**système d'exploitation** — partitionnement, `debootstrap`, GRUB — sans
+commande pour redéployer un paquet déjà installé sur un hôte en service ;
+ce n'est donc pas un chemin pour ce geste.
+
+**Question ouverte, à trancher avant l'étape 2** : cette maison a-t-elle déjà
+un endroit conventionnel, sur le même système de fichiers que
+`config/www/wallpanel/`, où poser une archive datée avant un geste à risque ?
+Si oui, l'étape 1 doit écrire ce chemin plutôt que d'en inventer un
+(`/opt/nivuus/home-manager/archives/…` ci-dessus est un exemple, pas une
+convention confirmée). Si non, le déciderait maintenant plutôt que pendant
+l'opération.
 
 ### Étape 3 — Créer l'intégration, vide
 
@@ -314,11 +394,14 @@ attention : `test_dist_a_jour` relance `npm run build` et compare le résultat
 trois tablettes rechargent seules (le même mécanisme qu'à l'étape 6) et
 rendent à l'identique.
 
-**Retour arrière.** **Redéployer l'archive de l'étape 1 en entier.** Pas
-« recopier les trois pages HTML » : sans leur bundle d'époque, ces trois pages
-prennent une branche `data-piece` qui n'existe plus, et donnent trois murs
-blancs. C'est le seul chemin de retour à partir de cette étape (§ 3, point 4)
-— garder l'archive au moins une semaine après ce commit.
+**Retour arrière.** **Redéployer l'archive de l'étape 1 en entier**, avec le
+même geste qu'à l'étape 2 (§ « Étape 2 », le mouvement atomique
+`cp -a` + double `mv` + `rm -rf`, jamais fichier par fichier), puis
+`check_config`, puis redémarrer. Pas « recopier les trois pages HTML » : sans
+leur bundle d'époque, ces trois pages prennent une branche `data-piece` qui
+n'existe plus, et donnent trois murs blancs. C'est le seul chemin de retour à
+partir de cette étape (§ 3, point 4) — garder l'archive au moins une semaine
+après ce commit.
 
 ---
 
