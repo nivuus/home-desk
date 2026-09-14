@@ -11,3 +11,9 @@ __pycache__/
 # shared) and `worktrees/` (linked worktrees). An unignored worktree
 # directory commits the whole tree into the repository.
 .claude/
+
+# Produits de l'outil d'export du plan 3c (JETABLES, cf. app/outils/exporter-ecrans.mjs).
+# Ils portent la configuration REELLE de cette maison : ils ne doivent jamais entrer dans git.
+/home_desk_ecrans.yaml
+/ecrans-exportes.json
+/registre-commentaires.tsv
