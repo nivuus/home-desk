@@ -15,7 +15,7 @@ import re
 import sys
 
 RACINE = pathlib.Path(__file__).resolve().parent.parent
-SCANNES = ("app/src", "app/outils", "app/scripts", "app/gabarits", "app/README.md")
+SCANNES = ("app/src", "app/outils", "app/scripts", "app/gabarits", "app/README.md", "app/docs")
 
 INTERDITS = (
     (re.compile(r"192\.168\.\d{1,3}\.\d{1,3}"), "une adresse IP du reseau local"),

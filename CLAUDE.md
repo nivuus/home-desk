@@ -195,23 +195,48 @@ deviennent éditables (trois en 3b, `aspirateurMaison` en 3c), le préalable
 tablettes partent avec le lot de portabilité du 3c. Cette section reste ici
 comme CONSTAT mesuré ; la spec porte la décision.
 
-- **Fermée à la tâche 5 du plan 3c.** Cette entrée constatait que les trois
-  IP de tablettes (`192.168.0.159`/`.218`/`.138`) apparaissaient à quatre
-  endroits sans qu'aucune garde ne les cherche : `app/`, la SOURCE dont
-  `dist/` est bâti, n'était scanné par rien, et le littéral
-  `"192.168.0.1"` d'`INTERDITS_COMPOSANT` (`tests/test_dist_portable.py`)
-  ne s'appliquait qu'à `custom_components/home_desk/` et n'attrapait
-  `.159`/`.138` que par coïncidence de préfixe, jamais `.218`. Retiré des
-  quatre fichiers (`app/src/styles/base.css`, `app/outils/
-  verifier-rendu.mjs`, `app/README.md`, et le mot de passe Fully Kiosk en
-  clair trouvé au passage dans `app/docs/superpowers/plans/
+- **Fermée à la tâche 5 du plan 3c, complétée en ronde de relecture 1.**
+  Cette entrée constatait que les trois IP de tablettes
+  (`192.168.0.159`/`.218`/`.138`) apparaissaient à quatre endroits sans
+  qu'aucune garde ne les cherche : `app/`, la SOURCE dont `dist/` est bâti,
+  n'était scanné par rien, et le littéral `"192.168.0.1"`
+  d'`INTERDITS_COMPOSANT` (`tests/test_dist_portable.py`) ne s'appliquait
+  qu'à `custom_components/home_desk/` et n'attrapait `.159`/`.138` que par
+  coïncidence de préfixe, jamais `.218`. Retiré des quatre fichiers
+  (`app/src/styles/base.css`, `app/outils/verifier-rendu.mjs`,
+  `app/README.md`, et le mot de passe Fully Kiosk en clair trouvé au
+  passage dans `app/docs/superpowers/plans/
   2026-08-06-bandeau-mise-en-page.md`), en conservant le savoir que ces
   commentaires portaient (deux moteurs Chrome distincts sur les trois
-  tablettes, `dvh` absent sur l'un). `tests/test_portabilite_app.py`,
-  ajouté à la boucle de `make test`, scanne désormais `app/` par MOTIF
-  (jamais par littéral) et referme le filet : une IP, un chemin personnel
-  ou un mot de passe en clair qui y réapparaîtrait ferait échouer `make
-  test`, pas seulement une relecture.
+  tablettes, `dvh` absent sur l'un).
+
+  **La première passe s'arrêtait juste avant un fichier qui violait la
+  règle.** `SCANNES` ne couvrait que `app/src`, `app/outils`,
+  `app/scripts`, `app/gabarits` et `app/README.md` — `app/docs/`, pourtant
+  livré par `git archive HEAD` au même titre que `app/README.md`, restait
+  hors du filet, et une IP de tablette avait survécu juste à côté du mot
+  de passe retiré, sur la même ligne 592 de `2026-08-06-bandeau-mise-en-page.md`.
+  Étendre `SCANNES` à `app/docs` a aussi mis au jour, non nommés par la
+  mesure initiale : quatre chemins morts `/opt/nivuus/HomeAssistant/...`
+  (disparu le 2026-08-28) dans ce même fichier et dans
+  `2026-08-22-mouvement-grammaire.md` — dont un mode opératoire encore
+  actionnable qui lit `HA_TOKEN` sur un chemin mort depuis six semaines —,
+  et trois IP supplémentaires (`192.168.0.1`, la passerelle du Grocy
+  local, pas une tablette) dans trois specs/plans de la fonctionnalité
+  recette/scan. Même traitement partout : le fait reste, l'identifiant
+  part, la date de retrait est dite.
+
+  `tests/test_portabilite_app.py`, ajouté à la boucle de `make test`,
+  scanne `app/src`, `app/outils`, `app/scripts`, `app/gabarits`,
+  `app/README.md` et `app/docs` par MOTIF (jamais par littéral) et referme
+  le filet sur ce périmètre : une IP, un chemin personnel ou un mot de
+  passe en clair qui y réapparaîtrait ferait échouer `make test`, pas
+  seulement une relecture. **Laissé hors de `SCANNES`, à dessein, et donc
+  hors filet** : `app/tests/` (sa propre suite vitest) et les fichiers à
+  la racine d'`app/` (`package.json`, `package-lock.json`,
+  `rollup.config.js`, `tsconfig.json`, `vitest.config.ts`, `app/assets/`)
+  — vérifiés sans trace de cette machine au 2026-09-14, mais une
+  régression future n'y serait pas détectée automatiquement.
 - **Au-delà des IP, `dist/wallpanel.js` embarque la configuration
   littérale COMPLÈTE de cette maison** — mesuré : 69 `entity_id` distincts
   (`grep -oE '"[a-z_]+\.[a-z0-9_]+"' dist/wallpanel.js | sort -u | wc -l`),

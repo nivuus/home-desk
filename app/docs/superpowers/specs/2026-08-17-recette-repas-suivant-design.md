@@ -29,7 +29,7 @@ donc que le jour courant : après le dîner, il n'y a plus rien à montrer.
 
 | Question | Décision | Raison |
 |---|---|---|
-| Source de données | **API Grocy directe** (`http://192.168.0.1:9283`) | Seule à porter la section et son heure (`meal_plan_sections.time_info`) ; sans clé, `Access-Control-Allow-Origin: *` (vérifié), déjà la voie de `grocy-recipes.html` |
+| Source de données | **API Grocy directe** (`http://[ip-locale]:9283` — IP retirée le 2026-09-14, propre à cette maison) | Seule à porter la section et son heure (`meal_plan_sections.time_info`) ; sans clé, `Access-Control-Allow-Origin: *` (vérifié), déjà la voie de `grocy-recipes.html` |
 | Nom du plat | **Dans le bloc central**, tuile à libellé court | Une tuile fait ~160 px avec `.t` en 14 px : « Bol légumes rôtis-pois chiches-œuf » y serait tronqué ; le bloc a deux lignes pleine largeur |
 | Portée de la vue | **Le repas suivant, rien d'autre** | Le catalogue reste dans la page autonome ; pas de troisième niveau de profondeur |
 | Retour automatique | **Exempté des 45 s**, repli 30 min | On cuisine en s'éloignant du plan de travail ; le repli garde l'écran mural honnête |
@@ -59,8 +59,10 @@ vide, et le dernier plan connu est conservé — même discipline que `chargerMe
 
 | Origine de la page | Base Grocy |
 |---|---|
-| `http://192.168.0.1:8123` (les 3 tablettes, relevé Fully) | `http://192.168.0.1:9283` |
+| `http://[ip-locale]:8123` (les 3 tablettes, relevé Fully) | `http://[ip-locale]:9283` |
 | `https://home.allanic.me` (accès distant) | `https://grocy.allanic.me` |
+
+(IP locale retirée le 2026-09-14, propre à cette maison — même passerelle réseau aux deux ports.)
 
 Sans cette résolution, une page servie en HTTPS verrait son `fetch` en clair bloqué comme contenu
 mixte. Les deux hôtes répondent sans clé et autorisent l'origine correspondante (`Access-Control-Allow-Origin`

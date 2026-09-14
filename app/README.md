@@ -20,9 +20,10 @@ par rollup vers `config/www/wallpanel/` et servie par Home Assistant.
 | Cuisine | `/local/wallpanel/cuisine.html` | `image.tablette_cuisine_capture_d_ecran` |
 
 Les IP d'administration Fully Kiosk de chaque tablette (port `2323`) ont été retirées d'ici le
-2026-09-14 — `app/` est la SOURCE dont `dist/` est bâti et livré par `git archive HEAD` ; elles
-vivent désormais dans le dossier de production, pas dans le dépôt (plan 3c, tâche 5, gardé par
-`tests/test_portabilite_app.py`).
+2026-09-14 — `app/` est la SOURCE dont `dist/` est bâti et livré par `git archive HEAD` ; ce dépôt
+ne les porte donc plus (gardé par `tests/test_portabilite_app.py`, plan 3c, tâche 5). Aucun
+fichier ne les remplace encore : ce mapping pièce → IP reste à consigner hors du dépôt, sur la
+machine de production elle-même (tâche 6 du même plan).
 
 L'app se connecte à HA en **websocket** avec le jeton de session du navigateur (`src/connexion.ts`) :
 aucune card, aucun dashboard, aucun `custom_component` frontend dans la boucle.
