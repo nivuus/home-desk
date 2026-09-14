@@ -18,6 +18,7 @@
  *    node outils/exporter-ecrans.mjs --registre ../registre-commentaires.tsv
  */
 import { build } from 'esbuild';
+import { readFileSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -25,6 +26,8 @@ import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
 const RACINE = path.resolve(import.meta.dirname, '..');
+const CHEMIN_VERDICTS = path.join(RACINE, 'outils', 'verdicts-commentaires.tsv');
+const CHEMIN_SCHEMA = path.resolve(RACINE, '..', 'contrat', 'ecran.schema.json');
 // Recopie manuelle de `VERSION_CONFIG` dans `custom_components/home_desk/const.py:30`. Outil
 // jetable : pas de lecture croisée pour une seule constante, mais le nom du fichier et de la
 // constante ici rendent la dérive trouvable par `grep VERSION_CONFIG`.
@@ -146,6 +149,21 @@ export function lireVerdicts(texte) {
   return verdicts;
 }
 
+/** Lit `verdicts-commentaires.tsv` en `Map<ligne, verdict_brut>` — le verdict ENTIER
+ *  (`attachee:cuisine.commandes[1].note`, `type`, `orpheline:<raison>`), pas décomposé : c'est
+ *  ce que consomme `attacherNotes` (tâche 12), qui n'a besoin que de savoir si ça commence par
+ *  `attachee` et, si oui, du chemin qui suit le premier deux-points — recomposer ce chemin ici
+ *  évite de faire connaître à `attacherNotes` la syntaxe du fichier, que `lireVerdicts` connaît
+ *  déjà. Synchrone : `migration-notes.test.ts` l'appelle sans `await`, comme `ECRANS` lui-même
+ *  (import direct) — seul `chargerEcrans` a besoin d'async, pour compiler via esbuild. */
+export function chargerVerdicts() {
+  const verdicts = new Map();
+  for (const [ligne, { nom, reste }] of lireVerdicts(readFileSync(CHEMIN_VERDICTS, 'utf8'))) {
+    verdicts.set(ligne, reste === '' ? nom : `${nom}:${reste}`);
+  }
+  return verdicts;
+}
+
 /** Le registre, et tout ce qui l'empêche d'être complet. Une plage sans verdict, un verdict
  *  inconnu, une `orpheline` sans raison et un verdict qui vise une ligne n'ouvrant aucune plage
  *  sont QUATRE façons de perdre un raisonnement en silence : les quatre font échouer l'outil. */
@@ -188,6 +206,92 @@ export function ligneDeControle(total, comptes) {
     + `+ ${comptes.orpheline} orphelines`;
 }
 
+// ---------------------------------------------------------------------------------------------
+// L'ATTACHEMENT (tâche 12) : joindre chaque plage `attachee` à l'objet que son chemin désigne.
+//
+// Les verdicts `attachee` du registre (tâche 3) portent DÉJÀ leur chemin cible, vérifié contre
+// `contrat/ecran.schema.json` et l'ordre réel des tableaux d'`ECRANS` — construire ici un second
+// index (position AST → chemin) referait la même mesure par un autre chemin, et deux sources qui
+// peuvent diverger valent moins qu'une. Ce que ce module ajoute, c'est la NAVIGATION du chemin
+// jusqu'à l'objet réel (dans la donnée ÉVALUÉE, comme le reste de l'outil) et la garde que le
+// contrat admet une `note` à cet endroit — dérivée du schéma, jamais recopiée dans une table.
+// ---------------------------------------------------------------------------------------------
+
+/** Découpe un chemin (`cuisine.commandes[1].note`) en jetons : les clés restent des chaînes, les
+ *  indices de tableau deviennent des nombres. Le premier jeton est toujours le nom de la pièce. */
+function segmenterChemin(chemin) {
+  return [...chemin.matchAll(/[^.[\]]+/g)].map(([jeton]) => (/^\d+$/.test(jeton) ? Number(jeton) : jeton));
+}
+
+/** Résout un `$ref` du contrat vers son `$defs` — les schémas de ce contrat ne référencent que
+ *  leurs propres `$defs` (`#/$defs/<nom>`), donc pas besoin d'un résolveur JSON Schema complet. */
+function resoudreRef(schema, sousSchema) {
+  return sousSchema?.$ref ? schema.$defs[sousSchema.$ref.replace('#/$defs/', '')] : sousSchema;
+}
+
+/** Suit les jetons d'un chemin dans le CONTRAT plutôt que dans la donnée : à chaque clé, entre
+ *  dans `properties` ; à chaque indice, entre dans `items`. Si le dernier jeton (`note`) résout à
+ *  un sous-schéma défini, le contrat admet une note ici — c'est la table mesurée à l'étape 1,
+ *  DÉRIVÉE : une neuvième place au contrat serait trouvée ici, pas manquée par une table figée. */
+function accepteNote(schema, jetons) {
+  let sousSchema = schema;
+  // Le premier jeton nomme la pièce (`cuisine`) : une pièce EST un écran, donc le schéma racine
+  // s'applique déjà et on continue directement avec le deuxième jeton.
+  for (const jeton of jetons.slice(1)) {
+    sousSchema = resoudreRef(schema, sousSchema);
+    if (sousSchema === undefined) return false;
+    sousSchema = typeof jeton === 'number' ? sousSchema.items : sousSchema.properties?.[jeton];
+  }
+  return sousSchema !== undefined;
+}
+
+/** L'objet réel que désignent tous les jetons d'un chemin sauf le dernier (`note` nomme le champ
+ *  à écrire, pas un pas de navigation) — dans `ecrans`, la donnée ÉVALUÉE, jamais reconstruite. */
+function objetVise(ecrans, jetons) {
+  return jetons.slice(0, -1).reduce((objet, jeton) => objet?.[jeton], ecrans);
+}
+
+/** Attache chaque plage `attachee` à l'objet que son chemin désigne, en respectant les trois
+ *  règles de l'étape 5 : un chemin qui ne mène nulle part, ou vers un endroit que le contrat
+ *  refuse, fait ÉCHOUER l'outil en nommant la ligne plutôt que de deviner — c'est un défaut du
+ *  verdict, à corriger dans `verdicts-commentaires.tsv`, jamais ici. Un objet qui porte déjà une
+ *  `note` (les trois qu'`ECRANS` porte depuis le début) la garde en tête : les notes suivantes se
+ *  JOIGNENT avec `SEPARATEUR_NOTE`, jamais ne l'écrasent. */
+export function attacherNotes(ECRANS, plages, verdicts) {
+  const schema = JSON.parse(readFileSync(CHEMIN_SCHEMA, 'utf8'));
+  const ecrans = structuredClone(ECRANS);
+  const attachements = [];
+  for (const plage of plages) {
+    const verdict = verdicts.get(plage.debut);
+    if (verdict === undefined || !verdict.startsWith('attachee')) continue;
+    const deuxPoints = verdict.indexOf(':');
+    if (deuxPoints === -1) {
+      throw new Error(`ligne ${plage.debut} : verdict "attachee" sans chemin — corrige le `
+        + `verdict dans verdicts-commentaires.tsv (jamais l'outil), en lui donnant un chemin `
+        + `cible ("attachee:<chemin>").`);
+    }
+    const chemin = verdict.slice(deuxPoints + 1);
+    const jetons = segmenterChemin(chemin);
+    if (jetons.at(-1) !== 'note') {
+      throw new Error(`ligne ${plage.debut} : chemin "${chemin}" ne finit pas par ".note" — `
+        + `corrige le verdict dans verdicts-commentaires.tsv, jamais l'outil.`);
+    }
+    if (!accepteNote(schema, jetons)) {
+      throw new Error(`ligne ${plage.debut} : le contrat n'admet pas de "note" en "${chemin}" — `
+        + `corrige le verdict dans verdicts-commentaires.tsv, jamais l'outil.`);
+    }
+    const objet = objetVise(ecrans, jetons);
+    if (objet === undefined || typeof objet !== 'object') {
+      throw new Error(`ligne ${plage.debut} : "${chemin}" ne désigne aucun objet dans ECRANS — `
+        + `corrige le verdict dans verdicts-commentaires.tsv, jamais l'outil.`);
+    }
+    objet.note = objet.note === undefined
+      ? plage.note : `${objet.note}${SEPARATEUR_NOTE}${plage.note}`;
+    attachements.push({ ligne: plage.debut, chemin, lignesDeNote: plage.lignesNote });
+  }
+  return { ecrans, attachements };
+}
+
 const EN_TETE = ['ligne_debut', 'ligne_fin', 'verdict', 'chemin_ou_raison', 'lignes_de_la_note'];
 
 async function ecrireRegistre(destination) {
@@ -220,7 +324,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (mode === '--registre') {
     process.exit(await ecrireRegistre(destination));
   }
-  const ecrans = ecransPourImport(await chargerEcrans());
+  const source = await fs.readFile(path.join(RACINE, 'src', 'ecran.ts'), 'utf8');
+  const { ecrans: enrichis } = attacherNotes(
+    await chargerEcrans(), plagesDeCommentaire(source), chargerVerdicts());
+  const ecrans = ecransPourImport(enrichis);
   await fs.writeFile(destination, JSON.stringify(ecrans, null, 2) + '\n', 'utf8');
   console.log(`${ecrans.length} écrans écrits dans ${destination}`);
 }
