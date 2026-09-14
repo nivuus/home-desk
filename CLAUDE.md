@@ -195,24 +195,23 @@ deviennent éditables (trois en 3b, `aspirateurMaison` en 3c), le préalable
 tablettes partent avec le lot de portabilité du 3c. Cette section reste ici
 comme CONSTAT mesuré ; la spec porte la décision.
 
-- **Les trois IP de tablettes (`192.168.0.159`/`.218`/`.138`) apparaissent
-  à QUATRE endroits**, pas un seul (relevé une première fois de façon
-  incomplète en première ronde de relecture finale, corrigé ici) :
-  `app/src/styles/base.css:38-39` (la SOURCE dont `dist/wallpanel.css` est
-  bâti — le commentaire de mesure Fully Kiosk), `app/outils/
-  verifier-rendu.mjs:979-980`, et `app/README.md:18-20`, qui porte un
-  TABLEAU des trois IP avec leurs `entity_id` de capture d'écran. Aucune
-  garde ne les cherche nulle part : `tests/test_dist_portable.py` scanne
-  bien `dist/` (`INTERDITS`), mais cette liste ne connaît que deux chemins
-  de fichier (`/opt/nivuus/HomeAssistant`, `/home/mallanic`), aucune IP ;
-  et `app/`, lui, n'est scanné par AUCUNE garde de portabilité. Le
-  littéral `"192.168.0.1"` qu'`INTERDITS_COMPOSANT` porte dans le même
-  fichier ne s'applique QU'à `custom_components/home_desk/`, un
-  répertoire différent — et même transposé, il ne matche `.159`/`.138` que
-  par coïncidence de préfixe (`"192.168.0.1" in "192.168.0.159"` est
-  vrai), jamais `.218`. Dette antérieure à cette branche, à trancher en 3c
-  (un motif `192\.168\.0\.\d+` sur les quatre fichiers, ou accepter que
-  ces IP restent).
+- **Fermée à la tâche 5 du plan 3c.** Cette entrée constatait que les trois
+  IP de tablettes (`192.168.0.159`/`.218`/`.138`) apparaissaient à quatre
+  endroits sans qu'aucune garde ne les cherche : `app/`, la SOURCE dont
+  `dist/` est bâti, n'était scanné par rien, et le littéral
+  `"192.168.0.1"` d'`INTERDITS_COMPOSANT` (`tests/test_dist_portable.py`)
+  ne s'appliquait qu'à `custom_components/home_desk/` et n'attrapait
+  `.159`/`.138` que par coïncidence de préfixe, jamais `.218`. Retiré des
+  quatre fichiers (`app/src/styles/base.css`, `app/outils/
+  verifier-rendu.mjs`, `app/README.md`, et le mot de passe Fully Kiosk en
+  clair trouvé au passage dans `app/docs/superpowers/plans/
+  2026-08-06-bandeau-mise-en-page.md`), en conservant le savoir que ces
+  commentaires portaient (deux moteurs Chrome distincts sur les trois
+  tablettes, `dvh` absent sur l'un). `tests/test_portabilite_app.py`,
+  ajouté à la boucle de `make test`, scanne désormais `app/` par MOTIF
+  (jamais par littéral) et referme le filet : une IP, un chemin personnel
+  ou un mot de passe en clair qui y réapparaîtrait ferait échouer `make
+  test`, pas seulement une relecture.
 - **Au-delà des IP, `dist/wallpanel.js` embarque la configuration
   littérale COMPLÈTE de cette maison** — mesuré : 69 `entity_id` distincts
   (`grep -oE '"[a-z_]+\.[a-z0-9_]+"' dist/wallpanel.js | sort -u | wc -l`),

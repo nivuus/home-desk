@@ -40,9 +40,12 @@ requires:
 # seule `dependency` est `http`, composant interne de HA.
 #
 # `wizard:` : le chemin de depot vient du socle, l'application s'authentifie
-# avec le jeton de session du navigateur (app/src/connexion.ts), et les 66
-# `entity_id` en dur ne sont pas des questions qu'on pose a un operateur.
-# Ce package est propre a CETTE maison, et son label le dit (decision 4).
+# avec le jeton de session du navigateur (app/src/connexion.ts), et les 69
+# `entity_id` en dur (mesure le 2026-09-14 ; ce chiffre tombera a 15 a la
+# tache 10, quand la CONFIGURATION D'ECRAN partira et que ne resteront que
+# les listes communes et les capteurs d'ambiance) ne sont pas des questions
+# qu'on pose a un operateur. Ce package est propre a CETTE maison, et son
+# label le dit (decision 4).
 #
 # `activate` : le tri topologique garantit que ce package s'installe avant que
 # le socle ne demarre Home Assistant. Un activate serait au mieux inutile, au

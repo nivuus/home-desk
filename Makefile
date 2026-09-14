@@ -35,7 +35,7 @@ help:
 	@grep -E '^[a-zA-Z_-]+:.*' $(MAKEFILE_LIST) | sed 's/:.*//' | sort
 
 test:
-	@for t in test_manifest_contract test_install_hook test_dist_portable test_dist_a_jour test_contrat_embarque; do \
+	@for t in test_manifest_contract test_install_hook test_dist_portable test_portabilite_app test_dist_a_jour test_contrat_embarque; do \
 	    echo "--- $$t"; \
 	    $(PYTHON) $(PACKAGE_DIR)/tests/$$t.py || exit 1; \
 	done
