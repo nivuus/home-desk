@@ -6,3 +6,8 @@ __pycache__/
 
 # Cache de vitest, cree a la racine du worktree quand la suite tourne.
 .vite/
+
+# Claude Code local workspace: `settings.local.json` (per-machine, never
+# shared) and `worktrees/` (linked worktrees). An unignored worktree
+# directory commits the whole tree into the repository.
+.claude/
