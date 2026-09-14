@@ -697,3 +697,86 @@ ne dépend d'elle tant qu'aucune `startURL` ne pointe sur `index.html`.
 
 **Les étapes 6, 7 et 8 ne s'ouvrent pas** tant que l'étape 5 n'a pas passé sa
 porte.
+
+---
+
+### Débogage du 2026-09-14, 17 h 00 – 17 h 55 : DEUX causes, une corrigée, une ouverte
+
+#### Cause n°1 — l'instantané d'états perdu (CORRIGÉE, vérifiée en production)
+
+`demarrer()` connecte pour résoudre la configuration, **puis** monte le corps,
+qui s'abonne alors par `surChangement`. Or `auth_ok` envoie `get_states`
+immédiatement et `emettre()` le distribue à `rappelsEtat`, vide à cet instant :
+l'instantané tombe sans erreur. Le `connecter()` du corps retourne sur la garde
+d'idempotence (`readyState === 1`), donc aucun second `get_states`. Ne restent
+que les `state_changed` — les seules entités qui **changent**. Une hotte
+éteinte, un rideau immobile, la météo, `sun.sun` : jamais.
+
+`demarrerAvecEcran()` (branche `data-piece`) s'abonne **avant** de connecter et
+n'a jamais eu le défaut. Même bundle, deux portes, deux comportements.
+
+Corrigé par symétrie avec `surEvenement`, qui traite déjà l'abonnement tardif
+dans cette même classe. `surChangement` redemande l'instantané quand un est
+déjà parti sur la socket courante (`etatsDemandes`, remis à zéro par socket).
+Deux épreuves, dont une contre-épreuve qui interdit l'aller-retour inutile sur
+le chemin qui marchait.
+
+**Vérifiée sur la vraie instance**, pas seulement en test : chargée avec une URL
+anti-cache, la cuisine a rendu météo, « Fermer / Ouvert », « Hotte / Éteint »,
+« Courses 15 » et « 22 produits à consommer ».
+
+#### Cause n°2 — `index.html` n'a pas d'anti-cache (OUVERTE)
+
+**La correction n'atteignait pas la tablette.** `wallpanel.js` et
+`wallpanel.css` portent une empreinte (`?v=<empreinte>`) ; **le document qui les
+référence, lui, est chargé par son URL nue.** La WebView de Fully Kiosk sert
+donc un `index.html` en cache, qui pointe l'ancien JS — indéfiniment.
+
+**Expérience décisive** (une seule variable, après un premier essai qui en
+changeait deux — même service `fully_kiosk.load_url`, deux URL) :
+
+| URL chargée | Rendu |
+|---|---|
+| `index.html?ecran=Cuisine&cb=<horodatage>` | **juste** |
+| `index.html?ecran=Cuisine` | **cassé** |
+
+Le schéma de versionnement casse le cache des ressources, **jamais celui du
+document qui les nomme**. Les trois pages historiques ont exactement le même
+défaut.
+
+**Conséquence qui remonte sur l'étape 2, et qu'il faut dire.** La porte de
+l'étape 2 demandait que les trois pages historiques « rendent à l'identique ».
+Elles rendaient à l'identique — mais **un bundle périmé en cache rend lui aussi
+à l'identique**. Cette porte ne sait donc pas distinguer « le nouveau bundle
+rend pareil » de « l'ancien bundle est toujours servi ». Ce qui a été vérifié
+le 2026-09-14 à 16 h 33 est que les tablettes rendaient juste, **pas** qu'elles
+exécutaient le code déposé. La porte doit gagner une vérification d'empreinte
+réellement chargée.
+
+**Deux chemins possibles, non tranchés** — c'est une décision de procédure, pas
+un correctif à improviser sur une maison en service :
+
+1. **Empreinte dans la `startURL`** (`index.html?ecran=Cuisine&v=<empreinte>`) :
+   l'URL du document change exactement quand le bundle change, et les
+   ressources restent en cache sur leur propre `?v=`. Précis, mais il faut
+   reposer les trois `startURL` à chaque déploiement.
+2. **`webviewCacheMode` sur les tablettes** (`fully_kiosk.set_config` accepte
+   une clé libre) : posé une fois, plus rien à retenir, au prix d'un
+   rechargement complet à chaque démarrage de page.
+
+#### Un reste, plus petit, non expliqué
+
+Sur le rendu JUSTE de `?ecran=Cuisine`, une tuile « Recette » apparaît, inerte,
+libellée « Garde-manger non installé » — la page historique, elle, ne rend
+aucune tuile Recette au même instant. Ce n'est pas un bouton mort (elle dit
+pourquoi elle est là, c'est le contrat d'`absenceNommee`), mais c'est un écart
+de rendu entre les deux portes qui n'est pas encore expliqué. Probablement le
+second filtre `recetteOuvrable` (`corps.ts:425`), dont l'entrée dépend d'une
+commande websocket et non d'un état. À reprendre avant l'étape 6.
+
+#### État de la maison à la fin de cette session
+
+Les trois tablettes sur leurs pages historiques, `startURL` d'origine restaurées
+partout. Bundle servi : 11 fichiers, empreinte `v=26fbd8a667` (celle qui porte
+la correction n°1). L'intégration « Tablettes murales » est chargée avec ses
+trois écrans et **ne pilote aucune tablette**.
