@@ -133,8 +133,13 @@ def test_une_note_multiligne_jointe_survit_a_l_aller_retour():
 
     Ecrit avec le separateur REEL de l'outil et non son approximation ASCII
     "--" : un test qui n'exerce pas la chaine reellement produite ne garde
-    rien. La note est posee a la RACINE de l'ecran, ou 143 des 178 plages
-    d'`ecran.ts` atterrissent."""
+    rien. La note est posee a la RACINE de l'ecran : la destination la plus
+    frequente du registre de la tache 3, avec 43 des 178 plages de
+    commentaire d'`ecran.ts` (sur 143 `attachee` en tout, reparties sur
+    vingt destinations -- les 100 autres visent un bouton, une entree de
+    synthese, une source ou un agencement). Mesure du 2026-09-14, citee
+    comme contexte et non comme invariant : le registre qui la porte part
+    a la tache 10, ce test lui survit."""
     ecran = {
         "titre": "Zone A", "nom": "Alpha",
         "temperature": "sensor.zone_a_temperature",

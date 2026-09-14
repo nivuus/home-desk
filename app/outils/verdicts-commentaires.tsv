@@ -197,7 +197,7 @@
 462	attachee:cuisine.commandes[3].note
 
 # CUISINE -- la cinquieme entree de synthese, la DLC : pourquoi `todo.`,
-# pourquoi apres `todo.maintenance`, et pourquoi jamais une alerte.
+# pourquoi la DLC suit la maintenance, et pourquoi jamais une alerte.
 495	attachee:cuisine.synthese[4].note
 496	attachee:cuisine.synthese[4].note
 497	attachee:cuisine.synthese[4].note
