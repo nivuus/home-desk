@@ -66,6 +66,18 @@
   signale donc RIEN pour lui : un message qui réclame un geste inutile est un
   bouton mort en prose. Il dépose l'arbre, et c'est tout.
 
+## Dette rayée — les 49 ordres de zones
+
+Les 49 ordres de zones du contrat (`agencement.zones`, `uniqueItems`,
+`commandes` obligatoire) rendent tous, mesuré le 2026-09-13, gardé par
+`app/tests/zones-ordres.test.ts`. La liste des zones et la zone obligatoire y
+sont **dérivées** de `contrat/ecran.schema.json`, jamais recopiées : une
+cinquième zone au schéma fait tomber le test de comptage avec un chiffre, pas
+en silence. Les trois écrans réels n'en servent qu'un seul
+(`['ambiances', 'commandes', 'blocCentral', 'synthese']`), mais depuis que
+l'agencement s'édite depuis Home Assistant, les 48 autres sont atteignables —
+c'est ce qui transformait la curiosité en dette (plan 2, n°2).
+
 ## `absenceNommee` — les cinq points de passage
 
 Le champ est déclaré sur `Bouton` et sur `EntreeSynthese` (`app/src/ecran.ts`).

@@ -1240,6 +1240,14 @@ regrets : ce sont des portes que ce plan vient d'ouvrir et que le plan 3 doit fr
    composition par défaut. C'est la première fois que cette dette est atteignable par une donnée
    que le schéma déclare **valide**.
 
+   **Rayée le 2026-09-13, tâche 8 du plan 3b** (`2026-09-13-application-lit-la-config.md`) :
+   mesurée, pas devinée — les **49** ordres de zones que le contrat autorise (`uniqueItems`,
+   `commandes` obligatoire) rendent tous sans lever et sans laisser `#app` vide. Gardé par
+   `app/tests/zones-ordres.test.ts`, qui dérive la liste des zones et la zone obligatoire du
+   schéma (`contrat/ecran.schema.json`) plutôt que de les recopier, pour que ce test tombe si le
+   contrat change sous lui. Le numéro « n°2 » reste, cité par
+   `docs/superpowers/plans/2026-09-12-integration-home-desk.md:1580` et par la tâche 8 elle-même.
+
 3. **`version` dans `contrat/ecran.schema.json` n'est ni requis ni lu.** Dette nommée par le plan 1,
    délibérément laissée nommée par la tâche 6 : c'est au plan 3, qui transportera la configuration,
    d'écrire ce que la version veut dire et qui la vérifie.
