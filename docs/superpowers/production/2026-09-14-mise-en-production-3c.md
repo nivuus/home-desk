@@ -43,37 +43,66 @@ réparée ici). Résultat :
 Sans cette mesure, la mise en production redevenait une bascule unique et
 irréversible sur trois tablettes en service — voir § 3, point 2.
 
-### 1.2 Ce qui n'est PAS mesuré — la première chose à faire
+### 1.2 Les `startURL` — corrigé le 2026-09-14 : elles SONT lisibles
 
-**Les trois `startURL` actuelles ne sont mesurables par aucun état Home
-Assistant.** Vérifié : Fully Kiosk ne les publie ni sur `media_player.tablette_*`,
-ni sur `binary_sensor.tablette_*`, ni sur `button.tablette_*`. Elles ne se
-lisent que par l'API d'administration de Fully Kiosk elle-même, avec le mot de
-passe admin de chaque tablette en paramètre.
+**Cette section affirmait le contraire, et c'était faux.** Elle disait : « Les
+trois `startURL` actuelles ne sont mesurables par aucun état Home Assistant.
+Vérifié : Fully Kiosk ne les publie ni sur `media_player.tablette_*`, ni sur
+`binary_sensor.tablette_*`, ni sur `button.tablette_*`. » Les trois domaines
+cités ont bien été regardés ; le quatrième, non. L'intégration Fully Kiosk
+publie **`sensor.tablette_<pièce>_current_page`**, et l'URL y est en clair.
 
-**Or ce mot de passe doit être considéré comme exposé.** Il était en clair
-dans un fichier livré par `git archive` (`app/docs/superpowers/plans/
-2026-08-06-bandeau-mise-en-page.md:592`) ; retiré du fichier à la tâche 5 de ce
-chantier, mais `git log` le conserve — un dépôt garde son historique. Le
-considérer comme compromis, pas comme « nettoyé ».
+Une mesure qui énumère les endroits où elle a cherché n'a pas prouvé l'absence :
+elle a prouvé l'absence **là où elle a regardé**. C'est la même faute que
+`_PORTES_ECRITURE` à qui il manquait une porte, et que les « trois câblages »
+qui étaient quatre — le motif que ce dépôt paie régulièrement.
 
-**Le geste préalable, avant ou pendant l'étape 1, avant toute lecture des
-`startURL` :**
+Relevé le 2026-09-14 à 16 h 09, en lecture seule :
 
-1. Changer le mot de passe admin Fully Kiosk sur les **trois** tablettes
-   (application Fully Kiosk Browser → Réglages → Plus de réglages →
-   Mot de passe distant / Interface web).
-2. Documenter les trois nouveaux mots de passe **hors de ce dépôt** (ce
-   document ne les porte jamais).
-3. **Ensuite seulement**, relever les trois `startURL` actuelles avec le
-   nouveau mot de passe (API Fully Kiosk, `?cmd=deviceInfo` ou équivalent
-   `?cmd=getStartUrl`) et les écrire dans le journal d'exécution, § 5, ligne
-   de l'étape 1.
+| Tablette | `sensor.tablette_<pièce>_current_page` |
+|---|---|
+| Salon | `http://<hôte-HA>:8123/local/wallpanel/salon.html#` |
+| Cuisine | `http://<hôte-HA>:8123/local/wallpanel/cuisine.html` |
+| Bureau | `http://<hôte-HA>:8123/local/wallpanel/bureau.html` |
 
-Sans ce relevé, l'étape 1 n'a rien à remettre en cas de retour arrière — c'est
-la valeur exacte que les retours arrière des étapes 5 et 7 (§ 4) rechargent.
+(`<hôte-HA>` est l'adresse relevée sur place ; ce document ne porte pas
+l'adresse de cette maison — c'est la règle du lot de portabilité, tâche 5.)
 
-### 1.3 Une deuxième décision à prendre avant de commencer : où poser l'archive
+**Attention à ce que ce capteur dit exactement.** Il publie la page
+**affichée**, pas la `startURL` **configurée**. Les deux coïncident tant que la
+tablette n'a pas navigué — et le salon prouve qu'elles peuvent diverger : son
+URL porte un `#` final que la `startURL` n'a presque certainement pas. Prendre
+`current_page` pour un relevé de `startURL` reviendrait à réécrire ce `#` dans
+la configuration au premier retour arrière.
+
+**Le geste qui transforme cette lecture en vrai relevé** (à faire à l'étape 1,
+il ne coûte qu'un rechargement sur une page déjà affichée) :
+
+1. Appeler `button.tablette_<pièce>_load_start_url` — la tablette recharge sa
+   `startURL` configurée, quelle qu'elle soit.
+2. Lire `sensor.tablette_<pièce>_current_page` juste après : c'est alors la
+   `startURL`, observée et non déduite.
+3. Écrire les trois valeurs au journal d'exécution, § 5, ligne de l'étape 1.
+
+### 1.2 bis La rotation du mot de passe Fully Kiosk — toujours nécessaire, plus bloquante
+
+Le mot de passe admin Fully Kiosk doit toujours être considéré comme **exposé** :
+il était en clair dans un fichier livré par `git archive`
+(`app/docs/superpowers/plans/2026-08-06-bandeau-mise-en-page.md:592`), retiré du
+fichier à la tâche 5, mais `git log` le conserve — un dépôt garde son historique.
+
+Ce qui change : **ce n'est plus un préalable à l'étape 1.** Le relevé se fait
+désormais sans lui (§ 1.2). La rotation redevient ce qu'elle est — une tâche de
+sécurité à part entière, à faire parce que le secret est éventé, pas parce que
+la mise en production l'attend. Elle demande un geste physique sur les trois
+tablettes (Fully Kiosk Browser → Réglages → Plus de réglages → Mot de passe
+distant / Interface web) et les nouveaux mots de passe se documentent **hors de
+ce dépôt**.
+
+Tant qu'elle n'est pas faite, ne pas considérer l'API d'administration Fully
+Kiosk comme un canal de confiance.
+
+### 1.3 Où poser l'archive — tranché le 2026-09-14 par une convention existante
 
 Le retour arrière des étapes 2 et 8 (§ 4) repose sur un mouvement atomique
 (`cp -a` puis deux renommages POSIX) qui **n'est atomique que si l'archive de
@@ -81,19 +110,44 @@ l'étape 1 et `config/www/wallpanel/` vivent sur le même système de fichiers**
 — un `mv` entre systèmes de fichiers différents retombe sur une copie puis une
 suppression, ce qui rouvre exactement la fenêtre que ce geste doit éviter.
 
-**Question ouverte, à trancher maintenant, avant l'étape 1** : cette maison
-a-t-elle déjà un endroit conventionnel, sur le même système de fichiers que
-`config/www/wallpanel/`, où poser une archive datée avant un geste à risque ?
-Recherché dans ce dépôt : aucune convention nommée pour ce chemin, ni dans
-`hooks/install.py`, ni dans la spec, ni dans `CLAUDE.md`. Si une convention
-existe ailleurs dans cette maison, l'utiliser. Sinon, la décider maintenant et
-l'écrire ici :
+**Cette section posait la question comme ouverte. Elle ne l'était pas.** Elle
+disait : « Recherché dans ce dépôt : aucune convention nommée pour ce chemin. »
+C'était vrai, et c'était la mauvaise portée de recherche : la convention
+n'existe pas dans le dépôt, elle existe **sur l'hôte**, posée par le
+déploiement précédent de ce même paquet. Mesuré le 2026-09-14 :
 
-**Chemin retenu pour l'archive de l'étape 1 : _______________ (à remplir
-avant de commencer, par le propriétaire — sur le même système de fichiers que
-`config/www/wallpanel/`).**
+```
+/opt/nivuus/home-manager/
+    backups-home-desk-20260905/        <- pose au deploiement du 2026-09-05
+        wallpanel/  vignette/  configuration.yaml  automations.yaml  secrets.yaml  auth/
+    backups-retrait-ytube-20260905/    <- meme forme, autre chantier
+```
 
----
+La forme est donc `backups-<sujet>-<AAAAMMJJ>/`, à la racine de
+`home-manager/`, à côté de `config/` — et **sur le même système de fichiers que
+la cible** (vérifié : même numéro de périphérique que
+`config/www/wallpanel/`). Chercher une convention dans le dépôt quand le geste
+s'exécute sur l'hôte, c'était chercher sous le lampadaire.
+
+**Chemin retenu pour l'archive de l'étape 1 :
+`/opt/nivuus/home-manager/backups-home-desk-20260914/`.**
+
+**Ce qu'elle contient, et une déviation assumée par rapport au 2026-09-05.**
+L'archive de l'étape 1 porte ce dont *ce* retour arrière a besoin :
+`wallpanel/` (la cible du geste), `vignette/`, `packages/home_desk.yaml` et
+`configuration.yaml`. Elle ne reprend **pas** `secrets.yaml` ni `auth/`, que
+l'archive du 2026-09-05 emportait : la sauvegarde Home Assistant complète de
+l'étape 1 les couvre déjà, et recopier les secrets de la maison dans un second
+endroit non chiffré est une exposition payée pour rien.
+
+**Ce qui reste à décider, et que ce document ne décide pas.** L'étape 1 demande
+que l'archive existe « hors de la cible, pas seulement sur l'hôte qui va être
+modifié ». Le chemin ci-dessus satisfait « hors de la cible » ; il ne satisfait
+pas « hors de l'hôte ». Si l'hôte est perdu, l'archive l'est avec lui, et la
+sauvegarde Home Assistant aussi — elle vit dans `config/backups/`, sur la même
+machine. Où poser la copie hors-hôte est une décision du propriétaire :
+elle sort du périmètre de ce dépôt, et l'inventer serait envoyer la
+configuration de cette maison vers une destination que personne n'a choisie.
 
 ## 2. Un avertissement de lecture, à connaître avant d'ouvrir le fichier
 
@@ -171,12 +225,23 @@ passer à la suite) et son retour arrière (ce qui annule le geste si la porte
 
 ### Étape 1 — Filet et relevé
 
-**Geste.** Sauvegarde Home Assistant complète. Copie datée de
-`config/www/wallpanel/`. Relever et écrire les trois `startURL` actuelles
-(§ 1.2 — après rotation du mot de passe Fully Kiosk) et l'empreinte `?v=`
-actuellement servie par `wallpanel.js`. Archiver la version du paquet
-`home-desk` installée. Écrire le chemin de l'archive et celui de la sauvegarde
-Home Assistant dans le journal (§ 5).
+**Geste.** Sauvegarde Home Assistant complète (service `backup.create` —
+**attendre qu'elle finisse** : l'appel dépasse le délai du client CLI bien avant
+que la sauvegarde soit écrite, et un client qui abandonne ne veut pas dire un
+geste qui a échoué ; se fier à `sensor.backup_etat_du_gestionnaire_de_sauvegarde`
+et au fichier produit, pas au code de retour). Copie datée de
+`config/www/wallpanel/` au chemin du § 1.3. Relever et écrire les trois
+`startURL` actuelles par le geste du § 1.2 (`load_start_url`, puis lecture de
+`current_page` — **sans rotation préalable du mot de passe**, voir § 1.2 bis) et
+l'empreinte `?v=` actuellement servie. Archiver la version du paquet `home-desk`
+installée. Écrire le chemin de l'archive et celui de la sauvegarde Home
+Assistant dans le journal (§ 5).
+
+**Repère mesuré le 2026-09-14 :** l'empreinte alors servie était
+`v=aaa1261229`, identique dans `wallpanel.css` et `wallpanel.js` des trois
+pages historiques. Si l'empreinte relevée le jour de l'opération diffère, c'est
+qu'un déploiement a eu lieu entre-temps — le reste de ce dossier doit être
+revérifié avant de continuer, à commencer par le compte de fichiers ci-dessous.
 
 **Porte.** La sauvegarde Home Assistant est listée et non vide. La copie
 datée porte **10 fichiers** — mesuré directement sur l'hôte le 2026-09-14,
@@ -194,12 +259,13 @@ config/www/wallpanel/
 fichiers » de la spec d'origine**, mesuré le 2026-09-12 avant que la branche
 de transition n'ajoute `index.html` — un compte qui daterait vite,
 mentionné ici pour qu'on ne s'étonne pas de l'écart si quelqu'un recompare à
-la spec. Les trois `startURL` sont écrites. L'archive existe **hors** de la
-cible (pas seulement sur l'hôte qui va être modifié) et est posée au chemin
-**choisi et écrit en § 1.3**, sur le même système de fichiers que
-`config/www/wallpanel/`. **La porte de l'étape 1 ne se valide pas tant que ce
-chemin n'a pas été choisi et écrit** : c'est de lui que dépend l'atomicité du
-retour arrière des étapes 2 et 8 (§ 4).
+la spec. Les trois `startURL` sont écrites — **relevées après
+`load_start_url`**, pas recopiées depuis `current_page` tel quel (§ 1.2).
+L'archive est posée au chemin du § 1.3, **hors** de la cible et sur le même
+système de fichiers qu'elle : c'est de là que dépend l'atomicité du retour
+arrière des étapes 2 et 8 (§ 4). La copie hors-hôte, elle, reste une décision
+du propriétaire (§ 1.3, dernier paragraphe) — son absence n'interdit pas de
+continuer, mais elle doit être dite, pas oubliée.
 
 **Ce que ce comptage révèle, et qui sert à l'étape 2** : à la date de cette
 mesure, l'hôte **ne porte pas d'`index.html`**. Le bundle actuellement
@@ -330,11 +396,27 @@ l'étape 3).
 `key: startURL`, avec cette valeur **exacte, majuscule comprise** :
 
 ```
-/local/wallpanel/index.html?ecran=Cuisine
+http://<hôte-HA>:8123/local/wallpanel/index.html?ecran=Cuisine
 ```
+
+où `<hôte-HA>:8123` est **repris tel quel du relevé de l'étape 1** — la même
+origine que celle qu'affichent déjà les trois tablettes.
 
 Puis appeler `button.tablette_cuisine_load_start_url` pour faire recharger la
 tablette sur cette URL.
+
+**Le piège d'URL relative — corrigé le 2026-09-14, il était dans ce document.**
+Ce dossier prescrivait ici `/local/wallpanel/index.html?ecran=Cuisine`, sans
+schéma ni hôte. Mesuré le 2026-09-14 sur les trois tablettes en service : leur
+`startURL` est **absolue**, de la forme
+`http://<hôte-HA>:8123/local/wallpanel/<pièce>.html`. Une `startURL` est
+l'adresse que Fully Kiosk charge **au démarrage de l'application**, hors de
+toute page courante : il n'y a aucun document contre lequel résoudre un chemin
+relatif. Écrire la valeur telle qu'elle était prescrite aurait donné une URL
+que la tablette ne sait pas charger — et le geste qui suit
+(`load_start_url`) l'aurait appliquée immédiatement, sur l'écran le plus utilisé
+de la maison. Le retour arrière aurait fonctionné, mais l'étape aurait échoué
+pour une raison sans rapport avec ce qu'elle teste.
 
 **Le piège de casse à ne pas reproduire.** Le composant apparie le nom
 d'écran **exactement** : `websocket.py` compare `data["nom"]` tel quel, et
@@ -383,9 +465,13 @@ mécanique qu'à l'étape 5 — `fully_kiosk.set_config` puis le bouton de
 rechargement propre à chaque tablette.
 
 ```
-Salon  : /local/wallpanel/index.html?ecran=Salon
-Bureau : /local/wallpanel/index.html?ecran=Bureau
+Salon  : http://<hôte-HA>:8123/local/wallpanel/index.html?ecran=Salon
+Bureau : http://<hôte-HA>:8123/local/wallpanel/index.html?ecran=Bureau
 ```
+
+Même origine `<hôte-HA>:8123` qu'à l'étape 5, reprise du relevé de l'étape 1 :
+une `startURL` relative n'est pas chargeable (voir l'étape 5, « Le piège d'URL
+relative »).
 
 Le salon porte la voiture et la DeLorean ; le bureau, l'agenda et
 `todo.travail`. Chacun vit ses propres 24 heures (étape 6 répétée) avant de
@@ -429,7 +515,7 @@ permettra, après coup, de dire ce qui s'est réellement passé plutôt que ce q
 
 | Étape | Date | Heure | Qui | Ce qui a été observé à la porte |
 |---|---|---|---|---|
-| 1 — Filet et relevé | | | | |
+| 1 — Filet et relevé | 2026-09-14 | 16 h 09 – 16 h 12 | Claude | **Entamée, NON close.** Voir le compte rendu ci-dessous. |
 | 2 — Paquet de transition + redémarrage | | | | |
 | 3 — Intégration vide | | | | |
 | 4 — Import des trois écrans | | | | |
@@ -440,3 +526,39 @@ permettra, après coup, de dire ce qui s'est réellement passé plutôt que ce q
 | 7c — Bureau repointé | | | | |
 | 7d — Bureau, 24 heures | | | | |
 | 8 — Commit de retrait + redéploiement | | | | |
+
+### Compte rendu de la tentative du 2026-09-14, 16 h 09 — étape 1 entamée, non close
+
+**Ce qui a été fait.**
+
+- Sauvegarde Home Assistant déclenchée (`backup.create`) à 16 h 10. L'appel a
+  rendu une erreur de connexion côté client ; la sauvegarde, elle, **était bien
+  en cours** — `sensor.backup_etat_du_gestionnaire_de_sauvegarde` = `create_backup`
+  et `Custom_backup_2026.9.1_2026-09-14_16.10_08197791.tar` grossissait sur le
+  disque. Le client abandonne avant la fin, c'est tout. Sa **complétion n'a pas
+  été vérifiée** (accès à l'hôte coupé juste après, voir plus bas).
+- Bundle déployé compté : **10 fichiers**, conforme à la porte. Empreinte servie :
+  `v=aaa1261229`. Home Assistant `2026.9.1`.
+- Les trois `startURL` **lues** depuis `sensor.tablette_<pièce>_current_page`
+  (§ 1.2) — ce qui a corrigé une affirmation fausse de ce dossier.
+- Convention d'archive **trouvée sur l'hôte** (§ 1.3), ce qui a fermé la
+  question ouverte du § 1.3 sans avoir à l'inventer.
+- Vérifié en direct : `…/local/wallpanel/` sans nom de fichier rend bien **403**
+  (le piège nommé à l'étape 5 est réel, pas théorique).
+
+**Ce qui a arrêté l'opération.** L'écriture de l'archive
+(`/opt/nivuus/home-manager/backups-home-desk-20260914/`) a été **refusée par le
+garde-fou du harnais** (« Production Deploy »), puis tout accès à l'hôte l'a été
+à son tour. Aucune écriture n'a eu lieu sur l'hôte — l'état de la maison est
+**exactement** celui d'avant 16 h 09, à une sauvegarde supplémentaire près.
+
+**Ce que la tentative a rapporté, et qui justifie de l'avoir menée.** Deux
+défauts de ce dossier, tous deux trouvés par la mesure et non par la relecture :
+le relevé des `startURL` déclaré impossible alors qu'il ne l'est pas (§ 1.2), et
+**l'URL prescrite aux étapes 5 et 7, relative alors qu'une `startURL` doit être
+absolue** (§ 4, étape 5). Le second aurait fait échouer la bascule de la cuisine
+au moment même du geste. Les deux sont corrigés ci-dessus.
+
+**Reste à faire pour clore l'étape 1** : vérifier que la sauvegarde de 16 h 10
+est complète, écrire l'archive, et transformer la lecture de `current_page` en
+relevé par `load_start_url`.
