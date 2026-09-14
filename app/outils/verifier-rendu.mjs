@@ -1007,13 +1007,16 @@ function affiche(base, amplitude) {
 
 export const AFFICHES_PNG = new Map(AFFICHES.map((a) => [a.nom, affiche(a.base, a.amplitude)]));
 
-/** Tâche 18 — REJOUE UNE FEUILLE DE STYLE COMME LA LIRAIT LE MOTEUR DES TABLETTES CUISINE ET
- *  SALON. Relevé en lecture seule sur l'API d'administration Fully (`?cmd=deviceInfo`) le
- *  2026-08-03 : cuisine (192.168.0.159) et salon (192.168.0.218) rendent en **Chrome
- *  100.0.4896.127**, bureau (192.168.0.138) en **Chrome 119.0.6045.194**. Les unités de viewport
- *  dynamique (`dvh`, `svh`, `lvh`…) n'existent qu'à partir de Chrome 108 : sur DEUX écrans sur
- *  trois, une déclaration qui en contient une est invalide, donc JETÉE AU PARSING — la propriété
- *  retombe sur sa valeur héritée ou initiale, en silence.
+/** Tâche 18 — REJOUE UNE FEUILLE DE STYLE COMME LA LIRAIT LE MOTEUR DE DEUX DES TROIS TABLETTES
+ *  MURALES. Relevé en lecture seule sur l'API d'administration Fully (`?cmd=deviceInfo`) le
+ *  2026-08-03 : deux des trois tablettes rendent en **Chrome 100.0.4896.127**, la troisième en
+ *  **Chrome 119.0.6045.194**. Les IP qui identifiaient chaque tablette ont été retirées le
+ *  2026-09-14 — `app/` est la SOURCE dont `dist/` est bâti, et `dist/` est livré par
+ *  `git archive HEAD` (plan 3c, tâche 5, gardé par `tests/test_portabilite_app.py`). Le tableau
+ *  « quelle tablette porte quel moteur » vit désormais dans le dossier de production, pas dans
+ *  le dépôt. Les unités de viewport dynamique (`dvh`, `svh`, `lvh`…) n'existent qu'à partir de
+ *  Chrome 108 : sur DEUX écrans sur trois, une déclaration qui en contient une est invalide,
+ *  donc JETÉE AU PARSING — la propriété retombe sur sa valeur héritée ou initiale, en silence.
  *
  *  La simulation consiste à remplacer le token d'unité par une unité qui n'existe nulle part
  *  (`zvh`). Ce n'est pas une approximation : un moteur qui ne connaît PAS `dvh` et un moteur qui

@@ -5,7 +5,7 @@ dashboard Lovelace.** Application web dédiée en TypeScript + [`lit`](https://l
 par rollup vers `config/www/wallpanel/` et servie par Home Assistant.
 
 > ⚠️ **Chemin de déploiement, corrigé le 2026-08-29.** La configuration de Home Assistant a été
-> déplacée le 2026-08-28 de `/opt/nivuus/HomeAssistant/config` vers
+> déplacée le 2026-08-28 d'un ancien chemin propre à cette machine vers
 > `/opt/nivuus/home-manager/config` — c'est ce dossier-là que `docker-compose.yml` monte sur
 > `/config`. Les quatre fichiers qui écrivaient encore à l'ancienne adresse (`rollup.config.js`,
 > `scripts/copier-assets.mjs`, `scripts/versionner.mjs`, `outils/verifier-rendu.mjs`) ont été
@@ -13,11 +13,16 @@ par rollup vers `config/www/wallpanel/` et servie par Home Assistant.
 > recrée un dossier orphelin que personne ne sert, et les tablettes continuent d'afficher
 > l'ancien bundle — tandis que `verifier-rendu.mjs` annonce « Aucune page à vérifier ».
 
-| Pièce | URL affichée par Fully Kiosk | Admin Fully | Screenshot HA |
-|-------|------------------------------|-------------|---------------|
-| Salon | `/local/wallpanel/salon.html` | `192.168.0.218:2323` | `image.tablette_salon_capture_d_ecran` |
-| Bureau | `/local/wallpanel/bureau.html` | `192.168.0.138:2323` | `image.tablette_bureau_capture_d_ecran` |
-| Cuisine | `/local/wallpanel/cuisine.html` | `192.168.0.159:2323` | `image.tablette_cuisine_capture_d_ecran` |
+| Pièce | URL affichée par Fully Kiosk | Screenshot HA |
+|-------|------------------------------|---------------|
+| Salon | `/local/wallpanel/salon.html` | `image.tablette_salon_capture_d_ecran` |
+| Bureau | `/local/wallpanel/bureau.html` | `image.tablette_bureau_capture_d_ecran` |
+| Cuisine | `/local/wallpanel/cuisine.html` | `image.tablette_cuisine_capture_d_ecran` |
+
+Les IP d'administration Fully Kiosk de chaque tablette (port `2323`) ont été retirées d'ici le
+2026-09-14 — `app/` est la SOURCE dont `dist/` est bâti et livré par `git archive HEAD` ; elles
+vivent désormais dans le dossier de production, pas dans le dépôt (plan 3c, tâche 5, gardé par
+`tests/test_portabilite_app.py`).
 
 L'app se connecte à HA en **websocket** avec le jeton de session du navigateur (`src/connexion.ts`) :
 aucune card, aucun dashboard, aucun `custom_component` frontend dans la boucle.

@@ -16,6 +16,7 @@ Transposition de test_compose_portable.py du package home-manager.
 Run: python3 tests/test_dist_portable.py
 """
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -69,11 +70,15 @@ for rel in fichiers:
             failures.append(f"{rel} porte le chemin de machine {interdit}")
 
 # Le composant tourne DANS la configuration : plus expose que dist/, qui n'est
-# qu'un bundle statique depose a cote. Memes motifs que dist/, plus trois
+# qu'un bundle statique depose a cote. Memes motifs que dist/, plus deux
 # specifiques a lui — home-manager et /opt/nivuus designeraient le socle par
-# son nom de package ou son chemin, l'adresse de l'instance identifierait
-# cette maison precise.
-INTERDITS_COMPOSANT = INTERDITS + ("home-manager", "/opt/nivuus", "192.168.0.1")
+# son nom de package ou son chemin.
+INTERDITS_COMPOSANT = INTERDITS + ("home-manager", "/opt/nivuus")
+
+# Les IP se cherchent par MOTIF, jamais par litteral : "192.168.0.1" n'attrape
+# ".159" et ".138" que par coincidence de prefixe (`"192.168.0.1" in
+# "192.168.0.159"` est vrai) et JAMAIS ".218". Mesure et corrige au plan 3c.
+MOTIFS_COMPOSANT = (re.compile(r"192\.168\.\d{1,3}\.\d{1,3}"),)
 
 for rel in suivis("custom_components/home_desk"):
     chemin = REPO / rel
@@ -87,6 +92,9 @@ for rel in suivis("custom_components/home_desk"):
         if interdit in texte:
             failures.append(f"{rel} porte le chemin ou l'adresse de cette "
                             f"maison {interdit!r}")
+    for motif in MOTIFS_COMPOSANT:
+        if motif.search(texte):
+            failures.append(f"{rel} porte une adresse IP du reseau local")
 
 # Le code SUIVI de l'application ne doit plus citer l'ancien emplacement.
 for rel in suivis("app"):

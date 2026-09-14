@@ -589,7 +589,7 @@ Si le chemin des clés dans `.mcp.json` diffère, le lire d'abord plutôt que de
 
 - [ ] **Step 5: Contrôle visuel de NUIT**
 
-Lire `image.tablette_salon_capture_d_ecran` (ou `http://192.168.0.218:2323/?cmd=getScreenshot&password=1234`, qui fonctionne même écran éteint).
+Lire `image.tablette_salon_capture_d_ecran` (ou `http://192.168.0.218:2323/?cmd=getScreenshot&password=…`, qui fonctionne même écran éteint — le mot de passe Fully Kiosk qui figurait ici en clair a été retiré le 2026-09-14 ; considérez-le exposé et changez-le sur les trois tablettes).
 
 Vérifier : les pieds des deux colonnes s'alignent ; les trois températures sont cyan ; l'icône météo ne l'est pas ; la date tient sur une ligne.
 
