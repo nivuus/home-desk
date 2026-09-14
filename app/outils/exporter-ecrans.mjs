@@ -233,7 +233,7 @@ function resoudreRef(schema, sousSchema) {
  *  dans `properties` ; à chaque indice, entre dans `items`. Si le dernier jeton (`note`) résout à
  *  un sous-schéma défini, le contrat admet une note ici — c'est la table mesurée à l'étape 1,
  *  DÉRIVÉE : une neuvième place au contrat serait trouvée ici, pas manquée par une table figée. */
-function accepteNote(schema, jetons) {
+export function accepteNote(schema, jetons) {
   let sousSchema = schema;
   // Le premier jeton nomme la pièce (`cuisine`) : une pièce EST un écran, donc le schéma racine
   // s'applique déjà et on continue directement avec le deuxième jeton.

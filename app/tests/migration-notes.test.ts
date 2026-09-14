@@ -5,8 +5,9 @@
  *  le raisonnement ne partirait pas, il serait supprimé — et personne ne le remarquerait. */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import ts from 'typescript';
 import { ECRANS } from '../src/ecran';
-import { attacherNotes, chargerVerdicts, plagesDeCommentaire } from '../outils/exporter-ecrans.mjs';
+import { accepteNote, attacherNotes, chargerVerdicts, plagesDeCommentaire } from '../outils/exporter-ecrans.mjs';
 
 const source = readFileSync(new URL('../src/ecran.ts', import.meta.url), 'utf8');
 const verdicts = chargerVerdicts();
@@ -89,5 +90,171 @@ describe('les notes arrivent où le registre le dit', () => {
           + `plage qui le vise -- du raisonnement a été perdu à la jointure`).toContain(texte);
       }
     }
+  });
+});
+
+// -------------------------------------------------------------------------------------------
+// RONDE DE CORRECTION 2 : la tâche 4 avait délibérément écarté un second calcul indépendant du
+// chemin de chaque note attachée -- les chemins du TSV existaient déjà, et une seconde source qui
+// PEUT diverger d'une ENTRÉE vaut moins qu'une. Mais en VÉRIFICATION, un second calcul indépendant
+// est exactement ce que ce dépôt fait déjà pour les plages elles-mêmes (les deux scanners de
+// `test_registre_commentaires.py`/`plagesDeCommentaire`, tombés d'accord sur les mêmes 178
+// lignes) : le désaccord est l'information. Ce qui suit reconstruit, depuis l'AST de `ecran.ts`
+// -- jamais depuis une VALEUR, seulement des positions --, le chemin que chaque verdict `attachee`
+// AURAIT dû porter, et le compare au chemin écrit à la main dans `verdicts-commentaires.tsv`.
+// C'est le dernier moment où ce contrôle est possible : après le retrait des littéraux, les
+// commentaires source n'existeront plus que dans `git log`.
+// -------------------------------------------------------------------------------------------
+
+/** Descend `ECRANS` par l'AST : à chaque `PropertyAssignment`, empile le nom de la clé ; à chaque
+ *  élément d'un `ArrayLiteralExpression`, empile son indice ; enregistre le CHEMIN de chaque
+ *  littéral d'objet rencontré, indexé par le NŒUD lui-même. Aucune valeur n'en est jamais tirée --
+ *  seulement des positions et des chemins, exactement la frontière que le reste de l'outil respecte. */
+function tableDesChemins(sourceFile: ts.SourceFile): Map<ts.ObjectLiteralExpression, (string | number)[]> {
+  let ecransInit: ts.Expression | undefined;
+  ts.forEachChild(sourceFile, (n) => {
+    if (!ts.isVariableStatement(n)) return;
+    for (const decl of n.declarationList.declarations) {
+      if (decl.name.getText(sourceFile) === 'ECRANS' && decl.initializer) ecransInit = decl.initializer;
+    }
+  });
+  if (!ecransInit || !ts.isObjectLiteralExpression(ecransInit)) {
+    throw new Error('déclaration ECRANS introuvable dans ecran.ts -- vérifie que le fichier existe encore');
+  }
+  const table = new Map<ts.ObjectLiteralExpression, (string | number)[]>();
+  const visiter = (node: ts.Node, chemin: (string | number)[]): void => {
+    if (ts.isObjectLiteralExpression(node)) {
+      table.set(node, chemin);
+      for (const prop of node.properties) {
+        if (ts.isPropertyAssignment(prop)) visiter(prop.initializer, [...chemin, prop.name.getText(sourceFile)]);
+      }
+    } else if (ts.isArrayLiteralExpression(node)) {
+      node.elements.forEach((el, i) => visiter(el, [...chemin, i]));
+    }
+  };
+  for (const prop of ecransInit.properties) {
+    if (ts.isPropertyAssignment(prop)) visiter(prop.initializer, [prop.name.getText(sourceFile)]);
+  }
+  return table;
+}
+
+/** Pour chaque ligne de DÉBUT d'une plage de commentaire, la position (offset de caractère) du
+ *  premier token RÉEL qui suit -- au-delà de toute trivia ET de tout autre commentaire, pour
+ *  qu'un bloc de plusieurs lignes `//` consécutives résolve TOUTES vers le même token suivant,
+ *  comme `plagesDeCommentaire` (même fichier) le fait déjà pour délimiter les plages elles-mêmes. */
+function positionsSuivantes(texte: string): Map<number, number> {
+  const scanner = ts.createScanner(ts.ScriptTarget.Latest, false, ts.LanguageVariant.Standard, texte);
+  const suivante = new Map<number, number>();
+  let enAttente: number[] = [];
+  let k: ts.SyntaxKind;
+  while ((k = scanner.scan()) !== ts.SyntaxKind.EndOfFileToken) {
+    if (k === ts.SyntaxKind.SingleLineCommentTrivia || k === ts.SyntaxKind.MultiLineCommentTrivia) {
+      enAttente.push(texte.slice(0, scanner.getTokenStart()).split('\n').length);
+      continue;
+    }
+    if (k === ts.SyntaxKind.WhitespaceTrivia || k === ts.SyntaxKind.NewLineTrivia) continue;
+    if (enAttente.length > 0) {
+      const pos = scanner.getTokenStart();
+      for (const debut of enAttente) suivante.set(debut, pos);
+      enAttente = [];
+    }
+  }
+  return suivante;
+}
+
+/** Le nœud le plus profond dont l'intervalle [début, fin) contient `pos`. */
+function noeudLePlusProfondA(sourceFile: ts.SourceFile, pos: number): ts.Node {
+  let trouve: ts.Node = sourceFile;
+  const descendre = (node: ts.Node): void => {
+    for (const enfant of node.getChildren(sourceFile)) {
+      if (enfant.getStart(sourceFile) <= pos && pos < enfant.getEnd()) {
+        trouve = enfant;
+        descendre(enfant);
+        return;
+      }
+    }
+  };
+  descendre(sourceFile);
+  return trouve;
+}
+
+/** Le jeton `[N]`/`.cle`, mis bout à bout dans le même format que `verdicts-commentaires.tsv`. */
+function formaterChemin(jetons: (string | number)[]): string {
+  return jetons.reduce((s: string, j) => (
+    typeof j === 'number' ? `${s}[${j}]` : s === '' ? String(j) : `${s}.${j}`
+  ), '');
+}
+
+/** Le chemin ATTENDU d'une plage : l'objet qui la suit immédiatement, avec la même règle de
+ *  remontée qu'`attacherNotes` -- si le plus proche n'accepte pas de `note`, on remonte au premier
+ *  englobant qui l'accepte (`accepteNote`, importé de l'outil : même règle, jamais réécrite ici).
+ *  « Le plus proche » privilégie la VALEUR d'une propriété directement suivante quand elle est
+ *  elle-même un littéral d'objet (`aspirateurMaison: {...}`) avant de remonter à la pièce -- mais
+ *  ne descend JAMAIS dans un tableau (`commandes: [...]`, `sources: [...]`) : rien dans l'AST ne
+ *  dit si un tel commentaire vise le tableau entier ou son premier élément, et c'est exactement le
+ *  genre de choix qu'un humain tranche et qu'une règle mécanique ne peut qu'approcher. */
+function cheminAttendu(
+  sourceFile: ts.SourceFile, table: Map<ts.ObjectLiteralExpression, (string | number)[]>,
+  schema: unknown, pos: number,
+): (string | number)[] | undefined {
+  let n: ts.Node | undefined = noeudLePlusProfondA(sourceFile, pos);
+  while (n) {
+    if (ts.isPropertyAssignment(n) && ts.isObjectLiteralExpression(n.initializer)) {
+      const cheminValeur = table.get(n.initializer);
+      if (cheminValeur && accepteNote(schema, [...cheminValeur, 'note'])) return cheminValeur;
+    }
+    if (ts.isObjectLiteralExpression(n)) {
+      const chemin = table.get(n);
+      if (chemin && accepteNote(schema, [...chemin, 'note'])) return chemin;
+    }
+    n = n.parent;
+  }
+  return undefined;
+}
+
+describe('le chemin dérivé de l’AST retrouve le chemin écrit', () => {
+  const sourceFile = ts.createSourceFile('ecran.ts', source, ts.ScriptTarget.Latest, true);
+  const table = tableDesChemins(sourceFile);
+  const suivantes = positionsSuivantes(source);
+  const schema = JSON.parse(readFileSync(new URL('../../contrat/ecran.schema.json', import.meta.url), 'utf8'));
+
+  const derive = (ligne: number): string | undefined => {
+    const pos = suivantes.get(ligne);
+    const chemin = pos === undefined ? undefined : cheminAttendu(sourceFile, table, schema, pos);
+    return chemin && formaterChemin([...chemin, 'note']);
+  };
+
+  // Rapportées au coordinateur (ronde de correction 2), PAS corrigées ici -- ni le TSV, ni la
+  // dérivation : deux plages (9 lignes) où le commentaire vise le PREMIER ÉLÉMENT d'un tableau
+  // (`salon.sources[0]`, `cuisine.extrasMaison[0]`) plutôt que la pièce englobante. La docstring
+  // de `cheminAttendu` explique pourquoi une règle mécanique qui ne descend jamais dans un
+  // tableau ne peut PAS deviner ce choix -- c'est exactement le cas que le coordinateur a nommé :
+  // un classement humain peut être plus juste que la règle mécanique.
+  const EXCEPTIONS_CONNUES = [237, 238, 514, 515, 516, 517, 518, 519, 520];
+
+  it('coïncide plage par plage avec verdicts-commentaires.tsv, sauf les exceptions documentées', () => {
+    const ecarts: string[] = [];
+    for (const [ligne, verdict] of verdicts) {
+      if (!verdict.startsWith('attachee:') || EXCEPTIONS_CONNUES.includes(ligne)) continue;
+      const ecrit = verdict.slice('attachee:'.length);
+      const deriveFmt = derive(ligne);
+      if (deriveFmt !== ecrit) {
+        ecarts.push(`ligne ${ligne} : écrit "${ecrit}", dérivé "${deriveFmt ?? '<aucun objet englobant n’accepte de note>'}"`);
+      }
+    }
+    expect(ecarts, ecarts.join('\n')).toEqual([]);
+  });
+
+  // Garde-fou contre une liste d'exceptions qui s'effrite en silence : si le TSV ou la dérivation
+  // change un jour au point qu'une de ces neuf lignes cesse RÉELLEMENT de diverger, ce test le dit
+  // -- l'exception devient alors trompeuse (elle cacherait un accord retrouvé au lieu d'un écart
+  // encore réel) plutôt que d'être retirée en silence.
+  it('les exceptions documentées divergent TOUJOURS réellement -- neuf lignes, pas une de plus ni de moins', () => {
+    const reellementDivergentes = EXCEPTIONS_CONNUES.filter((ligne) => {
+      const verdict = verdicts.get(ligne);
+      if (!verdict?.startsWith('attachee:')) return false;
+      return derive(ligne) !== verdict.slice('attachee:'.length);
+    });
+    expect(reellementDivergentes).toEqual(EXCEPTIONS_CONNUES);
   });
 });
