@@ -20,3 +20,7 @@ __pycache__/
 home_desk_ecrans.yaml
 ecrans-exportes.json
 registre-commentaires.tsv
+
+# Cache du detecteur de design impeccable (regenere a chaque lancement).
+# `config.json`, lui, est VERSIONNE : il porte les exceptions et LEUR RAISON.
+.impeccable/hook.cache.json
