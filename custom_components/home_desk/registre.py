@@ -44,14 +44,50 @@ suppose une section TABLEAU ; `voiture` est un OBJET (`properties["voiture"]`
 n'a pas d'`items`). La resolution est desormais generique aux deux formes,
 sans `if cle == "voiture"` : un cas particulier par NOM aurait ete la meme
 faute que l'ensemble plat de noms de la ronde 2.
+
+Relecture finale de branche (C1, Critique) : `avertissement_entites_
+inconnues` rejoint ce module -- LE texte (accentue, francais) a poser dans
+`description_placeholders["entites_inconnues"]`, aux neuf sites qui
+calculent `entites_inconnues` (listes.py, objets.py, config_flow.py x2).
+Avant cette ronde, chaque site posait la LISTE NUE (`", ".join(inconnues)`)
+SEULEMENT `if inconnues:` -- deux fautes cumulees, mesurees par le
+relecteur : (a) la PHRASE qui l'entoure ("Entites saisies mais absentes...")
+etait ecrite en dur dans SEULEMENT deux descriptions (`step.user`/
+`step.identite`), jamais dans celle du step REELLEMENT reaffiche apres un
+avertissement -- invisible partout ou elle aurait du compter ; (b) ces DEUX
+descriptions l'affichaient donc EN PERMANENCE, suivie de rien, le "bouton
+mort en prose" que ce depot s'interdit. Cette fonction ferme les deux a la
+fois : vide (rien a afficher) si `entites` ne contient AUCUNE inconnue,
+sinon la PHRASE COMPLETE -- jamais tapee ICI. Le seul texte accentue vit
+dans `translations/*.json` (categorie "avertissements", ajoutee par cette
+ronde), lu par `homeassistant.helpers.translation.async_get_cached_
+translations` puis `.format()` avec la LISTE (un diagnostic, jamais de la
+prose) : exactement l'idiome que `translation.async_get_exception_message`
+applique deja au coeur de Home Assistant pour une categorie differente
+("exceptions") -- verifie sur les sources INSTALLEES de Home Assistant
+2026.9.1 (`.venv-composant/lib/python3.14/site-packages/homeassistant/
+helpers/translation.py`), jamais de memoire. Ce module ne deroge donc PAS a
+la regle du depot (francais SANS accents dans le Python du composant) : il
+la RESPECTE, il ne fait que FORMATER une chaine deja accentuee qui vit
+ailleurs.
+
+Les traductions sont dejas en cache au moment ou ce chemin s'execute : un
+flow de SOUS-entree n'existe qu'une fois l'entree UNIQUE deja creee et le
+composant deja charge (`async_setup_entry` a tourne, ce qui a attendu le
+chargement de ses traductions -- `homeassistant/setup.py`,
+`translation.async_load_integrations`). Le repli ci-dessous (la liste nue,
+sans la phrase) ne couvre donc qu'un cas structurellement inatteignable
+ICI ; il reste ecrit pour ne jamais lever plutot que de laisser un
+formulaire planter sur un avertissement.
 """
 from __future__ import annotations
 
 from typing import Any
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import entity_registry as er, translation
 
+from .const import DOMAIN
 from .schema import SCHEMA_JSON
 
 
@@ -73,6 +109,30 @@ def entites_inconnues(hass: HomeAssistant, entites: list[str]) -> list[str]:
         e for e in entites
         if registre.async_get(e) is None and hass.states.get(e) is None
     ]
+
+
+def avertissement_entites_inconnues(hass: HomeAssistant, entites: list[str]) -> str:
+    """Le texte a poser dans `description_placeholders["entites_inconnues"]`
+    -- vide si aucune des `entites` n'est inconnue (rien a afficher, C1),
+    sinon la phrase COMPLETE, deja traduite (voir la docstring de module
+    pour pourquoi ce n'est JAMAIS tapee ici), precedee d'un saut de
+    paragraphe : chaque description qui porte ce placeholder se termine
+    par lui SANS separateur statique devant -- c'est cette valeur, jamais
+    le gabarit, qui porte l'espacement, pour qu'une description SANS
+    avertissement ne laisse ni ligne vide ni espace en trop."""
+    inconnues = entites_inconnues(hass, entites)
+    if not inconnues:
+        return ""
+    liste = ", ".join(inconnues)
+    cles = translation.async_get_cached_translations(
+        hass, hass.config.language, "avertissements", DOMAIN
+    )
+    gabarit = cles.get(f"component.{DOMAIN}.avertissements.entites_inconnues")
+    phrase = liste if gabarit is None else gabarit.format(liste=liste)
+    # `gabarit is None` : repli theorique -- voir la docstring de module,
+    # ce chemin ne devrait jamais s'executer, une sous-entree n'existant
+    # qu'une fois le composant (et ses traductions) deja charge.
+    return f"\n\n{phrase}"
 
 
 def _resoudre(sous_schema: dict) -> dict:

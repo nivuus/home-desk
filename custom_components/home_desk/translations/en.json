@@ -57,7 +57,7 @@
       "step": {
         "user": {
           "title": "Identity and budget",
-          "description": "The screen's name, the displayed temperature sensor, and the tablet's usable height, in pixels. Entities entered but missing from the Home Assistant registry, to check (an entity may appear later): {entites_inconnues}",
+          "description": "The screen's name, the displayed temperature sensor, and the tablet's usable height, in pixels.",
           "data": {
             "nom": "Name",
             "hauteurUtile": "Usable height (px)",
@@ -69,6 +69,7 @@
         },
         "reconfigure": {
           "title": "Edit the screen",
+          "description": "Choose a section to edit.{entites_inconnues}",
           "menu_options": {
             "identite": "Identity and budget",
             "commandes": "Command tiles",
@@ -86,7 +87,7 @@
         },
         "identite": {
           "title": "Identity and budget",
-          "description": "The screen's name, the displayed temperature sensor, and the tablet's usable height, in pixels. Entities entered but missing from the Home Assistant registry, to check (an entity may appear later): {entites_inconnues}",
+          "description": "The screen's name, the displayed temperature sensor, and the tablet's usable height, in pixels.",
           "data": {
             "nom": "Name",
             "hauteurUtile": "Usable height (px)",
@@ -98,7 +99,7 @@
         },
         "commandes": {
           "title": "Command tiles",
-          "description": "Pick an existing tile to edit, move or remove it, or check \"Add\" for a new one.",
+          "description": "Pick an existing tile to edit, move or remove it, or check \"Add\" for a new one.{entites_inconnues}",
           "data": {
             "choix": "Existing tile",
             "nouveau": "Add a new tile"
@@ -123,7 +124,7 @@
         },
         "ambiances": {
           "title": "Ambiance row",
-          "description": "Pick an existing tile to edit, move or remove it, or check \"Add\" for a new one.",
+          "description": "Pick an existing tile to edit, move or remove it, or check \"Add\" for a new one.{entites_inconnues}",
           "data": {
             "choix": "Existing tile",
             "nouveau": "Add a new tile"
@@ -148,7 +149,7 @@
         },
         "extrasMaison": {
           "title": "\"House extras\" tiles",
-          "description": "Pick an existing tile to edit, move or remove it, or check \"Add\" for a new one.",
+          "description": "Pick an existing tile to edit, move or remove it, or check \"Add\" for a new one.{entites_inconnues}",
           "data": {
             "choix": "Existing tile",
             "nouveau": "Add a new tile"
@@ -173,7 +174,7 @@
         },
         "ouvrants": {
           "title": "Openings",
-          "description": "Pick an existing opening to move or remove it, or check \"Add\" for a new one.",
+          "description": "Pick an existing opening to move or remove it, or check \"Add\" for a new one.{entites_inconnues}",
           "data": {
             "choix": "Existing opening",
             "nouveau": "Add an opening"
@@ -188,7 +189,7 @@
         },
         "listesTachesExtra": {
           "title": "Extra task lists",
-          "description": "Pick an existing list to move or remove it, or check \"Add\" for a new one.",
+          "description": "Pick an existing list to move or remove it, or check \"Add\" for a new one.{entites_inconnues}",
           "data": {
             "choix": "Existing list",
             "nouveau": "Add a list"
@@ -203,7 +204,7 @@
         },
         "synthese": {
           "title": "Summary line",
-          "description": "Pick an existing line to edit, move or remove it, or check \"Add\" for a new one.",
+          "description": "Pick an existing line to edit, move or remove it, or check \"Add\" for a new one.{entites_inconnues}",
           "data": {
             "choix": "Existing line",
             "nouveau": "Add a new line"
@@ -225,7 +226,7 @@
         },
         "sources": {
           "title": "Media sources",
-          "description": "Pick an existing source to edit, move or remove it, or check \"Add\" for a new one.",
+          "description": "Pick an existing source to edit, move or remove it, or check \"Add\" for a new one.{entites_inconnues}",
           "data": {
             "choix": "Existing source",
             "nouveau": "Add a new source"
@@ -250,7 +251,7 @@
         },
         "minuteurs": {
           "title": "Timers",
-          "description": "Pick an existing slot to edit, move or remove it, or check \"Add\" for a new one.",
+          "description": "Pick an existing slot to edit, move or remove it, or check \"Add\" for a new one.{entites_inconnues}",
           "data": {
             "choix": "Existing slot",
             "nouveau": "Add a new slot"
@@ -267,7 +268,7 @@
         },
         "etiquettesMinuteur": {
           "title": "Timer labels",
-          "description": "Pick an existing label to edit, move or remove it, or check \"Add\" for a new one.",
+          "description": "Pick an existing label to edit, move or remove it, or check \"Add\" for a new one.{entites_inconnues}",
           "data": {
             "choix": "Existing label",
             "nouveau": "Add a new label"
@@ -332,8 +333,14 @@
         "budget_intenable_mode": "The {mode} mode overflows by {debordement} px with these zones. Increase the usable height, remove a zone, or remove this mode.",
         "alerte_pas_en_tete": "An alert must never yield to another mode: uncheck every mode above, then check them again in the order you want, starting with \"Alert\".",
         "ecran_deviendrait_invalide": "This change would make the screen invalid: it was not saved. Open the \"{section}\" section to fix the inconsistency before continuing."
+      },
+      "create_entry": {
+        "default": "The screen has been created.{entites_inconnues}"
       }
     }
+  },
+  "avertissements": {
+    "entites_inconnues": "Entities entered but missing from the Home Assistant registry, to check (an entity may appear later): {liste}"
   },
   "services": {
     "exporter": {

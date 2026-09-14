@@ -57,7 +57,7 @@
       "step": {
         "user": {
           "title": "Identité et budget",
-          "description": "Le nom de l'écran, le capteur de température affiché, et la hauteur utile de la tablette, en pixels. Entités saisies mais absentes du registre de Home Assistant, à vérifier (une entité peut arriver plus tard) : {entites_inconnues}",
+          "description": "Le nom de l'écran, le capteur de température affiché, et la hauteur utile de la tablette, en pixels.",
           "data": {
             "nom": "Nom",
             "hauteurUtile": "Hauteur utile (px)",
@@ -69,6 +69,7 @@
         },
         "reconfigure": {
           "title": "Modifier l'écran",
+          "description": "Choisissez une section à modifier.{entites_inconnues}",
           "menu_options": {
             "identite": "Identité et budget",
             "commandes": "Tuiles de commande",
@@ -86,7 +87,7 @@
         },
         "identite": {
           "title": "Identité et budget",
-          "description": "Le nom de l'écran, le capteur de température affiché, et la hauteur utile de la tablette, en pixels. Entités saisies mais absentes du registre de Home Assistant, à vérifier (une entité peut arriver plus tard) : {entites_inconnues}",
+          "description": "Le nom de l'écran, le capteur de température affiché, et la hauteur utile de la tablette, en pixels.",
           "data": {
             "nom": "Nom",
             "hauteurUtile": "Hauteur utile (px)",
@@ -98,7 +99,7 @@
         },
         "commandes": {
           "title": "Tuiles de commande",
-          "description": "Choisissez une tuile existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.",
+          "description": "Choisissez une tuile existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.{entites_inconnues}",
           "data": {
             "nouveau": "Ajouter une nouvelle tuile",
             "choix": "Tuile existante"
@@ -123,7 +124,7 @@
         },
         "ambiances": {
           "title": "Rangée d'ambiance",
-          "description": "Choisissez une tuile existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.",
+          "description": "Choisissez une tuile existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.{entites_inconnues}",
           "data": {
             "nouveau": "Ajouter une nouvelle tuile",
             "choix": "Tuile existante"
@@ -148,7 +149,7 @@
         },
         "extrasMaison": {
           "title": "Tuiles « Extras maison »",
-          "description": "Choisissez une tuile existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.",
+          "description": "Choisissez une tuile existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.{entites_inconnues}",
           "data": {
             "nouveau": "Ajouter une nouvelle tuile",
             "choix": "Tuile existante"
@@ -173,7 +174,7 @@
         },
         "ouvrants": {
           "title": "Ouvrants",
-          "description": "Choisissez un ouvrant existant pour le déplacer ou le supprimer, ou cochez « Ajouter » pour un nouveau.",
+          "description": "Choisissez un ouvrant existant pour le déplacer ou le supprimer, ou cochez « Ajouter » pour un nouveau.{entites_inconnues}",
           "data": {
             "nouveau": "Ajouter un ouvrant",
             "choix": "Ouvrant existant"
@@ -188,7 +189,7 @@
         },
         "listesTachesExtra": {
           "title": "Listes de tâches supplémentaires",
-          "description": "Choisissez une liste existante pour la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.",
+          "description": "Choisissez une liste existante pour la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.{entites_inconnues}",
           "data": {
             "nouveau": "Ajouter une liste",
             "choix": "Liste existante"
@@ -203,7 +204,7 @@
         },
         "synthese": {
           "title": "Ligne de synthèse",
-          "description": "Choisissez une ligne existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.",
+          "description": "Choisissez une ligne existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.{entites_inconnues}",
           "data": {
             "nouveau": "Ajouter une nouvelle ligne",
             "choix": "Ligne existante"
@@ -225,7 +226,7 @@
         },
         "sources": {
           "title": "Sources média",
-          "description": "Choisissez une source existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.",
+          "description": "Choisissez une source existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.{entites_inconnues}",
           "data": {
             "nouveau": "Ajouter une nouvelle source",
             "choix": "Source existante"
@@ -250,7 +251,7 @@
         },
         "minuteurs": {
           "title": "Minuteurs",
-          "description": "Choisissez un slot existant pour le modifier, le déplacer ou le supprimer, ou cochez « Ajouter » pour un nouveau.",
+          "description": "Choisissez un slot existant pour le modifier, le déplacer ou le supprimer, ou cochez « Ajouter » pour un nouveau.{entites_inconnues}",
           "data": {
             "nouveau": "Ajouter un nouveau slot",
             "choix": "Slot existant"
@@ -267,7 +268,7 @@
         },
         "etiquettesMinuteur": {
           "title": "Étiquettes de minuteur",
-          "description": "Choisissez une étiquette existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.",
+          "description": "Choisissez une étiquette existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.{entites_inconnues}",
           "data": {
             "nouveau": "Ajouter une nouvelle étiquette",
             "choix": "Étiquette existante"
@@ -332,8 +333,14 @@
         "budget_intenable_mode": "Le mode {mode} déborde de {debordement} px avec ces zones. Augmentez la hauteur utile, retirez une zone, ou retirez ce mode.",
         "alerte_pas_en_tete": "Une alerte ne doit céder à aucun autre mode : décochez tous les modes ci-dessus, puis recochez-les dans l'ordre voulu en commençant par « Alerte ».",
         "ecran_deviendrait_invalide": "Cette modification rendrait l'écran invalide : elle n'a pas été enregistrée. Ouvrez la section « {section} » pour corriger l'incohérence avant de continuer."
+      },
+      "create_entry": {
+        "default": "L'écran a été créé.{entites_inconnues}"
       }
     }
+  },
+  "avertissements": {
+    "entites_inconnues": "Entités saisies mais absentes du registre de Home Assistant, à vérifier (une entité peut arriver plus tard) : {liste}"
   },
   "services": {
     "exporter": {

@@ -51,8 +51,10 @@ from . import garde_ecran
 from .listes_erreurs import _ERREUR_PAR_MOT_CLE, _localiser_champ
 # Ronde de correction 3 : decision 7, cablee ICI pour "voiture" -- les sept
 # champs de $defs/voiture (en ligne, sans $defs propre) sont des entites
-# tout comme celles d'une section « liste » (voir registre.py).
-from .registre import entites_dans, entites_inconnues
+# tout comme celles d'une section « liste » (voir registre.py). Relecture
+# finale de branche (C1) : `avertissement_entites_inconnues` remplace
+# l'appel direct a `entites_inconnues` -- voir sa docstring.
+from .registre import avertissement_entites_inconnues, entites_dans
 
 # Tache 7 : « Blocs et modes » (agencement) n'est PAS une section « liste »
 # (listes.py) — un OBJET unique par ecran, jamais une collection d'elements
@@ -308,10 +310,12 @@ class SectionsObjetMixin:
                     # contrat (`$ref: entite`), aussi exposees a la faute de
                     # frappe que n'importe quel champ d'une section « liste ».
                     # AVERTIT, ne refuse jamais -- meme regle que le squelette
-                    # des sections (`listes.py`).
-                    inconnues = entites_inconnues(self.hass, entites_dans(valide, "voiture"))
-                    if inconnues:
-                        description_placeholders["entites_inconnues"] = ", ".join(inconnues)
+                    # des sections (`listes.py`). C1 (relecture finale) : le
+                    # placeholder est TOUJOURS pose, jamais seulement `if
+                    # inconnues` -- voir `avertissement_entites_inconnues`.
+                    description_placeholders["entites_inconnues"] = (
+                        avertissement_entites_inconnues(self.hass, entites_dans(valide, "voiture"))
+                    )
                     donnees = {**subentry.data, "voiture": valide}
                     if garde_ecran.persister_si_valide(
                         self, entry, subentry, donnees, errors, description_placeholders,

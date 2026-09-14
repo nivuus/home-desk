@@ -2,7 +2,9 @@
 ne connait pas."""
 from homeassistant.helpers import entity_registry as er
 
-from custom_components.home_desk.registre import entites_dans, entites_inconnues
+from custom_components.home_desk.registre import (
+    avertissement_entites_inconnues, entites_dans, entites_inconnues,
+)
 
 
 async def test_une_entite_absente_du_registre_donne_un_AVERTISSEMENT_jamais_un_refus(hass):
@@ -51,6 +53,34 @@ async def test_une_entite_connue_de_l_ETAT_mais_absente_du_registre_n_avertit_pa
     vrais."""
     hass.states.async_set("sensor.template_maison", "21.5")
     assert entites_inconnues(hass, ["sensor.template_maison"]) == []
+
+
+# ---------------------------------------------------------------------------
+# `avertissement_entites_inconnues` -- C1 (relecture finale de branche) : LE
+# TEXTE a poser dans `description_placeholders["entites_inconnues"]`, jamais
+# la liste nue. `entree` est requise : la phrase vient des traductions
+# (categorie "avertissements"), mises en cache quand le composant est mis en
+# place -- exactement le chemin qu'emprunte une VRAIE sous-entree, jamais un
+# `hass` nu.
+# ---------------------------------------------------------------------------
+
+
+async def test_avertissement_est_vide_si_toutes_les_entites_sont_connues(hass, entree):
+    """Exigence 1 de C1 : rien a signaler, rien a afficher -- une chaine
+    VIDE, jamais une phrase suivie de rien."""
+    er.async_get(hass).async_get_or_create("light", "demo", "u1", suggested_object_id="salon")
+    assert avertissement_entites_inconnues(hass, ["light.salon"]) == ""
+
+
+async def test_avertissement_porte_la_phrase_traduite_ET_la_liste(hass, entree):
+    """La phrase vient des traductions (fr.json/en.json, categorie
+    "avertissements") -- jamais tapee dans ce module Python (voir sa
+    docstring : la regle du depot veut le Python du composant SANS
+    accents)."""
+    texte = avertissement_entites_inconnues(hass, ["light.nexiste_absolument_pas"])
+    assert texte != ""
+    assert "light.nexiste_absolument_pas" in texte
+    assert "Home Assistant" in texte, "la PHRASE, pas seulement la liste nue"
 
 
 # ---------------------------------------------------------------------------

@@ -164,7 +164,12 @@ async def test_aucune_entite_inconnue_ne_produit_aucun_avertissement(hass, entre
          "temperature": "sensor.temperature_salon",
          "aspirateur": "vacuum.salon"})
     assert resultat["type"] is data_entry_flow.FlowResultType.CREATE_ENTRY
-    assert "entites_inconnues" not in resultat["description_placeholders"]
+    # C1 (relecture finale) : la cle est desormais TOUJOURS posee (le
+    # placeholder `{entites_inconnues}` de `create_entry.default` doit
+    # TOUJOURS recevoir une valeur, jamais rester absente -- voir
+    # `registre.avertissement_entites_inconnues`) ; "rien a signaler" se
+    # lit maintenant a la VALEUR (vide), plus a l'absence de la cle.
+    assert resultat["description_placeholders"]["entites_inconnues"] == ""
 
 
 async def test_une_entite_inconnue_AVERTIT_dans_le_squelette_des_sections(hass, entree):

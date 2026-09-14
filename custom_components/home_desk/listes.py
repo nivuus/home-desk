@@ -135,8 +135,11 @@ from .listes_champs import SECTIONS, Section, ChampVide, ServiceIncomplet
 # DEUX modules) ; `AllumeeIncomplete` n'est necessaire qu'ICI.
 from .listes_champs_sources import AllumeeIncomplete
 # Decision 7 de la spec, tenue a la tache 7 : une entite inconnue du
-# registre AVERTIT, ne refuse jamais (voir registre.py).
-from .registre import entites_dans, entites_inconnues
+# registre AVERTIT, ne refuse jamais (voir registre.py). Relecture finale
+# de branche (C1) : `avertissement_entites_inconnues` remplace l'ancien
+# appel direct a `entites_inconnues` -- c'est desormais elle qui porte la
+# PHRASE (traduite), ce module ne posant plus que la LISTE en entree.
+from .registre import avertissement_entites_inconnues, entites_dans
 # Ronde de correction 1 (defaut B) : ce qui NOMME une faute (la table
 # _ERREUR_PAR_MOT_CLE et _localiser_champ) a ete EXTRAIT vers
 # listes_erreurs.py -- la meme couture que schema.py/fautes.py, deplacement
@@ -243,9 +246,17 @@ class SectionsListeMixin:
             # metier d'EcranSubentryFlow.async_step_user (config_flow.py).
             errors["nouveau"] = ERREUR_SELECTION_MANQUANTE
 
+        # C1 (relecture finale) : `cle` est toujours l'une des `SECTIONS`,
+        # et chacune de leurs neuf descriptions porte desormais
+        # `{entites_inconnues}` (translations/*.json) -- un placeholder que
+        # Home Assistant doit TOUJOURS recevoir, jamais seulement quand cet
+        # appelant-ci le calcule (`_async_step_section_element`, apres un
+        # persist reussi). Defaut "" ICI, au SEUL site qui reaffiche ce
+        # step, plutot que dans `formulaire.reafficher` (partagee aussi par
+        # les steps "*_element", dont AUCUN ne porte ce placeholder).
         return reafficher(
             self, cle, _schema_choix(elements, section), user_input, errors,
-            description_placeholders,
+            {"entites_inconnues": "", **(description_placeholders or {})},
         )
 
     async def _async_step_section_element(
@@ -401,10 +412,17 @@ class SectionsListeMixin:
                             errors["base"] = ERREUR_RECETTE_SANS_MODE
                     if not errors:
                         # Decision 7 : AVERTIT, ne refuse jamais -- generique
-                        # a toute section via `registre.entites_dans` (recursif).
-                        inconnues = entites_inconnues(self.hass, entites_dans(valide, cle))
-                        if inconnues:
-                            description_placeholders["entites_inconnues"] = ", ".join(inconnues)
+                        # a toute section via `registre.entites_dans`
+                        # (recursif). C1 (relecture finale) : le placeholder
+                        # est TOUJOURS pose (jamais seulement `if
+                        # inconnues`) -- vide quand rien n'est a signaler,
+                        # jamais une cle absente (voir `avertissement_
+                        # entites_inconnues` et `_async_step_section`
+                        # ci-dessous, qui garantit la MEME cle par defaut
+                        # pour tout affichage qui ne passe pas par ici).
+                        description_placeholders["entites_inconnues"] = (
+                            avertissement_entites_inconnues(self.hass, entites_dans(valide, cle))
+                        )
                         nouveaux = list(elements)
                         if index is not None:
                             nouveaux[index] = valide

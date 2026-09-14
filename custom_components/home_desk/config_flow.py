@@ -116,8 +116,10 @@ from .listes_champs import SECTIONS
 # sous 500 lignes (meme couture que `listes.py`/`listes_champs.py`).
 from .objets import SectionsObjetMixin
 # Decision 7 de la spec, tenue a la tache 7 : une entite inconnue du
-# registre AVERTIT, ne refuse jamais (voir registre.py).
-from .registre import entites_inconnues
+# registre AVERTIT, ne refuse jamais (voir registre.py). Relecture finale
+# de branche (C1) : `avertissement_entites_inconnues` remplace l'appel
+# direct a `entites_inconnues` -- voir sa docstring.
+from .registre import avertissement_entites_inconnues
 
 # `temperature` ($defs/entite) : le capteur que l'ecran affiche en bandeau.
 # Ronde 1 de relecture (tache 6) : c'etait un champ RACINE requis du contrat
@@ -326,16 +328,14 @@ class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFl
                 # recopiees a la main, jamais ecrasees si deja portees.
                 for cle in SECTIONS:
                     donnee.setdefault(cle, [])
-                # Decision 7 : AVERTIT, ne refuse jamais -- une entite peut
-                # arriver plus tard. Ruling 18 : `_valider_identite` est une
-                # fonction de MODULE sans acces a `hass` ; l'appel vit donc
-                # ICI, dans le step, qui porte `self.hass`.
-                inconnues = entites_inconnues(
+                # Decision 7 : AVERTIT, ne refuse jamais. Ruling 18 :
+                # `_valider_identite` est SANS acces a `hass`, l'appel vit
+                # ICI. C1 : placeholder TOUJOURS pose -- ce flow se TERMINE
+                # ici, seul `create_entry.default` peut encore le montrer.
+                description_placeholders["entites_inconnues"] = avertissement_entites_inconnues(
                     self.hass,
                     [v for v in (donnee.get("temperature"), donnee.get("aspirateur")) if v],
                 )
-                if inconnues:
-                    description_placeholders["entites_inconnues"] = ", ".join(inconnues)
                 return self.async_create_entry(
                     title=donnee["nom"], data=donnee,
                     description_placeholders=description_placeholders,
@@ -381,11 +381,17 @@ class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFl
         n'etaient saisis QU'A LA CREATION (`async_step_user`) — aucune
         entree de ce menu n'y ramenait jamais, les rendant IMMUABLES a vie.
         `async_step_identite` reutilise `SCHEMA_IDENTITE` et les memes
-        gardes que la creation (`_valider_identite`)."""
+        gardes que la creation (`_valider_identite`).
+
+        C1 : seul ECRAN qu'atteignent `async_step_identite` ET `objets.
+        SectionsObjetMixin.async_step_voiture` apres un persist reussi --
+        sa description porte donc `{entites_inconnues}` (translations/
+        *.json), avec un defaut "" ICI pour les appelants qui ne le
+        calculent pas eux-memes (ouverture directe, retrait de la voiture)."""
         return self.async_show_menu(
             step_id="reconfigure",
             menu_options=["identite", *SECTIONS, "agencement", "voiture"],
-            description_placeholders=description_placeholders,
+            description_placeholders={"entites_inconnues": "", **(description_placeholders or {})},
         )
 
     async def async_step_identite(
@@ -438,9 +444,12 @@ class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFl
                         nouvelles_donnees.get("aspirateur"),
                     ) if v
                 ]
-                inconnues = entites_inconnues(self.hass, entites)
-                if inconnues:
-                    description_placeholders["entites_inconnues"] = ", ".join(inconnues)
+                # C1 : placeholder TOUJOURS pose -- l'ecran qui le montre
+                # reellement est le menu "reconfigure" (voir sa docstring),
+                # jamais ce step-ci, qui se quitte des la ligne suivante.
+                description_placeholders["entites_inconnues"] = avertissement_entites_inconnues(
+                    self.hass, entites
+                )
                 if garde_ecran.persister_si_valide(
                     self, entry, subentry, nouvelles_donnees, errors, description_placeholders,
                     section_courante="identite", titre=nouvelles_donnees["nom"],
