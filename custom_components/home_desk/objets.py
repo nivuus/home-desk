@@ -49,6 +49,10 @@ from . import garde_ecran
 # en ronde de correction 1 (defaut B), ce module en important deja les DEUX
 # noms ENSEMBLE etant la preuve que la couture etait deja separable.
 from .listes_erreurs import _ERREUR_PAR_MOT_CLE, _localiser_champ
+# Ronde de correction 3 : decision 7, cablee ICI pour "voiture" -- les sept
+# champs de $defs/voiture (en ligne, sans $defs propre) sont des entites
+# tout comme celles d'une section « liste » (voir registre.py).
+from .registre import entites_dans, entites_inconnues
 
 # Tache 7 : « Blocs et modes » (agencement) n'est PAS une section « liste »
 # (listes.py) — un OBJET unique par ecran, jamais une collection d'elements
@@ -299,12 +303,23 @@ class SectionsObjetMixin:
                     champ, mot_cle = _localiser_champ(err)
                     errors[champ] = _ERREUR_PAR_MOT_CLE.get(mot_cle, ERREUR_CHAMP_INVALIDE)
                 else:
+                    # Ronde de correction 3 : decision 7, restee non cablee
+                    # ICI -- les SEPT champs de `voiture` sont des entites au
+                    # contrat (`$ref: entite`), aussi exposees a la faute de
+                    # frappe que n'importe quel champ d'une section « liste ».
+                    # AVERTIT, ne refuse jamais -- meme regle que le squelette
+                    # des sections (`listes.py`).
+                    inconnues = entites_inconnues(self.hass, entites_dans(valide, "voiture"))
+                    if inconnues:
+                        description_placeholders["entites_inconnues"] = ", ".join(inconnues)
                     donnees = {**subentry.data, "voiture": valide}
                     if garde_ecran.persister_si_valide(
                         self, entry, subentry, donnees, errors, description_placeholders,
                         section_courante="voiture",
                     ):
-                        return await self.async_step_reconfigure()
+                        return await self.async_step_reconfigure(
+                            description_placeholders=description_placeholders
+                        )
 
         return reafficher(
             self, "voiture", SCHEMA_VOITURE, valeurs_affichees, errors, description_placeholders

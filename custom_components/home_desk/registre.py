@@ -34,6 +34,16 @@ MIROITE le contrat, et LUI SEUL le lit »). Il importe desormais
 `schema.SCHEMA_JSON`, deja lu une fois la-bas, jamais un second
 `pathlib.Path` + `json.loads` ICI -- la meme regle que `validateurs.py`
 respecte deja (aucun des deux ne contient plus ni `pathlib` ni `json`).
+
+Ronde de correction 3 : `voiture` (section « objet », `objets.py`) porte
+SEPT champs `$ref: entite` (`batterie`, `autonomie`, `branchee`, `enCharge`,
+`clim`, `demarrerClim`, `arreterClim`) et n'etait cablee nulle part -- la
+decision 7 couvrait huit familles de section sur neuf. `entites_dans`
+resolvait son sous-schema de depart via `properties[cle]["items"]`, ce qui
+suppose une section TABLEAU ; `voiture` est un OBJET (`properties["voiture"]`
+n'a pas d'`items`). La resolution est desormais generique aux deux formes,
+sans `if cle == "voiture"` : un cas particulier par NOM aurait ete la meme
+faute que l'ensemble plat de noms de la ronde 2.
 """
 from __future__ import annotations
 
@@ -106,15 +116,21 @@ def _entites_avec_schema(valeur: Any, sous_schema: dict) -> list[str]:
 
 
 def entites_dans(valeur: Any, cle: str) -> list[str]:
-    """Les chaines de `valeur` (l'element d'une section « liste »,
-    `listes.py`) que le CONTRAT designe comme des entites -- jamais une
-    chaine au seul motif qu'elle en a la FORME, ni au seul motif que sa CLE
-    porte un nom connu ailleurs comme entite (voir la docstring de module).
+    """Les chaines de `valeur` (l'element d'une section « liste » ou l'objet
+    d'une section « objet ») que le CONTRAT designe comme des entites --
+    jamais une chaine au seul motif qu'elle en a la FORME, ni au seul motif
+    que sa CLE porte un nom connu ailleurs comme entite (voir la docstring
+    de module).
 
-    `cle` : la section d'ou vient `valeur` -- son sous-schema de depart est
-    `properties[cle]["items"]`, le meme que celui de l'element que
-    `listes.py` vient de construire. Pour `ouvrants`/`listesTachesExtra`,
-    cet `items` EST `$ref: #/$defs/entite` : l'element nu (une chaine SANS
-    cle autour) est donc collecte SANS cas particulier."""
-    items = SCHEMA_JSON["properties"][cle]["items"]
-    return _entites_avec_schema(valeur, items)
+    `cle` : la section d'ou vient `valeur`. Son sous-schema de depart est
+    `properties[cle]["items"]` pour une section « liste » (un TABLEAU,
+    `listes.py`) -- pour `ouvrants`/`listesTachesExtra`, cet `items` EST
+    `$ref: #/$defs/entite` : l'element nu (une chaine SANS cle autour) est
+    donc collecte SANS cas particulier. Une section « objet » (`voiture`,
+    `objets.py`) n'a PAS d'`items` : `properties[cle]` EST deja le bon
+    sous-schema, generique aux deux formes -- jamais un `if cle ==
+    "voiture"`, la meme faute de forme que l'ensemble plat de noms que la
+    ronde de correction 2 a deja fermee."""
+    proprietes_cle = SCHEMA_JSON["properties"][cle]
+    sous_schema = proprietes_cle.get("items", proprietes_cle)
+    return _entites_avec_schema(valeur, sous_schema)

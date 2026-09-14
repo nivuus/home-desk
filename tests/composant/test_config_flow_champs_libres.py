@@ -239,9 +239,9 @@ async def test_une_entite_inconnue_AVERTIT_pour_une_section_a_element_nu(hass, e
 # imbriques EN LIGNE (sans `$defs` propre) manquaient -- `minuteurs[].timer`/
 # `.nom`, et les sept champs de `voiture`. `voiture` n'a PAS de test ici :
 # son chemin d'appel passe par `objets.py`/`SectionsObjetMixin.async_step_
-# voiture` (verifie), qui n'appelle `entites_inconnues`/`entites_dans` NULLE
-# PART -- cablage jamais fait, ni en tache 7 ni dans les rondes de
-# correction precedentes, et hors du perimetre de celle-ci (voir le rapport).
+# voiture`, un module SEPARE du squelette des sections (`listes.py`) que ce
+# fichier exerce. Voir `test_config_flow_voiture.py` pour son cablage --
+# reste ouvert en ronde 2, ferme en ronde de correction 3.
 # ---------------------------------------------------------------------------
 
 
