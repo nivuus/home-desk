@@ -13,8 +13,19 @@
  *  décor limité à l'accueil laisserait ces quatre champs sans épreuve de rendu, exactement le
  *  trou que `absenceNommee` a déjà payé cinq fois dans ce dépôt (cf. CLAUDE.md du paquet). Les
  *  sous-vues partagées (« Toute la maison », « Tâches ») sont donc montées pour les trois écrans ;
- *  le réglage du minuteur et la vue « Recette », propres à la cuisine, ne le sont que pour elle. */
-import { describe, it, expect, afterEach, beforeAll } from 'vitest';
+ *  le réglage du minuteur et la vue « Recette », propres à la cuisine, ne le sont que pour elle.
+ *
+ *  RONDE DE CORRECTION 1 : cette suite appelait `ecransPourImport(ECRANS)` directement, ce qui
+ *  contourne `attacherNotes` — pas le chemin réel de production (le CLI `--json` d'`exporter-
+ *  ecrans.mjs` attache D'ABORD les notes du registre, puis met en forme). `exporterTout` (même
+ *  outil) est cette composition réelle, désormais utilisée ici comme dans `migration-donnee.test.ts`.
+ *  Sans effet observable sur ce niveau : `note` n'est « JAMAIS rendu » (cf. `Ecran.note` dans
+ *  `ecran.ts`), donc l'attacher ou non ne pouvait déjà rien changer au DOM — mais l'ancien appel
+ *  restait faux à documenter comme « ce que l'outil exporte », et une régression future
+ *  d'`attacherNotes` qui romprait le pipeline (chemin invalide, contrat refusé) devait pouvoir
+ *  se voir ICI, pas seulement dans `migration-notes.test.ts`, qui ne teste que les notes elles-
+ *  mêmes, jamais que le reste de l'export survit à leur attachement. */
+import { describe, it, expect, afterEach, beforeAll, vi } from 'vitest';
 import { TextEncoder as TextEncoderNode, TextDecoder as TextDecoderNode } from 'node:util';
 import { ECRANS } from '../src/ecran';
 import { monterDemarrage, vider, type Montage, type OptionsMontage } from './aides';
@@ -37,9 +48,9 @@ import { monterDemarrage, vider, type Montage, type OptionsMontage } from './aid
 // de TOUT le reste du module (y compris les trois lignes ci-dessus), donc un `import … from
 // '../outils/exporter-ecrans.mjs'` en tête de fichier chargerait `esbuild` — et casserait —
 // AVANT que le correctif n'ait eu la moindre chance de s'appliquer.
-let ecransPourImport: (ecrans: typeof ECRANS) => any[];
+let exporterTout: (ecrans: typeof ECRANS) => any[];
 beforeAll(async () => {
-  ({ ecransPourImport } = await import('../outils/exporter-ecrans.mjs'));
+  ({ exporterTout } = await import('../outils/exporter-ecrans.mjs'));
 });
 
 afterEach(async () => {
@@ -76,7 +87,7 @@ async function comparerCotes(
   options: OptionsMontage = {},
   apres: (m: Montage) => Promise<void> = async () => {},
 ): Promise<void> {
-  const exporte = ecransPourImport(ECRANS).find((e) => e.nom === ecran.nom)!;
+  const exporte = exporterTout(ECRANS).find((e) => e.nom === ecran.nom)!;
   const { titre: _t, version: _v, ...depuisTransport } = exporte;
 
   const domLitteral = await rendre(ecran, options, apres);
@@ -87,6 +98,54 @@ async function comparerCotes(
 describe('niveau 3 — le rendu', () => {
   it.each(Object.entries(ECRANS))('%s rend le même DOM des deux côtés (accueil)', async (_cle, ecran) => {
     await comparerCotes(ecran);
+  });
+
+  // RONDE DE CORRECTION 1 (Important) : trois modes de `agencement.modes` (ecran.ts:312/388/543)
+  // déclenchés par un ÉTAT réel, pas par un champ de configuration — mais chacun rend un champ
+  // qu'aucune des vues ci-dessus n'exerce : `piece.aspirateur` (menage, demarrage.ts:1803),
+  // `piece.sources` (cinema/media, :1804), `piece.ouvrants` (aération, :1805). Les trois sont
+  // OBLIGATOIRES sur `Ecran` : une perte de champ est déjà attrapée par l'égalité du niveau 1. Ce
+  // que ces trois DOM comparés ajoutent, c'est le CHEMIN DE RENDU — la preuve qu'aucune fonction
+  // ne traite l'objet reconstruit autrement que le littéral malgré une égalité de valeur.
+
+  // Ménage : les trois écrans déclarent `aspirateur` (aucun n'a `undefined` ici).
+  it.each(Object.entries(ECRANS))('%s rend le même DOM des deux côtés (ménage)', async (_cle, ecran) => {
+    await comparerCotes(ecran, {}, async (m) => {
+      await m.pousser(ecran.aspirateur!, 'cleaning', { battery_level: 80 });
+      expect(m.racine.querySelector('[data-mvt="bloc:menage"]')).not.toBeNull();
+    });
+  });
+
+  // Média/cinéma : la première source déclarée par chaque écran, poussée en lecture — repris du
+  // patron de `tests/demarrage.test.ts > pousserLectureEnCours`.
+  it.each(Object.entries(ECRANS))('%s rend le même DOM des deux côtés (média)', async (_cle, ecran) => {
+    const entite = ecran.sources[0].titre[0];
+    await comparerCotes(ecran, {}, async (m) => {
+      await m.pousser(entite, 'playing', { media_title: 'Blinding Lights', supported_features: 1 });
+      expect(m.racine.querySelector('.media')).not.toBeNull();
+    });
+  });
+
+  // Aération : seuls salon et cuisine déclarent des `ouvrants` non vides — bureau (`ouvrants: []`)
+  // exclut d'ailleurs `aeration` de son `agencement.modes` (ecran.ts). Horloge figée : le mode
+  // n'existe qu'au-delà de DIX MINUTES d'ouvrant ouvert (`AERATION_MS`, `modes.ts`) — `Etat.appliquer`
+  // horodate `changeLe` avec `Date.now()`, jamais le `maintenant` injecté, donc les deux horloges
+  // doivent être LA MÊME (`vi.setSystemTime` + `maintenant: () => new Date()`). Patron repris de
+  // `tests/orchestration.test.ts > rend le bloc aération quand un ouvrant est ouvert...`.
+  it.each([['salon', ECRANS.salon], ['cuisine', ECRANS.cuisine]] as const)(
+    '%s rend le même DOM des deux côtés (aération)', async (_cle, ecran) => {
+    vi.useFakeTimers();
+    try {
+      await comparerCotes(ecran, { maintenant: () => new Date() }, async (m) => {
+        vi.setSystemTime(new Date(2026, 7, 1, 14, 0));
+        await m.pousser(ecran.ouvrants[0], 'on', {});
+        vi.setSystemTime(new Date(2026, 7, 1, 14, 11));
+        await m.pousser('climate.radiateur', 'heat', {});
+        expect(m.racine.querySelector('[data-mvt="bloc:aeration"]')).not.toBeNull();
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   // « Toute la maison » : partagée par les trois tablettes, atteinte par hash sans rien pousser.

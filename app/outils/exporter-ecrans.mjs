@@ -292,6 +292,24 @@ export function attacherNotes(ECRANS, plages, verdicts) {
   return { ecrans, attachements };
 }
 
+/** LE CHEMIN RÉEL D'EXPORT, dans une seule fonction — attache les notes du registre à l'objet
+ *  réel, PUIS met en forme pour l'import HA. `ecransPourImport(ECRANS)` seul, sans `attacherNotes`
+ *  devant, ne reproduit PAS ce que l'export réel produit : il ne porte que les trois notes
+ *  d'`agencement.note` déjà écrites dans `ecran.ts`, jamais les 143 que le registre attache
+ *  (ronde de correction 1, tâche 4 — le brief avait fait cette confusion, corrigée ici). Extraite
+ *  pour que le CLI (plus bas, `--json`) et les épreuves de fidélité (`app/tests/migration-*.test.ts`)
+ *  partagent une SEULE composition : deux recopies de ce même chemin auraient fini par diverger.
+ *  Synchrone : lit `ecran.ts` et `verdicts-commentaires.tsv` par leur chemin fixe, exactement
+ *  comme `chargerVerdicts` le fait déjà — seul `chargerEcrans` (compilation esbuild de la DONNÉE)
+ *  reste async, et reste hors de cette fonction : elle prend `ECRANS` déjà chargé en paramètre,
+ *  que ce soit via `chargerEcrans()` (le CLI) ou un import TypeScript direct (les tests, qui
+ *  tiennent la DONNÉE pour exacte par construction — cf. `migration-donnee.test.ts`). */
+export function exporterTout(ECRANS) {
+  const source = readFileSync(path.join(RACINE, 'src', 'ecran.ts'), 'utf8');
+  const { ecrans } = attacherNotes(ECRANS, plagesDeCommentaire(source), chargerVerdicts());
+  return ecransPourImport(ecrans);
+}
+
 const EN_TETE = ['ligne_debut', 'ligne_fin', 'verdict', 'chemin_ou_raison', 'lignes_de_la_note'];
 
 async function ecrireRegistre(destination) {
@@ -324,10 +342,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (mode === '--registre') {
     process.exit(await ecrireRegistre(destination));
   }
-  const source = await fs.readFile(path.join(RACINE, 'src', 'ecran.ts'), 'utf8');
-  const { ecrans: enrichis } = attacherNotes(
-    await chargerEcrans(), plagesDeCommentaire(source), chargerVerdicts());
-  const ecrans = ecransPourImport(enrichis);
+  const ecrans = exporterTout(await chargerEcrans());
   await fs.writeFile(destination, JSON.stringify(ecrans, null, 2) + '\n', 'utf8');
   console.log(`${ecrans.length} écrans écrits dans ${destination}`);
 }

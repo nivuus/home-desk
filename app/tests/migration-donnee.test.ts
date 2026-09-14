@@ -2,12 +2,20 @@
  *
  *  Niveau 1 de la preuve de migration : ce que l'outil exporte ÉGALE ce que le code portait.
  *  L'égalité profonde ne suffit pas — elle manquerait un champ optionnel disparu DES DEUX CÔTÉS.
- *  Les deux dénombrements sont l'ancre extérieure. */
+ *  Les deux dénombrements sont l'ancre extérieure.
+ *
+ *  RONDE DE CORRECTION 1 : cette suite appelait `ecransPourImport(ECRANS)` directement — le
+ *  squelette du brief, exécuté fidèlement, mais faux. Ça ne produit QUE 3 `note` (les
+ *  `agencement.note` déjà écrites dans `ecran.ts`), jamais les 143 que le registre attache : ce
+ *  n'est pas le chemin réel de production (`exporter-ecrans.mjs`, CLI `--json`), qui attache
+ *  D'ABORD les notes du registre (`attacherNotes`) avant de mettre en forme pour l'import
+ *  (`ecransPourImport`). `exporterTout` (même fichier) est cette composition, extraite pour que
+ *  le CLI et ces épreuves ne la recopient pas chacun de leur côté. */
 import { describe, it, expect } from 'vitest';
 import { ECRANS } from '../src/ecran';
-import { ecransPourImport } from '../outils/exporter-ecrans.mjs';
+import { exporterTout } from '../outils/exporter-ecrans.mjs';
 
-const exportes = ecransPourImport(ECRANS);
+const exportes = exporterTout(ECRANS);
 
 /** Copie profonde de `x` dont toute clé `note` a été retirée, à toute profondeur — des deux
  *  côtés de la comparaison, donc les trois `note` qu'`ECRANS` portait déjà disparaissent aussi :
@@ -30,18 +38,19 @@ describe('niveau 1 — la donnée', () => {
 
   it.each(Object.entries(ECRANS))('%s : champ par champ, version comprise', (_cle, ecran) => {
     const exporte = exportes.find((e) => e.nom === ecran.nom)!;
-    // AMENDÉ (ruling R7) : l'export ATTACHE les 143 commentaires classés `attachee` en `note`
-    // (tâche 12). L'égalité stricte est donc fausse par construction — ce qu'il faut prouver,
-    // c'est que **rien d'AUTRE qu'une `note`** n'a bougé. `sansNotes` retire récursivement
-    // toute clé `note` des deux côtés ; les notes elles-mêmes sont gardées par
-    // `migration-notes.test.ts`, qui les compte contre le registre.
+    // `exporterTout` suit le chemin réel : `attacherNotes` ATTACHE les 143 commentaires classés
+    // `attachee` en `note` (tâche 12) avant la mise en forme. L'égalité stricte est donc fausse
+    // par construction — ce qu'il faut prouver, c'est que **rien d'AUTRE qu'une `note`** n'a
+    // bougé. `sansNotes` retire récursivement toute clé `note` des deux côtés ; les notes
+    // elles-mêmes sont gardées par `migration-notes.test.ts`, qui les compte contre le registre.
     expect(sansNotes(exporte)).toEqual(sansNotes({ titre: ecran.nom, version: 1, ...ecran }));
   });
 
   it('porte 54 entity_id distincts en 113 occurrences', () => {
-    // Sur `sansNotes`, obligatoirement : les commentaires d'`ecran.ts` CITENT des entity_id
-    // en prose, et une fois attachés en `note` (tâche 12) ils feraient monter les deux
-    // compteurs sans qu'aucune donnée n'ait bougé. Les 54/113 mesurent la DONNÉE.
+    // Sur `sansNotes`, obligatoirement : les commentaires d'`ecran.ts` CITENT des entity_id en
+    // prose, et `exporterTout` les attache réellement en `note` (tâche 12) — sans `sansNotes`
+    // ici, ces 20 objets notés feraient monter les deux compteurs sans qu'aucune donnée n'ait
+    // bougé. Les 54/113 mesurent la DONNÉE.
     const tous = JSON.stringify(exportes.map(sansNotes)).match(/"[a-z_]+\.[a-z0-9_]+"/g) ?? [];
     expect(tous.length).toBe(113);
     expect(new Set(tous).size).toBe(54);
