@@ -22,6 +22,18 @@ import type { Bouton, Ecran } from '../ecran';
 import { icone } from './icones';
 import { descripteurJauge, fractionJauge } from '../jauge';
 
+/** L'entrée générique de `TOUTE_LA_MAISON` que `piece.aspirateurMaison` REMPLACE quand il est
+ *  déclaré (jamais une tuile de plus — arbitrage du propriétaire, 2026-08-03).
+ *
+ *  Exportée et comparée PAR IDENTITÉ, pas par sa valeur d'entité : depuis que `aspirateurMaison`
+ *  se saisit depuis Home Assistant (plan 3c, tâche 1), une comparaison `b.entite === 'vacuum.…'`
+ *  recopiait le même fait à quinze lignes de sa source, et la tuile saisie cessait de remplacer
+ *  quoi que ce soit — en silence — le jour où la table changeait d'aspirateur. */
+export const ASPIRATEUR_GENERIQUE: Bouton = {
+  libelle: 'Aspirateur', icone: 'home', entite: 'vacuum.aspirateur_cuisine',
+  service: ['vacuum', 'start'],
+};
+
 export const TOUTE_LA_MAISON: Bouton[] = [
   { libelle: 'Salon', icone: 'bulb', entite: 'light.lumiere_salon', service: ['light', 'toggle'] },
   { libelle: 'Cuisine', icone: 'bulb', entite: 'light.lumiere_cuisine', service: ['light', 'toggle'] },
@@ -42,7 +54,8 @@ export const TOUTE_LA_MAISON: Bouton[] = [
     service: ['script', 'turn_on'], cible: 'script.toggle_rideau_cuisine' },
   { libelle: 'Chauffage', icone: 'flame', entite: 'climate.radiateur' },
   { libelle: 'Serrure', icone: 'lock', entite: 'lock.aqara_smart_lock_u200_lite', service: ['lock', 'unlock'] },
-  { libelle: 'Aspirateur', icone: 'home', entite: 'vacuum.aspirateur_cuisine', service: ['vacuum', 'start'] },
+  // Entrée REMPLACÉE, jamais recopiée : voir la doc d'`ASPIRATEUR_GENERIQUE` ci-dessus.
+  ASPIRATEUR_GENERIQUE,
 ];
 
 let appuyer: (etat: Etat, b: Bouton) => void = () => {};
@@ -76,7 +89,7 @@ export function rendreMaison(etat: Etat, piece: Ecran, horsLigne = false): Templ
   // « Aspirateur », nettoyage complet du RDC) — jamais une tuile de plus (budget de 585px déjà
   // plein en cuisine, cf. rapport de tâche 12). Absent partout ailleurs : aucun changement.
   const boutons = [
-    ...TOUTE_LA_MAISON.map((b) => (b.entite === 'vacuum.aspirateur_cuisine' && piece.aspirateurMaison)
+    ...TOUTE_LA_MAISON.map((b) => (b === ASPIRATEUR_GENERIQUE && piece.aspirateurMaison)
       ? piece.aspirateurMaison : b),
     ...piece.extrasMaison,
   ];
