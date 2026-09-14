@@ -364,3 +364,63 @@ describe('Connexion.connecter est idempotente', () => {
     expect(ouvertures).toBe(2);
   });
 });
+
+describe('Connexion — un abonné aux états posé APRÈS la connexion', () => {
+  // Défaut trouvé en production le 2026-09-14, étape 5 de la mise en production du plan 3c :
+  // la cuisine repointée sur `?ecran=Cuisine` rendait sa structure mais AUCUNE entité ne
+  // résolvait — météo absente, tuiles sans `absenceNommee` filtrées, tuiles qui en portent une
+  // inertes, thème sombre en plein jour (`sun.sun` jamais résolu).
+  //
+  // La cause est un ORDRE, et il est propre à `demarrer()` : cette porte connecte pour résoudre
+  // la configuration, PUIS monte le corps, qui s'abonne alors par `surChangement`. Or `auth_ok`
+  // envoie `get_states` immédiatement, et `emettre()` le distribue à `rappelsEtat` — vide à cet
+  // instant. L'instantané se perd sans une erreur. Le second `connecter()` du corps retourne sur
+  // la garde d'idempotence (`readyState === 1`) : aucun `get_states` n'est redemandé, et il ne
+  // reste que les `state_changed` — donc les seules entités qui CHANGENT après coup.
+  //
+  // `demarrerAvecEcran()` (branche `data-piece`) n'a jamais eu le défaut : elle s'abonne avant
+  // de connecter. C'est pourquoi le même bundle rendait juste par une porte et faux par l'autre,
+  // et pourquoi 1 148 tests verts n'ont rien vu — ils montent tous par la porte qui marche.
+  // `surEvenement`, dans cette même classe, traite DÉJÀ le cas de l'abonnement tardif
+  // (`if (this.ws) this.souscrire(type)`) ; `surChangement` était le frère resté sans filet.
+  it('reçoit quand même l état courant, au lieu de rater l instantané initial', async () => {
+    const cx = connexionDeTest();
+    await cx.connecter();
+    const ws = WsCapture.derniere!;
+    ws.recevoir({ type: 'auth_ok' });
+
+    // L'instantané initial part ICI, et personne n'est encore abonné : il tombe dans le vide.
+    const premier = ws.envoyes.find((m) => m.type === 'get_states');
+    expect(premier).toBeDefined();
+    ws.recevoir({
+      type: 'result', id: premier.id, success: true,
+      result: [{ entity_id: 'light.hotte', state: 'off', attributes: {} }],
+    });
+
+    // C'est l'ordre exact de `demarrer()` : connecter, résoudre l'écran, PUIS monter le corps.
+    const vus: string[] = [];
+    cx.surChangement((e) => vus.push(e.entity_id));
+
+    const demandes = ws.envoyes.filter((m) => m.type === 'get_states');
+    expect(demandes).toHaveLength(2);
+
+    ws.recevoir({
+      type: 'result', id: demandes[1].id, success: true,
+      result: [{ entity_id: 'light.hotte', state: 'off', attributes: {} }],
+    });
+    expect(vus).toEqual(['light.hotte']);
+  });
+
+  it('ne redemande RIEN quand l abonné est posé AVANT la connexion', async () => {
+    // Contre-épreuve : la branche `data-piece` s'abonne avant de connecter, et les 1 148 tests
+    // existants montent par là. Un rattrapage qui partirait aussi dans ce cas doublerait
+    // l'instantané initial sur le chemin normal — un aller-retour payé pour rien sur une Fire 7.
+    const cx = connexionDeTest();
+    cx.surChangement(() => {});
+    await cx.connecter();
+    const ws = WsCapture.derniere!;
+    ws.recevoir({ type: 'auth_ok' });
+
+    expect(ws.envoyes.filter((m) => m.type === 'get_states')).toHaveLength(1);
+  });
+});

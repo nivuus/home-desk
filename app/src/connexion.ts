@@ -101,6 +101,12 @@ export class Connexion {
   private rappelsEtat: ((e: EvenementEtat) => void)[] = [];
   private rappelsSilence: ((ms: number) => void)[] = [];
   private rappelsEvenement = new Map<string, ((donnees: Record<string, unknown>) => void)[]>();
+  /** L'instantané initial (`get_states`) a-t-il déjà été demandé sur la socket courante ?
+   *
+   *  Sert à `surChangement` : un abonné posé APRÈS `auth_ok` a manqué cet instantané, qui a été
+   *  distribué à une liste de rappels vide et perdu sans erreur. Remis à `false` à chaque
+   *  ouverture de socket, pour qu'une reconnexion reparte du bon état. */
+  private etatsDemandes = false;
   /** Résolue au premier `auth_ok`, JAMAIS remise en attente sur reconnexion.
    *
    *  `prete()` répond à « peut-on envoyer une commande ? » pour la PREMIÈRE commande, celle du
@@ -145,7 +151,21 @@ export class Connexion {
     };
   }
 
-  surChangement(cb: (e: EvenementEtat) => void) { this.rappelsEtat.push(cb); }
+  /** Abonne un rappel aux changements d'état.
+   *
+   *  Appelable AVANT `connecter()` (le cas de `demarrerAvecEcran`, qui s'abonne puis connecte)
+   *  comme APRÈS (le cas de `demarrer`, qui connecte d'abord pour résoudre la configuration, et
+   *  ne monte le corps qu'ensuite) — même contrat que `surEvenement` juste en dessous.
+   *
+   *  Le rattrapage n'est pas un confort : sans lui, un abonné posé après `auth_ok` ne reçoit
+   *  plus que les `state_changed`, donc les seules entités qui CHANGENT. Toutes les autres —
+   *  une hotte éteinte, un rideau immobile, la météo, `sun.sun` — ne résolvent JAMAIS. C'est le
+   *  défaut qui a fait échouer l'étape 5 de la mise en production du 2026-09-14 : la tablette
+   *  rendait sa structure et pas un seul état. */
+  surChangement(cb: (e: EvenementEtat) => void) {
+    this.rappelsEtat.push(cb);
+    if (this.etatsDemandes) this.demanderEtats();
+  }
   surSilence(cb: (ms: number) => void) { this.rappelsSilence.push(cb); }
 
   prete(): Promise<void> { return this.pretePromesse; }
@@ -165,6 +185,13 @@ export class Connexion {
     if (deja) { deja.push(cb); return; }
     this.rappelsEvenement.set(type, [cb]);
     if (this.ws) this.souscrire(type);
+  }
+
+  /** La demande d'instantané, au singulier : `auth_ok` la pose pour la socket neuve, et
+   *  `surChangement` la repose pour un abonné arrivé trop tard. Deux formulations du même envoi
+   *  finiraient par diverger. */
+  private demanderEtats() {
+    this.ws?.send(JSON.stringify({ id: this.id++, type: 'get_states' }));
   }
 
   private souscrire(type: string) {
@@ -204,6 +231,10 @@ export class Connexion {
     const url = this.deps.origineWs + '/api/websocket';
     const ws = new this.deps.WebSocketImpl(url);
     this.ws = ws;
+    // Socket neuve : son instantané n'est pas encore parti. Sans cette remise à zéro, un abonné
+    // qui arriverait pendant une reconnexion croirait l'avoir manqué et en redemanderait un
+    // deuxième, que `auth_ok` enverrait de toute façon.
+    this.etatsDemandes = false;
 
     ws.onmessage = (ev) => {
       this.dernierMessage = Date.now();
@@ -214,7 +245,8 @@ export class Connexion {
         this.essai = 0;
         this.souscrire('state_changed');
         for (const type of this.rappelsEvenement.keys()) this.souscrire(type);
-        ws.send(JSON.stringify({ id: this.id++, type: 'get_states' }));
+        this.demanderEtats();
+        this.etatsDemandes = true;
         this.resoudrePrete?.();
         this.resoudrePrete = null;
       } else if (m.type === 'event' && m.event?.data?.new_state) {
