@@ -230,12 +230,21 @@ comme CONSTAT mesuré ; la spec porte la décision.
   cette maison. Non nommée ailleurs avant cette ligne. Aucune décision de
   trancher n'est prise ici — seulement le constat, pour que la prochaine
   tâche qui touche à `dist/` ou à la portabilité du dépôt le trouve.
-- **Un champ racine du contrat n'a toujours aucune porte de saisie** :
-  `aspirateurMaison`. La tâche 7 en a ouvert trois (`aspirateur`,
-  `listesTachesExtra`, `delorean`) ; celui-là reste dehors à dessein. Son
-  vrai blocage est le littéral `'vacuum.aspirateur_cuisine'` écrit en dur
-  dans `rendu/maison.ts` : le rendre éditable depuis Home Assistant avant
-  de traiter ce littéral livrerait un bouton à demi mort. Part au plan 3c.
+- **Fermée, plan 3c tâche 1 : `aspirateurMaison`, le quatrième champ racine,
+  avait sa porte de saisie manquante — corrigée dans cet ordre précis, parce
+  que l'ordre était le piège.** D'abord le littéral : `rendu/maison.ts`
+  comparait `b.entite === 'vacuum.aspirateur_cuisine'` pour décider si
+  `piece.aspirateurMaison` remplace la tuile générique « Aspirateur » de la
+  vue « Toute la maison » — un second endroit qui recopiait le même fait que
+  la table `TOUTE_LA_MAISON`, à quinze lignes de distance, sans lien entre
+  les deux. L'entrée est désormais nommée (`export const
+  ASPIRATEUR_GENERIQUE: Bouton`) et comparée par IDENTITÉ, jamais par sa
+  valeur d'entité. Ensuite seulement le formulaire :
+  `custom_components/home_desk/objets.py` (`SectionsObjetMixin.
+  async_step_aspirateur_maison`, calqué sur `async_step_voiture`) ouvre la
+  saisie. Traiter la saisie avant le littéral aurait livré un bouton à demi
+  mort — la tuile saisie depuis Home Assistant n'aurait jamais remplacé la
+  générique, sans un mot, dès que la table aurait changé d'aspirateur.
 - **Une entité inconnue du registre HA donne un avertissement, jamais un
   refus** (décision 7 de la spec citée ci-dessus) — tenue à la tâche 7 :
   `custom_components/home_desk/registre.py` (`entites_inconnues`,
