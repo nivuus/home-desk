@@ -240,25 +240,42 @@ comme CONSTAT mesuré ; la spec porte la décision.
   refus** (décision 7 de la spec citée ci-dessus) — tenue à la tâche 7 :
   `custom_components/home_desk/registre.py` (`entites_inconnues`,
   `entites_dans`) lit le registre ET l'état (une entité créée en YAML ou
-  par template répond sans être au registre) et remplit
-  `description_placeholders["entites_inconnues"]` sans jamais toucher
-  `errors`, câblé aux DEUX entrées de l'identité
-  (`EcranSubentryFlow.async_step_user`/`async_step_identite`,
-  `config_flow.py`) et au squelette des sections « liste »
-  (`SectionsListeMixin._async_step_section_element`, `listes.py`). Gardé
-  par `tests/composant/test_registre.py` (le module) et
+  par template répond sans être au registre). **Corrigé en relecture
+  finale de branche (I3) : cette entrée comptait « les TROIS câblages »
+  (les DEUX entrées de l'identité, `EcranSubentryFlow.async_step_user`/
+  `async_step_identite`, et le squelette des sections « liste »,
+  `SectionsListeMixin._async_step_section_element`) et omettait le
+  QUATRIÈME — exactement la faute que le commit `0bfa8ff` corrigeait par
+  ailleurs (`_PORTES_ECRITURE` à qui il manquait `async_remove_
+  subentry`).** Le quatrième câblage est la section « objet » `voiture`
+  (`SectionsObjetMixin.async_step_voiture`, `objets.py`), ajouté par ce
+  même commit et gardé par `tests/composant/test_config_flow_voiture.py`.
+  Les quatre calculent la LISTE des entités inconnues et la remplissent
+  sans jamais toucher `errors` ; gardés un par un (mutés en relecture de
+  tâche 7) par `tests/composant/test_registre.py` et
   `tests/composant/test_config_flow_champs_libres.py`
   (`test_une_entite_inconnue_AVERTIT_au_lieu_de_REFUSER_a_la_creation`,
-  `..._en_reconfiguration`, `..._dans_le_squelette_des_sections`) — les
-  trois câblages, mutés un par un en relecture de tâche 7, tombent
-  chacun sous le test qui lui correspond.
-- **Le préalable sur `app/src/connexion.ts:149-150`**, qui jette
-  `error.code` d'une erreur websocket et n'en garde que le `message` :
-  bloquant pour toute tâche qui voudrait distinguer les refus HA côté
-  application par leur code plutôt que par leur texte. `services.py`/
-  `garde_ecran.py` (tâche 9) ne passent jamais par ce chemin (erreurs de
-  SERVICE HA, pas de commande websocket) et ne le présupposent pas, mais
-  la dette reste ouverte pour la prochaine tâche qui y touchera.
+  `..._en_reconfiguration`, `..._dans_le_squelette_des_sections`).
+  **C1 (même ronde de relecture finale) a corrigé un second défaut, sur
+  L'AUTRE bout** : ces quatre câblages posaient la liste dans
+  `description_placeholders["entites_inconnues"]`, mais AUCUN écran
+  réellement atteint ne portait ce placeholder dans sa description — voir
+  `registre.avertissement_entites_inconnues` et
+  `tests/composant/test_avertissement_entites.py`, qui apparient
+  désormais les deux bouts.
+- **Fermée, corrigée en relecture finale de branche : cette entrée
+  déclarait encore OUVERT le préalable sur `app/src/connexion.ts:149-150`**
+  (jeter `error.code` d'une erreur websocket, ne garder que le `message`).
+  La tâche 1 l'a fermé : `connexion.ts:27-32` porte `class RefusHA extends
+  Error` (le `code` survit, `message` reste accessible par paresse), et
+  `envoyerCommande` (`:234-237`) rejette désormais `new RefusHA(m.error?.code
+  ?? 'inconnu', m.error?.message ?? ...)` plutôt que de le jeter. C'est la
+  fondation de `configuration.ts:39-53` (`PANNE_PAR_CODE`, qui associe
+  chaque code — `not_found`, `version_inconnue`, `ecran_corrompu`,
+  `unknown_command` — à l'une des cinq dégradations) : sans `RefusHA`, ce
+  tableau n'aurait rien à lire. `services.py`/`garde_ecran.py` (tâche 9) ne
+  passent toujours pas par ce chemin (erreurs de SERVICE HA, pas de
+  commande websocket) et ne le présupposent pas.
 
 ## Dette d'environnement connue, à ne pas réparer ici
 
