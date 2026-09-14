@@ -862,7 +862,12 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ---
 
-### Task 3: `rendu/repli.ts` — les sept écrans qui ne laissent jamais `#app` vide
+### Task 3: `rendu/repli.ts` — les neuf écrans qui ne laissent jamais `#app` vide
+
+*Corrigé en relecture finale de branche : ce titre disait « sept ». Huit fonctions exportées
+(`sessionAbsente`, `erreurDemarrage`, `ecranEnAttente`, `aucunEcranConfigure`, `choisirEcran`,
+`versionRefusee`, `configIllisible`, `integrationAbsente`), plus un neuvième rendu en ligne dans
+`ecranDeLaPanne` (le cas `'introuvable'`, « Écran inconnu ») — neuf, pas sept.*
 
 **Files:**
 - Create: `app/src/rendu/repli.ts`
@@ -1842,10 +1847,14 @@ Expected: FAIL — `Failed to resolve import "../src/rechargement"`.
  *  tablette, sans qu'on la touche. C'est la promesse « édition vivante » de la spec — le second
  *  des deux objectifs, et le seul qui se vérifie devant le mur plutôt qu'en test.
  *
- *  `garde_ecran.persister_si_valide` émet `home_desk_config_changed` avec le nom de l'écran à
- *  chaque écriture d'une sous-entrée. Les TROIS tablettes de cette maison écoutent le même bus :
- *  le filtre par nom n'est donc pas une optimisation, c'est ce qui empêche d'éditer le salon de
- *  faire clignoter la cuisine et le bureau. */
+ *  Corrigé en relecture finale de branche : cette docstring attribuait l'émission de
+ *  `home_desk_config_changed` à `garde_ecran.persister_si_valide`. `garde_ecran.py` ne contient
+ *  aucun `async_fire` (mesuré). L'émetteur réel est l'ÉCOUTEUR DE MISE À JOUR DE L'ENTRÉE posé par
+ *  `__init__.async_setup_entry` (`entry.add_update_listener`, voir `websocket.py:32-34`) : il
+ *  émet à CHAQUE écriture — création, reconfiguration, suppression d'une sous-entrée, ou
+ *  renommage du seul titre. Les TROIS tablettes de cette maison écoutent le même bus : le filtre
+ *  par nom n'est donc pas une optimisation, c'est ce qui empêche d'éditer le salon de faire
+ *  clignoter la cuisine et le bureau. */
 
 /** Ce que ce module attend d'une connexion. Pas `ConnexionLike` (qui en demande sept fois plus),
  *  pas la classe concrète : juste de quoi s'abonner. */

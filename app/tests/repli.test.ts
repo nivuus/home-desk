@@ -14,7 +14,7 @@ function texteDe(gabarit: ReturnType<typeof sessionAbsente>): string {
   return hote.textContent!.replace(/\s+/g, ' ').trim();
 }
 
-describe('les sept écrans de repli — chacun NOMME UN GESTE', () => {
+describe('les neuf écrans de repli — chacun NOMME UN GESTE', () => {
   // Leçon 2 : un test qui épingle la moitié d'un message laisse l'autre moitié mentir. On
   // épingle donc la phrase RENDUE en entier, et on exige qu'elle dise quoi faire. Un écran
   // qui décrit une panne sans nommer de geste est un bouton mort en prose.

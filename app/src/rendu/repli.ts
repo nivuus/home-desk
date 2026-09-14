@@ -13,8 +13,12 @@
  *  Exception nommée, pas oubliée : `ecranEnAttente()` ne nomme aucun geste, à dessein. Ce n'est
  *  pas une panne mais un état transitoire qui se résout tout seul dès que la réponse de Home
  *  Assistant arrive — demander un geste à quelqu'un pendant qu'un chargement est en cours serait
- *  absurde. Une règle énoncée en absolu et fausse pour un cas sur sept serait elle-même une
- *  prose qui ment.
+ *  absurde. Une règle énoncée en absolu et fausse pour un cas sur NEUF serait elle-même une
+ *  prose qui ment — corrigé en relecture finale de branche : ce module exporte HUIT fonctions
+ *  d'écran (`sessionAbsente`, `erreurDemarrage`, `ecranEnAttente`, `aucunEcranConfigure`,
+ *  `choisirEcran`, `versionRefusee`, `configIllisible`, `integrationAbsente`), plus un
+ *  NEUVIÈME rendu EN LIGNE dans `ecranDeLaPanne` (le cas `'introuvable'`, « Écran inconnu ») —
+ *  neuf écrans de repli en tout, pas sept.
  *
  *  Ces fonctions sont PURES : elles rendent un gabarit, ne touchent pas au DOM, n'appellent
  *  aucun transport. `demarrage.ts` les câble. Deux d'entre elles (`sessionAbsente`,

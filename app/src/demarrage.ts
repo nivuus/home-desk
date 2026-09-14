@@ -1982,6 +1982,16 @@ export async function demarrer(
   // démarrage complet dans une page déjà montée demanderait de défaire proprement des minuteurs,
   // des abonnements et un moteur d'animation — beaucoup de code neuf, pour une page qui se
   // recharge en moins d'une seconde sur une Fire 7 et dont personne ne regarde l'état local.
+  //
+  // Relevé en relecture finale de branche, à dessein NON corrigé : quand `?ecran=` est absent,
+  // `nomEcran` vaut `''` ICI (avant la branche `proposerLaListe` un peu plus bas), et c'est donc
+  // avec ce nom VIDE que `armerRechargement` s'arme. Aucune charge utile de
+  // `home_desk_config_changed` ne portera jamais `nom: ''` (voir `rechargement.ts`, filtre par
+  // nom) : le rechargement à chaud reste donc INERTE sur la page « choisir un écran ». Créer le
+  // premier écran depuis Home Assistant pendant que ce sélecteur est affiché sur la tablette ne
+  // le rafraîchit donc pas tout seul. Défendable — le geste suivant de l'utilisateur devant ce
+  // sélecteur est un appui pour choisir un écran, qui recharge de toute façon — et non corrigé
+  // ici : une dette qui n'est écrite dans aucun fichier versionné n'existe pas.
   armerRechargement(cx, nomEcran, deps.recharger ?? (() => location.reload()));
 
   const proposerLaListe = async (): Promise<void> => {
