@@ -453,11 +453,20 @@ l'étape 3).
 `key: startURL`, avec cette valeur **exacte, majuscule comprise** :
 
 ```
-http://<hôte-HA>:8123/local/wallpanel/index.html?ecran=Cuisine
+http://<hôte-HA>:8123/home_desk/tablette?ecran=Cuisine
 ```
 
 où `<hôte-HA>:8123` est **repris tel quel du relevé de l'étape 1** — la même
 origine que celle qu'affichent déjà les trois tablettes.
+
+**Corrigé le 2026-09-27 : ce n'est plus `/local/wallpanel/index.html`.** Home
+Assistant sert `/local/` avec `max-age` de 31 jours, codé en dur ; une
+tablette qui a mis le document en cache exécute le bundle qu'il nomme, quoi
+qu'on déploie (cause n°2 de l'échec du 2026-09-14, voir le débogage plus bas).
+Le composant `home_desk` sert désormais le **même fichier** sous
+`/home_desk/tablette`, avec `Cache-Control: no-cache`
+(`custom_components/home_desk/page.py`). Le chemin est aussi une URL que la
+cuisine n'a **jamais** chargée : aucune copie en cache ne peut s'interposer.
 
 Puis appeler `button.tablette_cuisine_load_start_url` pour faire recharger la
 tablette sur cette URL.
@@ -479,9 +488,9 @@ pour une raison sans rapport avec ce qu'elle teste.
 d'écran **exactement** : `websocket.py` compare `data["nom"]` tel quel, et
 `app/src/ecran.ts` porte `nom: 'Cuisine'`, majuscule en tête. `?ecran=cuisine`
 en minuscules ne trouverait rien, rendrait `not_found`, et afficherait le
-sélecteur d'écrans au lieu de la cuisine. **Et le nom de fichier est
-obligatoire** : `/local/wallpanel/?ecran=Cuisine`, sans `index.html`, rend une
-erreur **403**. Recopier l'URL ci-dessus telle quelle, sans la retaper de
+sélecteur d'écrans au lieu de la cuisine. (Sous `/local/`, le nom de fichier était en
+plus obligatoire — `/local/wallpanel/?ecran=Cuisine` rendait **403** ; la vue
+`/home_desk/tablette` n'a pas ce piège, mais la casse, elle, compte toujours.) Recopier l'URL ci-dessus telle quelle, sans la retaper de
 mémoire.
 
 La cuisine est choisie en premier parce que c'est l'écran le plus riche :
@@ -489,7 +498,11 @@ minuteurs, recette, liste de courses, `absenceNommee` — s'il y a un défaut de
 rendu à découvrir, mieux vaut le découvrir sur l'écran qui expose le plus de
 mécanismes.
 
-**Porte.** L'écran se lève sans rester bloqué sur l'écran d'attente. Capture
+**Porte.** **Le document servi porte l'empreinte déployée** (ajouté le
+2026-09-27, c'est la leçon de la cause n°2) :
+`curl -sI http://<hôte-HA>:8123/home_desk/tablette` rend `Cache-Control:
+no-cache`, et le corps nomme le même `?v=` que `dist/index.html` au commit
+déployé. L'écran se lève sans rester bloqué sur l'écran d'attente. Capture
 comparée à celle de l'étape 1. `verifier-rendu.mjs` passé sur la nouvelle URL.
 **Les cinq dégradations nommées sondées sur place**, en tapant les URL à la
 main (transport websocket coupé, écran corrompu, version inconnue, etc. — voir
@@ -522,9 +535,11 @@ mécanique qu'à l'étape 5 — `fully_kiosk.set_config` puis le bouton de
 rechargement propre à chaque tablette.
 
 ```
-Salon  : http://<hôte-HA>:8123/local/wallpanel/index.html?ecran=Salon
-Bureau : http://<hôte-HA>:8123/local/wallpanel/index.html?ecran=Bureau
+Salon  : http://<hôte-HA>:8123/home_desk/tablette?ecran=Salon
+Bureau : http://<hôte-HA>:8123/home_desk/tablette?ecran=Bureau
 ```
+
+(Corrigé le 2026-09-27, même raison qu'à l'étape 5 : plus `/local/`.)
 
 Même origine `<hôte-HA>:8123` qu'à l'étape 5, reprise du relevé de l'étape 1 :
 une `startURL` relative n'est pas chargeable (voir l'étape 5, « Le piège d'URL
@@ -725,7 +740,7 @@ le chemin qui marchait.
 anti-cache, la cuisine a rendu météo, « Fermer / Ouvert », « Hotte / Éteint »,
 « Courses 15 » et « 22 produits à consommer ».
 
-#### Cause n°2 — `index.html` n'a pas d'anti-cache (OUVERTE)
+#### Cause n°2 — `index.html` n'a pas d'anti-cache (CORRIGÉE le 2026-09-27, voir plus bas)
 
 **La correction n'atteignait pas la tablette.** `wallpanel.js` et
 `wallpanel.css` portent une empreinte (`?v=<empreinte>`) ; **le document qui les
@@ -780,3 +795,68 @@ Les trois tablettes sur leurs pages historiques, `startURL` d'origine restaurée
 partout. Bundle servi : 11 fichiers, empreinte `v=26fbd8a667` (celle qui porte
 la correction n°1). L'intégration « Tablettes murales » est chargée avec ses
 trois écrans et **ne pilote aucune tablette**.
+
+---
+
+### Reprise du 2026-09-27 : la cause n°2 corrigée à sa source
+
+#### Ce qui a été tranché, et pourquoi aucun des deux chemins du 2026-09-14
+
+Mesuré le 2026-09-27 sur l'instance : `/local/wallpanel/index.html` est servi
+avec `Cache-Control: public, max-age=2678400`. Ce n'est pas un réglage oublié :
+`homeassistant/components/http/static.py` le pose en dur (`CACHE_TIME = 31 *
+86400`) sur tout `/local/`, sans option (vérifié dans le code du conteneur et
+dans les fils de la communauté Home Assistant, qui réclament cette option
+depuis des années). La faute n'est donc ni dans les tablettes ni dans la
+procédure : **c'est le document d'entrée qui est servi par un chemin fait pour
+des ressources immuables.**
+
+- *Empreinte dans la `startURL`* : écarté. C'est un geste à refaire sur trois
+  tablettes à chaque déploiement — exactement la « commande à ne pas oublier »
+  que `app/scripts/versionner.mjs` a été écrit pour supprimer.
+- *`webviewCacheMode` sur les tablettes* : écarté. Un réglage client qui
+  compense un en-tête serveur, à reposer sur chaque tablette neuve.
+
+**Retenu : le composant sert le document** (`custom_components/home_desk/
+page.py`, commit `fix(page): serve the tablet entry document with no-cache`).
+Vue `/home_desk/tablette`, sans authentification comme `/local/`, qui lit le
+fichier même que le hook dépose (`www/wallpanel/index.html`) et répond
+`Cache-Control: no-cache` : chaque chargement revalide, un document inchangé
+coûte un 304, un document redéployé revient en entier. Les ressources à
+empreinte restent sous `/local/` avec leur cache long — c'est à ça que sert
+leur empreinte. Épreuve : `tests/composant/test_page.py` (le scénario de
+l'échec rejoué, un client qui tient le validateur de l'ANCIEN document doit
+recevoir le nouveau ; mutation `no-cache` → `max-age` : deux tests tombent).
+
+**Conséquence sur ce dossier** : les URL des étapes 5 et 7 deviennent
+`http://<hôte-HA>:8123/home_desk/tablette?ecran=<Nom>`, et la porte de
+l'étape 5 gagne la vérification d'empreinte servie (§ 4, étape 5). Le code du
+composant ayant changé, **il faut redéposer le paquet et redémarrer Home
+Assistant** : c'est le geste de l'étape 2, rejoué avec sa porte et son retour
+arrière (le module Python d'une intégration n'est relu qu'au démarrage).
+
+#### Le « reste non expliqué » du 2026-09-14 est la même cause
+
+Rendu le 2026-09-27 dans un navigateur sans cache, contre l'instance réelle,
+avec le bundle déployé (`v=26fbd8a667`) : `cuisine.html` et
+`index.html?ecran=Cuisine` rendent **la même chose, tuile « Recette /
+Garde-manger non installé » comprise** (`sensor.home_stock_next_meal` vaut
+`unknown`). La capture de la tablette de la cuisine, au même moment, **n'a pas
+cette tuile**. Même document, même état : c'est le bundle qui diffère. La page
+historique de la tablette exécute une version **en cache**, antérieure au
+dépôt de l'étape 2 — la cause n°2, sur l'autre porte. Il n'y a pas de troisième
+défaut dans `recetteOuvrable`.
+
+**Ce que cela dit du retour arrière des étapes 5 à 7**, et il faut l'écrire :
+remettre l'ancienne `startURL` ramène la tablette sur **ce qu'elle a en cache**
+pour `<pièce>.html` — donc sur le comportement d'avant l'étape 2 tant que ce
+cache vit, pas sur le code déposé à l'étape 2. C'est toujours un retour au
+comportement connu de l'occupant ; ce n'est plus « le même code, octet pour
+octet ». Les pages historiques partent à l'étape 8, et ce décalage avec elles.
+
+#### Aléa du jour
+
+L'hôte a redémarré le 2026-09-27 vers 21 h 36 (hors de cette session ;
+`uptime` 5 min à 21 h 41), Home Assistant avec lui. Tablette du salon hors
+ligne à 21 h 40 (API Fully Kiosk injoignable). Sans effet sur l'étape 5,
+qui ne touche que la cuisine ; à revérifier avant l'étape 7.
