@@ -37,6 +37,10 @@ SOUS_ENTREE_ECRAN = "ecran"
 WS_ECRAN = f"{DOMAIN}/ecran"
 WS_ECRANS = f"{DOMAIN}/ecrans"
 
+# The HTTP path of the tablet entry document (`page.py`). It is the
+# `startURL` typed into each tablet's Fully Kiosk, with `?ecran=<nom>`.
+URL_PAGE = f"/{DOMAIN}/tablette"
+
 # Emis sur le bus a chaque ecriture d'une sous-entree, charge utile : le nom de
 # l'ecran. C'est ce qui permet a une tablette de se recharger sans sondage.
 EVENEMENT_CHANGEMENT = f"{DOMAIN}_config_changed"

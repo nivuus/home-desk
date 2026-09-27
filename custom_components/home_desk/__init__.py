@@ -70,11 +70,24 @@ from typing import Any
 from homeassistant.components import websocket_api
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.typing import ConfigType
 
 from . import services, websocket
 from .const import DOMAIN, EVENEMENT_CHANGEMENT
+from .page import async_register_page
 
-__all__ = ["DOMAIN", "async_setup_entry", "async_unload_entry"]
+__all__ = ["DOMAIN", "async_setup", "async_setup_entry", "async_unload_entry"]
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Component setup, once per Home Assistant run: registers the tablet
+    entry document (`page.py`). A view cannot be removed, so it has no
+    business in `async_setup_entry`, which runs again on every reload."""
+    async_register_page(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

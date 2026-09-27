@@ -851,7 +851,9 @@ export function lireIdentifiants() {
 
 /** L'URL d'une piece. Deux formes coexistent pendant la migration (plan 3b/3c) :
  *   - historique : `/local/wallpanel/<cle>.html`, la page qui lit `data-piece` ;
- *   - neuve : `/local/wallpanel/index.html?ecran=<nom>`, celle qui interroge Home Assistant.
+ *   - neuve : `/home_desk/tablette?ecran=<nom>`, celle qui interroge Home Assistant. Served by the
+ *     `home_desk` component with `no-cache` (custom_components/home_desk/page.py), not from
+ *     `/local/`, whose 31-day cache hid a redeployed document on 2026-09-14.
  *  Le verificateur doit savoir verifier LES DEUX tant que les deux sont servies — verifier
  *  seulement la neuve laisserait le retour arriere des etapes 5 a 7 sans controle, et c'est
  *  precisement ce retour arriere qui justifie la branche de transition. */
@@ -865,7 +867,7 @@ function urlPiece(haUrl, cle, requete = '') {
     // `?` (leur `essai` vaut ''), et la forme neuve produisait `?ecran=Salon&#maison` au lieu de
     // `?ecran=Salon#maison`. Corrige : `&` seulement quand `requete` porte deja un `?`.
     const sep = requete.startsWith('?') ? '&' : '';
-    return `${haUrl}/local/wallpanel/index.html?ecran=${encodeURIComponent(NOM_ECRAN[cle] ?? cle)}`
+    return `${haUrl}/home_desk/tablette?ecran=${encodeURIComponent(NOM_ECRAN[cle] ?? cle)}`
       + sep + requete.replace(/^\?/, '');
   }
   return `${haUrl}/local/wallpanel/${cle}.html${requete}`;
@@ -876,7 +878,7 @@ function urlPiece(haUrl, cle, requete = '') {
 function estSurPage(actuelle, cle) {
   if (!actuelle) return false;
   if (FORME_URL === 'ecran') {
-    return actuelle.pathname === '/local/wallpanel/index.html'
+    return actuelle.pathname === '/home_desk/tablette'
       && actuelle.searchParams.get('ecran') === (NOM_ECRAN[cle] ?? cle);
   }
   return actuelle.pathname === `/local/wallpanel/${cle}.html`;

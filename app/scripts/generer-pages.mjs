@@ -49,8 +49,13 @@ console.log(`pages : ${PIECES.length} generees -> ${SORTIE}`);
  *  `CachingStaticResource`, qui sous-classe `StaticResource` d'aiohttp sans toucher au
  *  traitement des repertoires ; `show_index` vaut False par defaut et
  *  `_resolve_path_to_response` leve alors `HTTPForbidden`. aiohttp ne sert JAMAIS `index.html`
- *  implicitement. La `startURL` des tablettes est donc
- *  `/local/wallpanel/index.html?ecran=<nom>`.
+ *  implicitement.
+ *
+ *  The tablets do NOT load this file through `/local/`, though: Home Assistant serves `/local/`
+ *  with a hardcoded 31-day `max-age`, and a cached copy of this document keeps naming the previous
+ *  bundle long after a redeploy (step 5 of the 2026-09-14 rollout). Their `startURL` is
+ *  `/home_desk/tablette?ecran=<nom>`, where the `home_desk` component serves this same file with
+ *  `no-cache` (`custom_components/home_desk/page.py`).
  */
 const GABARIT_UNIQUE = join(ICI, '..', 'gabarits', 'index.html');
 writeFileSync(join(SORTIE, 'index.html'), readFileSync(GABARIT_UNIQUE, 'utf8'));

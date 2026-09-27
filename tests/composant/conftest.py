@@ -4,6 +4,7 @@ flow echouent sur « integration not found », pour une raison sans rapport avec
 le code teste."""
 import pytest
 from homeassistant import config_entries, data_entry_flow
+from homeassistant.setup import async_setup_component
 
 from custom_components.home_desk.const import DOMAIN, SOUS_ENTREE_ECRAN
 from custom_components.home_desk.listes_champs import SECTIONS
@@ -88,7 +89,15 @@ async def ws_client(hass, hass_ws_client):
     du transport (`tests/composant/test_websocket.py`) n'ont besoin que
     d'envoyer/recevoir, jamais de refaire la connexion. `hass_ws_client`
     vient de `pytest_homeassistant_custom_component` (elle appelle elle-meme
-    `async_setup_component(hass, "websocket_api", {})`)."""
+    `async_setup_component(hass, "websocket_api", {})`).
+
+    The component is set up FIRST: its `async_setup` registers an HTTP view
+    (`page.py`), and the harness's test server freezes the router when it
+    starts -- which a running Home Assistant never does (`http/server.py`
+    disables the freeze so integrations added from the UI can register
+    routes). Setting up in the order a booted instance would keeps this
+    fixture from failing for a reason the product does not have."""
+    assert await async_setup_component(hass, DOMAIN, {})
     return await hass_ws_client(hass)
 
 
