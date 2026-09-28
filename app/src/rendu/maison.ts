@@ -111,7 +111,9 @@ export function rendreMaison(etat: Etat, piece: Ecran, horsLigne = false): Templ
             // silent entity: `etat.lire` then returns `undefined`, and the `!` from before
             // 2026-09-05 would have thrown on the first render. It is inert (no press
             // is wired) and carries its absence label under its name.
-            const absente = !etat.estUtilisable(b.entite);
+            // Absent means missing or `unavailable`: an `unknown` indicator (no meal planned)
+            // leaves the pantry panel reachable (see `Etat.isPresent`).
+            const absente = !etat.isPresent(b.entite);
             return html`
             <div class="tuile ${!absente && etat.lire(b.entite)!.etat === 'on' ? 'actif' : ''} ${d ? 'jauge' : ''} ${absente ? 'absent' : ''}"
                  style="--jauge:${fraction}"

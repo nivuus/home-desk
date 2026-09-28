@@ -72,7 +72,9 @@ export const bouton = (etat: Etat, b: Bouton, actif: boolean, classe: string) =>
   // silent entity. It is inert by construction — no press is wired, `interaction.ts` returns
   // before `vue`/`lien`/`service` — and `base.css` then removes its touch feedback:
   // acknowledging an action that does not happen is the "dead button" this project forbids.
-  const absente = !etat.estUtilisable(b.entite);
+  // Absent means missing or `unavailable`, never `unknown` (see `Etat.isPresent`): a present
+  // entity without a value keeps its navigation live.
+  const absente = !etat.isPresent(b.entite);
   const inerte = absente || (!b.service && !b.lien && !b.vue && !d);
   return html`
   <div class="${classe} ${actif ? 'actif' : ''} ${d ? 'jauge' : ''} ${inerte ? 'inerte' : ''} ${absente ? 'absent' : ''}"
@@ -161,7 +163,10 @@ export function etiquette(etat: Etat, b: Bouton): string {
   // `etiquette` when `estUtilisable`, an absence label could never have been rendered. This is
   // therefore where the fallback lives, before any state read — `etat.lire` returns `undefined`
   // on a silent entity, and the next line dereferences it.
-  if (!etat.estUtilisable(b.entite)) return b.absenceNommee ?? '';
+  // The absence label names a REAL absence only (see `Etat.isPresent`); a present entity without
+  // a value (`unknown`) has nothing to say, and its raw English state must never reach the screen.
+  if (!etat.isPresent(b.entite)) return b.absenceNommee ?? '';
+  if (!etat.estUtilisable(b.entite)) return '';
   const e = etat.lire(b.entite)!;
   // Task 19 — THREE domains that had never reached a command row before that task, and all fell
   // back on the generic fallback at the end of the function, written for the lights. Same

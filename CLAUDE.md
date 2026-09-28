@@ -87,15 +87,24 @@ elle reste, inerte, et affiche son libellé. Cinq endroits le respectent, et
 
 | Fichier | Ce qu'il fait |
 |---|---|
-| `rendu/corps.ts:417` | le filtre des commandes de la pièce |
-| `rendu/corps.ts:425` | le **second** filtre (`recetteOuvrable`), qui reprenait ce que le premier venait de laisser passer |
-| `rendu/corps.ts:106` | `ligneSynthese`, qui **sautait** l'entrée |
-| `rendu/corps.ts:270` | l'étiquette, appelée **inconditionnellement** depuis |
-| `rendu/maison.ts:90` | la tuile « Scanner », qui vit dans `extrasMaison` et n'est **pas** rendue par `corps.ts` |
+| `rendu/corps.ts:216` | le filtre des commandes de la pièce |
+| `rendu/corps.ts:228` | le **second** filtre (`recetteOuvrable`), qui reprenait ce que le premier venait de laisser passer |
+| `rendu/corps.ts:114` | `ligneSynthese`, qui **sautait** l'entrée |
+| `rendu/tile.ts:168` | l'étiquette, appelée **inconditionnellement** depuis (sortie de `corps.ts` le 2026-09-28, avec toute la tuile) |
+| `rendu/maison.ts:116` | la tuile « Scanner », qui vit dans `extrasMaison` et n'est **pas** rendue par `corps.ts` |
 
 `interaction.ts` rend l'appui inerte, et `base.css` retire le retour tactile
 (`.absent`) : une tuile qui accuse réception d'une action qui n'a pas lieu est
 le « bouton mort » que ce projet s'interdit.
+
+**« Absente » veut dire absente, pas muette** (porte de l'étape 5,
+2026-09-28, défaut A). Le masquage générique demande `Etat.estUtilisable` ;
+`absenceNommee` demande `Etat.isPresent` : l'entité manque ou vaut
+`unavailable`. `unknown` est une entité PRÉSENTE qui n'a rien à dire —
+`sensor.home_stock_next_meal` sans repas planifié — et affirmer alors
+« Garde-manger non installé » était un diagnostic faux. Sans repas, la tuile
+Recette disparaît (même règle qu'un repas sans recette) ; Courses et Scanner
+restent vivants, sans libellé d'absence.
 
 ## Génération 1 — morte, et il ne faut pas la réveiller par erreur
 

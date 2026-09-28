@@ -109,7 +109,9 @@ export function ligneSynthese(etat: Etat, entites: EntreeSynthese[]): { texte: s
     if (!etat.estUtilisable(entree.entite)) {
       // Décision 8 : une entrée qui NOMME son absence la dit, au lieu d'être
       // sautée en silence. Cf. `absenceNommee` (`ecran.ts`).
-      if (entree.absenceNommee) ecarts.push(entree.absenceNommee);
+      // Only a REAL absence is named: `unknown` is a present entity with nothing to say, skipped
+      // like any silent entry (see `Etat.isPresent`).
+      if (entree.absenceNommee && !etat.isPresent(entree.entite)) ecarts.push(entree.absenceNommee);
       continue;
     }
     const e = etat.lire(entree.entite)!;
@@ -218,9 +220,12 @@ export function rendreCorps(
   // disparaître), et le garde-manger n'est pas installé du tout (elle doit
   // rester, pour nommer son absence). Sans cette seconde condition, ce filtre
   // reprenait exactement ce que le premier venait de laisser passer.
+  // "Answers but has nothing planned" includes `unknown`, the sensor's state when the meal plan
+  // is empty (production gate of 2026-09-28): `isPresent`, not `estUtilisable`, is what tells
+  // the two cases apart — the tile disappears, it does not claim the pantry is not installed.
   const affichables = recetteOuvrable
     ? utilisables
-    : utilisables.filter((c) => c.vue !== '#recette' || !etat.estUtilisable(c.entite));
+    : utilisables.filter((c) => c.vue !== '#recette' || !etat.isPresent(c.entite));
   const commandes = ctx ? ordreCommandes(affichables, ctx) : affichables;
 
   // Les quatre zones mobiles, extraites du gabarit unique qu'elles formaient avant cette tâche —

@@ -89,7 +89,8 @@ export function createPress(
     // fonction manque ; l'ouvrir mènerait à une sous-vue vide, ce qui serait un
     // cul-de-sac de plus, pas une information. Placé avant `vue`/`lien`/`service`
     // : c'est le seul point de passage de tout appui.
-    if (b.absenceNommee !== undefined && !etat.estUtilisable(b.entite)) return;
+    // Inert only while REALLY absent (see `Etat.isPresent`): `unknown` is a present entity.
+    if (b.absenceNommee !== undefined && !etat.isPresent(b.entite)) return;
 
     if (b.vue) { location.hash = b.vue; return; }
 

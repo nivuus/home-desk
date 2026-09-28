@@ -52,6 +52,19 @@ export class Etat {
     return e !== undefined && !INUTILISABLES.has(e.etat);
   }
 
+  /** Does Home Assistant know this entity right now? Not the same question as `estUtilisable`.
+   *
+   *  `unknown` means the entity EXISTS and has nothing to say — `sensor.home_stock_next_meal`
+   *  with no meal planned. Missing or `unavailable` means whatever provides it is not there — the
+   *  integration is not installed or not loaded. The generic masking treats both alike, and
+   *  rightly: neither has a value to draw. `absenceNommee` must NOT: it names a missing
+   *  integration, and saying so of an installed one is a false diagnosis (production gate of
+   *  2026-09-28, defect A: "Garde-manger non installé" with `home_stock` loaded). */
+  isPresent(id: string): boolean {
+    const e = this.entites.get(id);
+    return e !== undefined && e.etat !== 'unavailable';
+  }
+
   /** Un redessin AU PLUS par tâche, jamais un par entité reçue.
    *
    *  Root cause de la panne « Fully redémarre en boucle » (2026-08-20, tablettes salon et
