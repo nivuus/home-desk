@@ -366,7 +366,7 @@
       "fields": {
         "ecrans": {
           "name": "Écrans",
-          "description": "Noms des écrans (champ « nom » de chaque écran) qui jouent l'animation."
+          "description": "Noms des écrans (champ « nom » de chaque écran) qui jouent l'animation. Le nom doit être écrit exactement comme celui de l'écran, majuscules comprises : « Salon » n'est pas « salon »."
         },
         "media": {
           "name": "Média",

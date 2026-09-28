@@ -9,7 +9,8 @@ subscribers of each named screen (see `websocket.ws_animations`).
 Everything that can be checked here is checked BEFORE anything is sent: an
 unknown screen refuses the whole call, not only its share of it, and so does
 a missing file, a type no tablet player can render, an animated image with no
-duration (it has no detectable end), or a duration outside ]0, DUREE_MAX_S].
+duration (it has no detectable end), or a duration outside ]0, DUREE_MAX_S]
+once rounded to the whole milliseconds actually sent.
 Each refusal is a `ServiceValidationError` in French, like the rest of the
 component's messages, so an automation that misfires says why in its trace.
 
@@ -17,6 +18,7 @@ The service is NOT admin-only: it is meant to be called from automations and
 from dashboards used by the household, and it writes nothing."""
 from __future__ import annotations
 
+import math
 import mimetypes
 from pathlib import Path
 
@@ -106,6 +108,20 @@ async def _async_resoudre(hass: HomeAssistant, media_id: str) -> media_source.Pl
     return media
 
 
+def _duree_envoyee_ms(duree: float) -> int | None:
+    """The duration as the tablet receives it, in whole milliseconds, or
+    None if that value is outside ]0, DUREE_MAX_S].
+
+    Checked on the value actually SENT, not on the seconds typed: 0.0004 s
+    is positive but rounds to 0 ms, which the tablet drops as malformed
+    while the call would have reported success. `vol.Coerce(float)` lets
+    "nan" and "inf" through, and neither can be rounded."""
+    if not math.isfinite(duree):
+        return None
+    duree_ms = round(duree * 1000)
+    return duree_ms if 0 < duree_ms <= DUREE_MAX_S * 1000 else None
+
+
 async def _async_jouer(call: ServiceCall) -> None:
     """`home_desk.jouer_animation`: validates everything, then sends."""
     hass = call.hass
@@ -119,7 +135,8 @@ async def _async_jouer(call: ServiceCall) -> None:
         raise ServiceValidationError(f"écran inconnu : {', '.join(inconnus)}")
 
     duree = call.data.get("duree")
-    if duree is not None and not 0 < duree <= DUREE_MAX_S:
+    duree_ms = None if duree is None else _duree_envoyee_ms(duree)
+    if duree is not None and duree_ms is None:
         raise ServiceValidationError(
             f"la durée doit être comprise entre 0 (exclu) et {DUREE_MAX_S} s, "
             f"reçu {duree:g} s")
@@ -139,7 +156,7 @@ async def _async_jouer(call: ServiceCall) -> None:
         # Assistant, and a signed path needs no token in the request.
         "url": async_process_play_media_url(hass, media.url, allow_relative_url=True),
         "type": lecteur,
-        "duree": None if duree is None else round(duree * 1000),
+        "duree": duree_ms,
         "fond": call.data["fond"],
     }
     for nom in ecrans:

@@ -5,7 +5,10 @@
  *  anything underneath, and reduced motion. The pure rules are in `animation.test.ts`. */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ECRANS } from '../src/ecran';
-import { monterDemarrage, restaurerReseau, vider, type Montage } from './aides';
+import { Connexion } from '../src/connexion';
+import {
+  monterDemarrage, restaurerReseau, vider, SocketFactice, jetons, stockageSansSession, type Montage,
+} from './aides';
 
 const COMMANDE = 'home_desk/animations';
 const VIDEO = { url: '/media/local/animations/foudre.webm', type: 'video', duree: null, fond: 'noir' };
@@ -39,6 +42,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   FauxLottie.crees = [];
+  SocketFactice.ouvertes = [];
   location.hash = '';
   play.mockRestore();
   erreur.mockRestore();
@@ -73,6 +77,40 @@ describe('animations pushed by Home Assistant', () => {
     const m = await monter();
     expect(m.abonnements.map((a) => a.commande))
       .toContainEqual({ type: COMMANDE, nom: ECRANS.cuisine.nom });
+  });
+
+  it('the subscription is armed once, and re-sent on every new socket under a new id', async () => {
+    // Over a REAL `Connexion`: the replay on reconnection is its job, and what this proves is
+    // that the animations take the path it replays (`abonner`), exactly once — not a one-shot
+    // command lost with the first socket, nor a second arming that would play everything twice.
+    const cx = new Connexion({ ...jetons, expires: Date.now() + 3_600_000 }, {
+      origineWs: 'ws://test', WebSocketImpl: SocketFactice as any,
+      intervalFn: vi.fn() as any, minuteurFn: vi.fn() as any, stockage: stockageSansSession,
+    });
+    const m = await monterDemarrage(ECRANS.cuisine, { createConnection: () => cx });
+    const abonnementsSur = (ws: SocketFactice) => ws.envoyes.filter((e) => e.type === COMMANDE);
+
+    const [premiere] = SocketFactice.ouvertes;
+    expect(SocketFactice.ouvertes).toHaveLength(1);
+    expect(abonnementsSur(premiere!)).toEqual([
+      { type: COMMANDE, nom: ECRANS.cuisine.nom, id: expect.any(Number) }]);
+    const ancienId = abonnementsSur(premiere!)[0]!.id;
+
+    premiere!.couper();
+    await cx.connecter();
+    await vider();
+    const seconde = SocketFactice.ouvertes[1]!;
+    expect(seconde).toBeDefined();
+    expect(abonnementsSur(seconde)).toEqual([
+      { type: COMMANDE, nom: ECRANS.cuisine.nom, id: expect.any(Number) }]);
+    const nouvelId = abonnementsSur(seconde)[0]!.id;
+    expect(nouvelId).not.toBe(ancienId);
+
+    // The replayed subscription is live: an event under its new id reaches the overlay.
+    seconde.recevoir({ type: 'event', id: nouvelId, event: VIDEO });
+    await vider();
+    expect(calque(m)).not.toBeNull();
+    expect(m.racine.querySelectorAll('.animation-hote')).toHaveLength(1);
   });
 
   it('renders a muted, autoplaying, inline video over an opaque veil', async () => {

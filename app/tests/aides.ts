@@ -4,7 +4,7 @@
  *  Ce fichier ne contient AUCUN test : nommé `aides.ts` et non `aides.test.ts` pour que vitest ne
  *  le ramasse pas comme une suite vide. */
 import { vi } from 'vitest';
-import { startScreen, type ConnexionLike } from '../src/demarrage';
+import { startScreen, type ConnexionLike, type DependancesDemarrage } from '../src/demarrage';
 import type { Ecran } from '../src/ecran';
 import type { EvenementEtat } from '../src/connexion';
 import type { Prevision } from '../src/meteo';
@@ -138,7 +138,32 @@ export type OptionsMontage = {
   /** Stockage du navigateur. Par défaut, une session ouverte et rien d'autre ; un test de reprise
    *  y pose en plus l'étape mémorisée (`CLE_RECETTE`, `src/recette-en-cours.ts`). */
   stockage?: Storage;
+  /** Replaces the recording double of the connection with the given one — a REAL `Connexion`
+   *  over `SocketFactice`, for a test about what goes over the wire (a replay on reconnection).
+   *  `abonnements` and `diffuser` then stay empty: the subscriptions live in that connection. */
+  createConnection?: DependancesDemarrage['createConnection'];
 };
+
+/** A websocket double for a REAL `Connexion`: records every message it is sent, and plays Home
+ *  Assistant's handshake on its own (`auth_ok` at the next microtask, once `Connexion` has set its
+ *  `onmessage`) — `startScreen()` awaits `prete()` before it mounts anything. `readyState` is
+ *  OPEN, so the body's second `connecter()` reuses the socket instead of opening another one;
+ *  `couper()` closes it, and the next `connecter()` opens a new socket, as `ws.onclose` does. */
+export class SocketFactice {
+  static ouvertes: SocketFactice[] = [];
+  readyState = 1;
+  onmessage: ((ev: { data: string }) => void) | null = null;
+  onclose: (() => void) | null = null;
+  envoyes: Record<string, unknown>[] = [];
+  constructor(readonly url: string) {
+    SocketFactice.ouvertes.push(this);
+    queueMicrotask(() => this.recevoir({ type: 'auth_ok' }));
+  }
+  send(brut: string): void { this.envoyes.push(JSON.parse(brut)); }
+  /** Plays one message from Home Assistant. */
+  recevoir(m: unknown): void { this.onmessage?.({ data: JSON.stringify(m) }); }
+  couper(): void { this.readyState = 3; }
+}
 
 export type Montage = {
   racine: HTMLElement;
@@ -197,7 +222,7 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
 
   await startScreen(racine, piece.nom, {
     stockage: options.stockage ?? stockageAvecSession,
-    createConnection: () => ({
+    createConnection: options.createConnection ?? (() => ({
       connecter: () => Promise.resolve(),
       prete: () => Promise.resolve(),
       surChangement: (cb) => { emettre = cb; },
@@ -208,7 +233,7 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
       // Records every subscription, so that a test can push an event of a given command type
       // (`diffuser`) exactly as the real `Connexion` routes it by subscription id.
       abonner: (commande, cb) => { abonnements.push({ commande, cb }); },
-    }),
+    })),
     // L'écran est fourni directement : ces tests montent un écran CONNU, ils n'ont rien à
     // apprendre du transport. Mais ils traversent quand même la coquille — écran d'attente,
     // résolution, délégation — donc chacun des 292 sites en est une épreuve de plus.

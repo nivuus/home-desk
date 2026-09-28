@@ -366,7 +366,7 @@
       "fields": {
         "ecrans": {
           "name": "Screens",
-          "description": "Names of the screens (the \"nom\" field of each screen) that play the animation."
+          "description": "Names of the screens (the \"nom\" field of each screen) that play the animation. Each name must match the screen's name exactly, case included: \"Salon\" is not \"salon\"."
         },
         "media": {
           "name": "Media",

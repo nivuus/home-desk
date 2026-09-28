@@ -16,12 +16,13 @@ import pytest
 from conftest import _creer_ecran
 from homeassistant.core import Context
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers import selector
 from homeassistant.setup import async_setup_component
 import voluptuous as vol
 import yaml
 
 from custom_components.home_desk.animations import SCHEMA, type_lecteur
-from custom_components.home_desk.const import DOMAIN
+from custom_components.home_desk.const import DOMAIN, DUREE_MAX_S
 
 LOCAL = "media-source://media_source/local/animations"
 
@@ -135,6 +136,12 @@ async def test_deux_ecrans_recoivent_la_meme_animation(hass, client_non_admin, e
                      ServiceValidationError, id="duree-nulle"),
         pytest.param({"ecrans": ["salon"], "media": _media("a.webm"), "duree": 121},
                      ServiceValidationError, id="duree-trop-longue"),
+        # Positive in seconds, 0 once rounded to the milliseconds sent: the
+        # tablet would drop it as malformed while the call succeeded.
+        pytest.param({"ecrans": ["salon"], "media": _media("a.webm"), "duree": 0.0004},
+                     ServiceValidationError, id="duree-arrondie-a-zero-ms"),
+        pytest.param({"ecrans": ["salon"], "media": _media("a.webm"), "duree": "nan"},
+                     ServiceValidationError, id="duree-nan"),
         pytest.param({"ecrans": ["salon"], "media": _media("a.webm"), "fond": "rouge"},
                      vol.Invalid, id="fond-inconnu"),
     ],
@@ -306,3 +313,20 @@ def test_les_champs_du_service_sont_decrits_et_traduits_partout():
     for langue in ("fr", "en"):
         traductions = json.loads((racine / "translations" / f"{langue}.json").read_text(encoding="utf-8"))
         assert set(traductions["services"]["jouer_animation"]["fields"]) == attendus, langue
+
+
+def test_le_selecteur_de_duree_offre_exactement_ce_que_le_service_accepte():
+    """The action editor's number selector is the service contract seen from
+    the UI: every selector must be one Home Assistant accepts, and the
+    duration bounds must be those the service enforces -- a `min: 1` there
+    hid the ]0, 1[ range the service accepts, and a lower bound that rounds
+    to 0 ms would offer a value the service refuses."""
+    racine = pathlib.Path(__file__).resolve().parents[2] / "custom_components" / "home_desk"
+    champs = yaml.safe_load((racine / "services.yaml").read_text(encoding="utf-8"))[
+        "jouer_animation"]["fields"]
+    for champ in champs.values():
+        selector.validate_selector(champ["selector"])  # raises on an unknown key
+    nombre = selector.validate_selector(champs["duree"]["selector"])["number"]
+    assert nombre["max"] == DUREE_MAX_S
+    assert 0 < round(nombre["min"] * 1000) and nombre["min"] < 1
+    assert nombre["unit_of_measurement"] == "s"
