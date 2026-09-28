@@ -1,11 +1,10 @@
-/** La fiche d'un lot du garde-manger (spec 2026-09-28 §2) : ce qu'il reste, combien sortir
- *  (Tout / ½ / ¼, puis − / +) et pourquoi (« Mangé », « Jeté », « Périmé »).
+/** The sheet of one pantry batch (spec 2026-09-28 §2): what is left, how much to take out (the
+ *  Tout / half / quarter shortcuts, then − / +) and why (eaten, thrown away, expired).
  *
  *  Four rows of 64 px (`SHEET_ROWS`), inside the same frame as the lists: the budget is checked by
  *  arithmetic in tests/pantry-render.test.ts. The reasons take the two-press arming of
  *  `boot/pantry.ts`: the armed button turns to the error tone of an armed task
- *  (`.ligne-tache.armee`) and says "Toucher pour confirmer". Offline, the three are greyed out and
- *  inert. */
+ *  (`.ligne-tache.armee`) and says so. Offline, the three are greyed out and inert. */
 import { html, type TemplateResult } from 'lit';
 import { pantryActions as act } from './pantry-actions';
 import { pantryFrame, shortDate, type PantryView } from './pantry-frame';
@@ -18,7 +17,7 @@ export const SHEET_ROWS = 4;
 const FRACTIONS: [Fraction, string][] = [['all', 'Tout'], ['half', '½'], ['quarter', '¼']];
 const REASONS: Reason[] = ['consumption', 'discard', 'expired'];
 
-export function rendreFiche(v: PantryView): TemplateResult {
+export function renderSheet(v: PantryView): TemplateResult {
   const p = v.state;
   const b = p.selected!;
   const where = [b.location, b.aisle].filter((x) => x !== null).join(' · ');

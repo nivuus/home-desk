@@ -237,7 +237,8 @@ function newKey(): string {
 /** "de Yaourt", "d’Abricots": French elides "de" before a vowel. Not before a y ("de yaourt")
  *  nor an h, which may be aspirated ("de haricots") — no elision is the safe default. */
 function ofProduct(name: string): string {
-  return /^[aeiouàâäéèêëîïôöùûüœæ]/i.test(name) ? `d’${name}` : `de ${name}`;
+  // French elision rules, applied to a French UI sentence.
+  return /^[aeiouàâäéèêëîïôöùûüœæ]/i.test(name) ? `d’${name}` : `de ${name}`;   // policy: allow-fr
 }
 
 /** A refusal from home-stock (translated into French there) — as opposed to a silence: the

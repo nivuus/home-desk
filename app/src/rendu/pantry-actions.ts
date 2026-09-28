@@ -27,6 +27,6 @@ const NOOP: PantryActions = {
 
 export let pantryActions: PantryActions = NOOP;
 
-export function brancherPantry(a: PantryActions): void {
+export function wirePantry(a: PantryActions): void {
   pantryActions = a;
 }

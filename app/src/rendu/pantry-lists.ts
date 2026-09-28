@@ -1,6 +1,6 @@
-/** Vue « Garde-manger » de la tablette de la cuisine (`#garde-manger`, spec 2026-09-28) : les
- *  niveaux de liste — entrée, rayons d'un emplacement, lots — et les écrans d'état. The sheet of
- *  one batch lives in `pantry-sheet.ts`.
+/** The pantry view of the kitchen tablet (`#garde-manger`, spec 2026-09-28): its list levels —
+ *  entry, aisles of a location, batches — and its status screens. The sheet of one batch lives in
+ *  `pantry-sheet.ts`.
  *
  *  Same frame as the "Tâches" view (`rendu/taches.ts`): `.corps`, a label, at most six rows of
  *  64 px (`.ligne-tache`), a Back button. Never scrolls: beyond six items, the sixth row becomes
@@ -8,12 +8,12 @@
 import { html, type TemplateResult } from 'lit';
 import { pantryActions as act } from './pantry-actions';
 import { pantryFrame, shortDate, type PantryView } from './pantry-frame';
-import { rendreFiche, SHEET_ROWS } from './pantry-sheet';
+import { renderSheet, SHEET_ROWS } from './pantry-sheet';
 import { locations, aislesOf, page, type Batch } from '../pantry/model';
 import { formatQuantity } from '../pantry/quantity';
 import { currentBatches, type PantryState } from '../boot/pantry';
 
-export { brancherPantry } from './pantry-actions';
+export { wirePantry } from './pantry-actions';
 export { SHEET_ROWS };
 export type { PantryView };
 
@@ -88,12 +88,12 @@ function status(v: PantryView, text: string, retry: boolean): TemplateResult {
   return pantryFrame(v, 'Garde-manger', rows(items, 0));
 }
 
-export function rendrePantry(v: PantryView): TemplateResult {
+export function renderPantry(v: PantryView): TemplateResult {
   const p = v.state;
   if (p.status === 'error') return status(v, 'Garde-manger indisponible', true);
   if (p.status === 'empty') return status(v, 'Rien en stock', false);
   if (p.status !== 'ready') return status(v, 'Chargement…', false);
-  if (p.level === 'sheet' && p.selected) return rendreFiche(v);
+  if (p.level === 'sheet' && p.selected) return renderSheet(v);
   if (p.level === 'aisles') return aisles(v);
   if (p.level === 'batches') return batches(v);
   return entry(v);

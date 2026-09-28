@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'lit';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { rendrePantry, brancherPantry, SHEET_ROWS, type PantryView } from '../src/rendu/pantry-lists';
+import { renderPantry, wirePantry, SHEET_ROWS, type PantryView } from '../src/rendu/pantry-lists';
 import { newPantryState, type PantryState } from '../src/boot/pantry';
 import { parseBatches, parseLocations, PAGE_ROWS } from '../src/pantry/model';
 
@@ -48,7 +48,7 @@ function view(state: PantryState, over: Partial<PantryView> = {}): PantryView {
 
 function paint(v: PantryView): HTMLElement {
   const div = document.createElement('div');
-  render(rendrePantry(v), div);
+  render(renderPantry(v), div);
   return div;
 }
 
@@ -60,7 +60,7 @@ const actions = {
   nextPage: vi.fn(), back: vi.fn(), retry: vi.fn(), chooseFraction: vi.fn(), step: vi.fn(),
   press: vi.fn(),
 };
-beforeEach(() => { Object.values(actions).forEach((f) => f.mockReset()); brancherPantry(actions); });
+beforeEach(() => { Object.values(actions).forEach((f) => f.mockReset()); wirePantry(actions); });
 
 describe('entry', () => {
   it('shows "À consommer vite (N)" then every location in position order', () => {
