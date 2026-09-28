@@ -6,7 +6,7 @@
  *  `keyed` on the token: each animation gets FRESH elements. Without it, lit would reuse the same
  *  `<video>` for a replacing animation and only swap its `src` — the new one would inherit the
  *  element of the one it replaced, whose playback state is not its own. */
-import { html, nothing } from 'lit';
+import { html } from 'lit';
 import { keyed } from 'lit/directives/keyed.js';
 import type { AnimationEnCours } from '../animation';
 
@@ -28,10 +28,10 @@ function media(enCours: AnimationEnCours, r: RappelsAnimation) {
                          playsinline @ended=${r.fin} @error=${r.echec}></video>`;
     case 'image':
       return html`<img class="animation-media" src=${a.url} alt="" @error=${r.echec}>`;
-    // Task 4 renders the Lottie canvas here; until then `boot/animation.ts` closes a Lottie as
-    // soon as it starts, so this branch is never on screen.
+    // The canvas only: the player that draws on it is built and listened to by
+    // `boot/animation.ts`, once its bundle is loaded (`lottie.ts`).
     case 'lottie':
-      return nothing;
+      return html`<canvas class="animation-media"></canvas>`;
   }
 }
 

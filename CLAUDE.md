@@ -13,10 +13,12 @@
 
 - **`dist/` est versionné.** Le contrat livre par `git archive HEAD` ; un build
   à l'installation aurait exigé `apt: [nodejs, npm]` et 115 Mo de
-  `node_modules` sur la cible. `dist/` contient aussi ses `assets/`, dupliqués
-  depuis `app/assets/` — 11 Ko payés une fois (411 Ko avant le retrait des
-  scènes DeLorean, 2026-09-28) pour que le dépôt se fasse en
-  **un seul `replace_tree()` atomique**. `www/wallpanel/` est relu par trois
+  `node_modules` sur la cible. `dist/` contient aussi le lecteur Lottie
+  (`dotlottie.js`, 61 Ko) et son WASM (`assets/dotlottie-player.wasm`,
+  1,2 Mo, copié depuis `app/node_modules` par le build ; `app/assets/` et
+  les polices DSEG sont partis le 2026-09-28) — payés une fois par version du
+  lecteur (git stocke par contenu), et jamais par un CDN, pour que le dépôt se
+  fasse en **un seul `replace_tree()` atomique**. `www/wallpanel/` est relu par trois
   clients qui rechargent tout seuls : deux gestes de dépôt y ouvriraient une
   fenêtre.
 - **Le hook n'écrit jamais dans `configuration.yaml`**, il signale deux lignes.
@@ -247,7 +249,7 @@ comme CONSTAT mesuré ; la spec porte la décision.
   seulement une relecture. **Laissé hors de `SCANNES`, à dessein, et donc
   hors filet** : `app/tests/` (sa propre suite vitest) et les fichiers à
   la racine d'`app/` (`package.json`, `package-lock.json`,
-  `rollup.config.js`, `tsconfig.json`, `vitest.config.ts`, `app/assets/`)
+  `rollup.config.js`, `tsconfig.json`, `vitest.config.ts`)
   — vérifiés sans trace de cette machine au 2026-09-14, mais une
   régression future n'y serait pas détectée automatiquement.
 - **Au-delà des IP, `dist/wallpanel.js` embarque la configuration

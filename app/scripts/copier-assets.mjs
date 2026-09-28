@@ -1,37 +1,42 @@
-/* Copie les fichiers de `assets/` vers le dossier servi par Home Assistant.
+/* Copies into `dist/assets/` the files the code points at by absolute URL
+ * (`/local/wallpanel/assets/…`): rollup only knows what the code imports, nothing carries a file
+ * referenced by URL, and without this step the bundle would reach production with paths that
+ * answer 404.
  *
- * Depuis le retrait des scènes codées en dur (2026-09-28 : leurs vidéos et leur image sont
- * parties avec elles), `assets/` ne contient plus que les deux polices DSEG, déclarées par le bloc
- * `@font-face` de `base.css`. Rollup ne connaît que ce que le code importe : un fichier référencé
- * par URL absolue (`/local/wallpanel/assets/…`) n'est emmené par rien, et sans cette étape le
- * bundle partirait en production avec des chemins qui répondent 404.
+ * Since 2026-09-28 the only occupant is the Lottie player's WASM (`@lottiefiles/dotlottie-web`),
+ * pointed at by `DotLottie.setWasmUrl` in `src/lottie.ts`: never a CDN, a tablet plays a Lottie
+ * without internet. It is taken from `node_modules`, hence always the version the lock installs —
+ * the same as `dist/dotlottie.js`. (The two DSEG fonts, dead with the DeLorean scenes, left the
+ * same day, and `app/assets/` with them.)
  *
- * Pourquoi des fichiers plutôt que des data-URI : embarqués dans `wallpanel.css`/`wallpanel.js`,
- * ils seraient téléchargés par les TROIS tablettes à chaque changement de version, qu'elles s'en
- * servent ou non.
+ * Why files rather than data URIs: embedded in a bundle, they would be downloaded by the THREE
+ * tablets on every release, whether they use them or not.
  *
- * La copie est conditionnelle (taille + date) : réécrire un fichier inchangé à chaque build ferait
- * tourner le cache de Home Assistant pour rien.
+ * The copy is conditional (size + date): rewriting an unchanged file on every build would churn
+ * Home Assistant's cache for nothing.
  */
-import { copyFileSync, mkdirSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { copyFileSync, mkdirSync, statSync, existsSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ICI = dirname(fileURLToPath(import.meta.url));
-const SOURCE = join(ICI, '..', 'assets');
-// Meme raison que rollup.config.js : la sortie est relative au depot. Les
-// fichiers d'assets sont DUPLIQUES dans dist/ a dessein — c'est ce qui rend
-// dist/ complet, donc deposable par un seul replace_tree() atomique. Le repertoire est relu par trois clients
-// qui rechargent tout seuls ; deux gestes de depot y ouvriraient une fenetre.
-const SORTIE = join(ICI, '..', '..', 'dist', 'assets');
+const APP = join(ICI, '..');
+// Same reason as rollup.config.js: the output is relative to the repository. The assets are
+// DUPLICATED into dist/ on purpose — that is what makes dist/ complete, hence deployable by a
+// single atomic replace_tree(). The directory is re-read by three clients that reload on their
+// own; two deployment steps would open a window.
+const SORTIE = join(APP, '..', 'dist', 'assets');
+
+const SOURCES = [
+  join(APP, 'node_modules', '@lottiefiles', 'dotlottie-web', 'dist', 'dotlottie-player.wasm'),
+];
 
 mkdirSync(SORTIE, { recursive: true });
 
 let copies = 0;
 let inchanges = 0;
-for (const nom of readdirSync(SOURCE)) {
-  const depuis = join(SOURCE, nom);
-  const vers = join(SORTIE, nom);
+for (const depuis of SOURCES) {
+  const vers = join(SORTIE, basename(depuis));
   const src = statSync(depuis);
   if (existsSync(vers)) {
     const dst = statSync(vers);
@@ -41,4 +46,4 @@ for (const nom of readdirSync(SOURCE)) {
   copies++;
 }
 
-console.log(`assets : ${copies} copié(s), ${inchanges} inchangé(s) → ${SORTIE}`);
+console.log(`assets: ${copies} copied, ${inchanges} unchanged -> ${SORTIE}`);

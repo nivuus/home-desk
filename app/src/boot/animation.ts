@@ -75,6 +75,7 @@ function lancer(s: ScreenState, a: Animation): void {
   // `boot/wiring.ts`) — its token would make it a no-op anyway, but nothing should keep running
   // for an animation that is gone.
   arreterMinuteur(s);
+  detruireLecteur(s);
   const jeton = jouerAnimation(s, a);
   // ONE timer covers both the `duree` and the 120 s cap: `dureeEffective` is the smaller of the
   // two, so a video or a Lottie without `duree` that never ends still leaves the wall.
@@ -103,11 +104,28 @@ function demarrerMedia(s: ScreenState, jeton: number): void {
     }
     case 'image':
       return;   // nothing to start: the timer ends it
-    case 'lottie':
-      // Task 4 (the Lottie player) replaces this branch. Until then a Lottie closes at once,
-      // with an error, rather than showing an empty veil for up to 120 s.
-      echouer(s, jeton, 'Lottie animations are not supported yet', a.url);
+    case 'lottie': {
+      const canvas = s.hoteAnimation.querySelector<HTMLCanvasElement>('.animation canvas');
+      if (!canvas) {
+        echouer(s, jeton, 'the Lottie canvas was not rendered', a.url);
+        return;
+      }
+      s.d.chargerLottie().then(
+        (DotLottie) => {
+          // The loader can resolve long after the push (first load of the bundle and its WASM):
+          // by then this animation may have been replaced or closed by a touch. No player for an
+          // animation that is gone — it would draw on a detached canvas and never be destroyed.
+          if (s.animation?.jeton !== jeton) return;
+          const lecteur = new DotLottie({ canvas, src: a.url, autoplay: true, loop: false });
+          s.lecteurLottie = lecteur;
+          lecteur.addEventListener('complete', () => terminerAnimation(s, jeton));
+          lecteur.addEventListener('loadError', (ev) =>
+            echouer(s, jeton, 'the Lottie animation could not be loaded', ev.error));
+        },
+        (err: unknown) => echouer(s, jeton, 'the Lottie player could not be loaded', err),
+      );
       return;
+    }
   }
 }
 
@@ -124,7 +142,16 @@ function echouer(s: ScreenState, jeton: number, message: string, detail: unknown
 export function terminerAnimation(s: ScreenState, jeton: number): void {
   if (!fermerAnimation(s, jeton)) return;
   arreterMinuteur(s);
+  detruireLecteur(s);
   peindreCalque(s);
+}
+
+/** Releases the Lottie player of the animation that is closing or being replaced, if it has one.
+ *  Only ever the CURRENT animation's player: a player is stored only while its token is current
+ *  (see `demarrerMedia`), and is released before that token changes. */
+function detruireLecteur(s: ScreenState): void {
+  s.lecteurLottie?.destroy();
+  s.lecteurLottie = null;
 }
 
 function arreterMinuteur(s: ScreenState): void {

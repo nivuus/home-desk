@@ -962,11 +962,6 @@ async function bundlerApplication() {
     entryPoints: [join(SRC_APP, 'index.ts')],
     bundle: true, write: false, format: 'iife', target: 'es2020',
     outdir: '/verificateur-rendu-en-memoire',
-    // Les polices DSEG (`@font-face` de `base.css`) sont référencées par URL absolue servie par Home
-    // Assistant (`/local/wallpanel/assets/…`), jamais importées : sans cette exclusion, esbuild
-    // essaie de les résoudre depuis le disque et échoue. Le vrai build les copie à part
-    // (`scripts/copier-assets.mjs`) ; ici, `poserInterceptions` répond à leur place.
-    external: ['/local/*'],
   });
   const js = resultat.outputFiles.find((f) => f.path.endsWith('.js'));
   const css = resultat.outputFiles.find((f) => f.path.endsWith('.css'));

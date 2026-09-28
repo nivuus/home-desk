@@ -187,6 +187,10 @@ export class ScreenState {
   /** The overlay's own host in `#app`, placed by `armerAnimations` under the `initialise` guard
    *  (same definite-assignment pattern as `cx`). */
   hoteAnimation!: HTMLElement;
+  /** The Lottie player of the animation on screen, `null` when none: destroyed whenever that
+   *  animation closes or is replaced (it holds WASM memory and a render loop, which removing its
+   *  canvas does not stop). */
+  lecteurLottie: { destroy(): void } | null = null;
 
   /** Redraws the screen. An arrow property, not a method, so that it can be handed out as a
    *  callback (`etat.surMaj`, `d.intervalFn`, `armer`...) exactly like the hoisted `dessiner`

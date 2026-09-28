@@ -164,6 +164,10 @@ export type Montage = {
   /** Pushes `evenement` to every subscriber of the command `type`, as Home Assistant would, then
    *  lets the redraw land. */
   diffuser: (type: string, evenement: Record<string, unknown>) => Promise<void>;
+  /** The double of the Lottie player's loader (`src/lottie.ts`): never a real `<script>`. It
+   *  rejects until a test says what it resolves to, so that a Lottie nobody prepared for fails
+   *  loudly instead of hanging. */
+  chargerLottie: ReturnType<typeof vi.fn>;
 };
 
 /** Monte `startScreen()` sur un `#app` neuf, avec toutes ses dépendances injectées et aucun minuteur
@@ -189,6 +193,7 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
   });
 
   const abonnements: Montage['abonnements'] = [];
+  const chargerLottie = vi.fn(() => Promise.reject(new Error('Lottie loader not doubled')));
 
   await startScreen(racine, piece.nom, {
     stockage: options.stockage ?? stockageAvecSession,
@@ -211,6 +216,7 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
     intervalFn: intervalFn as any,
     minuteurFn: minuteurFn as any,
     maintenant: options.maintenant ?? (() => new Date(2026, 7, 1, 14, 0)),
+    chargerLottie: chargerLottie as any,
   });
   await vider();
 
@@ -231,6 +237,7 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
     },
     silence: (ms) => silencer(ms),
     appelerService, minuteurFn, intervalFn, listerTaches, envoyerCommande, abonnements,
+    chargerLottie,
     diffuser: async (type, evenement) => {
       for (const a of abonnements) if (a.commande.type === type) a.cb(evenement);
       await vider();

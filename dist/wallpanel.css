@@ -936,22 +936,6 @@ body {
    couche générée est postérieure aux enfants réels dans l'ordre de peinture (même z-index:auto),
    donc les couvrirait pendant son fondu de 200 ms sans ce z-index explicite. */
 .commande > * { position: relative; z-index: 1; }
-/* Afficheurs à segments — DSEG de Keshikan, licence SIL Open Font License. DSEG7 pour les
-   chiffres (sept segments), DSEG14 pour les lettres (quatorze). Servies en fichier et NON en
-   data-URI : intégrées au CSS, leurs 11 ko partiraient sur CHAQUE chargement de page. Depuis le
-   retrait des scènes codées en dur (2026-09-28), plus aucune règle ne les emploie : une
-   `@font-face` sans utilisateur ne télécharge rien, et le fichier reste servi par
-   `dist/assets/`. */
-@font-face {
-  font-family: "DSEG7";
-  src: url(/local/wallpanel/assets/DSEG7Classic-Bold.woff2) format("woff2");
-  font-weight: 700; font-display: swap;
-}
-@font-face {
-  font-family: "DSEG14";
-  src: url(/local/wallpanel/assets/DSEG14Classic-Bold.woff2) format("woff2");
-  font-weight: 700; font-display: swap;
-}
 /* Fondu de palette (2026-08-06) — L'UNIQUE animation de couleur de l'application, et elle est
    bornée dans le temps : `demarrage.ts` pose cette classe (via `Moteur.basculerPalette`), bascule
    `.sombre`, puis la RETIRE 600 ms plus tard (`PALETTE_MS`, `grammaire.ts`). Posée en permanence,

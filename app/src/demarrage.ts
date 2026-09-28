@@ -27,6 +27,7 @@ import { armerRechargement } from './rechargement';
 import { roomTodoLists } from './cochage';
 import { chargerEcran as chargerEcranHA, listerEcrans as listerEcransHA } from './configuration';
 import { niveauDemande, type Niveau } from './mouvement';
+import { chargerLottie } from './lottie';
 // The next two lines carry an English-check exception: the engine factory is named by `mouvement/moteur.ts`, a
 // 611-line file from main that this branch does not touch (renaming it would pull that file over
 // the size limit into the diff).
@@ -89,6 +90,7 @@ export async function startWithScreen(
     // dependencies that `startScreen()` below passes on to it as is.
     chargerEcran: deps.chargerEcran ?? chargerEcranHA,
     listerEcrans: deps.listerEcrans ?? listerEcransHA,
+    chargerLottie: deps.chargerLottie ?? (() => chargerLottie()),
   };
 
   const jetonsLus = lireJetons(d.stockage);
