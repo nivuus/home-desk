@@ -4,7 +4,7 @@
  *  for the lifetime of the page even after several failed attempts — see the correction rounds 2
  *  and 3 documented there. */
 import { Etat } from '../etat';
-import { brancherAppui, brancherGeste } from '../rendu/corps';
+import { brancherAppui, brancherGeste } from '../rendu/tile';
 import { brancherAppuiMaison, brancherGesteMaison } from '../rendu/maison';
 import { brancherCochageTaches } from '../rendu/taches';
 import { brancherMedia } from '../rendu/media';

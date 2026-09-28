@@ -1,11 +1,11 @@
 import { html, type TemplateResult } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 import type { Etat } from '../etat';
-import type { Ecran, Bouton, EntreeSynthese } from '../ecran';
+import type { Ecran, EntreeSynthese } from '../ecran';
 import type { Alerte } from '../contexte';
 import { icone } from './icones';
 import { ENTITE_ENTRETIEN } from './defaut';
-import { descripteurJauge, fractionJauge } from '../jauge';
+import { bouton, commandeActive, pressTile } from './tile';
 import { ordreCommandes, type ContexteModes } from '../modes';
 import { AGENCEMENT_DEFAUT, type Agencement, type Zone } from '../agencement';
 
@@ -117,210 +117,6 @@ export function ligneSynthese(etat: Etat, entites: EntreeSynthese[]): { texte: s
   }
   return { texte: ecarts.length ? 'Tout est fermé —' : 'Tout est fermé, rien à signaler', ecarts };
 }
-
-/** Une commande n'est colorée que si l'appareil est actif : c'est la couleur qui porte
- *  l'information, jamais un code à retenir. `climate.radiateur` (VersatileThermostat) n'a
- *  JAMAIS l'état `on` — ses seuls états possibles sont `heat`/`off` (vérifié dans
- *  `ha_sync/entities/climate.json`). Un simple `=== 'on'` laisserait donc la tuile
- *  « Chauffage » grise en permanence, même pendant une chauffe active : ce n'est pas un
- *  interrupteur, sa notion de marche/arrêt se lit sur `!== 'off'`. Les domaines sans notion
- *  marche/arrêt (`todo.*`, compteurs...) ne sont jamais colorés — cohérent avec la règle des
- *  tablettes murales : pas d'état actif/inactif possible → couleur inactive.
- */
-/** Tâche 19 (2026-08-03) : `fan.` et `binary_sensor.` rejoignent la règle. Sans eux, les deux
- *  ventilateurs ajoutés restaient gris EN MARCHE et le Velux gris GRAND OUVERT — sur un écran
- *  mural, la couleur est la seule information lisible de loin, et elle aurait menti en permanence.
- *  Les deux entrent par le même `=== 'on'` que les lumières, parce que ce sont réellement leurs
- *  états HA (FanEntity et BinarySensorEntity ne connaissent que `on`/`off`).
- *  `vacuum.` reste délibérément DEHORS : « Aspirer ici » est un lanceur d'action, et la règle des
- *  tablettes murales (CLAUDE.md du dépôt HA) range explicitement les lanceurs d'aspirateur avec
- *  les scènes, en couleur inactive — l'état du robot, lui, est porté par le bloc central du mode
- *  `menage`, seul propriétaire de cette information. */
-function commandeActive(id: string, etatBrut: string): boolean {
-  if (id.startsWith('climate.')) return etatBrut !== 'off';
-  if (id.startsWith('light.') || id.startsWith('switch.')
-      || id.startsWith('fan.') || id.startsWith('binary_sensor.')) return etatBrut === 'on';
-  return false;
-}
-
-const bouton = (etat: Etat, b: Bouton, actif: boolean, classe: string) => {
-  // Tâche 13 : décidé PAR DOMAINE (`descripteurJauge`), jamais par le `Bouton` lui-même — une
-  // commande « Chauffage » (`climate.radiateur`, sans `service`) obtient sa jauge exactement de
-  // la même façon qu'une commande « Lumières » (`light.*`, avec `service: ['light','toggle']`) :
-  // aucune donnée à ajouter à `ecran.ts` pour ça, cf. docstring de `jauge.ts`.
-  const d = descripteurJauge(b.entite, etat);
-  // Revue tâche 16 — COHÉRENCE TRANCHÉE : `jauge.ts` documente déjà, pour les lumières, qu'une
-  // jauge ÉTEINTE se montre VIDE plutôt que de mentir sur un niveau qu'elle n'a plus. Le chauffage
-  // ne suivait pas cette règle — capture réelle du salon/bureau : la tuile « Chauffage — Éteint »
-  // portait une barre olive à moitié pleine, exactement l'incohérence visuelle que la règle des
-  // lumières existe pour éviter. ALIGNÉ ici, mais volontairement PAS dans `descripteurChauffage`
-  // (`jauge.ts`) : `d.valeur` y reste la VRAIE consigne, même à l'arrêt (contrairement à une
-  // luminosité, une consigne de thermostat existe et reste réglable hors chauffe — cf. commentaire
-  // de `descripteurChauffage`) — c'est cette valeur réelle, jamais une valeur maquillée à 0/16°,
-  // que `geste.ts` relit à chaque `pointerdown` (`descripteurJauge` y est rappelé à neuf) pour
-  // ancrer un glissement, y compris sur une tuile éteinte. Seul le REMPLISSAGE affiché est masqué
-  // ici, exactement comme `commandeActive` juste au-dessus décide la couleur « actif » par domaine
-  // au niveau du rendu plutôt que dans `jauge.ts` — même discipline, même fichier.
-  const jaugeMasquee = b.entite.startsWith('climate.') && !actif;
-  const fraction = d && !jaugeMasquee ? fractionJauge(d) : 0;
-  // Tâche 19 — RÈGLE DU PROPRIÉTAIRE : une tuile qui ne déclenche rien ne donne aucun retour au
-  // doigt ; une tuile qui agit, si. Ce que fait réellement un appui est déjà décidé ailleurs, et
-  // cette ligne ne fait que le CONSTATER, sans rien ajouter à `ecran.ts` : `interaction.ts`
-  // n'appelle aucun service et ne pose aucun optimisme sans `service` (et navigue avec `lien`), et
-  // `geste.ts` n'entre dans sa machine à états que s'il y a une jauge à régler au glissement. Un
-  // bouton sans les trois est donc inerte, et `base.css` lui retire alors la couche `:active` et
-  // le resserrement d'angle — sinon il accuse réception d'une action qui n'a pas lieu, le « bouton
-  // mort » que ce projet s'interdit (même traitement que `.ambiance.inactif` et
-  // `.vt-bouton.vt-attente`). Aujourd'hui : le Velux du bureau, et lui seul. Le CHAUFFAGE en est la
-  // contre-épreuve, et c'est pour lui que la condition regarde `d` plutôt que le seul `service` :
-  // sans service non plus, mais réglable au glissement, donc il agit et garde son retour.
-  // Tâche 6 (2026-08-17) : `vue` (navigation interne, ex. « Recette ») agit tout autant que `lien`
-  // — `interaction.ts` la traite AVANT `lien`, elle pose un hash — donc `!b.vue` rejoint `!b.lien`
-  // ici, sans quoi la tuile « Recette » accuserait faussement une action qui a bien lieu.
-  // Décision 8 (2026-09-05) : une commande qui NOMME son absence traverse le
-  // filtre avec une entité muette. Elle est inerte par construction — aucun
-  // appui n'est câblé, `interaction.ts` retourne avant `vue`/`lien`/`service` —
-  // et `base.css` lui retire alors son retour tactile : accuser réception d'une
-  // action qui n'a pas lieu est le « bouton mort » que ce projet s'interdit.
-  const absente = !etat.estUtilisable(b.entite);
-  const inerte = absente || (!b.service && !b.lien && !b.vue && !d);
-  return html`
-  <div class="${classe} ${actif ? 'actif' : ''} ${d ? 'jauge' : ''} ${inerte ? 'inerte' : ''} ${absente ? 'absent' : ''}"
-       data-mvt="tuile:${b.entite}"
-       style="--jauge:${fraction}"
-       @pointerdown=${(ev: PointerEvent) => geste(ev, b.entite, () => appuyer(etat, b))}>
-    ${icone(b.icone)}
-    <div><div class="t">${b.libelle}</div>
-      <!-- Mineur (revue finale) — marque detail:etiq-<entité> retirée : c'était une marque MORTE.
-           .s est rendue inconditionnellement (jamais absente/présente d'une peinture à l'autre),
-           son offsetParent est la boîte interne de la tuile (jamais racine), et elle ne pose
-           jamais data-mvt-etat — aucun de ses verdicts possibles (entrée/sortie, mutation) ne peut
-           donc se produire. Elle ne coûtait pas rien pour autant : deux lectures de mise en page
-           (offsetLeft/offsetWidth) par tuile et par peinture, pour un verdict qui ne vient jamais. -->
-      <div class="s">${etiquette(etat, b)}</div></div>
-  </div>`;
-};
-
-// Revue tâche 16 — DÉFAUT VISIBLE À L'ÉCRAN : `lock.`/`cover.` retombaient sur `return e.etat`,
-// donc l'état brut de Home Assistant, EN ANGLAIS (« locked », « closed »…), capturé sur la vraie
-// tablette du salon. La règle du commentaire ci-dessous (« jamais un jeton anglais brut, français
-// partout à l'écran compris ») n'avait été écrite QUE pour `climate.` à la tâche 8/9 ; les deux
-// domaines ajoutés bien plus tard par la tâche 5 (`lock.aqara_smart_lock_u200_lite`,
-// `cover.rideau_salon`) ne l'avaient jamais rejointe. Largeur vérifiée dans un vrai navigateur
-// (Chromium, police/poids/taille réels de `.commande .s`, tuile de 150,5 px — cf. rapport de
-// tâche 16) : les libellés ci-dessous tiennent tous avec au moins 17 px de marge sur la tuile la
-// plus étroite du parc ; aucun n'a donc besoin d'un raccourci plus agressif.
-//
-// Jamais un état inconnu deviné : les états HA de `lock.`/`cover.` forment une énumération fermée
-// (`LockState`/`CoverState`) — tout ce qui en sort sur une entité par ailleurs utilisable
-// (`Etat.estUtilisable` a déjà écarté `unavailable`/`unknown`/vide) est une vraie anomalie
-// d'intégration, jamais une valeur à traduire au hasard. `ETAT_INCONNU` ci-dessous n'est ni un mot
-// anglais ni une chaîne vide qui laisserait un blanc inexplicable sur un mur : c'est un aveu
-// explicite, aussi lisible de loin qu'un état traduit.
-const ETAT_INCONNU = 'État inconnu';
-
-/** `lock.aqara_smart_lock_u200_lite` (Matter, capteur de porte intégré — d'où `open`/`opening`,
- *  qui décrivent le battant, pas seulement le pêne) : sept états HA possibles, cf. brief. */
-function libelleSerrure(etatBrut: string): string {
-  switch (etatBrut) {
-    case 'locked': return 'Verrouillée';
-    case 'unlocked': return 'Déverrouillée';
-    case 'locking': return 'Verrouille…';
-    case 'unlocking': return 'Déverrouille…';
-    case 'jammed': return 'Bloquée';
-    case 'open': return 'Ouverte';
-    case 'opening': return 'Ouverture…';
-    default: return ETAT_INCONNU;
-  }
-}
-
-/** `cover.rideau_salon`/`cover.rideau_cuisine` : quatre états HA possibles. « Le rideau a une
- *  position » (brief tâche 16) — `current_position` (0-100, même attribut que `descripteurRideau`,
- *  `jauge.ts`, jamais recalculé autrement pour rester cohérent avec ce que le doigt y règle) est
- *  affiché tant qu'il n'est pas 100 : un rideau à moitié ouvert dit « Ouvert 42 % », pas juste
- *  « Ouvert », qui mentirait par omission sur un volet qui ne l'est qu'à demi. À 100 (ou attribut
- *  absent/non exploitable — un lecteur sans `SET_POSITION`), le pourcentage n'ajoute rien : simple
- *  « Ouvert ». */
-function libelleRideau(e: { etat: string; attributs: Record<string, unknown> }): string {
-  switch (e.etat) {
-    case 'closed': return 'Fermé';
-    case 'opening': return 'Ouverture…';
-    case 'closing': return 'Fermeture…';
-    case 'open': {
-      const position = Number(e.attributs['current_position']);
-      return Number.isFinite(position) && position < 100 ? `Ouvert ${Math.round(position)} %` : 'Ouvert';
-    }
-    default: return ETAT_INCONNU;
-  }
-}
-
-/** Tâche 19 : les ouvrants déclarés comme COMMANDE (le Velux du bureau aujourd'hui). Décidé sur
- *  `device_class`, la seule chose que Home Assistant dise du SENS d'un capteur binaire — jamais
- *  sur le nom de l'entité, et jamais sur le seul domaine : `binary_sensor.` couvre aussi bien un
- *  battant qu'un détecteur de mouvement ou une alimentation en défaut, pour lesquels
- *  « Ouvert »/« Fermé » serait un contresens. Un capteur d'une autre classe (aucun n'est déclaré
- *  en commande aujourd'hui) retombe donc sur le repli générique plus bas, inchangé. */
-const CLASSES_OUVRANT = new Set(['door', 'window', 'opening', 'garage_door']);
-
-function libelleOuvrant(e: { etat: string; attributs: Record<string, unknown> }): string | null {
-  if (!CLASSES_OUVRANT.has(String(e.attributs['device_class'] ?? ''))) return null;
-  return e.etat === 'on' ? 'Ouvert' : 'Fermé';
-}
-
-export function etiquette(etat: Etat, b: Bouton): string {
-  // Appelée INCONDITIONNELLEMENT depuis la tuile depuis le 2026-09-05 : tant
-  // que le rendu n'appelait `etiquette` que si `estUtilisable`, un libellé
-  // d'absence n'aurait jamais pu être rendu. C'est donc ici que le repli vit,
-  // avant toute lecture d'état — `etat.lire` renvoie `undefined` sur une
-  // entité muette, et la ligne suivante la déréférence.
-  if (!etat.estUtilisable(b.entite)) return b.absenceNommee ?? '';
-  const e = etat.lire(b.entite)!;
-  // Tâche 19 — TROIS domaines qui n'avaient jamais atteint une rangée de commandes avant cette
-  // tâche, et qui retombaient donc tous sur le repli générique de fin de fonction, écrit pour les
-  // lumières. Même défaut, et même correctif, que `lock.`/`cover.` à la tâche 16 : le français
-  // partout à l'écran n'est pas une préférence, c'est une contrainte du projet.
-  //
-  // `fan.` : un ventilateur ou un purificateur ne s'« allume » pas, il se met en marche. Aucun
-  // pourcentage affiché bien que `percentage` existe sur les deux appareils : ces tuiles n'ont pas
-  // de jauge (rien à régler au doigt, cf. `jauge.ts`), un chiffre qu'on ne peut pas toucher
-  // n'apporterait qu'une ligne plus longue sur une tuile de 150,5 px.
-  if (b.entite.startsWith('fan.')) return e.etat === 'on' ? 'En marche' : 'Arrêté';
-  // `binary_sensor.` : un battant, quand HA le déclare comme tel (cf. `libelleOuvrant`).
-  const ouvrant = b.entite.startsWith('binary_sensor.') ? libelleOuvrant(e) : null;
-  if (ouvrant !== null) return ouvrant;
-  // `vacuum.` : RIEN, volontairement — et c'est la seule étiquette vide de l'application.
-  // « Aspirer ici » est un lanceur d'action, exactement comme la même tuile dans « Toute la
-  // maison », qui n'a jamais affiché que son libellé. Deux raisons de ne rien écrire ici : les
-  // états HA d'un aspirateur (`docked`, `cleaning`, `returning`…) sont des jetons anglais qui
-  // fuiraient tels quels par le repli générique ; et pendant un nettoyage, le bloc central du mode
-  // `menage` porte DÉJÀ cet état (« En cours · 100 % ») — l'écrire aussi sous la tuile mettrait la
-  // même donnée deux fois sur la même tablette, ce que le projet interdit.
-  if (b.entite.startsWith('vacuum.')) return '';
-  // `climate.radiateur` : `heat`/`off` sont des jetons internes anglais de VersatileThermostat,
-  // jamais un libellé à montrer tel quel (contrainte projet : français partout, à l'écran
-  // compris). Seuls ces deux états existent pour ce thermostat.
-  if (b.entite.startsWith('climate.')) return e.etat === 'off' ? 'Éteint' : 'Chauffe';
-  if (b.entite.startsWith('lock.')) return libelleSerrure(e.etat);
-  if (b.entite.startsWith('cover.')) return libelleRideau(e);
-  if (e.etat === 'on') {
-    const l = e.attributs['brightness'];
-    return l ? `Allumées ${Math.round((Number(l) / 255) * 100)} %` : 'Allumé';
-  }
-  return e.etat === 'off' ? 'Éteint' : e.etat;
-}
-
-/** Rempli par la tâche 7 : le retour optimiste. */
-let appuyer: (etat: Etat, b: Bouton) => void = () => {};
-export function brancherAppui(fn: (etat: Etat, b: Bouton) => void) { appuyer = fn; }
-
-// Tâche 13 : le dispatcher appui/glissement (`creerGeste`, `geste.ts`), branché par
-// `demarrage.ts` comme `appuyer` ci-dessus (même raison : `etat`/`cx` n'existent que dans sa
-// fermeture). Par défaut (non branché — ex. un test qui rend `rendreCorps` sans passer par
-// `demarrer()`) : appelle `surBascule` immédiatement, exactement le comportement d'avant cette
-// tâche — un test qui n'exerce pas la jauge n'a donc rien à changer pour rester vert.
-let geste: (ev: PointerEvent, entite: string, surBascule: () => void) => void =
-  (_ev, _entite, surBascule) => surBascule();
-export function brancherGeste(fn: typeof geste) { geste = fn; }
 
 /** `data-zone` — INERTE POUR LE RENDU, et lu par une seule machine : `outils/mesurer-hauteurs.mjs`,
  *  qui relève dans un vrai navigateur ce que chaque zone de l'écran coûte en pixels. Ces hauteurs
@@ -465,7 +261,7 @@ export function rendreCorps(
                (Pas de guillemet oblique dans ce commentaire : il vit DANS un template literal.) -->
           ${piece.ambiances.map((a) => html`
             <div class="ambiance" data-mvt="tuile:amb-${a.entite}"
-                 @pointerdown=${() => appuyer(etat, a)}>
+                 @pointerdown=${() => pressTile(etat, a)}>
               ${icone(a.icone)}<span>${a.libelle}</span></div>`)}
           ${tuileMinuteur ?? ''}
         </div>`;
