@@ -106,6 +106,10 @@ export const CHEMINS: Record<string, TemplateResult> = {
   // et la hauteur du bandeau est un invariant mesuré). L'y brancher est une décision de design à
   // prendre et à MESURER, pas un raccroc de revue à 3 h du matin. Le nouveau test « toute icône
   // déclarée est référencée » interdit désormais qu'une icône reprenne cette place sans appelant.
+  // Garde-manger (2026-09-28): a jar with its lid, for the kitchen tile that opens the pantry
+  // view — drawn on the same 24×24 grid, 1.9 stroke, no fill, rather than falling back on
+  // `cloudy`.
+  jar: svg`<path d="M8.5 3.5h7M7.5 6.5h9"/><path d="M7.5 6.5v12a2 2 0 0 0 2 2h5a2 2 0 0 0 2-2v-12"/><path d="M7.5 11.5h9"/>`,
 };
 
 export function icone(nom: string) {

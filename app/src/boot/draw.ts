@@ -57,7 +57,8 @@ export function dessiner(s: ScreenState): void {
   // `#maison`/`#taches`.
   const minuteursAffiches = !s.horsLigne && mode === 'minuteur'
     && (moment !== 'nuit' || s.reveilNuit) && location.hash !== '#maison'
-    && location.hash !== '#taches' && location.hash !== '#minuteur';
+    && location.hash !== '#taches' && location.hash !== '#minuteur'
+    && location.hash !== '#garde-manger';
   s.ancresMinuteurs = new Map(minuteursAffiches
     ? vuesMinuteurs.map((v) => [v.slot, ancrerMinuteur(v, horlogeMonotone())])
     : []);

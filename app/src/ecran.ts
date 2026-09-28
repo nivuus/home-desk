@@ -190,7 +190,7 @@ export type Ecran = {
   agencement?: Agencement;
 };
 
-export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {
+export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {   // policy: allow-long-file — this literal leaves at step 8 of plan 3c
   salon: {
     nom: 'Salon',
     temperature: 'sensor.capteur_humain_temperature',
@@ -449,12 +449,12 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {
       // d'une tablette à l'autre.
       { libelle: 'Rideau', icone: 'rideau', entite: 'cover.rideau_cuisine',
         service: ['script', 'turn_on'], cible: 'script.toggle_rideau_cuisine' },
-      // Lot 6 : `vue: '#taches'` est le seul enrichissement FONCTIONNEL de cette tâche. Jusqu'ici
-      // la tuile affichait un compte sur lequel on ne pouvait rien faire, et la vue « Tâches » ne
-      // s'atteignait qu'en touchant la ligne de synthèse. Une navigation interne ne coûte aucun
-      // appel HA et supprime un cul-de-sac.
-      { libelle: 'Courses', icone: 'list', entite: 'todo.home_stock_shopping', vue: '#taches',
-        absenceNommee: 'Garde-manger non installé' },
+      // Garde-manger (spec 2026-09-28) takes the place of the "Courses" tile, at the same grid slot.
+      // It opens the pantry view, where a batch is taken out of stock, fully or partly, eaten,
+      // thrown away or expired; its `entite` is the list of batches to eat soon, read by that view.
+      // Shopping stays reachable from the Tasks view, as one of the room's extra task lists.
+      { libelle: 'Garde-manger', icone: 'jar', entite: 'todo.home_stock_expirations',
+        vue: '#garde-manger', absenceNommee: 'Garde-manger non installé' },
       // Tâche 8 bis : demande explicite du propriétaire, jamais rendue accessible jusqu'ici.
       // Ouvre la vue `#recette` de l'app. `entite` est l'indicateur de disponibilité déjà exploité
       // par le masquage générique de `rendu/corps.ts` : `home_stock` non chargé (entrée absente,
@@ -496,20 +496,20 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {
       // une sixième ferait tomber l'une des existantes selon l'ordre de déclaration, une
       // information qui disparaîtrait en silence.
       //
-      // `todo.` et pas `binary_sensor.` : l'état d'une entité `todo` est le NOMBRE d'éléments non
-      // cochés, et le compte est ce qu'on lit de loin. Bonus mécanique décisif : `listesTachesPiece`
-      // (`cochage.ts`) collecte automatiquement toute entrée de `synthese` en `todo.` — déclarer
-      // cette ligne suffit à faire apparaître les lots qui périment dans la vue « Tâches »,
-      // cochables en deux appuis, sans une ligne de plus. Et cocher y veut dire MANGÉ, ce qui est le
-      // geste juste devant un frigo.
+      // `todo.` rather than `binary_sensor.`: the state of a `todo` entity is the NUMBER of items
+      // not checked off, and a count is what one reads from afar. `roomTodoLists` (`cochage.ts`)
+      // collects every `todo.` entry of `synthese` into the Tasks view; since the pantry screen
+      // (spec 2026-09-28) the kitchen opts out with `horsTaches`, like the living room: a batch is
+      // taken out of stock in the pantry view, with its quantity and reason — checking it off here
+      // emptied it whole, with no reason at all.
       //
-      // Déclarée APRÈS `todo.maintenance` : c'est ce qui range la DLC entre l'entretien et les
-      // courses dans la vue « Tâches ». Une DLC passe avant une course — l'une a une échéance.
+      // Declared AFTER `todo.maintenance`: the summary line shows its gaps in declaration order,
+      // and a best-before date comes before a purchase — one has a deadline, the other does not.
       //
       // Jamais une ALERTE : `alertes.ts` exige un écart *anormal* ET *traitable en quelques minutes
       // depuis la maison*. Une DLC échoue aux deux, elle dure des jours.
       { entite: 'todo.home_stock_expirations', operateur: '>', valeur: 0,
-        texte: '{etat} produit{s} à consommer', perso: true },
+        texte: '{etat} produit{s} à consommer', perso: true, horsTaches: true },
     ],
     // Arbitrage du coordinateur (tâche 8 bis) : le scanner n'a de sens qu'en cuisine, donc
     // ni dans `TOUTE_LA_MAISON` (partagée par les 3 tablettes — le salon n'a rien à scanner) ni

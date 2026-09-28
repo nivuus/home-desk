@@ -7,6 +7,7 @@ import { rendreTaches } from '../rendu/taches';
 import { rendreReglageMinuteur } from '../rendu/minuteur';
 import { rendreVueRecette, reScinder, etendreIndexSource, type VueRecette } from '../rendu/recette';
 import { aplatirTaches, repartirTaches } from '../cochage';
+import { renderPantry } from '../rendu/pantry-lists';
 import type { Frame } from './frame';
 import type { ScreenState } from './state';
 
@@ -89,5 +90,19 @@ export function paintSubView(
     }
     return true;
   }
+  // The pantry (spec 2026-09-28): fifth sub-view, entered through its hash like the others.
+  if (location.hash === '#garde-manger') {
+    s.moteur.peindre(html`${renderPantry({
+      state: s.pantry, horsLigne: s.horsLigne, today: localDay(s.d.maintenant()),
+      armed: (reason) => s.armementStock.estArmee(reason),
+    })}${survol()}`);
+    return true;
+  }
   return false;
+}
+
+/** `YYYY-MM-DD` of the tablet's own day: a best-before date is a calendar day, compared as is. */
+function localDay(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }

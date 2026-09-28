@@ -7,6 +7,11 @@ import { brancherMinuteur } from '../rendu/minuteur';
 import { brancherVoiture } from '../rendu/voiture';
 import { brancherRecette } from '../rendu/recette';
 import { memoriserRecette, validerRepas } from './recipe';
+import { wirePantry } from '../rendu/pantry-actions';
+import {
+  openSoon, openLocation, openAisle, openBatch, nextPage, back, loadPantry, chooseFraction,
+  stepQuantity, pressReason,
+} from './pantry';
 import type { ScreenState } from './state';
 
 /** Calls a service on one entity, unless the screen is offline. */
@@ -143,5 +148,23 @@ export function brancherVueRecette(s: ScreenState, agir: Agir): void {
       agir('timer', 'start', slots(s)[libre].timer, { duration: hms(secondes) });
       agir('input_text', 'set_value', slots(s)[libre].nom, { value: nom });
     },
+  });
+}
+
+/** The pantry view (`#garde-manger`, spec 2026-09-28). Its list of batches to eat soon is the
+ *  `entite` of the tile that opens it — the screen configuration names it, never this code. */
+export function wirePantryView(s: ScreenState): void {
+  s.pantry.soonList = s.piece.commandes.find((c) => c.vue === '#garde-manger')?.entite;
+  wirePantry({
+    openSoon: () => openSoon(s),
+    openLocation: (id) => openLocation(s, id),
+    openAisle: (id) => openAisle(s, id),
+    openBatch: (b) => openBatch(s, b),
+    nextPage: () => nextPage(s),
+    back: () => back(s),
+    retry: () => { void loadPantry(s); },
+    chooseFraction: (f) => chooseFraction(s, f),
+    step: (dir) => stepQuantity(s, dir),
+    press: (reason) => { void pressReason(s, reason); },
   });
 }

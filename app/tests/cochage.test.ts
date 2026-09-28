@@ -19,12 +19,11 @@ describe('roomTodoLists', () => {
     expect(roomTodoLists(ECRANS.bureau)).toEqual(['todo.travail', 'todo.maintenance']);
   });
 
-  it("cuisine : trois listes, dans l'ordre entretien, DLC, courses", () => {
-    // L'ordre est une DÉCISION : une DLC passe avant une course, parce que l'une a une échéance et
-    // l'autre non. `roomTodoLists` respecte l'ordre de `synthese` puis celui de
-    // `listesTachesExtra` — déclarer la ligne DLC après `todo.maintenance` suffit.
+  it("cuisine : entretien puis courses, la DLC n'y est plus", () => {
+    // Since the pantry screen (spec 2026-09-28), the soon batches are taken out of stock there,
+    // not checked off here: the kitchen line carries `horsTaches`, like the living room.
     expect(roomTodoLists(ECRANS.cuisine)).toEqual([
-      'todo.maintenance', 'todo.home_stock_expirations', 'todo.home_stock_shopping',
+      'todo.maintenance', 'todo.home_stock_shopping',
     ]);
   });
 

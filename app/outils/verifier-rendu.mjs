@@ -437,6 +437,37 @@ const INGREDIENTS_ESSAI_7 = [
  *  ferait diverger silencieusement le pire cas mesuré de celui décompté. */
 const ECHEANCES_MINUTEURS_MS = [754_000, 1_500_000];
 
+/** Synthetic stock of the pantry view (`#garde-manger`, spec 2026-09-28), injected through
+ *  `__injecterStock` (`boot/test-hooks.ts`, `?essai=1` only) — never the house's real stock, whose
+ *  size changes every day. Worst cases on purpose: eight batches in ONE aisle of the fridge (the
+ *  location opens straight on its batches, and the sixth row becomes "Suite › (3)"), the longest
+ *  product name of the real stock measured on 2026-09-28 rounded up, a past date, a soon date,
+ *  pieces and grams, and two empty locations to grey out. Invented names, no real data. */
+const STOCK_ESSAI = (() => {
+  const lot = (id, nom, reste, unite, dlc) => ({
+    id, remaining: reste, best_before: dlc, product_id: id, product_name: nom, base_unit: unite,
+    location_id: 1, location_name: 'Frigo', location_position: 1,
+    aisle_id: 5, aisle_name: 'Crémerie', aisle_position: 5,
+  });
+  return {
+    batches: [
+      lot(1, 'Yaourt nature au lait entier de brebis, pot familial', 350, 'g', '2026-01-02'),
+      lot(2, 'Crème fraîche épaisse', 20, 'ml', '2099-12-30'),
+      lot(3, 'Œufs plein air', 6, 'piece', '2099-12-31'),
+      lot(4, 'Beurre doux', 250, 'g', null),
+      lot(5, 'Fromage blanc', 500, 'g', '2099-11-01'),
+      lot(6, 'Lait demi-écrémé', 1000, 'ml', '2099-10-01'),
+      lot(7, 'Emmental râpé', 200, 'g', '2099-09-01'),
+      lot(8, 'Mozzarella', 1, 'piece', '2099-08-01'),
+    ],
+    locations: [
+      { id: 1, name: 'Frigo', position: 1 }, { id: 2, name: 'Congélateur', position: 2 },
+      { id: 3, name: 'Placard', position: 3 }, { id: 4, name: 'Autre', position: 4 },
+    ],
+    soon: ['2'],
+  };
+})();
+
 export const MODES = [
   {
     // Le bloc par défaut du SALON depuis la tâche 9 bis (demande du propriétaire) : niveau,
@@ -1839,6 +1870,15 @@ async function verifierPagesReelles(nav, { deploye = false } = {}) {
       hash: '#recette', figerHorloge: true, recetteEssai: 'brute' },
     { nom: 'recette — pire description brute RÉELLE, 208 car. (#recette)', heure: heureJour,
       hash: '#recette', figerHorloge: true, recetteEssai: 'brute-reelle' },
+    // The pantry view (spec 2026-09-28), on the synthetic stock `STOCK_ESSAI`: its entry level,
+    // the batches of the fridge (five rows + "Suite › (3)"), and the sheet of the batch with the
+    // longest name. Reached by the same presses as a real hand, never by setting internal state.
+    { nom: 'garde-manger — entrée (#garde-manger)', heure: heureJour, hash: '#garde-manger',
+      figerHorloge: true, stockEssai: 'entree' },
+    { nom: 'garde-manger — lots du frigo, Suite (#garde-manger)', heure: heureJour,
+      hash: '#garde-manger', figerHorloge: true, stockEssai: 'lots' },
+    { nom: 'garde-manger — fiche, nom le plus long (#garde-manger)', heure: heureJour,
+      hash: '#garde-manger', figerHorloge: true, stockEssai: 'fiche' },
   ];
 
   let fautes = 0;
@@ -1866,7 +1906,7 @@ async function verifierPagesReelles(nav, { deploye = false } = {}) {
         // silencieux. Absent des AUTRES vues : `?essai=1` ne change que la
         // présence de ces points d'injection, jamais le rendu, mais autant rester au plus près de ce
         // qu'une vraie tablette charge (jamais ce paramètre) pour tout ce qui n'en a pas besoin.
-        const essai = vue.recetteEssai ? '?essai=1' : '';
+        const essai = vue.recetteEssai || vue.stockEssai ? '?essai=1' : '';
         await page.goto(urlPiece(HA_URL, piece, `${essai}${vue.hash}`), { waitUntil: 'load', timeout: 20000 });
         await page.waitForTimeout(3500);   // laisse le websocket s'authentifier et pousser get_states
         if (vue.recetteEssai) {
@@ -1916,6 +1956,28 @@ async function verifierPagesReelles(nav, { deploye = false } = {}) {
             await page.waitForTimeout(300);
           }
         }
+        if (vue.stockEssai) {
+          // Same neutralisation as the recipe views: an alert of the real house must not decide
+          // what is measured. The injection replaces the real read the hash just sent.
+          await neutraliser(page);
+          if (!(await page.evaluate(() => document.querySelector('[data-mvt="vue:garde-manger"]') !== null))) {
+            await page.evaluate(() => { location.hash = '#garde-manger'; });
+            await page.waitForTimeout(300);
+          }
+          await page.evaluate((st) => window.__injecterStock?.(st.batches, st.locations, st.soon),
+            STOCK_ESSAI);
+          await page.waitForTimeout(300);
+          if (vue.stockEssai === 'lots' || vue.stockEssai === 'fiche') {
+            // Second row of the entry level: the fridge (the first is "À consommer vite").
+            await page.click('[data-mvt="vue:garde-manger"] .ligne-tache >> nth=1');
+            await page.waitForTimeout(300);
+          }
+          if (vue.stockEssai === 'fiche') {
+            // First batch by date: the past one, which carries the longest name.
+            await page.click('[data-mvt="vue:garde-manger"] .ligne-tache >> nth=0');
+            await page.waitForTimeout(300);
+          }
+        }
         const r = await evaluerPage(page, PARAMS_ANALYSE);
         const jugement = jugerResultat(r);
         if (erreursPage.length) {
@@ -1940,6 +2002,22 @@ async function verifierPagesReelles(nav, { deploye = false } = {}) {
             const reste = r.marge < 0 ? r.marge : r.jeu;
             console.log(`      · budget de hauteur (comme les modes) : ${HAUTEUR - reste} px / `
               + `${HAUTEUR} px (reste ${reste} px)`);
+          }
+        }
+        // The pantry: proof that the view AND the expected level were reached — an overflow check
+        // on a screen that silently fell back home would pass on nothing.
+        if (vue.stockEssai) {
+          const atteint = await page.evaluate((niveau) => {
+            const vueGm = document.querySelector('[data-mvt="vue:garde-manger"]');
+            if (!vueGm) return false;
+            if (niveau === 'fiche') return vueGm.querySelector('.pantry-fiche') !== null;
+            if (niveau === 'lots') return (vueGm.textContent ?? '').includes('Suite › (3)');
+            return (vueGm.textContent ?? '').includes('À consommer vite (1)');
+          }, vue.stockEssai);
+          if (!atteint) {
+            jugement.ok = false;
+            const detail = `garde-manger : niveau « ${vue.stockEssai} » non atteint`;
+            jugement.raison = jugement.raison ? `${jugement.raison} ; ${detail}` : detail;
           }
         }
         // Tâche 12 (round 1, point 5) : les trois mesures étaient IMPRIMÉES mais jamais ASSERTÉES —

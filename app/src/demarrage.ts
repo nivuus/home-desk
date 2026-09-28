@@ -34,6 +34,7 @@ import type { DependancesDemarrage } from './boot/types';
 import { ScreenState } from './boot/state';
 import { wireScreen } from './boot/wiring';
 import { chargerTaches, chargerMeteo, chargerAgenda } from './boot/loaders';
+import { enterPantry } from './boot/pantry';
 import { dessiner } from './boot/draw';
 import { SEUIL_MUET_MS } from './boot/constants';
 
@@ -168,6 +169,9 @@ export async function startWithScreen(
       // `hashchange` listener, `boot/wiring.ts`), enough for a view one never leaves open for
       // more than 45 s anyway (automatic return); see the reservation in the report.
       void chargerTaches(s);
+      // Page reloaded while the pantry was open (Fully killed, tablet rebooted): no `hashchange`
+      // happens, so the view is entered here, once connected.
+      if (location.hash === '#garde-manger') enterPantry(s);
       // Task 17: that reasoning no longer holds for the two rooms whose central block may display
       // those same tasks PERMANENTLY (`replEntretien`, `boot/home.ts`) — with nothing to refresh
       // the cache, the home view would indefinitely show the list of the start-up instant, and a

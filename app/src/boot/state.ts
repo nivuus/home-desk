@@ -20,6 +20,7 @@ import type { Evenement } from '../agenda';
 import type { VarianteDelorean } from '../rendu/delorean';
 import type { createTaskCheck, createArming } from '../cochage';
 import type { ConnexionLike, DependancesDemarrage } from './types';
+import { newPantryState, type PantryState } from './pantry';
 
 export class ScreenState {
   // Correction round 2: a single instance of `Connexion` (and of `Etat`) for the whole lifetime
@@ -38,6 +39,14 @@ export class ScreenState {
   // `cochage`/`appui`/`geste`, hence the same pattern: assigned in `wireScreen` under the
   // `initialise` guard (it depends on `d.minuteurFn`).
   armementRepas!: ReturnType<typeof createArming>;
+
+  /** The pantry view (`#garde-manger`, `boot/pantry.ts`): the stock read from home-stock, the
+   *  level being browsed and the sheet of the selected batch. `soonList` is set by `wireScreen`
+   *  from the screen configuration. */
+  pantry: PantryState = newPantryState();
+  /** Two-press arming of "Mangé" / "Jeté" / "Périmé": taking a batch out of stock is not
+   *  reversible from the wall. Same single-instance pattern as `armementRepas`. */
+  armementStock!: ReturnType<typeof createArming>;
 
   // Raw cache of the active tasks per list, fed by `chargerTaches` (`boot/loaders.ts`) (a separate
   // websocket request, `todo/item/list` has no counterpart pushed by `subscribe_events` — no task
