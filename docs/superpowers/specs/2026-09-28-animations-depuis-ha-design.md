@@ -98,10 +98,13 @@ data:
   `pointer-events: none`, voile noir ou transparent, `<video muted autoplay
   playsinline>`, `<img>`, ou `<canvas>` Lottie. Toujours muet (lecture
   automatique avec son refusée par le navigateur).
-- `app/src/lottie.ts` — charge `dotlottie-web` **à la demande** (import
-  dynamique, bundle séparé) ; le WASM est copié dans `dist/assets/` par le build
-  et désigné par `setWasmUrl` : jamais de CDN, la tablette marche sans
-  internet.
+- `app/src/lottie.ts` — charge `dotlottie-web` **à la demande**. Le bundle de
+  l'app est un IIFE unique : un `import()` y serait inliné (165 Ko de plus
+  téléchargés par les trois tablettes à chaque version). Le lecteur est donc un
+  **second bundle IIFE**, `dist/dotlottie.js`, injecté par une balise
+  `<script>` au premier Lottie. Le WASM (1,2 Mo) est copié dans
+  `dist/assets/` par le build et désigné par `setWasmUrl` : jamais de CDN, la
+  tablette marche sans internet.
 - L'écran de nuit n'est pas une exception : l'automation décide de l'heure.
 
 ### 4. Ce qui disparaît
