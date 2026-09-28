@@ -2,6 +2,7 @@
  *  loading its steps and decrement plan, persisting the step being read, restoring it after the
  *  app was killed, and validating the meal. Every function works on the shared `ScreenState`;
  *  none of them renders — they end with `s.dessiner()` when the screen must change. */
+import { RefusHA } from '../connexion';
 import { nextMeal, type NextMeal } from '../garde-manger';
 import { pagesDepuisEtapes, type EtapeRecette } from '../recette';
 import type { LigneIngredient } from '../rendu/recette';
@@ -196,6 +197,16 @@ export function restaurerRecette(s: ScreenState): void {
  *  Without a `meal_id` (component older than this bundle), there is nothing to validate: the view
  *  is closed as "Terminer" did before this batch, rather than sending a command that would be
  *  refused. */
+/** The meal this recipe was opened for has left the plan (cancelled, or replanned under another
+ *  id): measured on 2026-09-28, a dinner replanned from meal 104 to 106 kept 104 on the wall and
+ *  every "Terminer" was refused. Both signals are required: `not_found` alone can name a recipe
+ *  or a product, and a sensor that moved on alone only means another meal comes first. The view
+ *  is never re-bound to the sensor's meal by recipe: the next meal is often the same dish (the
+ *  leftovers), and validating it in place of the one cooked would be wrong. */
+function repasSortiDuPlan(s: ScreenState, e: unknown, mealId: number): boolean {
+  return e instanceof RefusHA && e.code === 'not_found' && currentMeal(s)?.mealId !== mealId;
+}
+
 export async function validerRepas(s: ScreenState): Promise<void> {
   if (s.horsLigne) return;
   if (s.mealEnCours === null) { fermerRecette(s); location.hash = ''; s.dessiner(); return; }
@@ -216,7 +227,14 @@ export async function validerRepas(s: ScreenState): Promise<void> {
   } catch (e) {
     // A refusal erases NOTHING from the screen: the steps stay, the recipe stays open, and the
     // component's French message is shown in place of the label.
-    s.messageRecette = messageDeRefus(e);
+    if (repasSortiDuPlan(s, e, mealId)) {
+      // The recipe is still worth reading, but there is no meal left to validate: the next
+      // "Terminer" takes the `mealEnCours === null` branch above and closes the view.
+      s.mealEnCours = null;
+      s.messageRecette = "Ce repas n'est plus au plan.";
+    } else {
+      s.messageRecette = messageDeRefus(e);
+    }
     s.dessiner();
     return;
   }

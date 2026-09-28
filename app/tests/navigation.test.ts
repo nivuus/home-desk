@@ -17,7 +17,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { startWithScreen, type ConnexionLike } from '../src/demarrage';
 import { ECRANS, type Ecran } from '../src/ecran';
-import type { EvenementEtat } from '../src/connexion';
+import { RefusHA, type EvenementEtat } from '../src/connexion';
 import { CLE_RECETTE } from '../src/recette-en-cours';
 import { ENTREE_MS, GARDE_MS, PALETTE_MS } from '../src/mouvement/grammaire';
 import { monterDemarrage, vider, type OptionsMontage } from './aides';
@@ -739,6 +739,73 @@ describe('vue recette (#recette)', () => {
     expect(m.racine.querySelector('[data-mvt="vue:recette"]')).not.toBeNull();
     expect(m.racine.textContent).toContain('Stock insuffisant.');
     expect(m.racine.querySelector('.recette-page')).not.toBeNull();
+  });
+
+  // MESURÉ le 2026-09-28 en production : la recette ouverte sous le repas 104, replanifié entre-temps
+  // en 106 (même recette), gardait 104 ; « Terminer » était refusé (« Repas 104 introuvable. ») à
+  // chaque appui et la tablette ne pouvait plus sortir du repas. Le repas n'est jamais RE-LIÉ au
+  // suivant par sa recette : le lendemain midi était ce même curry, et c'est lui qui aurait été
+  // validé à la place.
+  const REPAS_REPLANIFIE = { day: '2026-08-17', slot: 'dinner', recipe_id: 76, meal_id: 141,
+    missing_ingredients: 0 };
+
+  it('un repas retiré du plan se dit, et « Terminer » ferme alors la recette sans rien valider', async () => {
+    const m = await monterCuisine({ commandes: {
+      ...commandes(),
+      'home_stock/meal/validate': () => { throw new RefusHA('not_found', 'Repas 139 introuvable.'); },
+    } });
+    await ouvrir();
+    await m.pousser('sensor.home_stock_next_meal', 'Bol lentilles', REPAS_REPLANIFIE);
+    appuyer(m.racine, '.recette-terminer');
+    await vider();
+    appuyer(m.racine, '.recette-terminer');
+    await vider();
+    expect(m.racine.textContent).toContain("Ce repas n'est plus au plan.");
+    expect(m.racine.querySelector('.recette-page')).not.toBeNull();
+
+    appuyer(m.racine, '.recette-terminer');
+    await vider();
+    const validations = envoyees(m).filter((c) => c.type === 'home_stock/meal/validate');
+    expect(validations.map((c) => c.meal_id)).toEqual([139]);
+    expect(location.hash).toBe('');
+    expect(m.racine.querySelector('[data-mvt="vue:recette"]')).toBeNull();
+  });
+
+  it('un not_found sur le repas que le capteur annonce encore reste un refus affiché', async () => {
+    // Deux sujets : le même refus, mais le capteur annonce TOUJOURS le repas 139 — l'introuvable
+    // porte alors sur autre chose (une recette, un produit) et le repas reste à valider.
+    const m = await monterCuisine({ commandes: {
+      ...commandes(),
+      'home_stock/meal/validate': () => { throw new RefusHA('not_found', 'Recette 76 introuvable.'); },
+    } });
+    await ouvrir();
+    appuyer(m.racine, '.recette-terminer');
+    await vider();
+    appuyer(m.racine, '.recette-terminer');
+    await vider();
+    appuyer(m.racine, '.recette-terminer');
+    await vider();
+    expect(m.racine.textContent).toContain('Recette 76 introuvable.');
+    expect(m.racine.querySelector('[data-mvt="vue:recette"]')).not.toBeNull();
+  });
+
+  it('un autre refus, capteur passé à un autre repas, reste un refus affiché', async () => {
+    // Troisième sujet : le capteur a avancé, mais le refus ne dit pas « introuvable » — le repas
+    // 139 existe encore, il se valide toujours d'ici une fois le stock rétabli.
+    const m = await monterCuisine({ commandes: {
+      ...commandes(),
+      'home_stock/meal/validate': () => { throw new RefusHA('invalid_value', 'Stock insuffisant.'); },
+    } });
+    await ouvrir();
+    await m.pousser('sensor.home_stock_next_meal', 'Bol lentilles', REPAS_REPLANIFIE);
+    appuyer(m.racine, '.recette-terminer');
+    await vider();
+    appuyer(m.racine, '.recette-terminer');
+    await vider();
+    appuyer(m.racine, '.recette-terminer');
+    await vider();
+    expect(m.racine.textContent).toContain('Stock insuffisant.');
+    expect(m.racine.querySelector('[data-mvt="vue:recette"]')).not.toBeNull();
   });
 
   it("hors ligne, « Terminer » est refusé VISIBLEMENT et rien n'est mis en file", async () => {
