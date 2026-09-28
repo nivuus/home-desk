@@ -17,22 +17,23 @@ export function stepFor(unit: string, remaining: number): number {
 }
 
 /** A fraction of the remaining. "All" is the remaining itself, unrounded, so that taking
- *  everything always closes the batch exactly. */
+ *  everything always closes the batch exactly. A fraction may fall below one step (half of one
+ *  piece is 0.5): the shortcuts are exact, only the − / + selector moves by steps. A fraction too
+ *  small to write with two decimals is the remaining — never zero, which home-stock refuses. */
 export function fromFraction(f: Fraction, remaining: number): number {
   if (f === 'all') return remaining;
-  return round2(f === 'half' ? remaining / 2 : remaining / 4);
+  const part = round2(f === 'half' ? remaining / 2 : remaining / 4);
+  return part > 0 ? part : remaining;
 }
 
-/** Keeps `q` within [step, remaining]. The upper bound wins: when less than one step is left,
- *  the only possible quantity is the remaining. */
-export function clampQuantity(q: number, remaining: number, step: number): number {
-  return Math.min(Math.max(q, step), remaining);
-}
-
-/** One press on − (`dir = -1`) or + (`dir = 1`). */
+/** One press on − (`dir = -1`) or + (`dir = 1`). + stops at the remaining. − stops at one step
+ *  and never RAISES a quantity already below it (a shortcut can set one, see `fromFraction`):
+ *  with less than one step left, the remaining is the only choice. */
 export function increment(q: number, remaining: number, unit: string, dir: 1 | -1): number {
   const step = stepFor(unit, remaining);
-  return clampQuantity(round2(q + dir * step), remaining, step);
+  if (dir === 1) return Math.min(round2(q + step), remaining);
+  const next = round2(q - step);
+  return next >= step ? next : Math.min(q, step);
 }
 
 const NUMBER = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2, useGrouping: false });

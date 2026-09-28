@@ -2,7 +2,7 @@
 // a quantity reads on screen. home-stock's base units are 'g', 'ml' and 'piece'.
 import { describe, it, expect } from 'vitest';
 import {
-  stepFor, fromFraction, clampQuantity, increment, formatQuantity,
+  stepFor, fromFraction, increment, formatQuantity,
 } from '../src/pantry/quantity';
 
 describe('stepFor', () => {
@@ -32,22 +32,13 @@ describe('fromFraction', () => {
     expect(fromFraction('quarter', 3)).toBe(0.75);
   });
 
+  it('never yields zero: a fraction too small to write is the remaining', () => {
+    expect(fromFraction('quarter', 0.01)).toBe(0.01);
+  });
+
   it('never carries floating noise', () => {
     expect(fromFraction('quarter', 0.1 + 0.2)).toBe(0.08);
     expect(fromFraction('all', 0.1 + 0.2)).toBe(0.1 + 0.2);   // all is the exact remaining
-  });
-});
-
-describe('clampQuantity', () => {
-  it('keeps the quantity within [step, remaining]', () => {
-    expect(clampQuantity(0, 350, 50)).toBe(50);
-    expect(clampQuantity(400, 350, 50)).toBe(350);
-    expect(clampQuantity(175, 350, 50)).toBe(175);
-  });
-
-  it('with less left than one step, the only choice is the remaining', () => {
-    expect(clampQuantity(50, 30, 50)).toBe(30);
-    expect(clampQuantity(10, 30, 50)).toBe(30);
   });
 });
 
@@ -77,7 +68,18 @@ describe('increment', () => {
 
   it('counts pieces one by one, even from a fraction', () => {
     expect(increment(1.5, 3, 'piece', 1)).toBe(2.5);
-    expect(increment(0.75, 3, 'piece', -1)).toBe(1);
+    expect(increment(0.75, 3, 'piece', 1)).toBe(1.75);
+  });
+
+  it('never raises a quantity a shortcut set below one step', () => {
+    // Half of one piece is 0.5, below the one-piece step: − keeps it, never jumps to 1.
+    expect(increment(0.5, 1, 'piece', -1)).toBe(0.5);
+    expect(increment(7.5, 30, 'g', -1)).toBe(7.5);
+  });
+
+  it('caps + at the remaining', () => {
+    expect(increment(0.5, 1, 'piece', 1)).toBe(1);
+    expect(increment(390, 400, 'g', 1)).toBe(400);
   });
 });
 
