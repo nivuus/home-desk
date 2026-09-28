@@ -17,9 +17,12 @@ const DIST = join(RACINE, 'dist');
 // assembled from two halves so that THIS file, whose own comments must stay checked, does not
 // contain it verbatim (the check greps the raw file for it).
 const MARQUEUR_TEXTE_UI = ['policy:', 'allow-fr-file'].join(' ');
+// Same reason for the org's 500-line rule (`check-file-size.sh`): it is written for hand-written
+// source, and the bundle's length is the build's. It crossed 500 lines on 2026-09-28 (pantry view).
+const LENGTH_MARKER = ['policy:', 'allow-long-file'].join(' ');
 // terser keeps ONLY this exact banner: matching the bare marker would also keep any source comment
 // that happens to carry it (`rendu/repli.ts` does), and ship that prose inside the bundle.
-const BANNIERE = `${MARQUEUR_TEXTE_UI} -- generated bundle carrying French UI text`;
+const BANNIERE = `${MARQUEUR_TEXTE_UI} ${LENGTH_MARKER} -- generated bundle carrying French UI text`;
 
 export default {
   input: 'src/index.ts',

@@ -96,6 +96,18 @@ for rel in suivis("custom_components/home_desk"):
         if motif.search(texte):
             failures.append(f"{rel} porte une adresse IP du reseau local")
 
+# The bundle is generated, not a source file: the org policy (nivuus/.github)
+# would otherwise hold it to the French-text and 500-line rules of hand-written
+# code. Both exemptions are written by the build itself (app/rollup.config.js,
+# banner), on the bundle's first line, so a rebuild can never lose them.
+BUNDLE = REPO / "dist" / "wallpanel.js"
+if BUNDLE.exists():
+    premiere = BUNDLE.read_text(encoding="utf-8").splitlines()[0]
+    for marqueur in ("policy: allow-fr-file", "policy: allow-long-file"):
+        if marqueur not in premiere:
+            failures.append(f"dist/wallpanel.js does not open with {marqueur!r}: "
+                            "the org policy would check a generated bundle as code")
+
 # Le code SUIVI de l'application ne doit plus citer l'ancien emplacement.
 for rel in suivis("app"):
     chemin = REPO / rel

@@ -452,7 +452,7 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {   // poli
       // Garde-manger (spec 2026-09-28) takes the place of the "Courses" tile, at the same grid slot.
       // It opens the pantry view, where a batch is taken out of stock, fully or partly, eaten,
       // thrown away or expired; its `entite` is the list of batches to eat soon, read by that view.
-      // Shopping stays reachable from the Tasks view (`listesTachesExtra`).
+      // Shopping stays reachable from the Tasks view, as one of the room's extra task lists.
       { libelle: 'Garde-manger', icone: 'jar', entite: 'todo.home_stock_expirations',
         vue: '#garde-manger', absenceNommee: 'Garde-manger non installé' },
       // Tâche 8 bis : demande explicite du propriétaire, jamais rendue accessible jusqu'ici.
