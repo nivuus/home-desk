@@ -1,11 +1,20 @@
 /** Wiring of the animations pushed by Home Assistant (`home_desk.jouer_animation`): the
- *  subscription, the end timer, the first touch, and the start of the medium once rendered. The
- *  rules themselves (payload, duration, token) are pure, in `src/animation.ts`; the overlay is
- *  `rendu/animation.ts`, painted by `dessiner()` over every view (`boot/draw.ts`).
+ *  subscription, the end timer, the first touch, the overlay's host, and the start of the medium.
+ *  The rules themselves (payload, duration, token) are pure, in `src/animation.ts`; the overlay
+ *  template is `rendu/animation.ts`.
+ *
+ *  The overlay is NOT part of the view `dessiner()` paints. It lives in its own host, a child of
+ *  `#app` placed BEFORE the part `lit` manages there, and is rendered into that host by this
+ *  module alone — on start and on close, never on a redraw. A view change during playback (the
+ *  45 s automatic return, the 23:00/05:00 night boundary, the end of a night wake) replaces the
+ *  view's template; had the overlay been appended to it, `lit` would have rebuilt the `<video>`
+ *  from zero, with a `play()` nobody checks any more.
  *
  *  Every closer carries the token its animation was started under, and goes through
- *  `terminerAnimation`: a closer of a REPLACED animation (its timer, a late `ended`) is stale and
- *  does nothing, so it can never close the animation that replaced it. */
+ *  `terminerAnimation`: a closer of a REPLACED animation (a late `ended`, `error` or refused
+ *  `play()` of its element) is stale and does nothing, so it can never close the animation that
+ *  replaced it. */
+import { render } from 'lit';
 import {
   lireAnimation, dureeEffective, jouerAnimation, fermerAnimation, type Animation,
 } from '../animation';
@@ -17,15 +26,30 @@ import type { ScreenState } from './state';
  *  `rechargement.ts`): on the Python side it is computed (`const.WS_ANIMATIONS`). */
 const COMMANDE = 'home_desk/animations';
 
-/** Subscribes this screen to its animations and arms the first-touch cut. Called ONCE for the
- *  lifetime of the page (`startWithScreen`, under its `initialise` guard): `abonner` is replayed
- *  by `Connexion` on every reconnection, and a second touch listener would pile up. */
+/** Subscribes this screen to its animations, places the overlay's host and arms the first-touch
+ *  cut. Called ONCE for the lifetime of the page (`startWithScreen`, under its `initialise`
+ *  guard): `abonner` is replayed by `Connexion` on every reconnection, and a second host or touch
+ *  listener would pile up. */
 export function armerAnimations(cx: AbonnableEvenements, nomEcran: string, s: ScreenState): void {
-  // The first touch while an animation is on screen closes it and goes NO further: capture on
+  // `prepend`, not `appendChild`: `lit`'s `render()` into `#app` owns everything from its marker
+  // to the END of `#app`, and clears it all when the view's template changes (the motion engine
+  // re-appends its own layers after every painting for that reason, `mouvement/moteur.ts`). A
+  // node before the marker is outside that part: no painting of any view ever touches it.
+  // Still a descendant of `#app`, so the colour tokens (`.m3`) and the capture below reach it.
+  const hote = document.createElement('div');
+  hote.className = 'animation-hote';
+  s.racine.prepend(hote);
+  s.hoteAnimation = hote;
+
+  // The first touch while an animation is on screen closes it and reaches no control: capture on
   // `#app`, before any control underneath sees the `pointerdown` that starts its gesture
   // (`geste.ts` acts on `pointerup`, but only for a gesture its `pointerdown` opened). Every
   // control of this app acts on pointer events, none on `click`, so the click the browser
   // synthesizes from this same touch has nothing to actuate.
+  // One exception, harmless: the capture listeners registered EARLIER on the way down still run
+  // — `document` (re-arms the automatic return of a sub-view, `boot/wiring.ts`) and the one on
+  // `#app` itself (re-arms an already woken night screen): `stopPropagation` does not stop
+  // listeners of the same node. Both only re-arm a timer; neither actuates anything.
   s.racine.addEventListener('pointerdown', (ev) => {
     if (s.animation === null) return;
     ev.stopPropagation();
@@ -47,21 +71,25 @@ export function armerAnimations(cx: AbonnableEvenements, nomEcran: string, s: Sc
 }
 
 function lancer(s: ScreenState, a: Animation): void {
+  // Replacing: the previous animation's timer goes with it (same discipline as `armerRetour`,
+  // `boot/wiring.ts`) — its token would make it a no-op anyway, but nothing should keep running
+  // for an animation that is gone.
+  arreterMinuteur(s);
   const jeton = jouerAnimation(s, a);
   // ONE timer covers both the `duree` and the 120 s cap: `dureeEffective` is the smaller of the
   // two, so a video or a Lottie without `duree` that never ends still leaves the wall.
-  s.d.minuteurFn(() => terminerAnimation(s, jeton), dureeEffective(a));
-  s.dessiner();
+  s.minuteurAnimation = s.d.minuteurFn(() => terminerAnimation(s, jeton), dureeEffective(a));
+  peindreCalque(s);
   demarrerMedia(s, jeton);
 }
 
-/** Starts the medium that `dessiner()` has just put on screen. */
+/** Starts the medium that `peindreCalque` has just put on screen. */
 function demarrerMedia(s: ScreenState, jeton: number): void {
   const a = s.animation?.animation;
   if (!a) return;
   switch (a.type) {
     case 'video': {
-      const video = s.racine.querySelector<HTMLVideoElement>('.animation video');
+      const video = s.hoteAnimation.querySelector<HTMLVideoElement>('.animation video');
       if (!video) {
         echouer(s, jeton, 'the video element was not rendered', a.url);
         return;
@@ -83,23 +111,33 @@ function demarrerMedia(s: ScreenState, jeton: number): void {
   }
 }
 
+/** A failure of the animation started under `jeton`. Silent when that token is stale: a replaced
+ *  video's `play()` rejects with an `AbortError` once its element is removed, which is not a
+ *  failure of anything still on screen. */
 function echouer(s: ScreenState, jeton: number, message: string, detail: unknown): void {
+  if (s.animation?.jeton !== jeton) return;
   console.error(`home-desk: ${message}`, detail);
   terminerAnimation(s, jeton);
 }
 
-/** Closes the animation started under `jeton` and repaints — nothing when the token is stale. */
+/** Closes the animation started under `jeton` — nothing when the token is stale. */
 export function terminerAnimation(s: ScreenState, jeton: number): void {
-  if (fermerAnimation(s, jeton)) s.dessiner();
+  if (!fermerAnimation(s, jeton)) return;
+  arreterMinuteur(s);
+  peindreCalque(s);
 }
 
-/** The overlay `dessiner()` adds over the view it paints: empty when nothing is playing. */
-export function calqueAnimation(s: ScreenState) {
+function arreterMinuteur(s: ScreenState): void {
+  clearTimeout(s.minuteurAnimation);
+  s.minuteurAnimation = undefined;
+}
+
+/** Renders the overlay (or nothing) into its own host: never through `dessiner()`. */
+function peindreCalque(s: ScreenState): void {
   const enCours = s.animation;
-  if (enCours === null) return '';
-  return rendreAnimation(enCours, {
+  render(enCours === null ? '' : rendreAnimation(enCours, {
     fin: () => terminerAnimation(s, enCours.jeton),
     echec: () => echouer(s, enCours.jeton, 'the animation could not be loaded',
                          enCours.animation.url),
-  });
+  }), s.hoteAnimation);
 }

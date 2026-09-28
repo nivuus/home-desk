@@ -182,6 +182,11 @@ export class ScreenState {
    *  of a replaced animation carries a stale token and closes nothing (`fermerAnimation`). */
   animation: AnimationEnCours | null = null;
   jetonAnimation = 0;
+  /** The end timer of the animation on screen, cleared on close and on replacement. */
+  minuteurAnimation: ReturnType<typeof setTimeout> | undefined;
+  /** The overlay's own host in `#app`, placed by `armerAnimations` under the `initialise` guard
+   *  (same definite-assignment pattern as `cx`). */
+  hoteAnimation!: HTMLElement;
 
   /** Redraws the screen. An arrow property, not a method, so that it can be handed out as a
    *  callback (`etat.surMaj`, `d.intervalFn`, `armer`...) exactly like the hoisted `dessiner`

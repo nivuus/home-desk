@@ -2,6 +2,9 @@
    target of the touch — the first touch is caught in capture on `#app` (`boot/animation.ts`),
    so the layer itself lets pointers through. Plain black for the veil, not a palette token: it
    frames a film, whatever the time of day. */
+/* The host is a child of `#app`, a flex column: `display: contents` keeps it out of that layout
+   (no box, no gap) while its fixed overlay still paints over everything. */
+.animation-hote { display: contents; }
 .animation {
   position: fixed; inset: 0; z-index: 50; pointer-events: none;
   display: flex; align-items: center; justify-content: center;

@@ -21,6 +21,7 @@ beforeEach(() => {
   erreur = vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterEach(() => {
+  location.hash = '';
   play.mockRestore();
   erreur.mockRestore();
   restaurerReseau();
@@ -174,5 +175,75 @@ describe('animations pushed by Home Assistant', () => {
     } finally {
       window.history.pushState({}, '', avant);
     }
+  });
+
+  it('a view change during playback keeps the same video element', async () => {
+    const m = await monter();
+    await pousserAnimation(m, VIDEO);
+    const video = m.racine.querySelector('.animation video');
+    expect(video).not.toBeNull();
+
+    // The whole-house sub-view replaces the home view's template (the 45 s automatic return and
+    // the night boundary do the same the other way round).
+    location.hash = '#maison';
+    window.dispatchEvent(new Event('hashchange'));
+    await vider();
+    expect(m.racine.querySelector('.commande'), 'the view did not change').toBeNull();
+
+    expect(m.racine.querySelector('.animation video')).toBe(video);
+    expect(m.racine.contains(video)).toBe(true);
+    expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  it('closing or replacing an animation clears its timer', async () => {
+    const m = await monter();
+    let id = 0;
+    m.minuteurFn.mockImplementation(() => ++id + 1000);
+    const efface = vi.spyOn(globalThis, 'clearTimeout');
+    try {
+      await pousserAnimation(m, IMAGE);
+      const premier = id + 1000;
+      await pousserAnimation(m, VIDEO);
+      const second = id + 1000;
+      expect(efface).toHaveBeenCalledWith(premier);
+      expect(efface).not.toHaveBeenCalledWith(second);
+
+      taper(m);
+      expect(efface).toHaveBeenCalledWith(second);
+    } finally {
+      efface.mockRestore();
+    }
+  });
+
+  it('a late ended or error of a replaced video does not close its successor', async () => {
+    const m = await monter();
+    await pousserAnimation(m, VIDEO);
+    const a = m.racine.querySelector('.animation video')!;
+    await pousserAnimation(m, { ...VIDEO, url: '/media/local/animations/voyage.webm' });
+    const b = m.racine.querySelector('.animation video');
+    expect(b).not.toBe(a);
+
+    a.dispatchEvent(new Event('ended'));
+    a.dispatchEvent(new Event('error'));
+    await vider();
+
+    expect(m.racine.querySelector('.animation video')).toBe(b);
+    expect(erreur).not.toHaveBeenCalled();
+  });
+
+  it('a replaced video whose play() rejects afterwards neither closes nor blames its successor', async () => {
+    let rejeter!: (e: unknown) => void;
+    play.mockReturnValueOnce(new Promise<void>((_, r) => { rejeter = r; }));
+    const m = await monter();
+    await pousserAnimation(m, VIDEO);
+    await pousserAnimation(m, { ...VIDEO, url: '/media/local/animations/voyage.webm' });
+    const b = m.racine.querySelector('.animation video');
+
+    // What a browser does to the replaced element's pending play(): AbortError.
+    rejeter(new DOMException('removed', 'AbortError'));
+    await vider();
+
+    expect(m.racine.querySelector('.animation video')).toBe(b);
+    expect(erreur).not.toHaveBeenCalled();
   });
 });

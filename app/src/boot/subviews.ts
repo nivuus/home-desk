@@ -13,12 +13,12 @@ import type { ScreenState } from './state';
 
 /** Paints the sub-view designated by the hash, if any, and says whether it did — `false` hands
  *  over to the home view. */
-export function paintSubView(s: ScreenState, f: Frame, survol: () => unknown): boolean {
+export function paintSubView(s: ScreenState, f: Frame): boolean {
   // Task 9, correction round 1: the whole-house view receives `horsLigne` too (a signal, see
   // `rendu/maison.ts`); refusing the actions themselves is independent of this render, set once
   // only in `createPress` (`estHorsLigne`, `boot/wiring.ts`).
   if (location.hash === '#maison') {
-    s.moteur.peindre(html`${rendreMaison(s.etat, s.piece, s.horsLigne)}${survol()}`);
+    s.moteur.peindre(html`${rendreMaison(s.etat, s.piece, s.horsLigne)}`);
     return true;
   }
   // Task 18: tasks view — `aplatirTaches`/`repartirTaches` (`cochage.ts`) turn the raw cache
@@ -28,7 +28,7 @@ export function paintSubView(s: ScreenState, f: Frame, survol: () => unknown): b
   if (location.hash === '#taches') {
     const plates = aplatirTaches(s.taches, s.roomLists, s.cochage.estMasquee);
     const { visibles, reste } = repartirTaches(plates);
-    s.moteur.peindre(html`${rendreTaches(visibles, reste, s.cochage.estArmee, s.horsLigne)}${survol()}`);
+    s.moteur.peindre(html`${rendreTaches(visibles, reste, s.cochage.estArmee, s.horsLigne)}`);
     return true;
   }
   // Task 10 bis: third full-screen sub-view, exactly on the same level as the two above.
@@ -37,7 +37,7 @@ export function paintSubView(s: ScreenState, f: Frame, survol: () => unknown): b
   // `brancherMinuteurs` (`boot/controls.ts`).
   if (location.hash === '#minuteur') {
     s.moteur.peindre(html`${rendreReglageMinuteur(s.dureeMinuteur, s.etiquetteMinuteur,
-                                          s.piece.etiquettesMinuteur ?? [])}${survol()}`);
+                                          s.piece.etiquettesMinuteur ?? [])}`);
     return true;
   }
   // "Recipe" batch (2026-08-17): fourth and last sub-view, on the same level as the three above.
@@ -72,7 +72,7 @@ export function paintSubView(s: ScreenState, f: Frame, survol: () => unknown): b
       armee: (cle: string) => s.armementRepas.estArmee(cle),
       ...(s.messageRecette ? { message: s.messageRecette } : {}),
     };
-    s.moteur.peindre(html`${rendreVueRecette(vueRecette)}${survol()}`);
+    s.moteur.peindre(html`${rendreVueRecette(vueRecette)}`);
     // Sub-splitting: measured on the painted DOM, never estimated. `reScinder` returns `null` when
     // the page fits — otherwise every painting would trigger another. ALWAYS starts again from the
     // SOURCE (see its docstring): the recomposed pages still carry their timer tags, alive on the
@@ -93,7 +93,7 @@ export function paintSubView(s: ScreenState, f: Frame, survol: () => unknown): b
     s.moteur.peindre(html`${renderPantry({
       state: s.pantry, horsLigne: s.horsLigne, today: localDay(s.d.maintenant()),
       armed: (reason) => s.armementStock.estArmee(reason),
-    })}${survol()}`);
+    })}`);
     return true;
   }
   return false;
