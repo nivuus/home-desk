@@ -17,7 +17,7 @@ import { CAPTEUR_REPAS } from '../garde-manger';
 import { SEUIL_MUET_MS, PAS_PROGRESSION_MS, RETOUR_MS, RETOUR_RECETTE_MS } from './constants';
 import { chargerTaches } from './loaders';
 import { ouvrirRecette, restaurerRecette, memoriserRecette } from './recipe';
-import { tictacProgression, tictacMinuteurs, reveiller, couperDelorean } from './timers';
+import { tictacProgression, tictacMinuteurs, reveiller } from './timers';
 import { brancherMinuteurs, brancherClim, brancherVueRecette, wirePantryView, type Agir } from './controls';
 import { enterPantry } from './pantry';
 import { poserPointsInjection } from './test-hooks';
@@ -177,10 +177,6 @@ export function wireScreen(s: ScreenState, jetons: Jetons): void {
   // tells a first wake from a mere re-arming (see its docstring): this call therefore does NOT
   // redraw on every touch, only on the very first.
   s.racine.addEventListener('pointerdown', () => { if (s.reveilNuit) reveiller(s); }, true);
-
-  // Same pattern, same element, same capture: the first touch cuts the DeLorean scene. Set here,
-  // once only, never in `dessiner()` (which would pile one up per repaint).
-  s.racine.addEventListener('pointerdown', () => couperDelorean(s), true);
 
   poserPointsInjection(s);
 }

@@ -74,7 +74,7 @@ describe('les neuf écrans de repli — chacun NOMME UN GESTE', () => {
 describe('choisirEcran — la première dégradation', () => {
   it('rend un lien tapable par écran, portant le NOM exact', () => {
     // `?ecran=` porte le `nom` (« Salon »), jamais la clé de `ECRANS` (« salon ») : le
-    // transport apparie exactement (`websocket.py`, `_trouver`).
+    // transport apparie exactement (`websocket.py`, `trouver_ecran`).
     const hote = document.createElement('div');
     render(choisirEcran([{ nom: 'Salon', titre: 'Salon' },
                          { nom: 'Salle de bain', titre: 'SdB' }]), hote);

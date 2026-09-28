@@ -89,7 +89,7 @@ export const AGENCEMENT_DEFAUT: Agencement = {
   zones: ['ambiances', 'commandes', 'blocCentral', 'synthese'],
   modes: ['alerte', 'recette', 'minuteur', 'menage', 'cinema', 'media', 'aeration',
           'voiture', 'defaut'],
-  modulateurs: ['invites', 'chaleur', 'delorean'],
+  modulateurs: ['invites', 'chaleur'],
 };
 
 /** L'agencement d'un écran, COMPLÉTÉ. Une SEULE façon d'y accéder : aucun appelant ne doit

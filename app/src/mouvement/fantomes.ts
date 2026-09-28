@@ -10,7 +10,7 @@ export type Calque = {
   vide: () => boolean;
 };
 
-/** Le calque vit SOUS le survol DeLorean et ne reçoit aucun contact : un clone n'est pas un
+/** Le calque ne reçoit aucun contact : un clone n'est pas un
  *  bouton. `position: absolute` sur chaque fantôme — la mise en page réelle, elle, s'est déjà
  *  refermée, et c'est ce qui garantit que la hauteur du cadre 343 × 585 ne bouge jamais. */
 export function creerCalque(hote: HTMLElement): Calque {

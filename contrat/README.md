@@ -16,11 +16,14 @@ ci-dessous n'en nomme que trois — `budget.json`, `icones.json`,
 **Rien de cette maison n'entre ici.** Pas d'`entity_id`, pas de nom de pièce :
 ces fichiers partent chez toutes les maisons.
 
-**`version`** est porté par `ecran.schema.json` (`"version": {"const": 1}`),
+**`version`** est porté par `ecran.schema.json` (`"version": {"const": 2}`
+depuis le 2026-09-28 — la version 2 retire les scènes d'animation codées en dur ;
+`custom_components/home_desk/migration.py` réécrit au chargement les écrans
+enregistrés en version 1),
 dans l'intention qu'une configuration d'une `version` inconnue soit
 refusée net, jamais rendue à moitié. **Le schéma tient déjà LA MOITIÉ de
 cette garantie, mesuré à ajv** : une `version` PRÉSENTE mais différente
-de `1` (`{version: 2}`, par exemple) est bien refusée par `const` — ce que
+de `2` (`{version: 3}`, par exemple) est bien refusée par `const` — ce que
 le schéma NE PEUT PAS faire, puisque `version` reste `Optional` (jamais
 `required`) dans `ecran.schema.json`, c'est refuser une `version` ABSENTE
 : un écran qui ne la porte pas du tout passe le schéma sans un mot.

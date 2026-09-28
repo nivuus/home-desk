@@ -39,8 +39,7 @@
     "modulateur": {
       "options": {
         "invites": "Invités",
-        "chaleur": "Chaleur",
-        "delorean": "DeLorean"
+        "chaleur": "Chaleur"
       }
     }
   },
@@ -63,8 +62,7 @@
             "hauteurUtile": "Hauteur utile (px)",
             "temperature": "Capteur de température",
             "note": "Note",
-            "aspirateur": "Aspirateur",
-            "delorean": "DeLorean"
+            "aspirateur": "Aspirateur"
           }
         },
         "reconfigure": {
@@ -94,8 +92,7 @@
             "hauteurUtile": "Hauteur utile (px)",
             "temperature": "Capteur de température",
             "note": "Note",
-            "aspirateur": "Aspirateur",
-            "delorean": "DeLorean"
+            "aspirateur": "Aspirateur"
           }
         },
         "commandes": {

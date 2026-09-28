@@ -71,7 +71,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-from . import animations, services, websocket
+from . import animations, migration, services, websocket
 from .const import DOMAIN, EVENEMENT_CHANGEMENT
 from .page import async_register_page
 
@@ -91,7 +91,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Registers the transport (the two websocket commands, the two
     export/import services -- task 9) and the listener that fires
-    `EVENEMENT_CHANGEMENT` on every write of a subentry."""
+    `EVENEMENT_CHANGEMENT` on every write of a subentry.
+
+    The shape migration runs FIRST (`migration.py`): the transport refuses
+    any version other than `VERSION_CONFIG`, and the snapshot below must
+    be taken on the migrated data -- taken before, the first unrelated
+    write would fire a change event for every migrated screen."""
+    migration.migrer_sous_entrees(hass, entry)
     websocket_api.async_register_command(hass, websocket.ws_ecran)
     websocket_api.async_register_command(hass, websocket.ws_ecrans)
     websocket_api.async_register_command(hass, websocket.ws_abonner)

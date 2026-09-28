@@ -28,10 +28,10 @@ import ts from 'typescript';
 const RACINE = path.resolve(import.meta.dirname, '..');
 const CHEMIN_VERDICTS = path.join(RACINE, 'outils', 'verdicts-commentaires.tsv');
 const CHEMIN_SCHEMA = path.resolve(RACINE, '..', 'contrat', 'ecran.schema.json');
-// Recopie manuelle de `VERSION_CONFIG` dans `custom_components/home_desk/const.py:30`. Outil
+// Recopie manuelle de `VERSION_CONFIG` dans `custom_components/home_desk/const.py:32`. Outil
 // jetable : pas de lecture croisée pour une seule constante, mais le nom du fichier et de la
 // constante ici rendent la dérive trouvable par `grep VERSION_CONFIG`.
-const VERSION_CONFIG = 1;
+const VERSION_CONFIG = 2;
 
 /** Compile `src/ecran.ts` dans un fichier temporaire et l'importe. On passe par le disque plutôt
  *  que par un `data:` URL pour que les imports relatifs du module résolvent normalement. */

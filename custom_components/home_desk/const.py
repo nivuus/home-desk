@@ -26,7 +26,10 @@ DOMAIN = "home_desk"
 # The application flatly refuses a config whose version it does not know
 # (fourth degradation, spec decision 10): this is the number it compares.
 # It only increases if the shape stops being readable by the previous version.
-VERSION_CONFIG = 1
+# Version 2 (2026-09-28) removes the hardcoded animation scenes, replaced by
+# `home_desk.jouer_animation`; `migration.py` rewrites the version-1
+# subentries at load time and says what changed.
+VERSION_CONFIG = 2
 
 # The subentry type. One "Tablettes murales" entry, N "ecran" subentries
 # — adding a fourth tablet is the same operation as for the first three.

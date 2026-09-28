@@ -97,7 +97,7 @@ class _FauteAlertePremiere(_FauteConst):
     TYPE (`isinstance`, not by mot_cle -- two identical mot_cle cannot
     carry two different messages in `list_sections._ERROR_BY_KEYWORD`, a
     flat dict) this PRECISE refusal apart from any other `const` refusal
-    elsewhere (`version`, `delorean`...) and give it its own message,
+    elsewhere (`version`...) and give it its own message,
     which NAMES the action (see objets.py) -- the final branch review
     measured that a message which merely NAMES the rule, without the
     action, is insufficient as soon as the field is a list of checkboxes

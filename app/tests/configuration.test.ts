@@ -9,14 +9,14 @@ function transport(reponse: (p: Record<string, unknown>) => unknown) {
 
 describe('chargerEcran — la commande envoyée', () => {
   it('envoie home_desk/ecran avec le nom, et rien d autre', async () => {
-    const cx = transport(() => ({ nom: 'cuisine', version: 1 }));
+    const cx = transport(() => ({ nom: 'cuisine', version: 2 }));
     await chargerEcran(cx, 'cuisine');
     expect(cx.envoyerCommande).toHaveBeenCalledTimes(1);
     expect(cx.envoyerCommande).toHaveBeenCalledWith({ type: 'home_desk/ecran', nom: 'cuisine' });
   });
 
   it('rend l écran tel que HA l a résolu et validé', async () => {
-    const ecran = { nom: 'cuisine', version: 1, hauteurUtile: 585 };
+    const ecran = { nom: 'cuisine', version: 2, hauteurUtile: 585 };
     const cx = transport(() => ecran);
     expect(await chargerEcran(cx, 'cuisine')).toEqual({ ok: true, value: ecran });
   });

@@ -14,7 +14,8 @@
 - **`dist/` est versionné.** Le contrat livre par `git archive HEAD` ; un build
   à l'installation aurait exigé `apt: [nodejs, npm]` et 115 Mo de
   `node_modules` sur la cible. `dist/` contient aussi ses `assets/`, dupliqués
-  depuis `app/assets/` — 411 Ko payés une fois pour que le dépôt se fasse en
+  depuis `app/assets/` — 11 Ko payés une fois (411 Ko avant le retrait des
+  scènes DeLorean, 2026-09-28) pour que le dépôt se fasse en
   **un seul `replace_tree()` atomique**. `www/wallpanel/` est relu par trois
   clients qui rechargent tout seuls : deux gestes de dépôt y ouvriraient une
   fenêtre.
@@ -158,7 +159,10 @@ suivantes par une convention de dépôt, sans filet automatique :
   test_garde_ecran_est_le_seul_module_a_appeler_une_porte_d_ecriture`,
   table `_PORTES_ECRITURE`). `garde_ecran.persister_si_valide` (mise à
   jour d'une sous-entrée) et `garde_ecran.importer_ecrans` (tâche 9,
-  création en masse) sont les deux seuls appelants légitimes. Relevé en
+  création en masse) sont les deux seuls appelants légitimes — rejoints
+  le 2026-09-28 par `garde_ecran.migrer_sous_entree`, la réécriture au
+  chargement des écrans de version 1 (`migration.py` calcule la donnée,
+  `garde_ecran.py` l'écrit). Relevé en
   relecture finale de branche (deuxième ronde) : cette section (première
   ronde) omettait purement et simplement `async_remove_subentry` de son
   compte (« Six » portes listées, aucune n'étant celle-ci) — un appel

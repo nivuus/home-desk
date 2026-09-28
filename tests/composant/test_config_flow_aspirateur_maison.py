@@ -2,7 +2,7 @@
 
 Le dernier des quatre champs racine du contrat a recevoir une porte de
 saisie (plan 3c, tache 1) ; les trois autres -- `aspirateur`,
-`listesTachesExtra`, `delorean` -- ont ete ouverts par la tache 7 du plan 3b.
+`listesTachesExtra`, `delorean` (retire depuis, version 2) -- ont ete ouverts par la tache 7 du plan 3b.
 Meme forme que `voiture` (objets.py) : un objet entier rejoue a chaque
 soumission, et une case pour le RETIRER plutot que de laisser des champs
 vides."""

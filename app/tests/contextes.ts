@@ -22,7 +22,6 @@ export const CALME: ContexteModes = {
   temperatureExterieure: 18,
   soleilLeve: true,
   modeInvites: false,
-  instantDelorean: false,
   minuteurEnCours: false,
   recetteEnCours: false,
   blocDefaut: undefined,

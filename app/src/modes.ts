@@ -20,7 +20,7 @@ export { BUDGET };
 
 export type ModePrincipal =
   'alerte' | 'recette' | 'minuteur' | 'menage' | 'cinema' | 'media' | 'aeration' | 'voiture' | 'defaut';
-export type Modulateur = 'invites' | 'chaleur' | 'delorean';
+export type Modulateur = 'invites' | 'chaleur';
 
 export type ContexteModes = {
   alerte: boolean;
@@ -35,7 +35,6 @@ export type ContexteModes = {
   temperatureExterieure: number;
   soleilLeve: boolean;
   modeInvites: boolean;
-  instantDelorean: boolean;
   /** Au moins un minuteur de la pièce est en marche ou en pause. */
   minuteurEnCours: boolean;
   /** Une recette est ouverte et réduite (vue `#recette` quittée sans « Terminer »). Prime sur tout
@@ -147,7 +146,6 @@ export function modePrincipal(c: ContexteModes): ModePrincipal {
 export const CONDITIONS_MODULATEURS: Record<Modulateur, (c: ContexteModes) => boolean> = {
   invites: (c) => c.modeInvites,
   chaleur: (c) => chaleurActive(c),
-  delorean: (c) => c.instantDelorean,
 };
 
 /** Les modulateurs actifs. Cumulatifs : ils ne prennent le bloc de personne. L'ordre de la liste

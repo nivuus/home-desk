@@ -87,7 +87,7 @@ SCHEMA_AGENCEMENT = vol.Schema(
         # carry a `translation_key` — same mechanics as "geste"
         # (`list_common._selecteur_geste`). Before that round, none had
         # one: the user read the RAW contract identifiers ("blocCentral",
-        # "aeration", "delorean", "extrasMaison" via zones/modes/
+        # "aeration", "extrasMaison" via zones/modes/
         # modulateurs), never a label.
         vol.Optional("blocDefaut"): selector.SelectSelector(
             selector.SelectSelectorConfig(

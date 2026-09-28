@@ -70,7 +70,7 @@ beforeEach(() => { hote = document.createElement('div'); document.body.appendChi
 const CTX_CALME: ContexteModes = {
   alerte: false, aspirateurEnMarche: false, ecranAllume: false, sourceJoue: false,
   ouvrantOuvertDepuisMs: 0, chauffageEnMarche: false, ilPleut: false, serrureDeverrouillee: false,
-  temperatureExterieure: 18, soleilLeve: true, modeInvites: false, instantDelorean: false,
+  temperatureExterieure: 18, soleilLeve: true, modeInvites: false,
   // Tâche 7 alimentera ce champ pour de bon (branchement de `listerMinuteurs`) ; ici, contexte
   // neutre, donc au repos.
   minuteurEnCours: false,

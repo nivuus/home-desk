@@ -82,7 +82,7 @@ HAUTEUR_MAX = SCHEMA_JSON["properties"]["hauteurUtile"]["maximum"]
 # coupled `_const(1)` to `const.VERSION_CONFIG` (import), but its comment
 # wrongly claimed that `version` would be "specific to home_desk, not to the
 # contract shared with ajv": FALSE, measured --
-# `contrat/ecran.schema.json:10` carries `"version": {"const": 1}`, the SAME
+# `contrat/ecran.schema.json:10` carries `"version": {"const": N}`, the SAME
 # file that `SCHEMA_JSON` reads on line 57 and that ajv consumes too. What
 # is specific to home_desk is only the ABSENCE of cases on `version` in
 # `contrat/cas-schema.json` (count: 0) -- the measure of a coverage gap in
@@ -301,7 +301,6 @@ _ECRAN_STRUCTURE = vol.Schema(
         vol.Optional("minuteurs"): [MINUTEUR_SLOT],
         vol.Optional("etiquettesMinuteur"): [_string()],
         vol.Optional("voiture"): VOITURE,
-        vol.Optional("delorean"): _const(True),
         vol.Optional("agencement"): AGENCEMENT,
     },
     extra=vol.PREVENT_EXTRA,

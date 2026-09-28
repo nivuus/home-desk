@@ -17,7 +17,6 @@ import type { NextMeal } from '../garde-manger';
 import type { LigneIngredient } from '../rendu/recette';
 import type { Prevision } from '../meteo';
 import type { Evenement } from '../agenda';
-import type { VarianteDelorean } from '../rendu/delorean';
 import type { createTaskCheck, createArming } from '../cochage';
 import type { ConnexionLike, DependancesDemarrage } from './types';
 import { newPantryState, type PantryState } from './pantry';
@@ -137,15 +136,6 @@ export class ScreenState {
   // Task 14: also the source of the next appointment of the office (`rendreProchainRdv`,
   // `rendu/defaut.ts`) — the same data as the badge, never a second request.
   evenements: Evenement[] = [];
-
-  // DeLorean wink (task 11): rendered when the instant begins, removed six seconds later. `arme`
-  // prevents arming two timers for the same instant — `dessiner()` is called back by the clock,
-  // by every entity change and by the weather, and `estInstantDelorean` stays true for the whole
-  // minute. It drops back to `false` as soon as the instant has passed, so that the next one
-  // (22:04, 01:21, 21 October, 5 November) can be armed again.
-  sceneDelorean: VarianteDelorean | null = null;
-  deloreanArme = false;
-  vitesseAffichee = 0;
 
   // Task 9: switched on transition only (not on every `surSilence` callback, every 5 s) —
   // `dessiner()` only needs to be called back when the displayed value must actually change,

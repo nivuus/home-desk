@@ -23,7 +23,7 @@ import sys
 REPO = pathlib.Path(__file__).resolve().parents[1]
 
 # Les cinq artefacts que le hook depose. assets/ est duplique depuis
-# app/assets/ par le build : c'est 411 Ko payes une fois (git stocke par
+# app/assets/ par le build : c'est 11 Ko payes une fois (git stocke par
 # contenu) pour que dist/ soit COMPLET, donc deposable par un seul
 # replace_tree() atomique — le repertoire est relu par trois clients qui
 # rechargent tout seuls.
@@ -57,7 +57,7 @@ for attendu in ATTENDUS:
 
 if not any(f.startswith("dist/assets/") for f in fichiers):
     failures.append("dist/assets/ n'est suivi par aucun fichier ; "
-                    "les polices DSEG et les deux videos manqueraient")
+                    "les polices DSEG manqueraient")
 
 # Les binaires ne se relisent pas en texte : on ne scanne que le texte.
 for rel in fichiers:

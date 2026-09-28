@@ -962,8 +962,8 @@ async function bundlerApplication() {
     entryPoints: [join(SRC_APP, 'index.ts')],
     bundle: true, write: false, format: 'iife', target: 'es2020',
     outdir: '/verificateur-rendu-en-memoire',
-    // Les médias et polices de la scène DeLorean sont référencés par URL absolue servie par Home
-    // Assistant (`/local/wallpanel/assets/…`), jamais importés : sans cette exclusion, esbuild
+    // Les polices DSEG (`@font-face` de `base.css`) sont référencées par URL absolue servie par Home
+    // Assistant (`/local/wallpanel/assets/…`), jamais importées : sans cette exclusion, esbuild
     // essaie de les résoudre depuis le disque et échoue. Le vrai build les copie à part
     // (`scripts/copier-assets.mjs`) ; ici, `poserInterceptions` répond à leur place.
     external: ['/local/*'],
@@ -1380,8 +1380,7 @@ export function analyserRendu(params) {
  *  suivi du croisement d'affiche (0,32 s, plafonné à 0,8 s d'attente de décodage) — le balayage
  *  (0,38 s) cité ici a été retiré tâche 3 du chantier grammaire (2026-08-22), sans que rien ne
  *  raccourcisse cette limite : elle restait déjà large avant lui. 1,5 s reste donc large pour
- *  tout, et le survol DeLorean (6 s) reste la seule animation capable d'atteindre cette limite —
- *  à 22 h 04 et 01 h 21 seulement. */
+ *  tout. */
 const LIMITE_ANIMATIONS_MS = 1_500;
 
 async function attendreAnimationsFinies(page, limiteMs = LIMITE_ANIMATIONS_MS) {
@@ -1422,20 +1421,15 @@ async function attendreAnimationsFinies(page, limiteMs = LIMITE_ANIMATIONS_MS) {
  *   - `#mvt-fantomes`/`#mvt-fond` : les CALQUES DE CLONES du moteur de mouvement lui-même
  *     (`mouvement/moteur.ts`). Leurs enfants sont des doublons temporaires d'éléments déjà marqués
  *     ailleurs dans `#app` — les compter créerait un doublon de faute, jamais un vrai trou.
- *   - `.delorean` : le survol cinématique plein écran (22 h 04, 01 h 21, le 21 octobre et le
- *     5 novembre) — PAS une tuile/un bloc/une vue, un survol PAR-DESSUS TOUT le reste de l'écran,
- *     DÉLIBÉRÉMENT hors de la grammaire `data-mvt`, avec ses propres animations CSS. C'est la
- *     déclaration de `survol` elle-même qui le dit (`src/demarrage.ts:1543-1548`, tâche 8 de ce
- *     même chantier), jamais une supposition faite ici.
  *   - `video`, `img` : aucun de ces deux tags n'est un rôle de la grammaire `data-mvt`
  *     (vue/bloc/tuile/ligne/chiffre/detail, cf. `src/mouvement/marques.ts`) — ce sont des éléments
  *     MÉDIA terminaux, jamais un nœud que `lit` réconcilie lui-même. L'exclusion porte sur le
  *     conteneur ENTIER (le tag lui-même, donc toute sa descendance avec : `el.matches(s)` coupe la
  *     récursion avant même le test sur les classes) — pas seulement sur un contenu interne
- *     hypothétique. Dans ce projet, les seuls `<video>`/`<img>` à classe vivent aujourd'hui sous
- *     `.delorean` (`rendu/delorean.ts`), déjà exclu ci-dessus : cette entrée reste une garde
- *     défensive pour un futur média posé ailleurs, pas la couverture d'un cas réel actuel. */
-const EXCLUS_MOUVEMENT = ['#mvt-fantomes', '#mvt-fond', '.delorean', 'video', 'img'];
+ *     hypothétique. Aucun `<video>`/`<img>` à classe n'existe aujourd'hui dans ce projet (les seuls
+ *     vivaient dans les scènes codées en dur, retirées le 2026-09-28) : cette entrée reste une
+ *     garde défensive pour un futur média, pas la couverture d'un cas réel actuel. */
+const EXCLUS_MOUVEMENT = ['#mvt-fantomes', '#mvt-fond', 'video', 'img'];
 
 /** Relève, sous `#app`, la liste des éléments porteurs de classes — chacun avec sa SIGNATURE (le
  *  chemin d'indices depuis `#app` plus ses classes triées, REPRIS séparément dans `chemin` pour

@@ -301,3 +301,18 @@ def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]]) -> No
         )
         new_subentries[subentry.subentry_id] = subentry
     hass.config_entries._async_update_entry(entry, subentries=new_subentries)
+
+
+def migrer_sous_entree(hass: Any, entry: Any, subentry: Any, data: dict) -> None:
+    """The THIRD legitimate write site of this module: the load-time shape
+    migration (`migration.py`, which computes DATA and may not call a write
+    gate itself).
+
+    Deliberately NOT gated by `schema.valider`, unlike the two sites above:
+    a migration lifts a screen to the current SHAPE, it does not judge it.
+    A version-1 screen that was already invalid for another reason stays
+    invalid, and at version 2 the transport names that precisely
+    (`ecran_corrompu`) -- refusing to migrate it would leave it at version
+    1, where the tablet would be told to update an integration that is
+    already current (`version_inconnue`), the wrong gesture."""
+    hass.config_entries.async_update_subentry(entry, subentry, data=data)

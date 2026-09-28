@@ -43,7 +43,7 @@ describe('niveau 1 — la donnée', () => {
     // par construction — ce qu'il faut prouver, c'est que **rien d'AUTRE qu'une `note`** n'a
     // bougé. `sansNotes` retire récursivement toute clé `note` des deux côtés ; les notes
     // elles-mêmes sont gardées par `migration-notes.test.ts`, qui les compte contre le registre.
-    expect(sansNotes(exporte)).toEqual(sansNotes({ titre: ecran.nom, version: 1, ...ecran }));
+    expect(sansNotes(exporte)).toEqual(sansNotes({ titre: ecran.nom, version: 2, ...ecran }));
   });
 
   it('porte 54 entity_id distincts en 113 occurrences', () => {

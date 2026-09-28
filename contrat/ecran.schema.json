@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://nivuus.dev/contrat/ecran/1",
+  "$id": "https://nivuus.dev/contrat/ecran/2",
   "title": "Un ecran mural",
   "type": "object",
   "required": ["nom", "temperature", "ambiances", "commandes", "synthese",
                "extrasMaison", "sources", "ouvrants"],
   "additionalProperties": false,
   "properties": {
-    "version": { "const": 1 },
+    "version": { "const": 2 },
     "nom": { "type": "string", "minLength": 1 },
     "note": { "type": "string" },
     "hauteurUtile": { "type": "integer", "minimum": 320, "maximum": 4000 },
@@ -51,7 +51,6 @@
         "note": { "type": "string" }
       }
     },
-    "delorean": { "const": true },
     "agencement": { "$ref": "#/$defs/agencement" }
   },
   "allOf": [
@@ -243,7 +242,7 @@
         "modulateurs": {
           "type": "array",
           "uniqueItems": true,
-          "items": { "enum": ["invites", "chaleur", "delorean"] }
+          "items": { "enum": ["invites", "chaleur"] }
         },
         "note": { "type": "string" }
       }

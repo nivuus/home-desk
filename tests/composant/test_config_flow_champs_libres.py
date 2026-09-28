@@ -1,5 +1,5 @@
 """Tache 7 : les trois champs racine qui gagnent une porte de saisie
-(`aspirateur`, `delorean`, et `listesTachesExtra` -- couvert generiquement
+(`aspirateur`, `delorean` -- retire en version 2 --, et `listesTachesExtra` -- couvert generiquement
 par les tests parametres sur `SECTIONS`, `test_config_flow_listes.py`), et
 l'avertissement d'entite inconnue (decision 7).
 
@@ -14,55 +14,26 @@ from custom_components.home_desk.const import SUBENTRY_SCREEN
 
 
 # ---------------------------------------------------------------------------
-# `delorean` -- ruling 15 (BLOQUANT) : decochee, la cle doit etre RETIREE,
-# jamais ecrite a `False` (`const: true` au contrat la refuse). Decor a DEUX
-# etats (lecon 3) : une implementation qui retirerait TOUJOURS la cle -- ou
-# JAMAIS -- passerait avec un seul etat.
+# `delorean` -- removed in version 2 (spec 2026-09-28): the hardcoded scenes
+# gave way to animations launched from Home Assistant. The identity form no
+# longer offers the checkbox, at creation AND at reconfiguration (the two
+# entries share SCHEMA_IDENTITE, but a test on one would not see the other
+# gain its own field).
 # ---------------------------------------------------------------------------
 
 
-async def test_delorean_cochee_est_persistee_a_true_a_la_creation(hass, entree):
+async def test_le_formulaire_d_identite_n_offre_plus_delorean(hass, entree):
     flow = await hass.config_entries.subentries.async_init(
         (entree.entry_id, SUBENTRY_SCREEN),
         context={"source": config_entries.SOURCE_USER})
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {**IDENTITE_MINIMALE, "delorean": True})
-    assert resultat["type"] is data_entry_flow.FlowResultType.CREATE_ENTRY
-    assert resultat["data"]["delorean"] is True
+    assert "delorean" not in {str(cle) for cle in flow["data_schema"].schema}
 
-
-async def test_delorean_decochee_n_est_pas_persistee_et_l_ecran_s_enregistre(hass, entree):
-    """C'est la moitie qui tombait avant ce correctif : sans le filtre de
-    `_valider_identite`, `delorean: False` etait ecrit alors que le contrat
-    la porte `const: true` (`False` y est REFUSE) -- l'ecran ne pouvait plus
-    s'enregistrer des qu'on ouvrait ce formulaire sans cocher la case."""
-    flow = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SUBENTRY_SCREEN),
-        context={"source": config_entries.SOURCE_USER})
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {**IDENTITE_MINIMALE, "delorean": False})
-    assert resultat["type"] is data_entry_flow.FlowResultType.CREATE_ENTRY
-    assert "delorean" not in resultat["data"]
-
-
-async def test_reconfigurer_delorean_de_coche_a_decochee_retire_la_cle(hass, entree):
-    """Le SECOND site (ruling 15) : `new_data.update(identity_data)` est
-    une UNION qui ne retire JAMAIS une cle deja persistee -- sans son
-    jumeau, decocher une case DEJA cochee sur un ecran existant echouerait
-    a la retirer (exactement la forme du defaut que "note" a eu en ronde 1
-    de la tache 6)."""
-    subentry_id = await _creer_ecran(hass, entree, delorean=True)
-    entry = hass.config_entries.async_get_entry(entree.entry_id)
-    assert entry.subentries[subentry_id].data["delorean"] is True
-
+    subentry_id = await _creer_ecran(hass, entree)
     flow = await _init_reconfigure(hass, entree, subentry_id)
-    await hass.config_entries.subentries.async_configure(
+    etape = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {"next_step_id": "identite"})
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {**IDENTITE_MINIMALE, "delorean": False})
-    assert resultat["type"] is data_entry_flow.FlowResultType.MENU
-    entry = hass.config_entries.async_get_entry(entree.entry_id)
-    assert "delorean" not in entry.subentries[subentry_id].data
+    assert etape["step_id"] == "identite"
+    assert "delorean" not in {str(cle) for cle in etape["data_schema"].schema}
 
 
 # ---------------------------------------------------------------------------

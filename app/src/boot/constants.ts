@@ -16,12 +16,6 @@ export const SEUIL_MUET_MS = 30_000;
 export const CALENDRIERS = ['calendar.anniversaires', 'calendar.famille',
                             'calendar.personnel', 'calendar.professionnel'];
 
-/** Refresh rate of the speedometer during the `voyage` scene. 120 ms: any finer and the eye no
- *  longer tells apart the steps of a segment display, and every tick is a full `dessiner()`. The
- *  DURATIONS of the scenes come from `DUREES_DELOREAN` (`rendu/delorean.ts`) — written in a single
- *  place, shared with the CSS animations. */
-export const CADENCE_COMPTEUR_MS = 120;
-
 /** Task 15 review (I1): rate of the media progress rail. One second — the smallest granularity the
  *  eye can tell apart on a 279 px rail for a 4-minute track (one pixel every ~0.9 s), and 20 times
  *  less work than `dessiner()` would do by redrawing. This tick writes ONLY a CSS custom property

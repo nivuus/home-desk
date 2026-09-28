@@ -1,23 +1,22 @@
 /** `dessiner()`: the single painter of a mounted screen, called back by the state, the clock,
  *  the weather and every gesture. It computes the frame (`boot/frame.ts`), sets what must be set
- *  BEFORE any early return (timer anchors, palette, DeLorean overlay), then paints exactly one
+ *  BEFORE any early return (timer anchors, palette), then paints exactly one
  *  view: the night screen, one of the four sub-views (`boot/subviews.ts`) or the home view
  *  (`boot/home.ts`). */
 import { html } from 'lit';
 import type { Moment } from '../contexte';
 import { ancrerMinuteur } from '../minuteur';
 import { rendreNuit } from '../rendu/nuit';
-import { rendreDelorean } from '../rendu/delorean';
 import { horlogeMonotone } from './constants';
 import { computeFrame } from './frame';
-import { armerDelorean, reveiller } from './timers';
+import { reveiller } from './timers';
 import { paintSubView } from './subviews';
 import { paintHome } from './home';
 import type { ScreenState } from './state';
 
 export function dessiner(s: ScreenState): void {
   const f = computeFrame(s);
-  const { maintenant, moment, mode, modulateurs, sources, vuesMinuteurs } = f;
+  const { maintenant, moment, mode, sources, vuesMinuteurs } = f;
 
   // Correction round 1 (coordinator's review): set HERE, before the early returns (night, whole
   // house, tasks, and since task 10 bis `#minuteur` — see below), NOT after `blocCentral`. An
@@ -95,22 +94,6 @@ export function dessiner(s: ScreenState): void {
   // must not light the screen up again in the middle of the showing.
   s.moteur.basculerPalette(moment !== 'jour' || mode === 'cinema');
 
-  armerDelorean(s, modulateurs.includes('delorean'), maintenant);
-  // The overlay goes OVER any view, night screen included: 01:21 is by definition in the middle
-  // of the night (like 21 October and 5 November between 23:00 and 05:00), and the house already
-  // plays its real light effects at that time. Always a descendant of `#app`, never
-  // `document.body`: that is where the Material 3 colour tokens descend from (`.m3`,
-  // `jetons.css`) — a `<div class="delorean">` placed elsewhere would lose `--md-*` through CSS
-  // inheritance and fall back on a fallback unrelated to the palette of the screen.
-  // `niveauInitial !== 'aucun'` (task 8): this wink has no `data-mvt` role (it is not a
-  // tile/block/view — an overlay OVER everything, see above), so nothing in the engine can cut it
-  // on its behalf; it was `.mvt-aucun .delorean { animation: none; opacity: 0 }` in CSS (removed
-  // from `base.css` with the rest of the `mvt-*` classes, that same task) — it is not even
-  // RENDERED any more (just `''`), which is strictly better: nothing to paint at all rather than an
-  // invisible flat area.
-  const survol = () => (s.sceneDelorean !== null && s.niveauInitial !== 'aucun'
-    ? rendreDelorean(s.sceneDelorean, s.vitesseAffichee) : '');
-
   // Task 8, correction round 1: the night (23:00 → 05:00, see `momentDuJour`) prevails over
   // EVERYTHING, including a touch already in progress on the whole house. First version: the hash
   // prevailed, on the idea that an explicit touch proved someone was already acting in front of
@@ -134,7 +117,7 @@ export function dessiner(s: ScreenState): void {
   // screen is the only one that uses it): when the screen is woken, `rendreNuit` is no longer
   // rendered at all, so nothing needs to pass it this callback again.
   if (moment === 'nuit' && !s.reveilNuit) {
-    s.moteur.peindre(html`${rendreNuit(s.etat, maintenant, s.piece, s.horsLigne, () => reveiller(s))}${survol()}`);
+    s.moteur.peindre(html`${rendreNuit(s.etat, maintenant, s.piece, s.horsLigne, () => reveiller(s))}`);
     return;
   }
   // Task 9 (wake): the woken screen presents itself as an EVENING screen, never a NIGHT one, in
@@ -155,6 +138,6 @@ export function dessiner(s: ScreenState): void {
   // give `rendreBandeau`, and the day its `moment` parameter is actually read, this wiring will
   // not need to be revisited.
   const momentRendu: Moment = moment === 'nuit' && s.reveilNuit ? 'soir' : moment;
-  if (paintSubView(s, f, survol)) return;
-  paintHome(s, f, source, momentRendu, survol);
+  if (paintSubView(s, f)) return;
+  paintHome(s, f, source, momentRendu);
 }

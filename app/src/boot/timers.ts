@@ -1,13 +1,11 @@
 /** The screen's LOCAL timers — everything that moves between two redraws without Home Assistant
- *  saying anything: the media progress rail, the timer countdowns, the waking of the night screen
- *  and the DeLorean overlay. Each works on the shared `ScreenState`; the intervals themselves are
- *  armed once only, by `wireScreen` (`boot/wiring.ts`), except the DeLorean speedometer, whose
- *  instant does not exist yet at start-up (see `armerDelorean`). */
+ *  saying anything: the media progress rail, the timer countdowns and the waking of the night
+ *  screen. Each works on the shared `ScreenState`; the intervals themselves are armed once only,
+ *  by `wireScreen` (`boot/wiring.ts`). */
 import { fractionAncree } from '../progression';
 import { restantAncre, formaterRestant } from '../minuteur';
 import { writeTime } from '../rendu/minuteur';
-import { varianteDelorean, vitesseDelorean, DUREES_DELOREAN } from '../rendu/delorean';
-import { horlogeMonotone, CADENCE_COMPTEUR_MS, RETOUR_MS } from './constants';
+import { horlogeMonotone, RETOUR_MS } from './constants';
 import type { ScreenState } from './state';
 
 /** Moves the media progress rail forward between two redraws. Three refusals, each taken from a
@@ -102,44 +100,4 @@ export function reveiller(s: ScreenState) {
     s.dessiner();
   }, RETOUR_MS);
   if (!etait) s.dessiner();
-}
-
-/** Cuts the scene in progress. Called by the end timer, and by the FIRST TOUCH on the screen
- *  (owner's decision, 2026-08-21): the veil hides the panel for four to eight seconds, and one
- *  must never have to aim blindly. Cuts ONLY the overlay — the event is neither stopped nor
- *  cancelled, it goes on to the control underneath, which runs normally. `deloreanArme` is NOT
- *  reset to false: without it, the scene would re-arm on the next redraw, and the instant lasts
- *  a whole minute. */
-export function couperDelorean(s: ScreenState) {
-  if (s.sceneDelorean === null) return;
-  s.sceneDelorean = null;
-  s.dessiner();
-}
-
-/** The DeLorean overlay is armed from `dessiner()`, never under the `initialise` guard: its
- *  instant does not exist yet at start-up. The timer is therefore set from `dessiner()`, which
- *  the rest of `boot/` forbids itself — hence the `deloreanArme` lock, which guarantees at most ONE
- *  live timer per instant, however many redraws happen during the minute it lasts. */
-export function armerDelorean(s: ScreenState, delorean: boolean, maintenant: Date) {
-  if (delorean && !s.deloreanArme) {
-    s.deloreanArme = true;
-    s.sceneDelorean = varianteDelorean(maintenant);
-    s.vitesseAffichee = 0;
-    const duree = s.sceneDelorean ? DUREES_DELOREAN[s.sceneDelorean] : 0;
-    s.d.minuteurFn(() => { couperDelorean(s); }, duree);
-    // The speedometer only climbs in the `voyage` scene: anywhere else, this tick would have
-    // nothing to move forward and would redraw the screen for nothing.
-    if (s.sceneDelorean === 'voyage') {
-      const depart = Date.now();
-      const tic = s.d.intervalFn(() => {
-        if (s.sceneDelorean !== 'voyage') { clearInterval(tic); return; }
-        const v = vitesseDelorean(Date.now() - depart);
-        if (v === s.vitesseAffichee) return;   // 88 reached: nothing left to repaint
-        s.vitesseAffichee = v;
-        s.dessiner();
-      }, CADENCE_COMPTEUR_MS);
-    }
-  } else if (!delorean) {
-    s.deloreanArme = false;
-  }
 }
