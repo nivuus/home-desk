@@ -12,6 +12,7 @@
  *   - `boot/loaders.ts` — tasks, weather and calendar loading;
  *   - `boot/recipe.ts` — the recipe in progress;
  *   - `boot/timers.ts` — the local tickers and the night wake;
+ *   - `boot/animation.ts` — the animations pushed by Home Assistant (subscription, end, touch);
  *   - `boot/draw.ts` — `dessiner()`, with `boot/frame.ts`, `boot/subviews.ts` and `boot/home.ts`;
  *   - `boot/constants.ts` — cadences, delays and the monotonic clock. */
 import { render } from 'lit';
@@ -33,6 +34,7 @@ import { creerMoteur } from './mouvement/moteur';   // policy: allow-fr — see 
 import type { DependancesDemarrage } from './boot/types';
 import { ScreenState } from './boot/state';
 import { wireScreen } from './boot/wiring';
+import { armerAnimations } from './boot/animation';
 import { chargerTaches, chargerMeteo, chargerAgenda } from './boot/loaders';
 import { enterPantry } from './boot/pantry';
 import { dessiner } from './boot/draw';
@@ -146,6 +148,12 @@ export async function startWithScreen(
     try {
       if (!initialise) {
         wireScreen(s, jetons);
+        // Here and not next to `armerRechargement` (in `startScreen`): the animations need the
+        // mounted screen state, which only exists from this point, and a screen that failed to
+        // load has nothing to play them on. `piece.nom` is the stored name the screen was served
+        // under (`home_desk/ecran` resolves it by exact match), the very name the service
+        // targets. Same once-only guard as `wireScreen`: `abonner` is replayed on reconnection.
+        armerAnimations(s.cx, piece.nom, s);
         initialise = true;
       }
       await s.cx.connecter();

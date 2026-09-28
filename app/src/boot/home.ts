@@ -23,6 +23,7 @@ import type { ScreenState } from './state';
 
 export function paintHome(
   s: ScreenState, f: Frame, source: SourceResolue | null, momentRendu: Moment,
+  survol: () => unknown,
 ): void {
   const { etat, piece, agencement } = s;
   const { maintenant, maintenantMs, alerte, ctx, mode, modulateurs, vuesMinuteurs, slotLibre,
@@ -229,5 +230,6 @@ export function paintHome(
                           ${rendreCorps(etat, piece, blocCentral, ctxCorps, tuile, maintenanceShown,
                                         (currentMeal(s)?.recetteId ?? null) !== null
                                           || s.recetteUid !== null, agencement)}
-                        </div>`);
+                        </div>
+                        ${survol()}`);
 }

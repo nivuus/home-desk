@@ -18,6 +18,7 @@ import type { LigneIngredient } from '../rendu/recette';
 import type { Prevision } from '../meteo';
 import type { Evenement } from '../agenda';
 import type { createTaskCheck, createArming } from '../cochage';
+import type { AnimationEnCours } from '../animation';
 import type { ConnexionLike, DependancesDemarrage } from './types';
 import { newPantryState, type PantryState } from './pantry';
 
@@ -175,6 +176,12 @@ export class ScreenState {
    *  with the rest of `boot/` should that refusal ever change. */
   climEnVol: EnVolClim = null;
   jetonClim = 0;
+
+  /** The animation pushed by Home Assistant that is on screen (`boot/animation.ts`), `null` when
+   *  none. `jetonAnimation` follows the same one-token-per-start pattern as `jetonClim`: a closer
+   *  of a replaced animation carries a stale token and closes nothing (`fermerAnimation`). */
+  animation: AnimationEnCours | null = null;
+  jetonAnimation = 0;
 
   /** Redraws the screen. An arrow property, not a method, so that it can be handed out as a
    *  callback (`etat.surMaj`, `d.intervalFn`, `armer`...) exactly like the hoisted `dessiner`

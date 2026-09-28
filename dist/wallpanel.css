@@ -1117,3 +1117,14 @@ body {
 .pantry-reason:not(.inactif):active::after { opacity: .1; transition: none; }
 .pantry-reason.inactif::after, .pantry-fraction.inactif::after, .pantry-moins.inactif::after,
 .pantry-plus.inactif::after { content: none; }
+
+/* The animation pushed by Home Assistant (`rendu/animation.ts`): above every view, never a
+   target of the touch — the first touch is caught in capture on `#app` (`boot/animation.ts`),
+   so the layer itself lets pointers through. Plain black for the veil, not a palette token: it
+   frames a film, whatever the time of day. */
+.animation {
+  position: fixed; inset: 0; z-index: 50; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+}
+.animation-noir { background: #000; }
+.animation-media { width: 100%; height: 100%; object-fit: contain; }

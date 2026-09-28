@@ -2,7 +2,7 @@
  *  the weather and every gesture. It computes the frame (`boot/frame.ts`), sets what must be set
  *  BEFORE any early return (timer anchors, palette), then paints exactly one
  *  view: the night screen, one of the four sub-views (`boot/subviews.ts`) or the home view
- *  (`boot/home.ts`). */
+ *  (`boot/home.ts`) — each with the animation overlay over it. */
 import { html } from 'lit';
 import type { Moment } from '../contexte';
 import { ancrerMinuteur } from '../minuteur';
@@ -10,6 +10,7 @@ import { rendreNuit } from '../rendu/nuit';
 import { horlogeMonotone } from './constants';
 import { computeFrame } from './frame';
 import { reveiller } from './timers';
+import { calqueAnimation } from './animation';
 import { paintSubView } from './subviews';
 import { paintHome } from './home';
 import type { ScreenState } from './state';
@@ -94,6 +95,13 @@ export function dessiner(s: ScreenState): void {
   // must not light the screen up again in the middle of the showing.
   s.moteur.basculerPalette(moment !== 'jour' || mode === 'cinema');
 
+  // The animation pushed by Home Assistant goes OVER any view, night screen included: the
+  // automation decides the hour, and the night is when the house plays its scenes. Always a
+  // descendant of `#app`, never `document.body`: the Material 3 colour tokens descend from there
+  // (`.m3`, `jetons.css`), and the first-touch cut listens on `#app` in capture. Reduced motion
+  // never reaches here: `boot/animation.ts` does not even start an animation at `aucun`.
+  const survol = () => calqueAnimation(s);
+
   // Task 8, correction round 1: the night (23:00 → 05:00, see `momentDuJour`) prevails over
   // EVERYTHING, including a touch already in progress on the whole house. First version: the hash
   // prevailed, on the idea that an explicit touch proved someone was already acting in front of
@@ -117,7 +125,7 @@ export function dessiner(s: ScreenState): void {
   // screen is the only one that uses it): when the screen is woken, `rendreNuit` is no longer
   // rendered at all, so nothing needs to pass it this callback again.
   if (moment === 'nuit' && !s.reveilNuit) {
-    s.moteur.peindre(html`${rendreNuit(s.etat, maintenant, s.piece, s.horsLigne, () => reveiller(s))}`);
+    s.moteur.peindre(html`${rendreNuit(s.etat, maintenant, s.piece, s.horsLigne, () => reveiller(s))}${survol()}`);
     return;
   }
   // Task 9 (wake): the woken screen presents itself as an EVENING screen, never a NIGHT one, in
@@ -138,6 +146,6 @@ export function dessiner(s: ScreenState): void {
   // give `rendreBandeau`, and the day its `moment` parameter is actually read, this wiring will
   // not need to be revisited.
   const momentRendu: Moment = moment === 'nuit' && s.reveilNuit ? 'soir' : moment;
-  if (paintSubView(s, f)) return;
-  paintHome(s, f, source, momentRendu);
+  if (paintSubView(s, f, survol)) return;
+  paintHome(s, f, source, momentRendu, survol);
 }

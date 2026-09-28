@@ -159,6 +159,11 @@ export type Montage = {
    *  massif après reconnexion) ne relance RIEN : une boucle de rechargement ne se voit pas à
    *  l'écran, elle ne se voit qu'au compteur d'appels. */
   listerTaches: ReturnType<typeof vi.fn>;
+  /** Every subscription command the screen sent through `abonner`, in order, with its callback. */
+  abonnements: { commande: Record<string, unknown>; cb: (evenement: Record<string, unknown>) => void }[];
+  /** Pushes `evenement` to every subscriber of the command `type`, as Home Assistant would, then
+   *  lets the redraw land. */
+  diffuser: (type: string, evenement: Record<string, unknown>) => Promise<void>;
 };
 
 /** Monte `startScreen()` sur un `#app` neuf, avec toutes ses dépendances injectées et aucun minuteur
@@ -183,6 +188,8 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
     return reponse(charge);
   });
 
+  const abonnements: Montage['abonnements'] = [];
+
   await startScreen(racine, piece.nom, {
     stockage: options.stockage ?? stockageAvecSession,
     createConnection: () => ({
@@ -193,9 +200,9 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
       surSilence: (cb) => { silencer = cb; },
       listerTaches,
       envoyerCommande,
-      // Tâche 5 du plan 3b : aucun de ces tests ne pousse `home_desk_config_changed`, donc pas
-      // besoin de faire autre chose que satisfaire le type.
-      abonner: () => {},
+      // Records every subscription, so that a test can push an event of a given command type
+      // (`diffuser`) exactly as the real `Connexion` routes it by subscription id.
+      abonner: (commande, cb) => { abonnements.push({ commande, cb }); },
     }),
     // L'écran est fourni directement : ces tests montent un écran CONNU, ils n'ont rien à
     // apprendre du transport. Mais ils traversent quand même la coquille — écran d'attente,
@@ -223,6 +230,10 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
       await vider();
     },
     silence: (ms) => silencer(ms),
-    appelerService, minuteurFn, intervalFn, listerTaches, envoyerCommande,
+    appelerService, minuteurFn, intervalFn, listerTaches, envoyerCommande, abonnements,
+    diffuser: async (type, evenement) => {
+      for (const a of abonnements) if (a.commande.type === type) a.cb(evenement);
+      await vider();
+    },
   };
 }
