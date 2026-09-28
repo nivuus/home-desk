@@ -35,6 +35,7 @@ import { ScreenState } from './boot/state';
 import { wireScreen } from './boot/wiring';
 import { chargerTaches, chargerMeteo, chargerAgenda } from './boot/loaders';
 import { dessiner } from './boot/draw';
+import { SEUIL_MUET_MS } from './boot/constants';
 
 export type { ConnexionLike, DependancesDemarrage } from './boot/types';
 
@@ -287,6 +288,28 @@ export async function startScreen(
   // versioned file does not exist.
   armerRechargement(cx, nomEcran, deps.recharger ?? (() => location.reload()));
 
+  // Home Assistant unreachable at cold start (production gate of 2026-09-28, defect B). `prete()`
+  // only settles at the first `auth_ok` and never rejects, because `Connexion` reconnects on its
+  // own: awaiting it alone left the tablet on the waiting screen forever, and the `catch` below
+  // was unreachable for that failure. Making `prete()` reject would not help: the next attempt
+  // would call `connecter()` while the internal reconnection is already opening a socket — a
+  // second websocket. So the start-up path OBSERVES the connection instead of racing it: the
+  // silence watch is the signal `Connexion` already gives for "the house does not answer", and
+  // `SEUIL_MUET_MS` is the threshold the mounted body uses for the same verdict (grey screen plus
+  // offline banner) — one definition of "unreachable", not a second, arbitrary timeout. Past it,
+  // the waiting screen gives way to `startupError()`, whose promise ("a new attempt will take
+  // place automatically") is kept by that same internal reconnection: at the first `auth_ok`,
+  // `prete()` resolves and `tenterChargement()` carries on by itself, on the same socket, with
+  // no reload. Once authenticated, this callback falls silent for good: a later outage belongs
+  // to the body, which must never be replaced by a start-up message.
+  let authenticated = false;
+  let unreachableShown = false;
+  cx.surSilence((ms) => {
+    if (authenticated || unreachableShown || ms <= SEUIL_MUET_MS) return;
+    unreachableShown = true;
+    render(startupError(), racine);
+  });
+
   const offerScreenList = async (): Promise<void> => {
     const list = await listerEcransFn(cx);
     render(
@@ -300,6 +323,7 @@ export async function startScreen(
     try {
       await cx.connecter();
       await cx.prete();
+      authenticated = true;
 
       // `?ecran=` absent: we already know the answer, no point asking for a screen named "".
       if (nomEcran === '') { await offerScreenList(); return; }

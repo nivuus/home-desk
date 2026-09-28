@@ -203,6 +203,11 @@ export class Connexion {
   private armerSurveillanceSilence() {
     if (this.silenceArme) return;
     this.silenceArme = true;
+    // The silence is counted from the moment we start listening. Left at 0, the first tick
+    // reported the time since 1970, so a house that has not answered YET was declared silent 5 s
+    // after boot instead of after `SEUIL_MUET_MS` — the cold-start verdict of `startScreen`
+    // depends on that threshold meaning the same thing there as in the mounted body.
+    this.lastMessageAt = Date.now();
     this.deps.intervalFn(() => {
       const ms = Date.now() - this.lastMessageAt;
       for (const cb of this.rappelsSilence) cb(ms);

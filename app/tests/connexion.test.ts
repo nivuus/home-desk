@@ -424,3 +424,25 @@ describe('Connexion — un abonné aux états posé APRÈS la connexion', () => 
     expect(ws.envoyes.filter((m) => m.type === 'get_states')).toHaveLength(1);
   });
 });
+
+describe('Connexion — the silence watch counts from when it starts listening', () => {
+  it('reports the time since arming, not since 1970, while no message has arrived yet', async () => {
+    // Before the first message, `lastMessageAt` was 0: the very first tick reported ~56 years of
+    // silence, so "HA unreachable at cold start" would have been declared 5 s after boot rather
+    // than after `SEUIL_MUET_MS` — the threshold the body uses for the same verdict.
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 8, 28, 10, 0));
+      let tick: () => void = () => {};
+      const cx = connexionDeTest({ intervalFn: ((cb: () => void) => { tick = cb; }) as any });
+      const reported: number[] = [];
+      cx.surSilence((ms) => reported.push(ms));
+      await cx.connecter();
+      vi.setSystemTime(new Date(2026, 8, 28, 10, 0, 5));
+      tick();
+      expect(reported).toEqual([5_000]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
