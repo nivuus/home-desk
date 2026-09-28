@@ -39,8 +39,9 @@ export type ConnexionLike = {
    *  (`InsufficientStock`, already translated into French by the component) is DISPLAYABLE —
    *  which an `appelerService`, a fire-and-forget send, does not allow. */
   envoyerCommande(payload: Record<string, unknown>): Promise<unknown>;
-  /** Task 5 of plan 3b: the hot reload subscribes through here. */
-  surEvenement(type: string, cb: (data: Record<string, unknown>) => void): void;
+  /** The hot reload subscribes through here, with the integration's own command (see
+   *  `Connexion.abonner`). */
+  abonner(commande: Record<string, unknown>, cb: (evenement: Record<string, unknown>) => void): void;
 } & ConnexionAppelable;
 
 export type DependancesDemarrage = {

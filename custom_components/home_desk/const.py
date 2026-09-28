@@ -34,6 +34,11 @@ SUBENTRY_SCREEN = "ecran"
 
 WS_ECRAN = f"{DOMAIN}/ecran"
 WS_ECRANS = f"{DOMAIN}/ecrans"
+# Subscription to EVENEMENT_CHANGEMENT for ONE screen. Home Assistant only
+# lets a non-admin user `subscribe_events` to a fixed allowlist
+# (websocket_api SUBSCRIBE_ALLOWLIST), and the tablets log in as a
+# non-admin user: this command is the integration's own door to the event.
+WS_ABONNER = f"{DOMAIN}/abonner"
 
 # The HTTP path of the tablet entry document (`page.py`). It is the
 # `startURL` typed into each tablet's Fully Kiosk, with `?ecran=<nom>`.

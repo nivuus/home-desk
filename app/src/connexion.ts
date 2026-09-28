@@ -82,6 +82,10 @@ export function delaiReconnexion(attempt: number): number {
 /** Injectable dependencies of `Connexion`, so that `connecter()` can be tested without a browser
  *  or a real websocket. All of them have a default value taken from the browser globals,
  *  resolved lazily (via `??`): in real use (page served by HA), nothing changes. */
+/** What a subscription delivers: the `event` field of each message Home Assistant tags with the
+ *  subscription's `id`. */
+export type RappelAbonnement = (evenement: Record<string, unknown>) => void;
+
 export type DependancesConnexion = {
   fetchFn: typeof fetch;
   intervalFn: typeof setInterval;
@@ -100,7 +104,17 @@ export class Connexion {
   private jetons: Jetons;
   private rappelsEtat: ((e: EvenementEtat) => void)[] = [];
   private rappelsSilence: ((ms: number) => void)[] = [];
-  private rappelsEvenement = new Map<string, ((data: Record<string, unknown>) => void)[]>();
+  /** Subscription COMMANDS (`abonner`), kept for the lifetime of the page and replayed on
+   *  every `auth_ok`, like `state_changed`. */
+  private abonnements: { commande: Record<string, unknown>; cb: RappelAbonnement }[] = [];
+  /** The callback of each subscription sent on the CURRENT socket, by the `id` of its request:
+   *  Home Assistant tags every `event` of a subscription with that `id`. Cleared on each
+   *  `auth_ok`, since the ids of a closed socket mean nothing on the next one. */
+  private abonnementsParId = new Map<number, RappelAbonnement>();
+  /** Has the current socket received `auth_ok`? Home Assistant closes a socket that sends
+   *  anything but `auth` before that, so a subscription registered in the meantime waits for
+   *  `auth_ok`, which sends it. */
+  private authentifiee = false;
   /** Has the initial snapshot (`get_states`) already been requested on the current socket?
    *
    *  Used by `surChangement`: a subscriber registered AFTER `auth_ok` missed that snapshot, which
@@ -153,7 +167,7 @@ export class Connexion {
    *
    *  Callable BEFORE `connecter()` (the case of `startWithScreen`, which subscribes then
    *  connects) as well as AFTER (the case of `startScreen`, which connects first to resolve the
-   *  configuration, and only mounts the body afterwards) — same contract as `surEvenement` just
+   *  configuration, and only mounts the body afterwards) — same contract as `abonner` just
    *  below.
    *
    *  The catch-up is not a convenience: without it, a subscriber registered after `auth_ok` only
@@ -169,21 +183,23 @@ export class Connexion {
 
   prete(): Promise<void> { return this.pretePromesse; }
 
-  /** Subscribes a callback to ANY bus event type.
+  /** Subscribes a callback to a subscription COMMAND: `commande` is sent as is (an `id` is
+   *  added), and every `event` Home Assistant tags with that `id` goes to `cb`.
    *
-   *  Before this task, `connecter()` sent `subscribe_events` with `event_type: 'state_changed'`
-   *  HARDCODED, and the dispatcher only examined an `event` message if it carried
-   *  `data.new_state`: a `home_desk_config_changed` fell into the void, without any error —
-   *  decision 2 of the spec was unreachable SILENTLY.
+   *  Not `subscribe_events`: Home Assistant only lets a NON-ADMIN user subscribe to a fixed
+   *  allowlist of bus events, and the tablets log in as such a user. Measured on 2026-09-28,
+   *  "Refusing to allow Tablet to subscribe to event home_desk_config_changed" at every start:
+   *  the generic bus subscription this method replaced never reached the wall. An integration
+   *  exposes its own subscription command instead (`home_desk/abonner`), open to any
+   *  authenticated user.
    *
    *  Callable BEFORE `connecter()` (the normal case: `demarrage.ts` subscribes then connects) as
-   *  well as after (the subscription then goes out right away). Subscriptions are REPLAYED on
-   *  every `auth_ok`, so a reconnection loses no subscriber. */
-  surEvenement(type: string, cb: (data: Record<string, unknown>) => void) {
-    const deja = this.rappelsEvenement.get(type);
-    if (deja) { deja.push(cb); return; }
-    this.rappelsEvenement.set(type, [cb]);
-    if (this.ws) this.souscrire(type);
+   *  well as after. Subscriptions are REPLAYED on every `auth_ok`, so a reconnection loses no
+   *  subscriber. */
+  abonner(commande: Record<string, unknown>, cb: RappelAbonnement) {
+    const abonnement = { commande, cb };
+    this.abonnements.push(abonnement);
+    if (this.authentifiee) this.envoyerAbonnement(abonnement);
   }
 
   /** The snapshot request, in the singular: `auth_ok` sends it for the new socket, and
@@ -195,6 +211,12 @@ export class Connexion {
 
   private souscrire(type: string) {
     this.ws?.send(JSON.stringify({ id: this.id++, type: 'subscribe_events', event_type: type }));
+  }
+
+  private envoyerAbonnement(abonnement: { commande: Record<string, unknown>; cb: RappelAbonnement }) {
+    const id = this.id++;
+    this.abonnementsParId.set(id, abonnement.cb);
+    this.ws?.send(JSON.stringify({ ...abonnement.commande, id }));
   }
 
   /** Arms the silence watch only once (see `silenceArme`). Called at the top of `connecter()` so
@@ -239,6 +261,7 @@ export class Connexion {
     // during a reconnection would believe it had missed it and would request a second one,
     // which `auth_ok` would send anyway.
     this.etatsDemandes = false;
+    this.authentifiee = false;
 
     ws.onmessage = (ev) => {
       this.lastMessageAt = Date.now();
@@ -247,22 +270,25 @@ export class Connexion {
         ws.send(JSON.stringify({ type: 'auth', access_token: this.jetons.access_token }));
       } else if (m.type === 'auth_ok') {
         this.attempt = 0;
+        this.authentifiee = true;
         this.souscrire('state_changed');
-        for (const type of this.rappelsEvenement.keys()) this.souscrire(type);
+        this.abonnementsParId.clear();
+        for (const abonnement of this.abonnements) this.envoyerAbonnement(abonnement);
         this.demanderEtats();
         this.etatsDemandes = true;
         this.resoudrePrete?.();
         this.resoudrePrete = null;
+      } else if (m.type === 'event' && this.abonnementsParId.has(m.id)) {
+        // Checked BEFORE the `new_state` branch: a subscription's `event` is recognised by its
+        // `id`, whatever it carries.
+        this.abonnementsParId.get(m.id)!(m.event ?? {});
+      } else if (m.type === 'result' && this.abonnementsParId.has(m.id) && !m.success) {
+        // A refused subscription is the silent failure this method exists to end: say it, with
+        // Home Assistant's code (`unknown_command` = a component too old for this page).
+        console.error('abonnement refusé', m.error?.code, m.error?.message);
       } else if (m.type === 'event' && m.event?.data?.new_state) {
         const n = m.event.data.new_state;
         this.emettre({ entity_id: n.entity_id, state: n.state, attributes: n.attributes });
-      } else if (m.type === 'event' && typeof m.event?.event_type === 'string') {
-        // Deliberately AFTER the `new_state` branch above: `state_changed` keeps its historical
-        // path intact, the one the application's 1049 tests depend on. This branch therefore
-        // only sees events WITHOUT `new_state` — arbitrary bus events, including
-        // `home_desk_config_changed`.
-        const rappels = this.rappelsEvenement.get(m.event.event_type);
-        if (rappels) for (const cb of rappels) cb(m.event.data ?? {});
       } else if (m.type === 'result' && this.enAttenteCommandes.has(m.id)) {
         const p = this.enAttenteCommandes.get(m.id)!;
         this.enAttenteCommandes.delete(m.id);

@@ -11,34 +11,35 @@
  *  write that goes through `async_update_entry`/`async_update_subentry`/`async_add_subentry` —
  *  so the creation of a screen as well as its reconfiguration (`persister_si_valide`), but also
  *  the removal of a subentry and a rename of the title alone, which `persister_si_valide` alone
- *  would not cover. The THREE tablets of this house listen to the same bus: the filter by name
- *  is therefore not an optimisation, it is what keeps editing the living room from making the
- *  kitchen and the office flicker. */
+ *  would not cover. The THREE tablets of this house share that one event: the filter by name,
+ *  done by `home_desk/abonner` on the server, is therefore not an optimisation, it is what keeps
+ *  editing the living room from making the kitchen and the office flicker. */
 
 /** What this module expects from a connection. Not `ConnexionLike` (which asks for seven times
  *  more), not the concrete class: just enough to subscribe. */
 export type AbonnableEvenements = {
-  surEvenement(type: string, cb: (data: Record<string, unknown>) => void): void;
+  abonner(commande: Record<string, unknown>, cb: (evenement: Record<string, unknown>) => void): void;
 };
 
-/** The event name, HARDCODED.
+/** The integration's subscription command, HARDCODED.
  *
- *  On the Python side it is COMPUTED (`const.EVENEMENT_CHANGEMENT = f"{DOMAIN}_config_changed"`),
- *  so it exists nowhere as a literal to import — and `app/src/` is TypeScript anyway. As for the
- *  four refusal codes, the value is written on both sides and it is the test that pins it that
- *  holds the boundary. */
-const EVENEMENT = 'home_desk_config_changed';
+ *  Not `subscribe_events` on `home_desk_config_changed`: Home Assistant refuses a NON-ADMIN user
+ *  any bus event outside its allowlist, and the tablets log in as such a user (measured on
+ *  2026-09-28 — the live editing never reached the wall). `home_desk/abonner` relays that event
+ *  for ONE screen. On the Python side the command name is COMPUTED (`const.WS_ABONNER =
+ *  f"{DOMAIN}/abonner"`), so it exists nowhere as a literal to import: as for the refusal codes,
+ *  the value is written on both sides and it is the test that pins it that holds the boundary. */
+const COMMANDE = 'home_desk/abonner';
 
 export function armerRechargement(
   cx: AbonnableEvenements, nomEcran: string, recharger: () => void,
 ): void {
-  cx.surEvenement(EVENEMENT, (data) => {
-    // `nomEcran` is a string: a payload whose `nom` is missing or not textual can never equal
-    // it, so this same comparison discards it — no need for a separate type guard. Discarding it
-    // rather than reloading blindly is deliberate: three tablets reloading together on a
-    // malformed payload would make three round trips for nothing, and would hide the real
-    // defect behind a diffuse symptom.
-    if (data.nom !== nomEcran) return;
+  cx.abonner({ type: COMMANDE, nom: nomEcran }, (evenement) => {
+    // The server already filters by name. This comparison stays as the check of the payload
+    // itself: an event whose `nom` is missing, not textual or another screen's is discarded
+    // rather than reloaded blindly — three tablets reloading on a malformed payload would hide
+    // the real defect behind a diffuse symptom.
+    if (evenement.nom !== nomEcran) return;
     recharger();
   });
 }
