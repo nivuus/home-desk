@@ -60,14 +60,22 @@ describe('chargerLottie', () => {
     expect(scripts()).toHaveLength(1);
   });
 
-  it('points the WASM at the local copy once, before resolving', async () => {
+  it('points the WASM at the local, versioned copy once, before resolving', async () => {
     const DotLottie = faireDotLottie();
-    const charge = lottie.chargerLottie();
+    // The order a caller observes: the WASM URL must be set before it gets the class, since the
+    // first player it builds loads the WASM.
+    const ordre: string[] = [];
+    DotLottie.setWasmUrl.mockImplementation(() => { ordre.push('setWasmUrl'); });
+    const charge = lottie.chargerLottie().then((D) => { ordre.push('resolved'); return D; });
     (window as { WallpanelLottie?: unknown }).WallpanelLottie = { DotLottie };
     scripts()[0]!.dispatchEvent(new Event('load'));
     const resolu = await charge;
+    expect(ordre).toEqual(['setWasmUrl', 'resolved']);
     expect(resolu.setWasmUrl).toHaveBeenCalledTimes(1);
-    expect(resolu.setWasmUrl).toHaveBeenCalledWith('/local/wallpanel/assets/dotlottie-player.wasm');
+    // Versioned like the bundle: after an upgrade, a 31-day cached WASM of the previous release
+    // must not be paired with the new JS.
+    expect(resolu.setWasmUrl).toHaveBeenCalledWith(
+      '/local/wallpanel/assets/dotlottie-player.wasm?v=0.80.0');
 
     await lottie.chargerLottie();
     expect(DotLottie.setWasmUrl).toHaveBeenCalledTimes(1);

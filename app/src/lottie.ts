@@ -2,8 +2,8 @@
  *  animation is pushed to this screen.
  *
  *  Why a second bundle and a `<script>` rather than `import()`: the app ships as ONE IIFE
- *  (`dist/wallpanel.js`), and rollup inlines a dynamic import into an IIFE — the player's 165 KB
- *  would then be downloaded by the three tablets on every release, whether they ever play a
+ *  (`dist/wallpanel.js`), and rollup inlines a dynamic import into an IIFE — the player's ~61 KB
+ *  (minified, 0.80.0) would then be downloaded by the three tablets on every release, whether they ever play a
  *  Lottie or not. The player is therefore its own IIFE, `dist/dotlottie.js` (entry
  *  `lottie-bundle.ts`, global `WallpanelLottie`), injected here once.
  *
@@ -13,13 +13,15 @@
  *  `loadError`, never as a silent download from elsewhere. */
 import type { DotLottie } from '@lottiefiles/dotlottie-web';
 
-/** The pinned version of `@lottiefiles/dotlottie-web` (`package.json`, exact pin). It versions the
- *  bundle's URL: Home Assistant serves `/local/` with a 31-day cache, so an upgrade must change the
- *  URL to reach the tablets. `tests/lottie.test.ts` fails if it drifts from the installed package. */
+/** The pinned version of `@lottiefiles/dotlottie-web` (`package.json`, exact pin). It versions
+ *  BOTH URLs below: Home Assistant serves `/local/` with a 31-day cache, so an upgrade must change
+ *  them to reach the tablets — and together, since the WASM must match the JS glue of the same
+ *  release (a new `dotlottie.js` with a cached old WASM would fail every Lottie).
+ *  `tests/lottie.test.ts` fails if it drifts from the installed package. */
 export const VERSION_LOTTIE = '0.80.0';
 
 const URL_BUNDLE = `/local/wallpanel/dotlottie.js?v=${VERSION_LOTTIE}`;
-const URL_WASM = '/local/wallpanel/assets/dotlottie-player.wasm';
+const URL_WASM = `/local/wallpanel/assets/dotlottie-player.wasm?v=${VERSION_LOTTIE}`;
 
 /** What the second bundle's IIFE assigns to `window` (rollup `name: 'WallpanelLottie'`). */
 type GlobalLottie = { WallpanelLottie?: { DotLottie?: typeof DotLottie } };
