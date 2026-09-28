@@ -55,3 +55,7 @@ requires:
 # peripherique local n'est reclame, donc aucun conflit a declarer.
 hooks:
   install: hooks/install.py
+
+# Where `nivuus update` finds this package's releases.
+source:
+  github: nivuus/home-desk
