@@ -594,7 +594,8 @@ permettra, après coup, de dire ce qui s'est réellement passé plutôt que ce q
 | 5 — Cuisine repointée | 2026-09-14 | 16 h 54 – 16 h 58 | Claude | **PORTE ÉCHOUÉE — retour arrière exécuté, maison rétablie.** Voir le compte rendu ci-dessous. |
 | 2 bis — Redépôt (composant qui sert `/home_desk/tablette`) + redémarrage | 2026-09-27 | ~21 h 50 | Claude | **NON EXÉCUTÉ.** Le geste (instantané de l'état déployé, dépôt de `git archive HEAD` par `hooks/install.py`) a été refusé en bloc par le garde-fou du harnais (« Production Deploy ») avant toute écriture. Aucune écriture sur l'hôte. Voir « État à la clôture du 2026-09-27 ». |
 | 2 bis — Redépôt + redémarrage (reprise) | 2026-09-28 | 09 h 01 – 09 h 06 | Claude, sur demande directe du propriétaire | **Porte franchie.** Instantané `backups-home-desk-20260928/` (`wallpanel/`, `custom_components/home_desk/` et `vignette/`, `packages/home_desk.yaml`), `diff -r` identique, même périphérique 65024. Relevé d'avant : 1 767 entités, entrée `loaded`, 3 écrans, `/home_desk/tablette` → 404. Dépôt de `git archive 9fd0455` par `hooks/install.py` (code 0). Porte avant : `check_config` code 0, 11 fichiers identiques à `dist/`, aucun `.new`/`.old`, `page.py` présent. Redémarrage 09 h 04 min 45, HTTP rendu à 09 h 05 min 01. Porte après : 1 801 entités (≥ relevé d'avant), entrée `loaded`, 3 écrans ; `GET /home_desk/tablette` → `200`, `Cache-Control: no-cache`, le corps nomme `v=26fbd8a667` = `dist/`. Aucune erreur `home_desk` au journal. (`HEAD` rend `405` : la vue ne sert que `GET`, sans portée pour une WebView.) |
-| 5 — Cuisine repointée (reprise) | | | | **Prête** : l'étape 2 bis est franchie. |
+| 2 ter — Redépôt de `3ba7dec` (découpe de `demarrage.ts`, traduction) + redémarrage | 2026-09-28 | 09 h 48 – 09 h 52 | Claude, sur demande directe du propriétaire | **Porte franchie.** Instantané `backups-home-desk-20260928b/`, identique. Dépôt de `git archive 3ba7dec` (code 0), composant identique à la source (aucun ancien `listes*.py` résiduel), 11 fichiers = `dist/`, `check_config` code 0. Redémarrage 09 h 50 min 49, HTTP à 09 h 51 min 05. Après : 1 801 entités, entrée `loaded`, 3 écrans, `GET /home_desk/tablette` → `200` `no-cache`, `v=42af4fc6f0` = `dist/`. |
+| 5 — Cuisine repointée (reprise) | 2026-09-28 | 09 h 53 – 10 h 13 | Claude, sur demande directe du propriétaire | **PORTE ÉCHOUÉE sur deux points — retour arrière exécuté, maison rétablie.** Voir « Compte rendu de la reprise de l'étape 5 » ci-dessous. |
 | 6 — 24 heures, cuisine | | | | |
 | 7a — Salon repointé | | | | |
 | 7b — Salon, 24 heures | | | | |
@@ -898,3 +899,65 @@ lui-même** — dans cet ordre, chaque porte avant la suivante :
    `check_config`, redémarrer.
 
 Puis l'étape 5 reprend telle qu'écrite au § 4, avec l'URL corrigée.
+
+### Compte rendu de la reprise de l'étape 5 — 2026-09-28, 09 h 53 à 10 h 13
+
+**Le geste.** Appareil résolu depuis `sensor.tablette_cuisine_current_page`
+(`device_id`, appareil actif), jamais par son libellé. Capture de référence à
+09 h 53 sur la page historique. `fully_kiosk.set_config` `startURL` =
+`http://<hôte-HA>:8123/home_desk/tablette?ecran=Cuisine`, puis
+`button.tablette_cuisine_load_start_url` : bascule constatée à 09 h 54 min 18.
+
+**Ce qui passe — et c'est la cause n°2 levée en production.** La cuisine rend
+**tous** ses états par `?ecran=` : météo « 19° » et « Il fait 21,3° ici »,
+« Hotte / Éteint », « Rideau / Ouvert 9 % », « Courses / 15 », Entretien
+3 tâches, « Tout est fermé — fenêtre ouverte, 22 produits à consommer », thème
+clair. Tout ce qui manquait le 2026-09-14 est là. Document servi : `200`,
+`no-cache`, `v=42af4fc6f0` = `dist/` au commit déployé.
+
+**Porte, point par point.**
+
+| Critère | Résultat |
+|---|---|
+| Empreinte servie = `dist/` | ✅ |
+| L'écran se lève, pas bloqué sur l'attente | ✅ |
+| Capture comparée à la référence | ⚠️ une tuile de plus : « Recette / Garde-manger non installé » — **message faux**, voir défaut A |
+| `verifier-rendu.mjs --deploye`, forme `ecran` | 5 fautes. 4 identiques sur la forme historique **et** sur les sources de `9fd0455` (recette réduite ×2, mode média, rail de progression : modes non atteints avec l'état du jour) — antérieures, sans lien avec la migration. 1 propre à la forme neuve : `MOUVEMENT` — `etiquette`, `groupe` apparaissent sans `data-mvt`. |
+| Dégradation `?ecran=` absent / inconnu | ✅ « Quel écran ? » et la liste Salon, Bureau, Cuisine |
+| Dégradation aucun écran configuré | ✅ « Aucun écran configuré » et où aller |
+| Dégradation version inconnue / écran corrompu | ✅ « Configuration illisible » / « Configuration invalide », le geste nommé |
+| Dégradation intégration absente | ✅ « Intégration absente », le geste nommé |
+| **Dégradation HA injoignable au démarrage** | ❌ **reste sur « Chargement de la configuration… » indéfiniment** (sondé 60 s, 6 tentatives websocket) — voir défaut B |
+
+Les dégradations ont été sondées dans un navigateur headless contre
+l'instance réelle, les pannes simulées par interception du websocket dans le
+navigateur (`page.routeWebSocket`) : aucune écriture dans Home Assistant.
+
+**Défaut A — « Garde-manger non installé » quand aucun repas n'est planifié.**
+`home_stock` est installé et chargé ; `sensor.home_stock_next_meal` vaut
+`unknown` parce que le plan de repas est vide. `etat.estUtilisable()` confond
+`unknown` (le capteur existe, rien à dire) et `unavailable` / absent
+(l'intégration manque), et `absenceNommee` affiche alors un diagnostic faux.
+Le même bundle le montre sur la page historique hors cache : ce n'est pas le
+chemin `?ecran=`, c'est le bundle — la capture historique de la tablette ne
+l'a pas parce qu'elle exécute encore un bundle ancien en cache.
+
+**Défaut B — HA injoignable au démarrage : l'écran d'attente ne cède jamais.**
+`startScreen` attend `cx.prete()`, qui ne se résout qu'au premier `auth_ok` et
+ne rejette jamais (la reconnexion de `Connexion` est interne). Le `catch` qui
+affiche `startupError()` et réarme le recul exponentiel n'est donc jamais
+atteint : la spec promet « l'écran d'attente, puis le bandeau hors ligne ».
+La tablette se rétablirait seule au retour de HA, mais sans jamais dire
+qu'elle attend le réseau.
+
+**Le retour arrière.** 10 h 12 min 05 : `startURL` remise à la valeur relevée
+à l'étape 1 (`.../local/wallpanel/cuisine.html`), rechargement ; page
+constatée à 10 h 12 min 37. Capture de contrôle : identique à la référence de
+09 h 53. **Dix-neuf minutes sur la nouvelle URL, aucune perte pour
+l'occupant.**
+
+**État de la maison à la clôture :** les trois tablettes sur leurs pages
+historiques ; composant et bundle de `3ba7dec` déployés ; la vue
+`/home_desk/tablette` servie et prête. L'étape 5 se rejoue telle quelle après
+correction des défauts A et B (et, au choix du propriétaire, du marquage
+`MOUVEMENT`).
