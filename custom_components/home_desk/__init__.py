@@ -94,6 +94,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     `EVENEMENT_CHANGEMENT` on every write of a subentry."""
     websocket_api.async_register_command(hass, websocket.ws_ecran)
     websocket_api.async_register_command(hass, websocket.ws_ecrans)
+    websocket_api.async_register_command(hass, websocket.ws_abonner)
     services.async_setup_services(hass)
 
     # The snapshot is captured HERE (at the current state of

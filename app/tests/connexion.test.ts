@@ -193,48 +193,93 @@ describe('Connexion — prete() attend l authentification', () => {
   });
 });
 
-describe('Connexion — abonnement à un événement quelconque', () => {
-  it('souscrit le type demandé et route sa charge utile', async () => {
-    // Décision 2 de la spec : « un événement de bus déclenche le re-rendu à chaud ». Avant
-    // ce correctif, `subscribe_events` ne portait que `state_changed` EN DUR et le
-    // répartiteur n'examinait un `event` que s'il portait `data.new_state` : un
-    // `home_desk_config_changed` tombait dans le vide SANS ERREUR.
+describe('Connexion — abonnement par une commande de l intégration', () => {
+  it('envoie la commande après auth_ok et route les événements portant SON id', async () => {
+    // Pas `subscribe_events` : Home Assistant le refuse à un utilisateur non administrateur,
+    // celui des tablettes (« Refusing to allow Tablet to subscribe to event
+    // home_desk_config_changed », mesuré le 2026-09-28). L'intégration a sa propre commande.
     const cx = connexionDeTest();
     const vus: unknown[] = [];
-    cx.surEvenement('home_desk_config_changed', (d) => vus.push(d));
+    cx.abonner({ type: 'home_desk/abonner', nom: 'cuisine' }, (e) => vus.push(e));
     await cx.connecter();
     const ws = WsCapture.derniere!;
+    expect(ws.envoyes.filter((m) => m.type === 'home_desk/abonner')).toEqual([]);
     ws.recevoir({ type: 'auth_ok' });
 
-    const souscriptions = ws.envoyes.filter((m) => m.type === 'subscribe_events');
-    expect(souscriptions.map((m) => m.event_type).sort())
-      .toEqual(['home_desk_config_changed', 'state_changed']);
+    const envoyee = ws.envoyes.find((m) => m.type === 'home_desk/abonner');
+    expect(envoyee).toMatchObject({ type: 'home_desk/abonner', nom: 'cuisine' });
+    expect(ws.envoyes.filter((m) => m.type === 'subscribe_events').map((m) => m.event_type))
+      .toEqual(['state_changed']);
 
-    ws.recevoir({
-      type: 'event',
-      event: { event_type: 'home_desk_config_changed', data: { nom: 'cuisine' } },
-    });
+    ws.recevoir({ type: 'event', id: envoyee.id, event: { nom: 'cuisine' } });
     expect(vus).toEqual([{ nom: 'cuisine' }]);
   });
 
-  it('ne livre à un abonné QUE son type d événement — décor à deux types', async () => {
-    // Leçon 3 : un décor à un seul sujet rend le test aveugle. Avec un seul type abonné, une
-    // implémentation qui livrerait TOUT à TOUS passerait.
+  it('ne livre à un abonné QUE les événements de son id — décor à deux abonnements', async () => {
+    // Leçon 3 : avec un seul abonnement, une implémentation qui livrerait TOUT à TOUS passerait.
     const cx = connexionDeTest();
-    const config: unknown[] = [];
-    const autre: unknown[] = [];
-    cx.surEvenement('home_desk_config_changed', (d) => config.push(d));
-    cx.surEvenement('call_service', (d) => autre.push(d));
+    const cuisine: unknown[] = [];
+    const salon: unknown[] = [];
+    cx.abonner({ type: 'home_desk/abonner', nom: 'cuisine' }, (e) => cuisine.push(e));
+    cx.abonner({ type: 'home_desk/abonner', nom: 'salon' }, (e) => salon.push(e));
     await cx.connecter();
     const ws = WsCapture.derniere!;
     ws.recevoir({ type: 'auth_ok' });
+    const idSalon = ws.envoyes.find((m) => m.nom === 'salon').id;
 
-    ws.recevoir({ type: 'event', event: { event_type: 'call_service', data: { x: 1 } } });
-    expect(config).toEqual([]);
-    expect(autre).toEqual([{ x: 1 }]);
+    ws.recevoir({ type: 'event', id: idSalon, event: { nom: 'salon' } });
+    expect(cuisine).toEqual([]);
+    expect(salon).toEqual([{ nom: 'salon' }]);
   });
 
-  it('laisse INTACT le chemin state_changed, qui ne passe pas par surEvenement', async () => {
+  it('rejoue l abonnement sur une nouvelle socket, sous un NOUVEL id', async () => {
+    // Les id d'une socket fermée ne veulent rien dire sur la suivante : un événement portant
+    // l'ancien id ne doit plus rien livrer.
+    const cx = connexionDeTest();
+    const vus: unknown[] = [];
+    cx.abonner({ type: 'home_desk/abonner', nom: 'cuisine' }, (e) => vus.push(e));
+    await cx.connecter();
+    const premiere = WsCapture.derniere!;
+    premiere.recevoir({ type: 'auth_ok' });
+    const ancienId = premiere.envoyes.find((m) => m.type === 'home_desk/abonner').id;
+
+    await cx.connecter();
+    const seconde = WsCapture.derniere!;
+    expect(seconde).not.toBe(premiere);
+    seconde.recevoir({ type: 'auth_ok' });
+    const nouvelId = seconde.envoyes.find((m) => m.type === 'home_desk/abonner').id;
+    expect(nouvelId).not.toBe(ancienId);
+
+    seconde.recevoir({ type: 'event', id: ancienId, event: { nom: 'cuisine' } });
+    expect(vus).toEqual([]);
+    seconde.recevoir({ type: 'event', id: nouvelId, event: { nom: 'cuisine' } });
+    expect(vus).toEqual([{ nom: 'cuisine' }]);
+  });
+
+  it('un abonnement pris APRÈS auth_ok part aussitôt', async () => {
+    const cx = connexionDeTest();
+    await cx.connecter();
+    const ws = WsCapture.derniere!;
+    ws.recevoir({ type: 'auth_ok' });
+    cx.abonner({ type: 'home_desk/abonner', nom: 'cuisine' }, () => {});
+    expect(ws.envoyes.filter((m) => m.type === 'home_desk/abonner')).toHaveLength(1);
+  });
+
+  it('dit un abonnement refusé au lieu de le perdre en silence', async () => {
+    const erreur = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const cx = connexionDeTest();
+    cx.abonner({ type: 'home_desk/abonner', nom: 'cuisine' }, () => {});
+    await cx.connecter();
+    const ws = WsCapture.derniere!;
+    ws.recevoir({ type: 'auth_ok' });
+    const id = ws.envoyes.find((m) => m.type === 'home_desk/abonner').id;
+    ws.recevoir({ type: 'result', id, success: false,
+      error: { code: 'unknown_command', message: 'Unknown command.' } });
+    expect(erreur).toHaveBeenCalledWith('abonnement refusé', 'unknown_command', 'Unknown command.');
+    erreur.mockRestore();
+  });
+
+  it('laisse INTACT le chemin state_changed, qui ne passe pas par abonner', async () => {
     // Contre-épreuve : les 1049 tests existants reposent sur `surChangement`. Un abonnement
     // générique qui détournerait `state_changed` les casserait tous d'un coup.
     const cx = connexionDeTest();
@@ -381,8 +426,9 @@ describe('Connexion — un abonné aux états posé APRÈS la connexion', () => 
   // `startWithScreen()` (branche `data-piece`) n'a jamais eu le défaut : elle s'abonne avant
   // de connecter. C'est pourquoi le même bundle rendait juste par une porte et faux par l'autre,
   // et pourquoi 1 148 tests verts n'ont rien vu — ils montent tous par la porte qui marche.
-  // `surEvenement`, dans cette même classe, traite DÉJÀ le cas de l'abonnement tardif
-  // (`if (this.ws) this.souscrire(type)`) ; `surChangement` était le frère resté sans filet.
+  // `abonner`, dans cette même classe, traite DÉJÀ le cas de l'abonnement tardif
+  // (`if (this.authentifiee) this.envoyerAbonnement(...)`) ; `surChangement` était le frère resté
+  // sans filet.
   it('reçoit quand même l état courant, au lieu de rater l instantané initial', async () => {
     const cx = connexionDeTest();
     await cx.connecter();

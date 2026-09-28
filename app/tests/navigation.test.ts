@@ -74,7 +74,7 @@ function connexionFactice(): ConnexionLike {
     surSilence: (_cb: (ms: number) => void) => {},
     listerTaches: async () => [],
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
-    surEvenement: () => {},
+    abonner: () => {},
   };
 }
 
@@ -511,7 +511,7 @@ describe('navigation (nuit / toute la maison)', () => {
           surSilence: (_cb: (ms: number) => void) => {},
           listerTaches: async () => [],
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
-      surEvenement: () => {},
+      abonner: () => {},
         }),
         intervalFn: vi.fn() as any,
         minuteurFn: vi.fn() as any,

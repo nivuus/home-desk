@@ -118,7 +118,7 @@ describe('startScreen', () => {
         surSilence: (_cb: (ms: number) => void) => {},
         listerTaches: async () => [],
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
-      surEvenement: () => {},
+      abonner: () => {},
       }),
       intervalFn: vi.fn() as any,
       minuteurFn: vi.fn() as any,
@@ -283,7 +283,7 @@ describe('startScreen', () => {
         surSilence: (_cb: (ms: number) => void) => {},
         listerTaches: async () => [],
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
-      surEvenement: () => {},
+      abonner: () => {},
       }),
       intervalFn: vi.fn() as any,
       minuteurFn: vi.fn() as any,
@@ -338,7 +338,7 @@ describe('startScreen', () => {
           surSilence: (_cb: (ms: number) => void) => {},
           listerTaches: async () => [],
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
-      surEvenement: () => {},
+      abonner: () => {},
         }),
         intervalFn: vi.fn() as any,
         minuteurFn: vi.fn() as any,
@@ -396,7 +396,7 @@ describe('startScreen', () => {
         surSilence: (_cb: (ms: number) => void) => {},
         listerTaches: async () => [{ uid: 'u1', texte: 'Changer une pile' }],
         envoyerCommande: async () => { throw new Error('websocket indisponible'); },
-        surEvenement: () => {},
+        abonner: () => {},
       }),
       intervalFn: vi.fn() as any,
       minuteurFn: vi.fn() as any,
@@ -1530,7 +1530,7 @@ describe('startScreen — la coquille résout l écran avant de déléguer', () 
         prete: () => Promise.resolve(),
         surChangement: () => {}, surSilence: () => {},
         appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
-        surEvenement: () => {},
+        abonner: () => {},
       }),
       intervalFn: vi.fn() as any,
       minuteurFn: vi.fn() as any,
@@ -1656,7 +1656,7 @@ describe('startScreen — la coquille résout l écran avant de déléguer', () 
       connecter: () => Promise.resolve(), prete: () => Promise.resolve(),
       surChangement: () => {}, surSilence: () => {},
       appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
-      surEvenement: () => {},
+      abonner: () => {},
     }));
     await startScreen(document.createElement('div'), 'Salon', deps({
       createConnection,
@@ -1682,7 +1682,7 @@ describe('startScreen — la coquille résout l écran avant de déléguer', () 
         prete: () => pretePromesse,
         surChangement: () => {}, surSilence: () => {},
         appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
-        surEvenement: () => {},
+        abonner: () => {},
       }),
       chargerEcran,
     }));
@@ -1700,12 +1700,12 @@ describe('startScreen — la coquille résout l écran avant de déléguer', () 
   // Défaut Important trouvé en relecture : `tests/rechargement.test.ts` garde solidement le
   // MODULE `armerRechargement` en isolation, mais rien ne prouvait que la coquille l'appelle
   // réellement — retirer l'appel de câblage dans `startScreen()` laissait toute la suite verte.
-  // Capture le rappel passé à `surEvenement` (même patron que `surChangement: (cb) => { emettre
+  // Capture le rappel passé à `abonner` (même patron que `surChangement: (cb) => { emettre
   // = cb; }` ci-dessus) et injecte un `recharger` espion par `deps.recharger`, pour qu'aucun
   // `location.reload()` réel ne parte pendant le test. Décor à DEUX noms d'écran, même raison
   // que dans `tests/rechargement.test.ts` : avec un seul, un branchement qui rechargerait sur
   // TOUT événement passerait ce test sans qu'on s'en aperçoive.
-  it('propage home_desk_config_changed jusqu au recharger injecté, filtré par nom (branchement réel)', async () => {
+  it('propage l abonnement home_desk/abonner jusqu au recharger injecté, filtré par nom (branchement réel)', async () => {
     let evenementCb: ((donnees: Record<string, unknown>) => void) | undefined;
     const recharger = vi.fn();
 
@@ -1717,8 +1717,8 @@ describe('startScreen — la coquille résout l écran avant de déléguer', () 
         prete: () => Promise.resolve(),
         surChangement: () => {}, surSilence: () => {},
         appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
-        surEvenement: (type: string, cb: (donnees: Record<string, unknown>) => void) => {
-          if (type === 'home_desk_config_changed') evenementCb = cb;
+        abonner: (commande: Record<string, unknown>, cb: (donnees: Record<string, unknown>) => void) => {
+          if (commande.type === 'home_desk/abonner' && commande.nom === 'Salon') evenementCb = cb;
         },
       }),
     }));

@@ -265,7 +265,7 @@ export async function startScreen(
   const cx = (deps.createConnection ?? ((j: Jetons) => new Connexion(j)))(jetons);
   const depsDuCorps: Partial<DependancesDemarrage> = { ...deps, createConnection: () => cx };
 
-  // Armed BEFORE `connecter()`: `surEvenement` remembers the subscription and the subscribe
+  // Armed BEFORE `connecter()`: `abonner` remembers the subscription and the subscribe
   // request leaves at the first `auth_ok`, then is REPLAYED on every reconnection (see
   // `connexion.ts`). Armed once only for the lifetime of the page, never on every attempt — same
   // invariant as `surChangement`/`surSilence`, and same reason: the callback arrays of
@@ -280,7 +280,7 @@ export async function startScreen(
   // Found in the final branch review, deliberately NOT fixed: when `?ecran=` is absent,
   // `nomEcran` is `''` HERE (before the `offerScreenList` branch a little below), and it is
   // therefore with this EMPTY name that `armerRechargement` is armed. No payload of
-  // `home_desk_config_changed` will ever carry `nom: ''` (see `rechargement.ts`, filter by name):
+  // `home_desk/abonner` event will ever carry `nom: ''` (see `rechargement.ts`, filter by name):
   // the hot reload therefore stays INERT on the "choose a screen" page. Creating the first screen
   // from Home Assistant while this selector is displayed on the tablet therefore does not refresh
   // it on its own. Defensible — the user's next gesture in front of this selector is a press to

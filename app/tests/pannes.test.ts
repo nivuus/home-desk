@@ -88,7 +88,7 @@ function connexionAvecSilence() {
     surSilence: (cb) => { cbSilence = cb; },
     listerTaches: async () => [],
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
-    surEvenement: () => {},
+    abonner: () => {},
   };
   return { cx, declencherSilence: (ms: number) => cbSilence(ms), emettre: (e: EvenementEtat) => cbEtat(e) };
 }
@@ -272,7 +272,7 @@ describe('vue Taches hors ligne (tache 18, meme regle que Toute la maison)', () 
       surSilence: (cb) => { cbSilence = cb; },
       listerTaches: async () => [{ uid: 'u1', texte: 'Changer une pile' }],
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
-      surEvenement: () => {},
+      abonner: () => {},
     };
     try {
       await startWithScreen(racine, pieceAvecTaches, {

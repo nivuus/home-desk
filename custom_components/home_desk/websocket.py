@@ -1,4 +1,4 @@
-"""The transport: two websocket commands, and nothing else.
+"""The transport: three websocket commands, and nothing else.
 
 This module is what finally lets a tablet receive its configuration --
 tasks 1 to 7 only delivered the INPUT side (the integration, its sections,
@@ -29,7 +29,19 @@ screen configured -- including right after the integration is removed,
 since nothing unregisters these commands at `async_unload_entry`: Home
 Assistant offers no inverse of `async_register_command`).
 
-Both commands are registered by `__init__.async_setup_entry`; the
+`home_desk/abonner` { "nom": "salon" } -> a SUBSCRIPTION: one `event`
+message `{"nom": ...}` each time `EVENEMENT_CHANGEMENT` is fired for that
+screen, until `unsubscribe_events` names its id. It exists because the
+tablets log in as a NON-ADMIN user, and Home Assistant refuses such a user
+`subscribe_events` on any event outside its fixed SUBSCRIBE_ALLOWLIST
+(measured on 2026-09-28: "Refusing to allow Tablet to subscribe to event
+home_desk_config_changed" at every tablet start) -- so live editing never
+reached the wall. A command registered without `require_admin` is open to
+any authenticated user, which is the door Home Assistant intends an
+integration to use for its own events. The filter by name is done HERE:
+three tablets share the bus, and each must only hear about its own screen.
+
+All three commands are registered by `__init__.async_setup_entry`; the
 `EVENEMENT_CHANGEMENT` event is fired by an ENTRY UPDATE LISTENER, not by
 a call from this module -- see `__init__.py`.
 """
@@ -40,7 +52,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.components import websocket_api
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import Event, HomeAssistant, callback
 
 from . import schema
 from .const import (
@@ -48,7 +60,9 @@ from .const import (
     ERROR_SCREEN_CORRUPT,
     ERROR_SCREEN_NOT_FOUND,
     ERROR_VERSION_UNKNOWN,
+    EVENEMENT_CHANGEMENT,
     VERSION_CONFIG,
+    WS_ABONNER,
     WS_ECRAN,
     WS_ECRANS,
 )
@@ -212,3 +226,31 @@ def ws_ecrans(hass: HomeAssistant, connection: websocket_api.ActiveConnection, m
             for subentry in _subentries(hass)
         ],
     )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): WS_ABONNER,
+        vol.Required("nom"): str,
+    }
+)
+@callback
+def ws_abonner(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """`home_desk/abonner`: relays `EVENEMENT_CHANGEMENT` for the screen
+    `nom` only. The listener is stored in `connection.subscriptions`, so
+    `unsubscribe_events` and the closing of the socket both remove it --
+    the same bookkeeping as Home Assistant's own `subscribe_events`."""
+    nom = msg["nom"]
+
+    @callback
+    def _pour_cet_ecran(data: dict) -> bool:
+        return data.get("nom") == nom
+
+    @callback
+    def _relayer(event: Event) -> None:
+        connection.send_message(
+            websocket_api.event_message(msg["id"], {"nom": event.data.get("nom")}))
+
+    connection.subscriptions[msg["id"]] = hass.bus.async_listen(
+        EVENEMENT_CHANGEMENT, _relayer, event_filter=_pour_cet_ecran)
+    connection.send_result(msg["id"])
