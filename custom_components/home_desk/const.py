@@ -26,7 +26,10 @@ DOMAIN = "home_desk"
 # The application flatly refuses a config whose version it does not know
 # (fourth degradation, spec decision 10): this is the number it compares.
 # It only increases if the shape stops being readable by the previous version.
-VERSION_CONFIG = 1
+# Version 2 (2026-09-28) removes the hardcoded animation scenes, replaced by
+# `home_desk.jouer_animation`; `migration.py` rewrites the version-1
+# subentries at load time and says what changed.
+VERSION_CONFIG = 2
 
 # The subentry type. One "Tablettes murales" entry, N "ecran" subentries
 # — adding a fourth tablet is the same operation as for the first three.
@@ -39,6 +42,13 @@ WS_ECRANS = f"{DOMAIN}/ecrans"
 # (websocket_api SUBSCRIBE_ALLOWLIST), and the tablets log in as a
 # non-admin user: this command is the integration's own door to the event.
 WS_ABONNER = f"{DOMAIN}/abonner"
+
+# `home_desk/animations` { "nom": ... }: a subscription per screen, fed by the
+# `home_desk.jouer_animation` service through the dispatcher signal below.
+# Not a bus event: nothing about an animation needs to be recorded or be
+# visible to other integrations, and a non-admin could not subscribe to it.
+WS_ANIMATIONS = f"{DOMAIN}/animations"
+SIGNAL_ANIMATION = f"{DOMAIN}_animation"
 
 # The HTTP path of the tablet entry document (`page.py`). It is the
 # `startURL` typed into each tablet's Fully Kiosk, with `?ecran=<nom>`.
@@ -272,6 +282,12 @@ ERROR_NAME_ALREADY_USED = "nom_deja_utilise"
 # file EXPORTED once by hand).
 SERVICE_EXPORTER = "exporter"
 SERVICE_IMPORTER = "importer"
+SERVICE_JOUER_ANIMATION = "jouer_animation"
+
+# Upper bound, in seconds, of an animation's `duree` (spec 2026-09-28: the
+# ceiling holds in every case). The tablet enforces the same ceiling on
+# playback, so a video without `duree` cannot cover the wall longer either.
+DUREE_MAX_S = 120
 
 # The path, RELATIVE to `config/` (`hass.config.path(...)`), of the file
 # that `home_desk.exporter` writes and `home_desk.importer` reads back --

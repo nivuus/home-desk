@@ -163,13 +163,6 @@ export type Ecran = {
    *  laisserait `rendreVoiture` appelée sur `undefined`, donc l'appelant (`demarrage.ts`) garde
    *  malgré tout la garde `piece.voiture &&`, défensive plutôt que redondante. */
   voiture?: Voiture;
-  /** La scène DeLorean joue-t-elle sur cet écran ? Salon seulement (décision du propriétaire,
-   *  2026-08-21) : le modèle réduit est posé là, la voiture s'anime et l'écran juste à côté
-   *  bascule au même instant. Déclaré ici plutôt que testé sur `nom` dans `demarrage.ts` — un
-   *  test sur le nom obligerait à rouvrir le rendu pour déplacer la voiture de pièce, et les
-   *  doubles de test devraient connaître un nom de pièce réel pour rien. Absent ailleurs : la
-   *  cuisine et le bureau ne jouent rien et restent utilisables pendant les quatre rendez-vous. */
-  delorean?: true;
   /** Pourquoi cet écran est réglé comme il l'est. Jamais rendu ; présent dans le formulaire
    *  qui l'édite (plan 3) et dans l'export YAML, où il redevient un commentaire. Ce champ est
    *  la seule chose qui empêchera les ~300 lignes de raisonnement daté de ce fichier de
@@ -294,7 +287,6 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {   // poli
     ],
     extrasMaison: [],
     listesTachesExtra: [],
-    delorean: true,
     voiture: {
       batterie: 'sensor.peugeot_e208_batterie_niveau',
       autonomie: 'sensor.peugeot_e208_batterie_autonomie',
@@ -310,10 +302,9 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {   // poli
       // sont retirés de la liste plutôt que laissés à une condition qui ne peut pas se déclencher.
       // Déclarer ce que l'écran fait est plus lisible que déduire ce qu'il ne fait pas.
       modes: ['alerte', 'menage', 'cinema', 'media', 'aeration', 'voiture', 'defaut'],
-      modulateurs: ['invites', 'chaleur', 'delorean'],
+      modulateurs: ['invites', 'chaleur'],
       blocDefaut: 'voiture',
-      note: 'Écran d\'entrée. La voiture occupe le bloc central, et la scène DeLorean joue ici '
-          + 'seulement : le modèle réduit est posé à côté.',
+      note: 'Écran d\'entrée. La voiture occupe le bloc central.',
     },
   },
   bureau: {
@@ -383,8 +374,8 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {   // poli
     listesTachesExtra: [],
     agencement: {
       zones: ['ambiances', 'commandes', 'blocCentral', 'synthese'],
-      // Ni minuteur, ni recette, ni voiture, ni DeLorean. `aeration` retiré aussi : `ouvrants`
-      // est vide, la condition ne peut pas se déclencher.
+      // No timer, no recipe, no car. `aeration` removed too: `ouvrants`
+      // is empty, the condition cannot fire.
       modes: ['alerte', 'menage', 'cinema', 'media', 'defaut'],
       modulateurs: ['invites', 'chaleur'],
       // Tâche 14 (2026-08-03, blocs par défaut) : le prochain rendez-vous du jour

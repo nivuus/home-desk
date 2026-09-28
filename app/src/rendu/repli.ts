@@ -73,7 +73,7 @@ export function aucunEcranConfigure(): TemplateResult {
  *  Fire 7's WebView, and a navigation that Fully Kiosk handles like any other.
  *
  *  `nom` and `titre` are TWO distinct fields: `nom` is the transport's primary key (matched
- *  EXACTLY by `websocket.py`, `_trouver`), `titre` is `ConfigSubentry.title`, which the user
+ *  EXACTLY by `websocket.py`, `trouver_ecran`), `titre` is `ConfigSubentry.title`, which the user
  *  can rename on their own from the integration page. We NAVIGATE to the name and DISPLAY the
  *  title; mixing them up would send to a screen that cannot be found as soon as they diverge.
  *

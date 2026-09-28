@@ -39,8 +39,7 @@
     "modulateur": {
       "options": {
         "invites": "Invités",
-        "chaleur": "Chaleur",
-        "delorean": "DeLorean"
+        "chaleur": "Chaleur"
       }
     }
   },
@@ -63,8 +62,7 @@
             "hauteurUtile": "Hauteur utile (px)",
             "temperature": "Capteur de température",
             "note": "Note",
-            "aspirateur": "Aspirateur",
-            "delorean": "DeLorean"
+            "aspirateur": "Aspirateur"
           }
         },
         "reconfigure": {
@@ -94,8 +92,7 @@
             "hauteurUtile": "Hauteur utile (px)",
             "temperature": "Capteur de température",
             "note": "Note",
-            "aspirateur": "Aspirateur",
-            "delorean": "DeLorean"
+            "aspirateur": "Aspirateur"
           }
         },
         "commandes": {
@@ -362,6 +359,28 @@
     "importer": {
       "name": "Importer les écrans",
       "description": "Relit config/home_desk_ecrans.yaml et remplace tous les écrans configurés par son contenu. Valide l'intégralité du fichier avant d'écrire quoi que ce soit : un seul écran invalide ou un nom en double refuse l'import entier, rien n'est modifié."
+    },
+    "jouer_animation": {
+      "name": "Jouer une animation",
+      "description": "Joue une vidéo, une image animée ou une animation Lottie par-dessus l'écran des tablettes nommées, puis rend la main à l'écran. Refusé sans rien envoyer si un écran est inconnu, le fichier absent ou son type illisible.",
+      "fields": {
+        "ecrans": {
+          "name": "Écrans",
+          "description": "Noms des écrans (champ « nom » de chaque écran) qui jouent l'animation. Le nom doit être écrit exactement comme celui de l'écran, majuscules comprises : « Salon » n'est pas « salon »."
+        },
+        "media": {
+          "name": "Média",
+          "description": "La vidéo ou l'image à jouer. Les fichiers Lottie (.json, .lottie) ne sont pas listés par le navigateur de médias de Home Assistant : déposez-les dans le dossier des médias et nommez-les en YAML par leur identifiant media-source."
+        },
+        "duree": {
+          "name": "Durée",
+          "description": "Durée de lecture en secondes, 120 au plus. Sans durée, une vidéo ou un Lottie joue une fois jusqu'à sa fin ; une image animée exige une durée."
+        },
+        "fond": {
+          "name": "Fond",
+          "description": "« noir » masque l'écran derrière l'animation, « transparent » le laisse visible."
+        }
+      }
     }
   }
 }

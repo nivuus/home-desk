@@ -253,3 +253,49 @@ async def test_importer_une_version_inconnue_est_REFUSEE(hass, entree):
 
     assert "999" in str(excinfo.value)
     assert _ecrans(hass) == []
+
+
+_ECRAN_SANS_VERSION = (
+    "  temperature: sensor.t\n"
+    "  ambiances: []\n"
+    "  commandes: []\n"
+    "  extrasMaison: []\n"
+    "  synthese: []\n"
+    "  sources: []\n"
+    "  ouvrants: []\n"
+)
+
+
+@pytest.mark.parametrize("trace", [
+    "  delorean: true\n",
+    "  agencement:\n"
+    "    zones: [commandes]\n"
+    "    modes: [defaut]\n"
+    "    modulateurs: [chaleur, delorean]\n",
+], ids=["drapeau racine", "modulateur"])
+async def test_importer_un_ecran_qui_porte_encore_delorean_est_REFUSE(hass, entree_peuplee, trace):
+    """Version 2 (spec 2026-09-28): the importer only accepts the current
+    shape. A file still carrying either DeLorean trace was written for
+    version 1 -- refused by the schema, and the screens ALREADY in place
+    stay untouched (the import replaces everything, so a partial write
+    here would erase them). Two screens in the file: a clean one first,
+    so that an importer writing screen by screen would be caught."""
+    avant = _ecrans(hass)
+    assert avant
+    texte = (
+        "ecrans:\n"
+        "- titre: Propre\n"
+        "  nom: Propre\n"
+        + _ECRAN_SANS_VERSION
+        + "- titre: Ancien\n"
+        "  nom: Ancien\n"
+        + _ECRAN_SANS_VERSION
+        + trace
+    )
+    _chemin_export(hass).write_text(texte, encoding="utf-8")
+
+    with pytest.raises(HomeAssistantError) as excinfo:
+        await hass.services.async_call(DOMAIN, "importer", blocking=True)
+
+    assert "import refuse, rien n'a ete ecrit" in str(excinfo.value)
+    assert _ecrans(hass) == avant

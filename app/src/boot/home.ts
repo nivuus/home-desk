@@ -1,6 +1,6 @@
 /** The home view: header + body, with the central block chosen by the mode. Reached by
  *  `dessiner()` (`boot/draw.ts`) when neither the night screen nor a sub-view applies. */
-import { html, type TemplateResult } from 'lit';
+import { html } from 'lit';
 import type { Moment } from '../contexte';
 import type { ContexteModes } from '../modes';
 import type { SourceResolue } from '../media';
@@ -23,7 +23,6 @@ import type { ScreenState } from './state';
 
 export function paintHome(
   s: ScreenState, f: Frame, source: SourceResolue | null, momentRendu: Moment,
-  survol: () => TemplateResult | string,
 ): void {
   const { etat, piece, agencement } = s;
   const { maintenant, maintenantMs, alerte, ctx, mode, modulateurs, vuesMinuteurs, slotLibre,
@@ -230,6 +229,5 @@ export function paintHome(
                           ${rendreCorps(etat, piece, blocCentral, ctxCorps, tuile, maintenanceShown,
                                         (currentMeal(s)?.recetteId ?? null) !== null
                                           || s.recetteUid !== null, agencement)}
-                        </div>
-                        ${survol()}`);
+                        </div>`);
 }

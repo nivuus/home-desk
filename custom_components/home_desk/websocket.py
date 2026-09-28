@@ -1,4 +1,4 @@
-"""The transport: three websocket commands, and nothing else.
+"""The transport: four websocket commands, and nothing else.
 
 This module is what finally lets a tablet receive its configuration --
 tasks 1 to 7 only delivered the INPUT side (the integration, its sections,
@@ -41,7 +41,12 @@ any authenticated user, which is the door Home Assistant intends an
 integration to use for its own events. The filter by name is done HERE:
 three tablets share the bus, and each must only hear about its own screen.
 
-All three commands are registered by `__init__.async_setup_entry`; the
+`home_desk/animations` { "nom": "salon" } -> a SUBSCRIPTION: one `event`
+message `{url, type, duree, fond}` each time `home_desk.jouer_animation`
+names that screen (see `animations.py`). Same door and same bookkeeping as
+`home_desk/abonner`, fed by a dispatcher signal rather than a bus event.
+
+All four commands are registered by `__init__.async_setup_entry`; the
 `EVENEMENT_CHANGEMENT` event is fired by an ENTRY UPDATE LISTENER, not by
 a call from this module -- see `__init__.py`.
 """
@@ -53,6 +58,7 @@ import voluptuous as vol
 
 from homeassistant.components import websocket_api
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from . import schema
 from .const import (
@@ -61,8 +67,10 @@ from .const import (
     ERROR_SCREEN_NOT_FOUND,
     ERROR_VERSION_UNKNOWN,
     EVENEMENT_CHANGEMENT,
+    SIGNAL_ANIMATION,
     VERSION_CONFIG,
     WS_ABONNER,
+    WS_ANIMATIONS,
     WS_ECRAN,
     WS_ECRANS,
 )
@@ -113,8 +121,10 @@ def _subentries(hass: HomeAssistant) -> list[Any]:
     return list(entrees[0].subentries.values())
 
 
-def _trouver(hass: HomeAssistant, nom: str) -> Any | None:
-    """The subentry whose `data["nom"]` equals `nom`, or None."""
+def trouver_ecran(hass: HomeAssistant, nom: str) -> Any | None:
+    """The subentry whose `data["nom"]` equals `nom` (exact match), or None.
+    Shared with `animations.py`, so the service and the commands resolve a
+    screen name the same way."""
     for subentry in _subentries(hass):
         if subentry.data.get("nom") == nom:
             return subentry
@@ -165,7 +175,7 @@ def _resoudre(subentry: Any) -> dict:
 @callback
 def ws_ecran(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
     """`home_desk/ecran`: the RESOLVED AND VALID screen named `nom`."""
-    subentry = _trouver(hass, msg["nom"])
+    subentry = trouver_ecran(hass, msg["nom"])
     if subentry is None:
         connection.send_error(
             msg["id"],
@@ -253,4 +263,27 @@ def ws_abonner(hass: HomeAssistant, connection: websocket_api.ActiveConnection, 
 
     connection.subscriptions[msg["id"]] = hass.bus.async_listen(
         EVENEMENT_CHANGEMENT, _relayer, event_filter=_pour_cet_ecran)
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): WS_ANIMATIONS,
+        vol.Required("nom"): str,
+    }
+)
+@callback
+def ws_animations(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """`home_desk/animations`: relays the animations sent to the screen
+    `nom` only. Stored in `connection.subscriptions` like `ws_abonner`, so
+    `unsubscribe_events` and the closing of the socket both disconnect it."""
+    nom = msg["nom"]
+
+    @callback
+    def _relayer(cible: str, charge: dict) -> None:
+        if cible == nom:
+            connection.send_message(websocket_api.event_message(msg["id"], charge))
+
+    connection.subscriptions[msg["id"]] = async_dispatcher_connect(
+        hass, SIGNAL_ANIMATION, _relayer)
     connection.send_result(msg["id"])

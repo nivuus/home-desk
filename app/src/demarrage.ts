@@ -11,7 +11,8 @@
  *     `boot/controls.ts` (timer, car and recipe actions) and `boot/test-hooks.ts` (`?essai=1`);
  *   - `boot/loaders.ts` — tasks, weather and calendar loading;
  *   - `boot/recipe.ts` — the recipe in progress;
- *   - `boot/timers.ts` — the local tickers, the night wake and the DeLorean overlay;
+ *   - `boot/timers.ts` — the local tickers and the night wake;
+ *   - `boot/animation.ts` — the animations pushed by Home Assistant (subscription, end, touch);
  *   - `boot/draw.ts` — `dessiner()`, with `boot/frame.ts`, `boot/subviews.ts` and `boot/home.ts`;
  *   - `boot/constants.ts` — cadences, delays and the monotonic clock. */
 import { render } from 'lit';
@@ -26,6 +27,7 @@ import { armerRechargement } from './rechargement';
 import { roomTodoLists } from './cochage';
 import { chargerEcran as chargerEcranHA, listerEcrans as listerEcransHA } from './configuration';
 import { niveauDemande, type Niveau } from './mouvement';
+import { chargerLottie } from './lottie';
 // The next two lines carry an English-check exception: the engine factory is named by `mouvement/moteur.ts`, a
 // 611-line file from main that this branch does not touch (renaming it would pull that file over
 // the size limit into the diff).
@@ -33,6 +35,7 @@ import { creerMoteur } from './mouvement/moteur';   // policy: allow-fr — see 
 import type { DependancesDemarrage } from './boot/types';
 import { ScreenState } from './boot/state';
 import { wireScreen } from './boot/wiring';
+import { armerAnimations } from './boot/animation';
 import { chargerTaches, chargerMeteo, chargerAgenda } from './boot/loaders';
 import { enterPantry } from './boot/pantry';
 import { dessiner } from './boot/draw';
@@ -87,6 +90,7 @@ export async function startWithScreen(
     // dependencies that `startScreen()` below passes on to it as is.
     chargerEcran: deps.chargerEcran ?? chargerEcranHA,
     listerEcrans: deps.listerEcrans ?? listerEcransHA,
+    chargerLottie: deps.chargerLottie ?? (() => chargerLottie()),
   };
 
   const jetonsLus = lireJetons(d.stockage);
@@ -129,8 +133,8 @@ export async function startWithScreen(
   // `prefers-reduced-motion` or `?mouvement=` in the URL, FIXED for the whole lifetime of the page
   // (the cadence regulator that degraded it along the way has been removed, see
   // `src/mouvement.ts`). `niveauInitial` is computed once only, here, never recomputed, because
-  // TWO things outside the engine — `tictacProgression` and the DeLorean overlay — still need it
-  // too, as an emergency fallback without a redeployment (Fully Kiosk, task 9); passed AS IS to
+  // ONE thing outside the engine — `tictacProgression` — still needs it too, as an emergency
+  // fallback without a redeployment (Fully Kiosk, task 9); passed AS IS to
   // the engine (`niveauInitial`, option of the engine factory) so that both computations share
   // the same reading of `location.href`/`matchMedia`, never two separate calls.
   const niveauInitial: Niveau = niveauDemande(
@@ -146,6 +150,12 @@ export async function startWithScreen(
     try {
       if (!initialise) {
         wireScreen(s, jetons);
+        // Here and not next to `armerRechargement` (in `startScreen`): the animations need the
+        // mounted screen state, which only exists from this point, and a screen that failed to
+        // load has nothing to play them on. `piece.nom` is the stored name the screen was served
+        // under (`home_desk/ecran` resolves it by exact match), the very name the service
+        // targets. Same once-only guard as `wireScreen`: `abonner` is replayed on reconnection.
+        armerAnimations(s.cx, piece.nom, s);
         initialise = true;
       }
       await s.cx.connecter();

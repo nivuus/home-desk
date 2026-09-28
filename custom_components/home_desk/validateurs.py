@@ -194,7 +194,7 @@ def _alerte_en_tete():
     the array), exactly what ajv names (`instancePath`:
     `/agencement/modes/0`) -- never the whole array. `objets.py`
     (`async_step_agencement`) tells this PRECISE refusal apart from any
-    other `const` refusal elsewhere (`version`, `delorean`...) by the TYPE
+    other `const` refusal elsewhere (`version`...) by the TYPE
     of the exception (`isinstance(err, _FauteAlertePremiere)`), not by its
     keyword, now shared with other fields -- see its own docstring."""
 

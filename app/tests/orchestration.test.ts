@@ -2,8 +2,7 @@
 //
 // Tâche 12 : le CÂBLAGE. Chacun des modules construits par les onze tâches précédentes est
 // correct pris isolément (`tests/media.test.ts`, `tests/modes.test.ts`, `tests/agenda.test.ts`,
-// `tests/carte-media.test.ts`, `tests/rendu-modes.test.ts`, `tests/delorean.test.ts`,
-// `tests/mouvement.test.ts`) — et aucun de ces tests ne peut voir qu'ils ne sont appelés par
+// `tests/carte-media.test.ts`, `tests/rendu-modes.test.ts`, `tests/mouvement.test.ts`) — et aucun de ces tests ne peut voir qu'ils ne sont appelés par
 // personne. C'est exactement la classe de défaut que cette suite existe pour attraper : elle
 // monte le vrai `startScreen()`, pousse des états comme le ferait le websocket, et regarde ce que
 // `#app` porte réellement.
@@ -11,7 +10,6 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { ECRANS } from '../src/ecran';
 import type { Prevision } from '../src/meteo';
 import { monterDemarrage, restaurerReseau, vider } from './aides';
-import { DUREES_DELOREAN } from '../src/rendu/delorean';
 
 afterEach(() => { restaurerReseau(); });
 
@@ -262,73 +260,6 @@ describe('actions des blocs de mode', () => {
     bouton.dispatchEvent(new Event('pointerdown', { bubbles: true }));
 
     expect(appelerService).not.toHaveBeenCalled();
-  });
-});
-
-describe('clin d\'œil DeLorean', () => {
-  it('survole l\'écran le 21 octobre, comme descendant de #app', async () => {
-    const { racine } = await monterDemarrage(ECRANS.salon, {
-      maintenant: () => new Date(2026, 9, 21, 14, 0),
-    });
-    const survol = racine.querySelector('.delorean');
-    expect(survol).not.toBeNull();
-    // Descendant de `#app`, jamais `document.body` : c'est de là que descendent les jetons de
-    // couleur Material 3 (`.m3`) par héritage CSS — un survol posé ailleurs perdrait `--md-*`.
-    expect(racine.contains(survol!)).toBe(true);
-    expect(document.body.contains(survol!)).toBe(false);
-  });
-
-  // La durée dépend de la SCÈNE depuis le 2026-08-21 : 4 s pour la foudre, 6,5 s pour le voyage,
-  // 8 s pour le saut complet des deux grandes dates. Elle vient de `DUREES_DELOREAN`, jamais
-  // d'une constante écrite ici — sinon les deux valeurs dériveraient en silence.
-  it('disparaît au bout de la durée de sa scène', async () => {
-    const { racine, minuteurFn } = await monterDemarrage(ECRANS.salon, {
-      maintenant: () => new Date(2026, 9, 21, 14, 0),
-    });
-    const retrait = minuteurFn.mock.calls.find(([, delai]) => delai === DUREES_DELOREAN.saut);
-    expect(retrait).toBeDefined();
-
-    (retrait![0] as () => void)();
-
-    expect(racine.querySelector('.delorean')).toBeNull();
-  });
-
-  it('n\'apparaît pas un jour ordinaire', async () => {
-    const { racine } = await monterDemarrage(ECRANS.salon);
-    expect(racine.querySelector('.delorean')).toBeNull();
-  });
-
-  // Revue tâche 12, constat 3 : `dessiner()` sortait par un retour anticipé dès `moment === 'nuit'`
-  // (23 h → 5 h) AVANT le bloc d'armement du survol. 01 h 21 — l'un des quatre instants déclarés
-  // par `estInstantDelorean` — était donc structurellement inatteignable, tout comme le 21 octobre
-  // et le 5 novembre entre 23 h et 5 h. Le code promettait un clin d'œil qu'il ne pouvait pas
-  // rendre.
-  it('survole aussi l\'écran de nuit : 01 h 21 est par définition en pleine nuit', async () => {
-    const { racine } = await monterDemarrage(ECRANS.salon, {
-      maintenant: () => new Date(2026, 7, 1, 1, 21),
-    });
-    expect(racine.querySelector('.nuit')).not.toBeNull();   // bien l'écran de nuit, pas l'accueil
-    const survol = racine.querySelector('.delorean');
-    expect(survol).not.toBeNull();
-    expect(racine.contains(survol!)).toBe(true);
-  });
-
-  // Mineur (ronde de correction 1, tâche 8) : `niveauInitial !== 'aucun'` (`demarrage.ts`,
-  // `survol()`) remplace l'ancienne règle CSS `.mvt-aucun .delorean { animation: none; opacity: 0 }`
-  // — un changement introduit par cette même tâche, et resté sans test jusqu'ici (ni avant, ni
-  // après). Le survol n'est désormais même plus RENDU sous ce refus (au lieu d'être rendu-et-masqué
-  // en CSS), donc la preuve porte sur `.delorean`, jamais sur une classe ou un style calculé.
-  it('mouvement=aucun (URL) : ne survole pas l\'écran, même le 21 octobre', async () => {
-    const avantUrl = location.href;
-    window.history.pushState({}, '', '/?mouvement=aucun');
-    try {
-      const { racine } = await monterDemarrage(ECRANS.salon, {
-        maintenant: () => new Date(2026, 9, 21, 14, 0),
-      });
-      expect(racine.querySelector('.delorean')).toBeNull();
-    } finally {
-      window.history.pushState({}, '', avantUrl);
-    }
   });
 });
 

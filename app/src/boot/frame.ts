@@ -5,7 +5,6 @@ import { momentDuJour, alerteActive, type Moment } from '../contexte';
 import { collecterAlertes, lastMotion } from '../alertes';
 import { resoudreSource, type SourceResolue } from '../media';
 import { modePrincipal, modulateursActifs, type ContexteModes } from '../modes';
-import { estInstantDelorean } from '../rendu/delorean';
 import { listerMinuteurs, premierSlotLibre } from '../minuteur';
 import type { ScreenState } from './state';
 
@@ -42,11 +41,9 @@ export function computeFrame(s: ScreenState): Frame {
   // context, it no longer decides the rank on its own.
   //
   // Task 12 review: this block is computed BEFORE the early returns (night, whole house, tasks),
-  // and no longer after. Two things depend on it that are not specific to the normal screen: the
+  // and no longer after. One thing depends on it that is not specific to the normal screen: the
   // dark palette forced by the cinema mode (entering a sub-view during a film lit the screen up
-  // again in the middle of the living room) and the DeLorean overlay — one of whose four
-  // instants, 01:21, falls by definition in the middle of the night, hence behind the first of
-  // those returns.
+  // again in the middle of the living room).
   const maintenantMs = maintenant.getTime();
   const alerte = alerteActive(collecterAlertes(etat, maintenantMs), lastMotion(etat), maintenantMs);
 
@@ -91,11 +88,6 @@ export function computeFrame(s: ScreenState): Frame {
     temperatureExterieure: Number(meteoEtat?.attributs['temperature'] ?? 0),
     soleilLeve: soleil,
     modeInvites: etat.lire('input_boolean.mode_invites')?.etat === 'on',
-    // LOCAL clock, never Home Assistant: the wink survives a connection cut, that is the whole
-    // point of `rendu/delorean.ts`. `piece.delorean` first: without it, the kitchen and the office
-    // would enter the modulator and hide their screen for eight seconds for a car parked in
-    // another room.
-    instantDelorean: piece.delorean === true && estInstantDelorean(maintenant),
     minuteurEnCours: vuesMinuteurs.length > 0,
     // Task 11 (2026-08-17): the recipe in progress, collapsed or open. `recetteUid` and not the
     // hash: a COLLAPSED recipe (empty hash) is precisely the state in which this mode must

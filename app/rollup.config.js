@@ -24,7 +24,11 @@ const LENGTH_MARKER = ['policy:', 'allow-long-file'].join(' ');
 // that happens to carry it (`rendu/repli.ts` does), and ship that prose inside the bundle.
 const BANNIERE = `${MARQUEUR_TEXTE_UI} ${LENGTH_MARKER} -- generated bundle carrying French UI text`;
 
-export default {
+// The Lottie player's bundle needs neither marker: it carries no French text, and its minified
+// output is two lines (measured on 2026-09-28, dotlottie-web 0.80.0). Its banner only names it.
+const BANNIERE_LOTTIE = 'generated bundle: @lottiefiles/dotlottie-web';
+
+const app = {
   input: 'src/index.ts',
   output: {
     // La sortie est RELATIVE au depot (decision 2 de la spec) : `dist/` est suivi
@@ -45,3 +49,23 @@ export default {
     terser({ format: { comments: new RegExp(`^ ${BANNIERE} $`) } }),
   ],
 };
+
+// The Lottie player, a SECOND IIFE loaded on demand by `src/lottie.ts` (`<script>` on the first
+// Lottie). Kept out of `wallpanel.js` on purpose: rollup would inline a dynamic `import()` into an
+// IIFE, and the three tablets would download the player on every release. Its WASM is copied next
+// to it by `scripts/copier-assets.mjs`.
+const lottie = {
+  input: 'src/lottie-bundle.ts',
+  output: {
+    dir: DIST,
+    entryFileNames: 'dotlottie.js',
+    format: 'iife', name: 'WallpanelLottie', sourcemap: false,
+    banner: `/* ${BANNIERE_LOTTIE} */`,
+  },
+  plugins: [
+    resolve(), typescript(),
+    terser({ format: { comments: new RegExp(`^ ${BANNIERE_LOTTIE} $`) } }),
+  ],
+};
+
+export default [app, lottie];

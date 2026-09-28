@@ -213,10 +213,9 @@ describe('modulateursActifs', () => {
     expect(modulateursActifs({ ...CALME, temperatureExterieure: 28 })).toEqual([]);
   });
 
-  it('cumule invités, chaleur et DeLorean', () => {
-    const m = modulateursActifs({
-      ...CALME, modeInvites: true, temperatureExterieure: 35, instantDelorean: true });
-    expect(m.sort()).toEqual(['chaleur', 'delorean', 'invites']);
+  it('cumule invités et chaleur', () => {
+    const m = modulateursActifs({ ...CALME, modeInvites: true, temperatureExterieure: 35 });
+    expect(m.sort()).toEqual(['chaleur', 'invites']);
   });
 });
 
@@ -473,7 +472,7 @@ const CTX: ContexteModes = {
   alerte: false, aspirateurEnMarche: false, ecranAllume: false, sourceJoue: false,
   ouvrantOuvertDepuisMs: 0, chauffageEnMarche: false, ilPleut: false,
   serrureDeverrouillee: false, temperatureExterieure: 20, soleilLeve: true,
-  modeInvites: false, instantDelorean: false, minuteurEnCours: false,
+  modeInvites: false, minuteurEnCours: false,
   recetteEnCours: false, blocDefaut: 'repas',
 };
 

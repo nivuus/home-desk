@@ -22,15 +22,17 @@ import sys
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 
-# Les cinq artefacts que le hook depose. assets/ est duplique depuis
-# app/assets/ par le build : c'est 411 Ko payes une fois (git stocke par
-# contenu) pour que dist/ soit COMPLET, donc deposable par un seul
-# replace_tree() atomique — le repertoire est relu par trois clients qui
-# rechargent tout seuls.
+# The artefacts the hook deploys. The Lottie player (dotlottie.js) and its WASM
+# (assets/dotlottie-player.wasm, copied from node_modules by the build) are
+# fetched by URL on the first Lottie, never through a CDN: missing, a Lottie
+# would fail on the wall only. Keeping them in dist/ keeps it COMPLETE, hence
+# deployable by a single atomic replace_tree() — the directory is re-read by
+# three clients that reload on their own.
 ATTENDUS = (
     "wallpanel.js", "wallpanel.css",
     "salon.html", "bureau.html", "cuisine.html",
 )
+ATTENDUS_CHEMINS = ("dist/dotlottie.js", "dist/assets/dotlottie-player.wasm")
 
 # Aucun chemin de machine ne doit survivre dans ce qui est depose.
 # /opt/nivuus/HomeAssistant est l'ancien emplacement, disparu le 2026-08-28.
@@ -55,9 +57,10 @@ for attendu in ATTENDUS:
     if attendu not in noms:
         failures.append(f"dist/{attendu} n'est pas suivi par git")
 
-if not any(f.startswith("dist/assets/") for f in fichiers):
-    failures.append("dist/assets/ n'est suivi par aucun fichier ; "
-                    "les polices DSEG et les deux videos manqueraient")
+for chemin in ATTENDUS_CHEMINS:
+    if chemin not in fichiers:
+        failures.append(f"{chemin} is not tracked by git: "
+                        "Lottie animations would fail on the tablets")
 
 # Les binaires ne se relisent pas en texte : on ne scanne que le texte.
 for rel in fichiers:

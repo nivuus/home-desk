@@ -17,8 +17,8 @@ import type { NextMeal } from '../garde-manger';
 import type { LigneIngredient } from '../rendu/recette';
 import type { Prevision } from '../meteo';
 import type { Evenement } from '../agenda';
-import type { VarianteDelorean } from '../rendu/delorean';
 import type { createTaskCheck, createArming } from '../cochage';
+import type { AnimationEnCours } from '../animation';
 import type { ConnexionLike, DependancesDemarrage } from './types';
 import { newPantryState, type PantryState } from './pantry';
 
@@ -138,15 +138,6 @@ export class ScreenState {
   // `rendu/defaut.ts`) — the same data as the badge, never a second request.
   evenements: Evenement[] = [];
 
-  // DeLorean wink (task 11): rendered when the instant begins, removed six seconds later. `arme`
-  // prevents arming two timers for the same instant — `dessiner()` is called back by the clock,
-  // by every entity change and by the weather, and `estInstantDelorean` stays true for the whole
-  // minute. It drops back to `false` as soon as the instant has passed, so that the next one
-  // (22:04, 01:21, 21 October, 5 November) can be armed again.
-  sceneDelorean: VarianteDelorean | null = null;
-  deloreanArme = false;
-  vitesseAffichee = 0;
-
   // Task 9: switched on transition only (not on every `surSilence` callback, every 5 s) —
   // `dessiner()` only needs to be called back when the displayed value must actually change,
   // consistent with the rest of `boot/`, which avoids piling up useless work.
@@ -185,6 +176,21 @@ export class ScreenState {
    *  with the rest of `boot/` should that refusal ever change. */
   climEnVol: EnVolClim = null;
   jetonClim = 0;
+
+  /** The animation pushed by Home Assistant that is on screen (`boot/animation.ts`), `null` when
+   *  none. `jetonAnimation` follows the same one-token-per-start pattern as `jetonClim`: a closer
+   *  of a replaced animation carries a stale token and closes nothing (`fermerAnimation`). */
+  animation: AnimationEnCours | null = null;
+  jetonAnimation = 0;
+  /** The end timer of the animation on screen, cleared on close and on replacement. */
+  minuteurAnimation: ReturnType<typeof setTimeout> | undefined;
+  /** The overlay's own host in `#app`, placed by `armerAnimations` under the `initialise` guard
+   *  (same definite-assignment pattern as `cx`). */
+  hoteAnimation!: HTMLElement;
+  /** The Lottie player of the animation on screen, `null` when none: destroyed whenever that
+   *  animation closes or is replaced (it holds WASM memory and a render loop, which removing its
+   *  canvas does not stop). */
+  lecteurLottie: { destroy(): void } | null = null;
 
   /** Redraws the screen. An arrow property, not a method, so that it can be handed out as a
    *  callback (`etat.surMaj`, `d.intervalFn`, `armer`...) exactly like the hoisted `dessiner`

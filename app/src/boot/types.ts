@@ -5,6 +5,7 @@ import type { Jetons, EvenementEtat } from '../connexion';
 import type { ConnexionAppelable } from '../interaction';
 import type { Ecran } from '../ecran';
 import type { ListEntry, Result, TransportConfig } from '../configuration';
+import type { chargerLottie } from '../lottie';
 
 /** What `startWithScreen` expects from a connection: just enough not to depend on the concrete
  *  `Connexion` class, so that it can be replaced by a double in the tests (revoked refresh token,
@@ -54,6 +55,9 @@ export type DependancesDemarrage = {
    *  path (`index.ts`, `data-piece`) serves the literal through the same door. */
   chargerEcran: (cx: TransportConfig, nom: string) => Promise<Result<Ecran>>;
   listerEcrans: (cx: TransportConfig) => Promise<Result<ListEntry[]>>;
+  /** Resolves the Lottie player, loading its bundle on first use (`lottie.ts`). Injectable so
+   *  that the tests never inject a real `<script>`. */
+  chargerLottie: () => ReturnType<typeof chargerLottie>;
   /** Task 5 of plan 3b: replaces `location.reload()` in the tests, so that they do not have to
    *  reload a real page. */
   recharger?: () => void;

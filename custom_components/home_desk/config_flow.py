@@ -184,10 +184,6 @@ SCHEMA_IDENTITE = vol.Schema(
         # survived every edit, but could be neither created nor
         # modified from HA. Optional: the contract carries them as `Optional`.
         vol.Optional("aspirateur"): selector.EntitySelector(selector.EntitySelectorConfig()),
-        # `delorean` is `const: true` in the contract: a checkbox.
-        # Unchecked, the key must be REMOVED (`False` is REJECTED there) -- see
-        # `_valider_identite`, same filter as "note", TWO sites.
-        vol.Optional("delorean"): bool,
     }
 )
 
@@ -227,15 +223,11 @@ def _valider_identite(user_input: dict[str, Any], *, noms_existants: frozenset[s
         description_placeholders["max"] = str(schema.HAUTEUR_MAX)
         return errors, description_placeholders, None
     # Round 1 (task 6): an empty `note` was PERSISTED ("" stays "") where the
-    # contract wants it ABSENT (Optional, never an empty string). Ruling 15
-    # (task 7): an unchecked `delorean` arrives as `False` -- SAME filter,
-    # otherwise PERSISTED whereas the contract carries it as `const: true` (`False` is
-    # REJECTED there) -- no screen could be saved any more as soon as one
-    # opens this form without ticking the box. Second site: `async_step_
-    # identite`, which also removes the key from `new_data`.
+    # contract wants it ABSENT (Optional, never an empty string). Second
+    # site: `async_step_identite`, which also removes the key from `new_data`.
     identity_data = {
         k: v for k, v in user_input.items()
-        if not (k == "note" and v == "") and not (k == "delorean" and v is False)
+        if not (k == "note" and v == "")
     }
     identity_data["nom"] = nom  # the STRIPPED one, never the raw one
     return errors, description_placeholders, identity_data
@@ -418,7 +410,7 @@ class EcranSubentryFlow(ListSectionsMixin, SectionsObjetMixin, ConfigSubentryFlo
         description_placeholders: dict[str, str] = {}
         displayed_values = {
             cle: subentry.data[cle]
-            for cle in ("nom", "hauteurUtile", "temperature", "note", "aspirateur", "delorean")
+            for cle in ("nom", "hauteurUtile", "temperature", "note", "aspirateur")
             if cle in subentry.data
         }
 
@@ -433,11 +425,6 @@ class EcranSubentryFlow(ListSectionsMixin, SectionsObjetMixin, ConfigSubentryFlo
                 new_data.update(identity_data)
                 if "note" not in identity_data:
                     new_data.pop("note", None)
-                # Ruling 15, SECOND site: `.update()` is a UNION that
-                # never removes an already PERSISTED key -- without this twin,
-                # unchecking an ALREADY checked box would never remove it.
-                if "delorean" not in identity_data:
-                    new_data.pop("delorean", None)
                 entites = [
                     v for v in (
                         new_data.get("temperature"),

@@ -127,7 +127,7 @@ def test_importer_ecrans_persiste_la_valeur_VALIDEE_pas_le_brut_normalise():
             "synthese": [], "sources": [], "ouvrants": [],
             "agencement": {
                 "zones": ["commandes"], "modes": ["defaut"],
-                "modulateurs": ["delorean", "chaleur", "invites"],
+                "modulateurs": ["invites", "chaleur"],
             },
         }),
     ]
@@ -136,7 +136,7 @@ def test_importer_ecrans_persiste_la_valeur_VALIDEE_pas_le_brut_normalise():
 
     appels = _HassFactice.config_entries.appels
     (sous_entree,) = appels[0][2]["subentries"].values()
-    assert sous_entree.data["agencement"]["modulateurs"] == ["chaleur", "delorean", "invites"], (
+    assert sous_entree.data["agencement"]["modulateurs"] == ["chaleur", "invites"], (
         "importer_ecrans doit persister modulateurs TRIE (la valeur que "
         "schema.valider rend), pas l'ordre brut soumis dans le fichier")
 
