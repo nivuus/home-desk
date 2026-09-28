@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { render } from 'lit';
 import {
-  sessionAbsente, erreurDemarrage, ecranEnAttente, choisirEcran,
+  sessionAbsente, startupError, ecranEnAttente, choisirEcran,
   aucunEcranConfigure, versionRefusee, configIllisible, integrationAbsente,
   ecranDeLaPanne,
 } from '../src/rendu/repli';
@@ -27,7 +27,7 @@ describe('les neuf écrans de repli — chacun NOMME UN GESTE', () => {
     // Contre-épreuve du déplacement : cette phrase existait dans `demarrage.ts` avant cette
     // tâche. La déplacer ne doit pas la réécrire — sinon le déménagement change le
     // comportement en se faisant passer pour un rangement.
-    expect(texteDe(erreurDemarrage())).toBe(
+    expect(texteDe(startupError())).toBe(
       "Connexion impossible L'écran n'arrive pas à joindre la maison. Ça peut venir du réseau "
       + 'ou de la session : une nouvelle tentative va avoir lieu automatiquement. Si ça persiste, '
       + 'réouvre Home Assistant sur cette tablette et reconnecte-toi.');
@@ -121,7 +121,7 @@ describe('ecranDeLaPanne — la table complète, décor à CINQ pannes', () => {
     expect(texteDe(ecranDeLaPanne('corrompu', 'Salon'))).toBe(texteDe(configIllisible('Salon')));
     expect(texteDe(ecranDeLaPanne('integrationAbsente', 'Salon')))
       .toBe(texteDe(integrationAbsente()));
-    expect(texteDe(ecranDeLaPanne('reseau', 'Salon'))).toBe(texteDe(erreurDemarrage()));
+    expect(texteDe(ecranDeLaPanne('reseau', 'Salon'))).toBe(texteDe(startupError()));
   });
 
   it('« introuvable » sans liste connue invite à choisir, pas à réparer', () => {

@@ -522,7 +522,7 @@ export const MODES = [
     nom: 'alerte',
     etats: [
       ['lock.aqara_smart_lock_u200_lite', 'unlocked', {}],
-      // `dernierMouvement` (`alertes.ts`) : sans mouvement récent, une alerte se replie sur la
+      // `lastMotion` (`alertes.ts`) : sans mouvement récent, une alerte se replie sur la
       // ligne de synthèse au lieu d'occuper le bloc central (`alerteActive`, `contexte.ts`).
       ['binary_sensor.tablette_salon_mouvement', 'on', {}],
     ],
@@ -530,7 +530,7 @@ export const MODES = [
   },
   {
     // Tâche 14 (2026-08-03) : les six prochaines heures ont disparu — la cuisine reçoit
-    // désormais « ce qui est prévu à manger » (`rendreRepasSuivant`, `rendu/defaut.ts`), à la place de
+    // désormais « ce qui est prévu à manger » (`renderNextMeal`, `rendu/defaut.ts`), à la place de
     // l'ancien mode `previsions` que ce tableau mesurait ici (même page, même position, cf. le
     // commentaire au-dessus de `MODES` : la cuisine est aussi la seule pièce déjà visitée pour
     // `minuteur` juste après — les deux restent volontairement ADJACENTS, un seul changement de
@@ -606,7 +606,7 @@ export const MODES = [
     // de hauteur méritait le moins d'être laissé à l'estime.
     //
     // `repasInjecte: null` : le repas est VIDÉ délibérément (et non « laissé au hasard du
-    // planning ») — c'est cette absence qui fait tomber `rendreRepasSuivant` sur `undefined` et
+    // planning ») — c'est cette absence qui fait tomber `renderNextMeal` sur `undefined` et
     // donne la main au repli. Même méthode que `NEUTRE` pour les états : on ne mesure pas un mode en
     // espérant que la maison veuille bien être dans le bon état.
     //
@@ -1192,7 +1192,7 @@ export function analyserRendu(params) {
 
   // Ronde de correction 2 (relecteur, LE PLUS IMPORTANT) : jusqu'ici, ce vérificateur ne juge que
   // la géométrie — jamais si l'écran mesuré est le vrai tableau de bord ou un message d'erreur. Un
-  // écran bloqué en permanence sur « Connexion impossible » (`erreurDemarrage()`, `demarrage.ts`)
+  // écran bloqué en permanence sur « Connexion impossible » (`startupError()`, `demarrage.ts`)
   // ou « Session » (`sessionAbsente()`, même fichier) passait donc `jugerResultat` haut la main :
   // ces deux gabarits ne débordent pas, n'ont aucune cible tactile trop petite (ils n'en ont
   // AUCUNE), aucun contraste insuffisant. Un vérificateur qui ne peut jamais voir l'application
@@ -2249,7 +2249,7 @@ export const forcerRedessin = (page) =>
  *
  *  Ronde de correction 1, défaut trouvé à l'exécution et non supposé : changer l'heure figée
  *  (`clock.setFixedTime`) pour rendre une autre date fait bondir `Date.now()` de plusieurs mois.
- *  `Connexion` calcule son silence en `Date.now() - dernierMessage` : le bond franchit d'un coup
+ *  `Connexion` calcule son silence en `Date.now() - lastMessageAt` : le bond franchit d'un coup
  *  `SEUIL_MUET_MS` (30 s), `horsLigne` passe à vrai et `dessiner()` remplace ALORS le bloc central
  *  de TOUS les modes par `rendreHorsLigne()` — il prime sur tout, c'est sa raison d'être. La
  *  surveillance ne se rétracte qu'au tic suivant de son intervalle de 5 s : entre les deux, la
@@ -2984,7 +2984,7 @@ async function verifierModes(nav, HA_URL, jetons, bundle) {
   // ⚠️ AVERTISSEMENT À QUI AJOUTERA UN `setFixedTime` ICI (ronde de correction 2). Une version
   // antérieure de ce commentaire affirmait que figer l'heure « neutralise au passage la
   // surveillance du silence websocket ». C'est vrai du PREMIER figement seulement — l'heure ne
-  // bouge plus, donc `Date.now() - dernierMessage` reste nul. Ce n'est PAS vrai d'un CHANGEMENT
+  // bouge plus, donc `Date.now() - lastMessageAt` reste nul. Ce n'est PAS vrai d'un CHANGEMENT
   // d'heure figée : passer du 7 mai au 13 septembre fait bondir `Date.now()` de quatre mois,
   // `Connexion` y lit un silence de quatre mois, franchit `SEUIL_MUET_MS` (30 s) et `dessiner()`
   // remplace le bloc central de TOUS les modes par `rendreHorsLigne()`, qui prime sur tout.
@@ -3362,7 +3362,7 @@ const FIXTURES = [
     description: 'un texte en `white-space: nowrap` plus large que sa boîte doit être signalé',
   },
   {
-    // Ronde de correction 2 : reproduit fidèlement `erreurDemarrage()`/`sessionAbsente()`
+    // Ronde de correction 2 : reproduit fidèlement `startupError()`/`sessionAbsente()`
     // (`demarrage.ts`) — un unique `.cap`, sans `.corps`, exactement leur gabarit réel.
     nom: 'écran de repli (Connexion impossible / Session) affiché à la place du contenu',
     html: gabaritFixture(`
@@ -3664,7 +3664,7 @@ async function autoTestPeint(nav) {
 // tâche) déclaraient tout conforme. Trois causes cumulées, dont la plus profonde : le WebView de
 // la tablette émet PLUSIEURS `pointerdown` au cours d'un même glissement physique (un seul doigt,
 // posé une seule fois — vérifié sur les relevés d'appels de service du 2026-08-02, pas supposé).
-// `creerGeste` (`geste.ts`) s'en protège par une garde : un `pointerdown` supplémentaire pendant
+// `createGesture` (`geste.ts`) s'en protège par une garde : un `pointerdown` supplémentaire pendant
 // un geste déjà en cours est ignoré, pour ne jamais réinitialiser le point de référence
 // (`xDepart`/`valeurDepart`) en cours de route.
 //
@@ -3695,7 +3695,7 @@ const TUILE_Y = TUILE_HAUT + TUILE_HAUTEUR / 2;
 const SERRURE_HAUT = TUILE_HAUT + TUILE_HAUTEUR + 20;
 const SERRURE_Y = SERRURE_HAUT + TUILE_HAUTEUR / 2;
 
-/** Bundle `creerGeste` (`geste.ts`) et `Etat` (`etat.ts`) EN MÉMOIRE depuis `SRC_APP` — jamais
+/** Bundle `createGesture` (`geste.ts`) et `Etat` (`etat.ts`) EN MÉMOIRE depuis `SRC_APP` — jamais
  *  écrit sur disque (`write: false`), jamais un import direct de ces `.ts` par ce script `.mjs`
  *  (Node ne saurait pas les charger sans transpilation). `jauge.ts` est entraîné dans le bundle
  *  par l'import réel de `geste.ts` (pas listé ici séparément) : c'est le graphe d'imports RÉEL du
@@ -3703,7 +3703,7 @@ const SERRURE_Y = SERRURE_HAUT + TUILE_HAUTEUR / 2;
 async function bundlerGeste() {
   const resultat = await esbuild.build({
     stdin: {
-      contents: `export { creerGeste } from './geste.ts'; export { Etat } from './etat.ts';`,
+      contents: `export { createGesture } from './geste.ts'; export { Etat } from './etat.ts';`,
       resolveDir: SRC_APP,
       loader: 'ts',
     },
@@ -3713,7 +3713,7 @@ async function bundlerGeste() {
 }
 
 /** Gabarit de fixture : une tuile À jauge (`#tuile`, ex. « Lumières ») et une tuile SANS jauge
- *  (`#serrure`, même dispatcher `creerGeste`, mais `descripteurJauge` y rend `null` puisque
+ *  (`#serrure`, même dispatcher `createGesture`, mais `descripteurJauge` y rend `null` puisque
  *  `lock.*` n'est reconnu par aucun des quatre domaines de `jauge.ts`) — les deux branches réelles
  *  du `if (!d)` dans `geste.ts`, sur la même page. */
 function fixtureGeste(codeBundle) {
@@ -3744,7 +3744,7 @@ async function pageGeste(ctx, codeBundle, etatTuile) {
       estUtilisable: () => true,
       lire: (id) => (id === 'light.lumiere_salon' ? etatTuile : { etat: 'locked', attributs: {} }),
     };
-    const geste = window.GesteModule.creerGeste(etat, cx, () => false);
+    const geste = window.GesteModule.createGesture(etat, cx, () => false);
     document.getElementById('tuile').addEventListener('pointerdown', (ev) =>
       geste(ev, 'light.lumiere_salon', () => { window.__bascules++; }));
     document.getElementById('serrure').addEventListener('pointerdown', (ev) =>

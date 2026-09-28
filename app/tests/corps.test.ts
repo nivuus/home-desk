@@ -355,7 +355,7 @@ describe('smoke rendreCorps', () => {
 // jamais être appelée. `rendreAlerte` (produite par cette tâche dans `rendu/corps.ts`) est la
 // fonction de rendu qui la branche ; la priorité elle-même (alerte > le reste) est calculée
 // dans `demarrage.ts` (cf. `tests/navigation.test.ts` pour la preuve de bout en bout à travers
-// `demarrer()`) — ici, on prouve seulement que `rendreCorps` REMPLACE tout bloc central par défaut
+// `startScreen()`) — ici, on prouve seulement que `rendreCorps` REMPLACE tout bloc central par défaut
 // par `blocCentral` quand il est fourni, jamais en plus.
 // Tâche 6 (2026-08-02) : `rendreMedia`, mentionnée à l'origine dans le titre de ce describe et
 // dans plusieurs tests ci-dessous, a disparu — la carte média (`rendreCarteMedia`,

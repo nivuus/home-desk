@@ -26,11 +26,11 @@
 import { html, type TemplateResult } from 'lit';
 import { estCeJour, heureCourte, type Evenement } from '../agenda';
 import { formaterRestant } from '../minuteur';
-import type { RepasSuivant } from '../garde-manger';
+import type { NextMeal } from '../garde-manger';
 import { icone } from './icones';
 
 /** Cuisine : le repas SUIVANT, lu dans les attributs de `sensor.home_stock_next_meal`
- *  (`repasSuivant`, `src/garde-manger.ts`). `.t` porte l'étiquette du créneau, `.v` le plat sur
+ *  (`nextMeal`, `src/garde-manger.ts`). `.t` porte l'étiquette du créneau, `.v` le plat sur
  *  deux lignes.
  *
  *  Lot 6 (2026-08-21) : la SOURCE a changé, le gabarit PAS D'UN PIXEL. Avant, `demarrage.ts`
@@ -44,7 +44,7 @@ import { icone } from './icones';
  *  étant portée par la tuile « Recette » de la grille. Une NOTE (« Reste quinoa + légumes ») ou un
  *  simple produit n'a pas de recette : le bloc l'affiche mais reste inerte — un bloc qui répond au
  *  contact sans rien ouvrir serait le bouton mort que ce projet traque partout. */
-export function rendreRepasSuivant(r: RepasSuivant | undefined): TemplateResult | undefined {
+export function renderNextMeal(r: NextMeal | undefined): TemplateResult | undefined {
   if (!r || r.plat.trim() === '') return undefined;
   const ouvrable = r.recetteId !== null;
   return html`
@@ -92,9 +92,9 @@ export function rendreRecetteReduite(
  *  occupe tout un bloc central, la pastille non — un rendez-vous à 5 h d'ici y a toujours sa
  *  place, ce que la pastille (un simple repli de coin de bandeau) n'a pas la place de promettre.
  *
- *  Aucun rendez-vous restant AUJOURD'HUI (tous passés, ou le seul à venir est demain) OU agenda
- *  hors ligne (`evenements` vide, `chargerAgenda` garde alors le dernier tableau connu) →
- *  `undefined`, même règle que `rendreRepasSuivant`. */
+ *  No appointment left TODAY (all past, or the only upcoming one is tomorrow) OR calendar
+ *  offline (`evenements` empty, `chargerAgenda` then keeps the last known array) → `undefined`,
+ *  same rule as `renderNextMeal`. */
 /** L'entité de la liste d'entretien — écrite ICI, une seule fois, parce que trois fichiers en
  *  dépendent désormais et qu'ils doivent parler de la MÊME liste : `demarrage.ts` y lit le cache
  *  de `chargerTaches` pour remplir le bloc ci-dessous, et `rendu/corps.ts` retire l'entrée de
@@ -114,10 +114,10 @@ export const ENTITE_ENTRETIEN = 'todo.maintenance';
  *  absence n'est donc pas un cas limite à tolérer, c'est le cas courant. Arbitrage du
  *  propriétaire : les tâches d'entretien prennent la place.
  *
- *  Source : `taches['todo.maintenance']`, déjà rempli par `chargerTaches` (`demarrage.ts`) —
- *  `todo.maintenance` est déclaré dans la `synthese` des trois pièces (`ecran.ts`), donc déjà
- *  présent dans `listesTachesPiece` (`cochage.ts`). Aucun second chemin de lecture, exactement
- *  comme `rendreRepasSuivant` reçoit le repas déjà choisi plutôt que de le déduire lui-même.
+ *  Source: `taches['todo.maintenance']`, already filled by `chargerTaches` (`demarrage.ts`) —
+ *  `todo.maintenance` is declared in the `synthese` of the three rooms (`ecran.ts`), hence
+ *  already present in `roomTodoLists` (`cochage.ts`). No second reading path, exactly as
+ *  `renderNextMeal` receives the meal already chosen rather than deducing it itself.
  *
  *  LE TITRE PORTE LE COMPTE, et ce n'est pas décoratif : quand ce bloc s'affiche, la ligne de
  *  synthèse cesse d'annoncer « 3 tâches d'entretien » (`masquerEntretien`, `rendu/corps.ts` — la
@@ -138,8 +138,8 @@ export const ENTITE_ENTRETIEN = 'todo.maintenance';
  *  trentaine chacune : au-delà de deux tâches, le clamp coupe réellement — d'où le compte au
  *  titre, et le détail complet à un appui de là (la ligne de synthèse ouvre la vue « Tâches »).
  *
- *  Liste vide, ou tous les libellés vides → `undefined`, même règle que `rendreRepasSuivant` : jamais un
- *  cadre creux. Le compte annoncé est celui des tâches RETENUES, jamais du tableau brut. */
+ *  Empty list, or all labels empty → `undefined`, same rule as `renderNextMeal`: never a hollow
+ *  frame. The announced count is that of the RETAINED tasks, never of the raw array. */
 export function rendreEntretien(items: { uid: string; texte: string }[]): TemplateResult | undefined {
   const nommees = items.filter((i) => i.texte.trim() !== '');
   if (nommees.length === 0) return undefined;

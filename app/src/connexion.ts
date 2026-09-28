@@ -1,6 +1,6 @@
-/** Accès à Home Assistant. La page est servie par HA sur la même origine, donc elle partage
- *  le localStorage du frontend : aucun jeton n'est écrit dans un fichier ni dans une URL —
- *  /local/ est servi SANS authentification. */
+/** Access to Home Assistant. The page is served by HA on the same origin, so it shares the
+ *  frontend's localStorage: no token is ever written to a file or into a URL — /local/ is served
+ *  WITHOUT authentication. */
 import { intervalFnParDefaut, minuteurFnParDefaut } from './minuteurs';
 
 export type Jetons = {
@@ -11,19 +11,19 @@ export type EvenementEtat = {
   entity_id: string; state: string; attributes: Record<string, unknown>;
 };
 
-/** Un refus de Home Assistant, avec SON CODE.
+/** A refusal from Home Assistant, with ITS CODE.
  *
- *  Décision 11 de la spec : `websocket.py` distingue quatre refus par un code
- *  (`not_found`, `version_inconnue`, `ecran_corrompu`, plus `unknown_command` rendu par le
- *  cœur de HA quand la commande n'est pas enregistrée du tout). Ses `message`, eux, sont du
- *  français Python SANS accents : des diagnostics développeur destinés au journal HA, jamais
- *  des phrases d'utilisateur. Jeter le code pour ne garder que le message — ce que faisait
- *  `envoyerCommande` avant cette tâche — rendait les cinq dégradations indistinguables, et
- *  poussait à afficher à l'utilisateur une phrase que ce dépôt n'écrit pas pour lui.
+ *  Decision 11 of the spec: `websocket.py` distinguishes four refusals by a code (`not_found`,
+ *  `version_inconnue`, `ecran_corrompu`, plus `unknown_command` returned by HA's core when the
+ *  command is not registered at all). Their `message`s, for their part, are Python French
+ *  WITHOUT accents: developer diagnostics meant for the HA log, never user sentences. Throwing
+ *  the code away to keep only the message — what `envoyerCommande` did before this task — made
+ *  the five degradations indistinguishable, and pushed towards showing the user a sentence this
+ *  repository does not write for them.
  *
- *  `message` reste accessible, et un appelant PEUT l'afficher par paresse. C'est
- *  `configuration.ts` qui traduit un code en phrase française accentuée, et le test qui
- *  épingle LA PHRASE RENDUE est ce qui garde cette frontière. */
+ *  `message` remains accessible, and a caller CAN display it out of laziness. It is
+ *  `configuration.ts` that translates a code into an accented French sentence, and the test that
+ *  pins THE RENDERED SENTENCE is what guards this boundary. */
 export class RefusHA extends Error {
   constructor(readonly code: string, message: string) {
     super(message);
@@ -31,9 +31,9 @@ export class RefusHA extends Error {
   }
 }
 
-/** Au-delà de ce délai, une commande websocket sans réponse est abandonnée. Quinze secondes :
- *  bien au-dessus de toute latence réelle sur le réseau de la maison (le serveur HA est aussi
- *  le point d'accès), bien en dessous de la patience de qui passe devant un écran mural. */
+/** Beyond this delay, a websocket command without an answer is abandoned. Fifteen seconds: well
+ *  above any real latency on the house network (the HA server is also the access point), well
+ *  below the patience of whoever walks past a wall screen. */
 const DELAI_COMMANDE_MS = 15_000;
 
 const MARGE_MS = 5 * 60_000;
@@ -45,12 +45,12 @@ export function lireJetons(stockage: Storage): Jetons | null {
     const j = JSON.parse(brut);
     return j && j.access_token ? j : null;
   } catch {
-    return null;   // stockage vidé ou corrompu : on redemandera une session
+    return null;   // storage emptied or corrupt: a session will be asked for again
   }
 }
 
-/** Le jeton d'accès expire en 30 minutes. Sans rafraîchissement, un écran mural meurt
- *  silencieusement au bout d'une demi-heure. */
+/** The access token expires in 30 minutes. Without a refresh, a wall screen dies silently after
+ *  half an hour. */
 export function doitRafraichir(j: Jetons, maintenant: number): boolean {
   return maintenant >= j.expires - MARGE_MS;
 }
@@ -75,18 +75,18 @@ export async function rafraichir(
   };
 }
 
-export function delaiReconnexion(essai: number): number {
-  return Math.min(1000 * 2 ** essai, 30000);
+export function delaiReconnexion(attempt: number): number {
+  return Math.min(1000 * 2 ** attempt, 30000);
 }
 
-/** Dépendances injectables de `Connexion`, pour pouvoir tester `connecter()` sans navigateur
- *  ni websocket réel. Toutes ont une valeur par défaut prise dans les globales du navigateur,
- *  résolue paresseusement (via `??`) : en usage réel (page servie par HA), rien ne change. */
+/** Injectable dependencies of `Connexion`, so that `connecter()` can be tested without a browser
+ *  or a real websocket. All of them have a default value taken from the browser globals,
+ *  resolved lazily (via `??`): in real use (page served by HA), nothing changes. */
 export type DependancesConnexion = {
   fetchFn: typeof fetch;
   intervalFn: typeof setInterval;
-  /** Nécessaire au délai maximal d'`envoyerCommande`. Même source unique de `.bind(globalThis)`
-   *  que `intervalFn` : `./minuteurs.ts`. */
+  /** Needed for the maximum delay of `envoyerCommande`. Same single source of
+   *  `.bind(globalThis)` as `intervalFn`: `./minuteurs.ts`. */
   minuteurFn: typeof setTimeout;
   stockage: Storage;
   origineWs: string;
@@ -96,43 +96,41 @@ export type DependancesConnexion = {
 export class Connexion {
   private ws: WebSocket | null = null;
   private id = 1;
-  private essai = 0;
+  private attempt = 0;
   private jetons: Jetons;
   private rappelsEtat: ((e: EvenementEtat) => void)[] = [];
   private rappelsSilence: ((ms: number) => void)[] = [];
-  private rappelsEvenement = new Map<string, ((donnees: Record<string, unknown>) => void)[]>();
-  /** L'instantané initial (`get_states`) a-t-il déjà été demandé sur la socket courante ?
+  private rappelsEvenement = new Map<string, ((data: Record<string, unknown>) => void)[]>();
+  /** Has the initial snapshot (`get_states`) already been requested on the current socket?
    *
-   *  Sert à `surChangement` : un abonné posé APRÈS `auth_ok` a manqué cet instantané, qui a été
-   *  distribué à une liste de rappels vide et perdu sans erreur. Remis à `false` à chaque
-   *  ouverture de socket, pour qu'une reconnexion reparte du bon état. */
+   *  Used by `surChangement`: a subscriber registered AFTER `auth_ok` missed that snapshot, which
+   *  was distributed to an empty callback list and lost without any error. Reset to `false` on
+   *  every socket opening, so that a reconnection starts again from the right state. */
   private etatsDemandes = false;
-  /** Résolue au premier `auth_ok`, JAMAIS remise en attente sur reconnexion.
+  /** Resolved on the first `auth_ok`, NEVER put back to pending on reconnection.
    *
-   *  `prete()` répond à « peut-on envoyer une commande ? » pour la PREMIÈRE commande, celle du
-   *  démarrage — le seul moment où la question se posait, puisque tout le reste du code n'appelle
-   *  `envoyerCommande` que bien après, sous la garde `estHorsLigne` de `demarrage.ts`. La remettre
-   *  en attente à chaque coupure ferait attendre indéfiniment un appelant qui n'a plus rien à
-   *  apprendre ; une panne DURABLE reste signalée par `surSilence`, qui est le mécanisme prévu
-   *  pour ça et qui continue de tourner quoi qu'il arrive ici. */
+   *  `prete()` answers "can a command be sent?" for the FIRST command, the startup one — the only
+   *  moment when the question arose, since all the rest of the code only calls `envoyerCommande`
+   *  well afterwards, under the `estHorsLigne` guard of `demarrage.ts`. Putting it back to
+   *  pending on every drop would make a caller that has nothing left to learn wait forever; a
+   *  LASTING failure is still reported by `surSilence`, which is the mechanism meant for that and
+   *  which keeps running whatever happens here. */
   private resoudrePrete: (() => void) | null = null;
   private readonly pretePromesse: Promise<void> =
     new Promise((r) => { this.resoudrePrete = r; });
-  private dernierMessage = 0;
-  /** Tâche 14 : requêtes websocket EN ATTENTE de leur réponse, appariées par `id` — nécessaire
-   *  pour `todo/item/list` (vue « Tâches »), qui n'a pas d'équivalent `call_service` et dont la
-   *  réponse ne doit jamais être confondue avec celle de `get_states` (traitée plus bas de façon
-   *  générique par `type === 'result' && Array.isArray(m.result)`, jamais appariée à un `id`
-   *  précis jusqu'ici — un seul type de requête « sans réponse suivie » suffisait avant cette
-   *  tâche). Vérifiée EN PREMIER dans `onmessage` : comme aucun `id` de `get_states`/
-   *  `subscribe_events` n'est jamais enregistré ici, les deux mécanismes restent mutuellement
-   *  exclusifs sans rien se voler. */
+  private lastMessageAt = 0;
+  /** Task 14: websocket requests WAITING for their answer, matched by `id` — needed for
+   *  `todo/item/list` ("Tâches" view), which has no `call_service` equivalent and whose answer
+   *  must never be confused with the one of `get_states` (handled further down generically by
+   *  `type === 'result' && Array.isArray(m.result)`, never matched to a specific `id` until now —
+   *  a single kind of "untracked answer" request was enough before this task). Checked FIRST in
+   *  `onmessage`: since no `id` of `get_states`/`subscribe_events` is ever registered here, the
+   *  two mechanisms remain mutually exclusive without stealing from each other. */
   private enAttenteCommandes = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
-  /** Garde-fou anti-fuite : la surveillance du silence ne doit être armée qu'une seule fois
-   *  pour la durée de vie de l'objet. `connecter()` est rappelé à chaque coupure websocket
-   *  (`ws.onclose`) ; sans cette garde, chaque reconnexion empilait un `setInterval`
-   *  supplémentaire — fatal sur une tablette à 130 Mo de libre qui décroche régulièrement du
-   *  Wi-Fi. */
+  /** Anti-leak safeguard: the silence watch must be armed only once for the lifetime of the
+   *  object. `connecter()` is called again on every websocket drop (`ws.onclose`); without this
+   *  guard, each reconnection stacked one more `setInterval` — fatal on a tablet with 130 MB
+   *  free that regularly drops off the Wi-Fi. */
   private silenceArme = false;
   private readonly deps: DependancesConnexion;
 
@@ -140,9 +138,9 @@ export class Connexion {
     this.jetons = jetons;
     this.deps = {
       fetchFn: deps.fetchFn ?? fetch,
-      // Source unique de ce `.bind(globalThis)` : `./minuteurs.ts` (ronde de correction 2, voir
-      // son docstring — trois recopies indépendantes de ce bind, une par site d'usage, laissaient
-      // une régression casser silencieusement un site sur trois selon le cas).
+      // Single source of this `.bind(globalThis)`: `./minuteurs.ts` (correction round 2, see
+      // its docstring — three independent copies of this bind, one per usage site, let a
+      // regression silently break one site out of three depending on the case).
       intervalFn: deps.intervalFn ?? intervalFnParDefaut,
       minuteurFn: deps.minuteurFn ?? minuteurFnParDefaut,
       stockage: deps.stockage ?? localStorage,
@@ -151,17 +149,18 @@ export class Connexion {
     };
   }
 
-  /** Abonne un rappel aux changements d'état.
+  /** Subscribes a callback to state changes.
    *
-   *  Appelable AVANT `connecter()` (le cas de `demarrerAvecEcran`, qui s'abonne puis connecte)
-   *  comme APRÈS (le cas de `demarrer`, qui connecte d'abord pour résoudre la configuration, et
-   *  ne monte le corps qu'ensuite) — même contrat que `surEvenement` juste en dessous.
+   *  Callable BEFORE `connecter()` (the case of `startWithScreen`, which subscribes then
+   *  connects) as well as AFTER (the case of `startScreen`, which connects first to resolve the
+   *  configuration, and only mounts the body afterwards) — same contract as `surEvenement` just
+   *  below.
    *
-   *  Le rattrapage n'est pas un confort : sans lui, un abonné posé après `auth_ok` ne reçoit
-   *  plus que les `state_changed`, donc les seules entités qui CHANGENT. Toutes les autres —
-   *  une hotte éteinte, un rideau immobile, la météo, `sun.sun` — ne résolvent JAMAIS. C'est le
-   *  défaut qui a fait échouer l'étape 5 de la mise en production du 2026-09-14 : la tablette
-   *  rendait sa structure et pas un seul état. */
+   *  The catch-up is not a convenience: without it, a subscriber registered after `auth_ok` only
+   *  receives the `state_changed` events, hence only the entities that CHANGE. All the others —
+   *  a hood that is off, a still curtain, the weather, `sun.sun` — NEVER resolve. That is the
+   *  defect that made step 5 of the 2026-09-14 production rollout fail: the tablet rendered its
+   *  structure and not a single state. */
   surChangement(cb: (e: EvenementEtat) => void) {
     this.rappelsEtat.push(cb);
     if (this.etatsDemandes) this.demanderEtats();
@@ -170,26 +169,26 @@ export class Connexion {
 
   prete(): Promise<void> { return this.pretePromesse; }
 
-  /** Abonne un rappel à un type d'événement de bus QUELCONQUE.
+  /** Subscribes a callback to ANY bus event type.
    *
-   *  Avant cette tâche, `connecter()` envoyait `subscribe_events` avec `event_type:
-   *  'state_changed'` EN DUR, et le répartiteur n'examinait un message `event` que s'il portait
-   *  `data.new_state` : un `home_desk_config_changed` tombait dans le vide, sans erreur — la
-   *  décision 2 de la spec était inatteignable EN SILENCE.
+   *  Before this task, `connecter()` sent `subscribe_events` with `event_type: 'state_changed'`
+   *  HARDCODED, and the dispatcher only examined an `event` message if it carried
+   *  `data.new_state`: a `home_desk_config_changed` fell into the void, without any error —
+   *  decision 2 of the spec was unreachable SILENTLY.
    *
-   *  Appelable AVANT `connecter()` (le cas normal : `demarrage.ts` s'abonne puis connecte) comme
-   *  après (la souscription part alors tout de suite). Les souscriptions sont REJOUÉES à chaque
-   *  `auth_ok`, donc une reconnexion ne perd aucun abonné. */
-  surEvenement(type: string, cb: (donnees: Record<string, unknown>) => void) {
+   *  Callable BEFORE `connecter()` (the normal case: `demarrage.ts` subscribes then connects) as
+   *  well as after (the subscription then goes out right away). Subscriptions are REPLAYED on
+   *  every `auth_ok`, so a reconnection loses no subscriber. */
+  surEvenement(type: string, cb: (data: Record<string, unknown>) => void) {
     const deja = this.rappelsEvenement.get(type);
     if (deja) { deja.push(cb); return; }
     this.rappelsEvenement.set(type, [cb]);
     if (this.ws) this.souscrire(type);
   }
 
-  /** La demande d'instantané, au singulier : `auth_ok` la pose pour la socket neuve, et
-   *  `surChangement` la repose pour un abonné arrivé trop tard. Deux formulations du même envoi
-   *  finiraient par diverger. */
+  /** The snapshot request, in the singular: `auth_ok` sends it for the new socket, and
+   *  `surChangement` sends it again for a subscriber that arrived too late. Two wordings of the
+   *  same send would end up diverging. */
   private demanderEtats() {
     this.ws?.send(JSON.stringify({ id: this.id++, type: 'get_states' }));
   }
@@ -198,14 +197,14 @@ export class Connexion {
     this.ws?.send(JSON.stringify({ id: this.id++, type: 'subscribe_events', event_type: type }));
   }
 
-  /** Arme la surveillance du silence une seule fois (cf. `silenceArme`). Appelée en tête de
-   *  `connecter()` pour être posée avant tout risque d'échec de connexion, sans jamais être
-   *  reposée sur reconnexion. */
+  /** Arms the silence watch only once (see `silenceArme`). Called at the top of `connecter()` so
+   *  that it is set before any risk of connection failure, without ever being set again on
+   *  reconnection. */
   private armerSurveillanceSilence() {
     if (this.silenceArme) return;
     this.silenceArme = true;
     this.deps.intervalFn(() => {
-      const ms = Date.now() - this.dernierMessage;
+      const ms = Date.now() - this.lastMessageAt;
       for (const cb of this.rappelsSilence) cb(ms);
     }, 5000);
   }
@@ -213,15 +212,15 @@ export class Connexion {
   async connecter(): Promise<void> {
     this.armerSurveillanceSilence();
 
-    // Idempotente à dessein : `demarrer()` connecte pour résoudre la configuration, puis passe
-    // LA MÊME instance au corps, qui rappelle `connecter()`. Sans cette garde, la seconde
-    // ouverture remplacerait `this.ws` ; l'ancienne socket déclencherait son `onclose`, donc
-    // `reconnecter()`, et la page repartirait en boucle de reconnexion sans qu'aucune coupure
-    // n'ait eu lieu.
+    // Idempotent on purpose: `startScreen()` connects to resolve the configuration, then passes
+    // THE SAME instance to the body, which calls `connecter()` again. Without this guard, the
+    // second opening would replace `this.ws`; the old socket would fire its `onclose`, hence
+    // `reconnecter()`, and the page would go into a reconnection loop without any drop having
+    // happened.
     //
-    // La garde ne gêne PAS la reconnexion réelle : quand `ws.onclose` rappelle `connecter()`,
-    // `readyState` vaut CLOSED (3), jamais OPEN. Et un double de test sans `readyState`
-    // (`undefined !== 1`) passe la garde comme avant.
+    // The guard does NOT hinder real reconnection: when `ws.onclose` calls `connecter()` again,
+    // `readyState` is CLOSED (3), never OPEN. And a test double without `readyState`
+    // (`undefined !== 1`) passes the guard as before.
     if (this.ws && this.ws.readyState === 1) return;
 
     if (doitRafraichir(this.jetons, Date.now())) {
@@ -231,18 +230,18 @@ export class Connexion {
     const url = this.deps.origineWs + '/api/websocket';
     const ws = new this.deps.WebSocketImpl(url);
     this.ws = ws;
-    // Socket neuve : son instantané n'est pas encore parti. Sans cette remise à zéro, un abonné
-    // qui arriverait pendant une reconnexion croirait l'avoir manqué et en redemanderait un
-    // deuxième, que `auth_ok` enverrait de toute façon.
+    // New socket: its snapshot has not gone out yet. Without this reset, a subscriber arriving
+    // during a reconnection would believe it had missed it and would request a second one,
+    // which `auth_ok` would send anyway.
     this.etatsDemandes = false;
 
     ws.onmessage = (ev) => {
-      this.dernierMessage = Date.now();
+      this.lastMessageAt = Date.now();
       const m = JSON.parse(ev.data);
       if (m.type === 'auth_required') {
         ws.send(JSON.stringify({ type: 'auth', access_token: this.jetons.access_token }));
       } else if (m.type === 'auth_ok') {
-        this.essai = 0;
+        this.attempt = 0;
         this.souscrire('state_changed');
         for (const type of this.rappelsEvenement.keys()) this.souscrire(type);
         this.demanderEtats();
@@ -253,10 +252,10 @@ export class Connexion {
         const n = m.event.data.new_state;
         this.emettre({ entity_id: n.entity_id, state: n.state, attributes: n.attributes });
       } else if (m.type === 'event' && typeof m.event?.event_type === 'string') {
-        // Volontairement APRÈS la branche `new_state` ci-dessus : `state_changed` garde son
-        // chemin historique intact, celui dont dépendent les 1049 tests de l'application. Cette
-        // branche-ci ne voit donc que les événements SANS `new_state` — les événements de bus
-        // quelconques, dont `home_desk_config_changed`.
+        // Deliberately AFTER the `new_state` branch above: `state_changed` keeps its historical
+        // path intact, the one the application's 1049 tests depend on. This branch therefore
+        // only sees events WITHOUT `new_state` — arbitrary bus events, including
+        // `home_desk_config_changed`.
         const rappels = this.rappelsEvenement.get(m.event.event_type);
         if (rappels) for (const cb of rappels) cb(m.event.data ?? {});
       } else if (m.type === 'result' && this.enAttenteCommandes.has(m.id)) {
@@ -275,58 +274,56 @@ export class Connexion {
     ws.onclose = () => this.reconnecter();
   }
 
-  /** Tâche 9 : point d'entrée unique de la reconnexion interne, rappelé à la fois par
-   *  `ws.onclose` (coupure du websocket) et par le `.catch` ci-dessous en cas d'échec de la
-   *  tentative elle-même. Avant ce correctif, seul `ws.onclose` reprogrammait quoi que ce soit :
-   *  `setTimeout(() => void this.connecter(), d)` ne rattrapait rien, donc si `connecter()`
-   *  levait — `rafraichir()` refuse le jeton de rafraîchissement (révoqué), ou réseau coupé au
-   *  mauvais moment — le rejet devenait non observé (silencieux en production) ET la chaîne de
-   *  reconnexion s'arrêtait pour de bon : `connecter()` ayant levé avant de créer un nouveau
-   *  websocket, aucun `ws.onclose` n'était reposé pour retenter plus tard. Sur une coupure Wi-Fi
-   *  qui dure le temps qu'un jeton d'accès expire (30 min, le serveur HA est aussi le point
-   *  d'accès de la maison), l'écran restait alors figé sur des données périmées, en silence,
-   *  sans plus jamais retenter — le chemin de panne visé par cette tâche.
+  /** Task 9: single entry point of the internal reconnection, called both by `ws.onclose`
+   *  (websocket drop) and by the `.catch` below when the attempt itself fails. Before this fix,
+   *  only `ws.onclose` rescheduled anything: `setTimeout(() => void this.connecter(), d)` caught
+   *  nothing, so if `connecter()` threw — `rafraichir()` refuses the refresh token (revoked), or
+   *  the network drops at the wrong moment — the rejection became unobserved (silent in
+   *  production) AND the reconnection chain stopped for good: since `connecter()` had thrown
+   *  before creating a new websocket, no `ws.onclose` was set again to retry later. On a Wi-Fi
+   *  drop lasting as long as it takes an access token to expire (30 min, the HA server is also
+   *  the house's access point), the screen then stayed frozen on stale data, silently, without
+   *  ever retrying again — the failure path this task targets.
    *
-   *  Cette reconnexion interne contourne volontairement l'orchestration de `demarrage.ts`
-   *  (`tenter()`, qui ne surveille que la toute première connexion `await cx.connecter()`) :
-   *  elle n'affichera donc jamais `erreurDemarrage()`, quel que soit le nombre d'échecs. Ce
-   *  n'est pas elle qui rend une panne durable visible — c'est `surSilence`, câblé par
-   *  `demarrage.ts` sur le minuteur armé une seule fois en tête de `connecter()`
-   *  (`armerSurveillanceSilence`), qui continue de tourner sans interruption quoi qu'il arrive
-   *  ici, tant que l'objet `Connexion` existe. */
+   *  This internal reconnection deliberately bypasses the orchestration of `demarrage.ts`
+   *  (`tenter()`, which only watches the very first connection `await cx.connecter()`): it will
+   *  therefore never display `startupError()`, whatever the number of failures. It is not what
+   *  makes a lasting failure visible — that is `surSilence`, wired by `demarrage.ts` onto the
+   *  timer armed only once at the top of `connecter()` (`armerSurveillanceSilence`), which keeps
+   *  running without interruption whatever happens here, as long as the `Connexion` object
+   *  exists. */
   private reconnecter() {
-    const d = delaiReconnexion(this.essai++);
+    const d = delaiReconnexion(this.attempt++);
     setTimeout(() => { void this.connecter().catch(() => this.reconnecter()); }, d);
   }
 
   private emettre(e: EvenementEtat) { for (const cb of this.rappelsEtat) cb(e); }
 
-  appelerService(domaine: string, service: string, donnees: Record<string, unknown>) {
+  appelerService(domaine: string, service: string, data: Record<string, unknown>) {
     this.ws?.send(JSON.stringify({
-      id: this.id++, type: 'call_service', domain: domaine, service, service_data: donnees,
+      id: this.id++, type: 'call_service', domain: domaine, service, service_data: data,
     }));
   }
 
-  /** Envoie une commande websocket arbitraire et attend sa réponse appariée par `id`
-   *  (cf. `enAttenteCommandes`). Trois façons d'en finir, jamais aucune autre :
-   *   - HA répond `success` → la promesse rend `result` ;
-   *   - HA refuse → `RefusHA`, avec son code ;
-   *   - HA ne répond pas dans `delaiMs` → `RefusHA('delai_depasse', …)`.
+  /** Sends an arbitrary websocket command and waits for its answer matched by `id` (see
+   *  `enAttenteCommandes`). Three ways of ending, never any other:
+   *   - HA answers `success` → the promise returns `result`;
+   *   - HA refuses → `RefusHA`, with its code;
+   *   - HA does not answer within `delaiMs` → `RefusHA('delai_depasse', …)`.
    *
-   *  Ce troisième cas est celui qu'on ne voyait pas : si HA accepte la commande puis redémarre,
-   *  la réponse n'arrive jamais, et avant cette tâche la promesse restait en suspens POUR
-   *  TOUJOURS — l'écran d'attente de la décision 10 devenait un écran d'attente permanent.
+   *  That third case is the one nobody saw: if HA accepts the command then restarts, the answer
+   *  never arrives, and before this task the promise stayed pending FOREVER — the waiting screen
+   *  of decision 10 became a permanent waiting screen.
    *
-   *  Le minuteur n'est pas annulé ; il n'a pas besoin de l'être. Le premier règlement — par la
-   *  réponse HA ou par le minuteur, quel que soit celui qui arrive en premier — retire l'entrée
-   *  de `enAttenteCommandes` via `finir` ; si le minuteur sonne après coup, `enAttenteCommandes`
-   *  ne contient plus rien pour cet `id` et son rappel n'a plus personne à régler deux fois. Et
-   *  si le minuteur sonnait malgré tout avant la réponse HA (l'ordre inverse), régler une
-   *  promesse déjà réglée est un no-op de la spécification ECMAScript : `resolve`/`reject` d'un
-   *  exécuteur ne font plus rien après le premier appel, sans lever ni produire de rejet non
-   *  observé. Annuler le minuteur exigerait d'injecter aussi un `clearTimeout` pour rester
-   *  testable, pour économiser un minuteur de quinze secondes par commande — une complication
-   *  plus chère que ce qu'elle évite. */
+   *  The timer is not cancelled; it does not need to be. The first settlement — by HA's answer
+   *  or by the timer, whichever arrives first — removes the entry from `enAttenteCommandes` via
+   *  `finir`; if the timer fires afterwards, `enAttenteCommandes` no longer holds anything for
+   *  that `id` and its callback has nobody left to settle twice. And if the timer did fire before
+   *  HA's answer (the reverse order), settling an already settled promise is a no-op of the
+   *  ECMAScript specification: an executor's `resolve`/`reject` do nothing after the first call,
+   *  without throwing or producing an unobserved rejection. Cancelling the timer would require
+   *  injecting a `clearTimeout` too in order to stay testable, to save one fifteen-second timer
+   *  per command — a complication more expensive than what it avoids. */
   envoyerCommande(
     payload: Record<string, unknown>, delaiMs: number = DELAI_COMMANDE_MS,
   ): Promise<unknown> {
@@ -351,15 +348,15 @@ export class Connexion {
     });
   }
 
-  /** Liste les tâches ACTIVES (`status !== 'completed'`) d'une liste `todo.*` — habillage de
-   *  `envoyerCommande` pour la commande websocket `todo/item/list` (vue « Tâches », tâche 14).
-   *  Une réponse malformée (pas de tableau `items`) rend une liste vide plutôt que de lever :
-   *  l'appelant (`demarrage.ts`, `chargerTaches`) avale de toute façon toute erreur, mais autant
-   *  ne jamais produire une valeur qui ferait planter un `.map` en aval. */
+  /** Lists the ACTIVE tasks (`status !== 'completed'`) of a `todo.*` list — a wrapper around
+   *  `envoyerCommande` for the `todo/item/list` websocket command ("Tâches" view, task 14). A
+   *  malformed answer (no `items` array) returns an empty list rather than throwing: the caller
+   *  (`demarrage.ts`, `chargerTaches`) swallows any error anyway, but we might as well never
+   *  produce a value that would crash a `.map` downstream. */
   async listerTaches(entite: string): Promise<{ uid: string; texte: string }[]> {
-    const resultat = await this.envoyerCommande({ type: 'todo/item/list', entity_id: entite }) as
+    const result = await this.envoyerCommande({ type: 'todo/item/list', entity_id: entite }) as
       { items?: { uid: string; summary: string; status: string }[] } | undefined;
-    const items = Array.isArray(resultat?.items) ? resultat.items : [];
+    const items = Array.isArray(result?.items) ? result.items : [];
     return items.filter((it) => it.status !== 'completed').map((it) => ({ uid: it.uid, texte: it.summary }));
   }
 }

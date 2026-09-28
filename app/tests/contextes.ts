@@ -3,7 +3,7 @@
  *
  *  Ce fichier ne contient AUCUN test : nommé `contextes.ts` et non `contextes.test.ts`, même
  *  règle que `aides.ts` (cf. son en-tête) — pour que vitest ne le ramasse pas comme une suite
- *  vide. Séparé d'`aides.ts` plutôt qu'ajouté dedans : `aides.ts` importe `demarrer()` (donc
+ *  vide. Séparé d'`aides.ts` plutôt qu'ajouté dedans : `aides.ts` importe `startScreen()` (donc
  *  l'application entière, plus `connexion` et `meteo`), qu'un test de `modes.ts` n'a aucune
  *  raison de charger pour obtenir un simple objet de contexte. */
 import type { ContexteModes } from '../src/modes';

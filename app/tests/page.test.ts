@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { demarrerPage } from '../src/page';
+import { startPage } from '../src/page';
 import { ECRANS } from '../src/ecran';
 import type { Ecran } from '../src/ecran';
 
@@ -10,93 +10,93 @@ function racineAvec(dataset: Record<string, string> = {}) {
   return el;
 }
 
-describe('demarrerPage — le chemin NEUF', () => {
+describe('startPage — le chemin NEUF', () => {
   it('passe le nom de ?ecran= au transport, décodé', () => {
-    const demarrer = vi.fn(async () => {});
-    const demarrerAvecEcran = vi.fn(async () => {});
+    const startScreen = vi.fn(async () => {});
+    const startWithScreen = vi.fn(async () => {});
     const racine = racineAvec();
-    void demarrerPage(racine, 'https://ha/local/wallpanel/index.html?ecran=Salle%20de%20bain',
-                      { demarrer, demarrerAvecEcran });
-    expect(demarrer).toHaveBeenCalledWith(racine, 'Salle de bain');
-    expect(demarrerAvecEcran).not.toHaveBeenCalled();
+    void startPage(racine, 'https://ha/local/wallpanel/index.html?ecran=Salle%20de%20bain',
+                      { startScreen, startWithScreen });
+    expect(startScreen).toHaveBeenCalledWith(racine, 'Salle de bain');
+    expect(startWithScreen).not.toHaveBeenCalled();
   });
 
   it('gagne sur data-piece quand les deux sont présents', () => {
     // Pendant la migration, une page historique repointée porte les DEUX : son `data-piece`
     // d'origine et le `?ecran=` neuf. Le transport doit gagner, sans quoi repointer une
     // tablette ne changerait rien et l'étape 5 de la mise en production serait un faux vert.
-    const demarrer = vi.fn(async () => {});
-    const demarrerAvecEcran = vi.fn(async () => {});
-    void demarrerPage(racineAvec({ piece: 'salon' }),
+    const startScreen = vi.fn(async () => {});
+    const startWithScreen = vi.fn(async () => {});
+    void startPage(racineAvec({ piece: 'salon' }),
                       'https://ha/local/wallpanel/salon.html?ecran=Cuisine',
-                      { demarrer, demarrerAvecEcran });
-    expect(demarrer).toHaveBeenCalledWith(expect.anything(), 'Cuisine');
-    expect(demarrerAvecEcran).not.toHaveBeenCalled();
+                      { startScreen, startWithScreen });
+    expect(startScreen).toHaveBeenCalledWith(expect.anything(), 'Cuisine');
+    expect(startWithScreen).not.toHaveBeenCalled();
   });
 });
 
-describe('demarrerPage — la BRANCHE DE TRANSITION (retirée à l étape 8 du plan 3c)', () => {
+describe('startPage — la BRANCHE DE TRANSITION (retirée à l étape 8 du plan 3c)', () => {
   it('sert le littéral ECRANS depuis data-piece, sans aucun aller-retour', () => {
     // C'est CE chemin qui rend le retour arrière des étapes 5 à 7 réel : remettre l'ancienne
     // `startURL` fait charger la page historique, qui lit le littéral — le comportement
     // d'avant, octet pour octet, puisque c'est le même code.
-    const demarrer = vi.fn(async () => {});
-    const demarrerAvecEcran = vi.fn(async () => {});
+    const startScreen = vi.fn(async () => {});
+    const startWithScreen = vi.fn(async () => {});
     const racine = racineAvec({ piece: 'cuisine' });
-    void demarrerPage(racine, 'https://ha/local/wallpanel/cuisine.html',
-                      { demarrer, demarrerAvecEcran });
-    expect(demarrerAvecEcran).toHaveBeenCalledWith(racine, ECRANS.cuisine);
-    expect(demarrer).not.toHaveBeenCalled();
+    void startPage(racine, 'https://ha/local/wallpanel/cuisine.html',
+                      { startScreen, startWithScreen });
+    expect(startWithScreen).toHaveBeenCalledWith(racine, ECRANS.cuisine);
+    expect(startScreen).not.toHaveBeenCalled();
   });
 
   it('les trois clés historiques mènent aux trois écrans — décor à TROIS', () => {
     for (const cle of ['salon', 'bureau', 'cuisine'] as const) {
-      const demarrerAvecEcran = vi.fn(async (_racine: HTMLElement, _piece: Ecran) => {});
-      void demarrerPage(racineAvec({ piece: cle }), `https://ha/local/wallpanel/${cle}.html`,
-                        { demarrer: vi.fn(async () => {}), demarrerAvecEcran });
-      expect(demarrerAvecEcran.mock.calls[0][1]).toBe(ECRANS[cle]);
+      const startWithScreen = vi.fn(async (_racine: HTMLElement, _piece: Ecran) => {});
+      void startPage(racineAvec({ piece: cle }), `https://ha/local/wallpanel/${cle}.html`,
+                        { startScreen: vi.fn(async () => {}), startWithScreen });
+      expect(startWithScreen.mock.calls[0][1]).toBe(ECRANS[cle]);
     }
   });
 
   it('ignore un data-piece qui ne nomme aucun écran connu', () => {
-    const demarrer = vi.fn(async () => {});
-    const demarrerAvecEcran = vi.fn(async () => {});
-    void demarrerPage(racineAvec({ piece: 'grenier' }), 'https://ha/local/wallpanel/x.html',
-                      { demarrer, demarrerAvecEcran });
-    expect(demarrerAvecEcran).not.toHaveBeenCalled();
-    expect(demarrer).toHaveBeenCalledWith(expect.anything(), '');
+    const startScreen = vi.fn(async () => {});
+    const startWithScreen = vi.fn(async () => {});
+    void startPage(racineAvec({ piece: 'grenier' }), 'https://ha/local/wallpanel/x.html',
+                      { startScreen, startWithScreen });
+    expect(startWithScreen).not.toHaveBeenCalled();
+    expect(startScreen).toHaveBeenCalledWith(expect.anything(), '');
   });
 
   it('un ?ecran= vide avec data-piece présent sert quand même le littéral', () => {
     // Scénario réel de la mise en production, pas théorique : une page HISTORIQUE (qui porte
     // `data-piece`) repointée avec une URL malformée où `?ecran=` est vide. C'est le seul cas où
     // `if (nom)` et `if (nom !== null)` divergent : sans `data-piece` posé, les deux écritures
-    // retombent sur le même `demarrer(racine, '')` et rien ne les distingue (mesuré). Avec
+    // retombent sur le même `startScreen(racine, '')` et rien ne les distingue (mesuré). Avec
     // `data-piece` présent, `if (nom !== null)` partirait sur le transport avec un nom vide — la
     // liste tapable, littéral ignoré — alors que `if (nom)` tombe dans la branche de transition
     // et sert le littéral : le comportement d'avant, celui que la branche doit garantir.
-    const demarrer = vi.fn(async () => {});
-    const demarrerAvecEcran = vi.fn(async () => {});
+    const startScreen = vi.fn(async () => {});
+    const startWithScreen = vi.fn(async () => {});
     const racine = racineAvec({ piece: 'bureau' });
-    void demarrerPage(racine, 'https://ha/local/wallpanel/bureau.html?ecran=',
-                      { demarrer, demarrerAvecEcran });
-    expect(demarrerAvecEcran).toHaveBeenCalledWith(racine, ECRANS.bureau);
-    expect(demarrer).not.toHaveBeenCalled();
+    void startPage(racine, 'https://ha/local/wallpanel/bureau.html?ecran=',
+                      { startScreen, startWithScreen });
+    expect(startWithScreen).toHaveBeenCalledWith(racine, ECRANS.bureau);
+    expect(startScreen).not.toHaveBeenCalled();
   });
 });
 
-describe('demarrerPage — ni l un ni l autre', () => {
+describe('startPage — ni l un ni l autre', () => {
   it('demande la liste quand rien n identifie l écran', () => {
-    const demarrer = vi.fn(async () => {});
-    void demarrerPage(racineAvec(), 'https://ha/local/wallpanel/index.html',
-                      { demarrer, demarrerAvecEcran: vi.fn(async () => {}) });
-    expect(demarrer).toHaveBeenCalledWith(expect.anything(), '');
+    const startScreen = vi.fn(async () => {});
+    void startPage(racineAvec(), 'https://ha/local/wallpanel/index.html',
+                      { startScreen, startWithScreen: vi.fn(async () => {}) });
+    expect(startScreen).toHaveBeenCalledWith(expect.anything(), '');
   });
 
   it('traite ?ecran= vide comme absent', () => {
-    const demarrer = vi.fn(async () => {});
-    void demarrerPage(racineAvec(), 'https://ha/local/wallpanel/index.html?ecran=',
-                      { demarrer, demarrerAvecEcran: vi.fn(async () => {}) });
-    expect(demarrer).toHaveBeenCalledWith(expect.anything(), '');
+    const startScreen = vi.fn(async () => {});
+    void startPage(racineAvec(), 'https://ha/local/wallpanel/index.html?ecran=',
+                      { startScreen, startWithScreen: vi.fn(async () => {}) });
+    expect(startScreen).toHaveBeenCalledWith(expect.anything(), '');
   });
 });

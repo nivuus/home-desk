@@ -50,7 +50,8 @@ de libre.
 | `src/rendu/*.ts` | blocs centraux (`media`, `voiture`, `taches`, `minuteur`, `nuit`, `maison`, `defaut`, `recette`…) et `icones.ts` |
 | `src/garde-manger.ts` | le repas suivant et le compte de DLC, **lus dans les attributs** de `sensor.home_stock_next_meal` et `todo.home_stock_expirations` |
 | `src/contexte.ts` | moment du jour (nuit 23 h–5 h), alertes |
-| `src/demarrage.ts` | connexion, souscriptions d'état, orchestration, retour auto après inactivité |
+| `src/demarrage.ts` | les deux points d'entrée (`startScreen`, `startWithScreen`) et leurs boucles de reprise |
+| `src/boot/` | un écran monté, découpé le 2026-09-28 : `state.ts` (état partagé), `wiring.ts` (souscriptions, gestes, retour auto après inactivité), `controls.ts`, `loaders.ts` (tâches, météo, agenda), `recipe.ts`, `timers.ts`, `draw.ts` + `frame.ts`/`subviews.ts`/`home.ts` (le dessin), `test-hooks.ts` (`?essai=1`) |
 | `src/styles/` | `base.css` + `jetons.css` (généré, Material 3 Expressive) |
 
 ## Commandes

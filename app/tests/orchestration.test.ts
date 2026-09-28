@@ -5,7 +5,7 @@
 // `tests/carte-media.test.ts`, `tests/rendu-modes.test.ts`, `tests/delorean.test.ts`,
 // `tests/mouvement.test.ts`) — et aucun de ces tests ne peut voir qu'ils ne sont appelés par
 // personne. C'est exactement la classe de défaut que cette suite existe pour attraper : elle
-// monte le vrai `demarrer()`, pousse des états comme le ferait le websocket, et regarde ce que
+// monte le vrai `startScreen()`, pousse des états comme le ferait le websocket, et regarde ce que
 // `#app` porte réellement.
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { ECRANS } from '../src/ecran';

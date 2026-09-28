@@ -12,7 +12,7 @@ import { fractionProgression } from '../progression';
 import { icone } from './icones';
 
 /** Rempli par la tâche 12 (`demarrage.ts`), même mécanique que `brancherAppui`
- *  (`rendu/corps.ts`) : `etat`/`cx` n'existent que dans la fermeture de `demarrer()`. */
+ *  (`rendu/corps.ts`) : `etat`/`cx` n'existent que dans la fermeture de `startScreen()`. */
 let agir: (domaine: string, service: string, entite: string, donnees?: Record<string, unknown>) => void =
   () => {};
 export function brancherMedia(fn: typeof agir) { agir = fn; }

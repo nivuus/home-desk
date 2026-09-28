@@ -1,95 +1,97 @@
-/** Logique de la vue « Tâches » (tâche 18) : quelles listes `todo.*` afficher pour une pièce,
- *  comment armer/confirmer un cochage sans jamais recourir à un appui long, et comment répartir
- *  une liste dont la longueur n'est PAS bornée à la compilation — contrairement à
- *  `TOUTE_LA_MAISON` (`rendu/maison.ts`), un tableau fixe, une vraie liste `todo.*` compte autant
- *  de tâches que son propriétaire en ajoute — sur un budget de hauteur fixe (585 px, marge
- *  nulle). Fonctions et fabriques PURES, aucune dépendance au DOM ni à Home Assistant : même
- *  discipline que `contexte.ts`/`jauge.ts`, testables sans navigateur. Câblé par `demarrage.ts`
- *  (seul endroit qui connaît à la fois `Etat`/`Connexion` et l'horloge de la page) et rendu par
- *  `rendu/taches.ts`. */
+/** Logic of the "Tâches" view (task 18): which `todo.*` lists to display for a room, how to
+ *  arm/confirm a check-off without ever resorting to a long press, and how to lay out a list
+ *  whose length is NOT bounded at compile time — unlike `TOUTE_LA_MAISON` (`rendu/maison.ts`), a
+ *  fixed array, a real `todo.*` list holds as many tasks as its owner adds — on a fixed height
+ *  budget (585 px, zero margin). PURE functions and factories, no dependency on the DOM or on
+ *  Home Assistant: same discipline as `contexte.ts`/`jauge.ts`, testable without a browser.
+ *  Wired by `demarrage.ts` (the only place that knows both `Etat`/`Connexion` and the page's
+ *  clock) and rendered by `rendu/taches.ts`. */
 import type { Ecran } from './ecran';
 
-/** Entités `todo.*` à afficher sur la vue « Tâches » de cette pièce : celles déjà déclarées dans
- *  `piece.synthese` (`todo.maintenance` partout, `todo.travail` au bureau, les DLC en cuisine —
- *  jamais dupliquées avec la ligne de synthèse, c'est la MÊME source, cf. `ecran.ts`) suivies de
- *  `piece.listesTachesExtra` (vide partout sauf en cuisine, où la liste de courses n'a pas sa place
- *  dans `synthese` — ce n'est pas un écart à signaler, cf. docstring de `Ecran.listesTachesExtra`).
+/** `todo.*` entities to display on this room's "Tâches" view: those already declared in
+ *  `piece.synthese` (`todo.maintenance` everywhere, `todo.travail` in the office, the expiry
+ *  dates in the kitchen — never duplicated with the summary line, it is the SAME source, see
+ *  `ecran.ts`) followed by the room's extra task lists (empty everywhere except in the kitchen,
+ *  where the shopping list has no place in `synthese` — it is not a deviation to report, see the
+ *  docstring of that extra-lists field of `Ecran`).
  *
- *  `horsTaches` : la seule échappatoire à la collecte automatique, et elle n'est posée qu'une fois
- *  (la ligne DLC du SALON, cf. son docstring dans `ecran.ts`). Sans elle, déclarer un compte de
- *  DLC à l'entrée y ferait aussi apparaître la liste, qu'on ne coche pas d'un canapé.
+ *  `horsTaches`: the only escape hatch from the automatic collection, and it is set only once
+ *  (the expiry-date line of the LIVING ROOM, see its docstring in `ecran.ts`). Without it,
+ *  declaring an expiry-date count at the entrance would also make the list appear there, which
+ *  nobody checks off from a sofa.
  *
- *  L'ORDRE est une décision : `synthese` d'abord, dans son ordre de déclaration, puis les extras.
- *  En cuisine, cela range entretien, puis DLC, puis courses — une DLC passe avant une course,
- *  parce que l'une a une échéance et l'autre non.
+ *  The ORDER is a decision: `synthese` first, in its declaration order, then the extras. In the
+ *  kitchen, that sorts upkeep, then expiry dates, then shopping — an expiry date comes before a
+ *  purchase, because one has a deadline and the other does not.
  *
- *  `Set` : une même entité déclarée deux fois (ne devrait jamais arriver, mais une pièce mal
- *  renseignée demain ne doit pas afficher deux fois la même liste). */
-export function listesTachesPiece(piece: Ecran): string[] {
+ *  `Set`: the same entity declared twice (should never happen, but a room badly filled in
+ *  tomorrow must not display the same list twice). */
+export function roomTodoLists(piece: Ecran): string[] {
   const deSynthese = piece.synthese
     .filter((s) => !s.horsTaches)
     .map((s) => s.entite)
     .filter((id) => id.startsWith('todo.'));
-  return Array.from(new Set([...deSynthese, ...(piece.listesTachesExtra ?? [])]));
+  // The extra-lists field keeps its French name: it is a wire-contract key
+  // (`contrat/ecran.schema.json`), shared with the Python component and stored configs.
+  return Array.from(new Set([...deSynthese, ...(piece.listesTachesExtra ?? [])]));   // policy: allow-fr
 }
 
-/** Nom court affiché en sous-titre de chaque ligne (cf. `TacheAffichee.liste`) — sans lui, deux
- *  tâches de listes différentes seraient indiscernables à l'écran, exactement le défaut déjà
- *  corrigé une fois sur la ligne de synthèse elle-même (todo.maintenance vs todo.travail,
- *  « indiscernables avant ce correctif », cf. `ecran.ts`). Repli sur le nom brut de l'entité
- *  (sans le préfixe `todo.`) pour une liste non prévue ici — jamais un sous-titre vide qui
- *  masquerait la provenance de la tâche. */
-const LIBELLES_LISTE: Record<string, string> = {
+/** Short name displayed as the subtitle of each row (see `TacheAffichee.list`) — without it, two
+ *  tasks from different lists would be indistinguishable on screen, exactly the defect already
+ *  fixed once on the summary line itself (todo.maintenance vs todo.travail, "indistinguishable
+ *  before this fix", see `ecran.ts`). Falls back to the raw entity name (without the `todo.`
+ *  prefix) for a list not foreseen here — never an empty subtitle that would hide where the task
+ *  comes from. */
+const LIST_LABELS: Record<string, string> = {
   'todo.maintenance': 'Entretien',
   'todo.travail': 'Travail',
   'todo.home_stock_shopping': 'Courses',
   'todo.home_stock_expirations': 'À consommer',
 };
 
-export function libelleListe(entite: string): string {
-  return LIBELLES_LISTE[entite] ?? entite.replace(/^todo\./, '');
+export function listLabel(entite: string): string {
+  return LIST_LABELS[entite] ?? entite.replace(/^todo\./, '');
 }
 
-export type TacheAffichee = { entite: string; uid: string; texte: string; liste: string };
+export type TacheAffichee = { entite: string; uid: string; texte: string; list: string };
 
-/** Aplatit le cache brut (une entrée par liste `todo.*`, alimenté par `Connexion.listerTaches`
- *  via `demarrage.ts`) en une liste ordonnée, prête à répartir puis à rendre. `estMasquee` :
- *  exclut une tâche déjà cochée localement (retrait optimiste, cf. `creerCochage` ci-dessous) —
- *  sans ce filtre, une tâche confirmée resterait visible jusqu'au prochain rechargement complet
- *  de la liste, ce qui contredirait le retrait immédiat que l'optimisme existe pour donner. */
+/** Flattens the raw cache (one entry per `todo.*` list, fed by `Connexion.listerTaches` via
+ *  `demarrage.ts`) into an ordered list, ready to be laid out then rendered. `estMasquee`:
+ *  excludes a task already checked off locally (optimistic removal, see `createTaskCheck` below)
+ *  — without this filter, a confirmed task would stay visible until the next full reload of the
+ *  list, which would contradict the immediate removal that optimism exists to give. */
 export function aplatirTaches(
-  parListe: Record<string, { uid: string; texte: string }[]>,
+  byList: Record<string, { uid: string; texte: string }[]>,
   entites: string[],
   estMasquee: (entite: string, uid: string) => boolean = () => false,
 ): TacheAffichee[] {
-  const resultat: TacheAffichee[] = [];
+  const result: TacheAffichee[] = [];
   for (const entite of entites) {
-    for (const item of parListe[entite] ?? []) {
+    for (const item of byList[entite] ?? []) {
       if (estMasquee(entite, item.uid)) continue;
-      resultat.push({ entite, uid: item.uid, texte: item.texte, liste: libelleListe(entite) });
+      result.push({ entite, uid: item.uid, texte: item.texte, list: listLabel(entite) });
     }
   }
-  return resultat;
+  return result;
 }
 
-/** Combien de lignes tiennent dans le budget de la vue : `.ligne-tache` fait 64 px (même hauteur
- *  que `.commande`, cf. `base.css`), séparées par un intervalle de 8 px (même jeton que le `gap`
- *  de `.corps`) ; le reste de l'écran (padding, étiquette, bouton Retour) prend 112 px, EXACTEMENT
- *  comme la vue « Toute la maison » (même composition : étiquette + contenu + `.xl`, cf.
- *  `tests/maison.test.ts`). 6 lignes : 6×64 + 5×8 = 424, + 112 = 536 ≤ 585, avec 49 px de marge —
- *  volontairement plus large que le calcul au plus juste de « Toute la maison » (3 px de marge),
- *  cette vue affichant un contenu réel et non un tableau figé : une petite variation de rendu
- *  (métriques de police, arrondis) ne doit pas suffire à faire déborder une vraie liste de
- *  tâches. Vérifié arithmétiquement par `tests/taches.test.ts`, jamais mesuré (jsdom ne calcule
- *  aucune vraie mise en page). */
+/** How many rows fit in the view's budget: `.ligne-tache` is 64 px tall (same height as
+ *  `.commande`, see `base.css`), separated by an 8 px gap (same token as the `gap` of `.corps`);
+ *  the rest of the screen (padding, label, Back button) takes 112 px, EXACTLY like the "Toute la
+ *  maison" view (same composition: label + content + `.xl`, see `tests/maison.test.ts`). 6 rows:
+ *  6×64 + 5×8 = 424, + 112 = 536 ≤ 585, with 49 px of margin — deliberately wider than the
+ *  tightest-fit calculation of "Toute la maison" (3 px of margin), since this view displays real
+ *  content and not a frozen array: a small rendering variation (font metrics, rounding) must not
+ *  be enough to make a real task list overflow. Checked arithmetically by
+ *  `tests/taches.test.ts`, never measured (jsdom computes no real layout). */
 export const MAX_LIGNES_TACHES = 6;
 
-/** Contrairement à `TOUTE_LA_MAISON` (tableau fixe, borné par construction), une liste `todo.*`
- *  compte autant de tâches que son propriétaire en ajoute — rien ne la limite à la compilation.
- *  Sans cette fonction, dépasser `MAX_LIGNES_TACHES` couperait silencieusement la ou les
- *  dernières tâches (exactement le débordement silencieux que ce projet refuse) : elle réserve
- *  donc systématiquement la DERNIÈRE ligne visible à un compte-rendu (« +N tâches ») dès que tout
- *  ne tient pas, plutôt que de laisser une tâche disparaître sans un mot. */
+/** Unlike `TOUTE_LA_MAISON` (a fixed array, bounded by construction), a `todo.*` list holds as
+ *  many tasks as its owner adds — nothing limits it at compile time. Without this function,
+ *  exceeding `MAX_LIGNES_TACHES` would silently cut off the last task or tasks (exactly the
+ *  silent overflow this project refuses): so it systematically reserves the LAST visible row
+ *  for a summary ("+N tâches") as soon as everything does not fit, rather than letting a task
+ *  disappear without a word. */
 export function repartirTaches(
   taches: TacheAffichee[], maxLignes = MAX_LIGNES_TACHES,
 ): { visibles: TacheAffichee[]; reste: number } {
@@ -98,14 +100,13 @@ export function repartirTaches(
   return { visibles, reste: taches.length - visibles.length };
 }
 
-/** Arme un emplacement UNIQUE de confirmation (« toucher pour confirmer ») — jamais un appui
- *  long, contrainte explicite et non négociable du propriétaire (c'est le geste le plus coûteux
- *  sur ces dalles, cf. brief). Armer une nouvelle clé désarme systématiquement la précédente : au
- *  plus un minuteur vivant à la fois, quel que soit le nombre de lignes touchées — même
- *  discipline que le retour arrière optimiste (`interaction.ts`) et le retour automatique à
- *  l'accueil (`demarrage.ts`), un piège déjà payé trois fois dans ce projet, à chaque fois par une
- *  porte différente. */
-export function creerArmement(minuteurFn: typeof setTimeout, delaiMs = 3000) {
+/** Arms a SINGLE confirmation slot ("touch to confirm") — never a long press, an explicit and
+ *  non-negotiable constraint of the owner (it is the most costly gesture on these panels, see
+ *  the brief). Arming a new key systematically disarms the previous one: at most one live timer
+ *  at a time, whatever the number of rows touched — same discipline as the optimistic rollback
+ *  (`interaction.ts`) and the automatic return to the home screen (`demarrage.ts`), a trap
+ *  already paid for three times in this project, each time through a different door. */
+export function createArming(minuteurFn: typeof setTimeout, delaiMs = 3000) {
   let cleArmee: string | null = null;
   let minuteur: ReturnType<typeof setTimeout> | undefined;
 
@@ -117,10 +118,10 @@ export function creerArmement(minuteurFn: typeof setTimeout, delaiMs = 3000) {
 
   return {
     estArmee: (cle: string) => cleArmee === cle,
-    /** Arme `cle` ; si `cle` n'a pas été confirmée avant `delaiMs`, `surExpiration` est appelé
-     *  (en usage réel : `dessiner()`, pour repeindre la ligne en revenant à son état normal). */
+    /** Arms `cle`; if `cle` has not been confirmed before `delaiMs`, `surExpiration` is called
+     *  (in real use: `dessiner()`, to repaint the row back to its normal state). */
     armer(cle: string, surExpiration: () => void) {
-      clearTimeout(minuteur);   // au plus un minuteur vivant, cf. docstring de tête
+      clearTimeout(minuteur);   // at most one live timer, see the header docstring
       cleArmee = cle;
       minuteur = minuteurFn(() => { desarmer(); surExpiration(); }, delaiMs);
     },
@@ -129,18 +130,18 @@ export function creerArmement(minuteurFn: typeof setTimeout, delaiMs = 3000) {
 }
 
 export type ConnexionAppelable = {
-  appelerService(domaine: string, service: string, donnees: Record<string, unknown>): void;
+  appelerService(domaine: string, service: string, data: Record<string, unknown>): void;
 };
 
 export type DependancesCochage = {
   cx: ConnexionAppelable;
-  /** Même garde que `creerAppui`/`creerGeste` : cocher une tâche est une commande HA
-   *  (`todo.update_item`), donc soumise à la même règle « le mode hors ligne bloque les
-   *  commandes » — jamais d'exception pour cette vue. */
+  /** Same guard as `createPress`/`createGesture`: checking off a task is an HA command
+   *  (`todo.update_item`), hence subject to the same "offline mode blocks commands" rule —
+   *  never an exception for this view. */
   estHorsLigne: () => boolean;
   minuteurFn: typeof setTimeout;
-  /** Rappelé après tout changement visuel (armement posé/levé/expiré, tâche masquée) — c'est
-   *  `dessiner()` en usage réel (`demarrage.ts`) ; ce module ne connaît rien au DOM. */
+  /** Called back after any visual change (arming set/lifted/expired, task hidden) — it is
+   *  `dessiner()` in real use (`demarrage.ts`); this module knows nothing about the DOM. */
   surChangement: () => void;
 };
 
@@ -148,25 +149,24 @@ function cleTache(entite: string, uid: string): string {
   return `${entite} ${uid}`;
 }
 
-/** Fabrique le dispatcher de cochage — une seule instance partagée par la vue, câblée une seule
- *  fois par `demarrage.ts` (même discipline que `creerAppui`/`creerGeste`, cf. leurs docstrings :
- *  une deuxième instance dédoublerait l'armement/le retrait optimiste). Premier appui sur une
- *  ligne : l'arme (aucun appel HA). Deuxième appui sur la MÊME ligne, dans la fenêtre de
- *  confirmation : coche réellement, et la retire localement (retrait optimiste — cf.
- *  `aplatirTaches`). Un appui sur une AUTRE ligne pendant qu'une première est armée désarme la
- *  première et arme la seconde (un seul emplacement armé à la fois, jamais deux lignes en attente
- *  de confirmation en même temps). */
-export function creerCochage(deps: DependancesCochage) {
-  const armement = creerArmement(deps.minuteurFn);
+/** Builds the check-off dispatcher — a single instance shared by the view, wired only once by
+ *  `demarrage.ts` (same discipline as `createPress`/`createGesture`, see their docstrings: a
+ *  second instance would duplicate the arming/the optimistic removal). First press on a row:
+ *  arms it (no HA call). Second press on the SAME row, within the confirmation window: really
+ *  checks it off, and removes it locally (optimistic removal — see `aplatirTaches`). A press on
+ *  ANOTHER row while a first one is armed disarms the first and arms the second (a single armed
+ *  slot at a time, never two rows awaiting confirmation at the same time). */
+export function createTaskCheck(deps: DependancesCochage) {
+  const armement = createArming(deps.minuteurFn);
   const masquees = new Set<string>();
 
   return {
     estArmee: (entite: string, uid: string) => armement.estArmee(cleTache(entite, uid)),
     estMasquee: (entite: string, uid: string) => masquees.has(cleTache(entite, uid)),
     cocher(entite: string, uid: string) {
-      // Posée avant tout effet de bord, comme `creerAppui`/`creerGeste` : ni armement ni
-      // confirmation pendant une panne silencieuse — jamais un armement fantôme qui survivrait à
-      // la connexion, jamais une commande envoyée dans le vide.
+      // Set before any side effect, like `createPress`/`createGesture`: neither arming nor
+      // confirmation during a silent outage — never a ghost arming that would outlive the
+      // connection, never a command sent into the void.
       if (deps.estHorsLigne()) return;
       const k = cleTache(entite, uid);
       if (!armement.estArmee(k)) {

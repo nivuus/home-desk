@@ -1,34 +1,35 @@
-/** Vue « Toute la maison » : seul niveau de profondeur de l'application (contrainte tactile du
- *  propriétaire — jamais de geste, tout par un bouton). Récupère ce que la refonte Lovelace
- *  précédente avait fait perdre : les lumières des autres pièces, les rideaux, la serrure,
- *  l'aspirateur. Réutilise `creerAppui` (retour optimiste, `interaction.ts`) via
- *  `brancherAppuiMaison`, brancher par `demarrage.ts` — même raison que `brancherAppui` dans
- *  `rendu/corps.ts` : `etat`/`cx` n'existent que dans la fermeture de `demarrer()`.
+/** "Toute la maison" view: the application's only level of depth (the owner's touch
+ *  constraint — never a gesture, everything through a button). Brings back what the previous
+ *  Lovelace redesign had lost: the lights of the other rooms, the curtains, the lock, the
+ *  vacuum. Reuses `createPress` (optimistic feedback, `interaction.ts`) via
+ *  `brancherAppuiMaison`, wired by `demarrage.ts` — same reason as `brancherAppui` in
+ *  `rendu/corps.ts`: `etat`/`cx` only exist inside the closure of `startScreen()`.
  *
- *  Tâche 8 bis (arbitrage du coordinateur) : le brief parlait d'une « vue Toute la maison de la
- *  cuisine », qui n'existait pas — une seule vue, partagée par les 3 tablettes. Pour donner à la
- *  cuisine son accès au scanner sans l'imposer au salon/bureau (aucun sens d'un scanner de codes-
- *  barres alimentaires ailleurs qu'en cuisine) ni faire déborder l'accueil (déjà à budget
- *  serré), la vue reçoit maintenant la pièce en paramètre et affiche la liste commune
- *  `TOUTE_LA_MAISON` SUIVIE des entrées propres à cette pièce (`piece.extrasMaison`, vide
- *  partout sauf en cuisine). `brancherAppuiMaison` reste la SEULE fonction d'appui de cette vue,
- *  partagée avec `demarrage.ts` (une seule instance de `creerAppui` pour toute la page, cf.
- *  rapport de tâche 8) : ce paramètre ne change que la liste rendue, jamais le mécanisme
- *  d'appui — une deuxième instance dédoublerait les minuteurs de retour arrière pour une même
- *  entité visible sur les deux écrans, piège déjà payé dans ce projet. */
+ *  Task 8 bis (coordinator's ruling): the brief spoke of a "Toute la maison view of the
+ *  kitchen", which did not exist — a single view, shared by the 3 tablets. To give the kitchen
+ *  its access to the scanner without forcing it on the living room/office (a food barcode
+ *  scanner makes no sense anywhere but in the kitchen) nor making the home screen overflow
+ *  (already on a tight budget), the view now receives the room as a parameter and displays the
+ *  common `TOUTE_LA_MAISON` list FOLLOWED BY the entries specific to that room
+ *  (`piece.extrasMaison`, empty everywhere except in the kitchen). `brancherAppuiMaison` remains
+ *  the ONLY press function of this view, shared with `demarrage.ts` (a single instance of
+ *  `createPress` for the whole page, see the task 8 report): this parameter only changes the
+ *  rendered list, never the press mechanism — a second instance would duplicate the rollback
+ *  timers for the same entity visible on both screens, a trap already paid for in this
+ *  project. */
 import { html, type TemplateResult } from 'lit';
 import type { Etat } from '../etat';
 import type { Bouton, Ecran } from '../ecran';
 import { icone } from './icones';
 import { descripteurJauge, fractionJauge } from '../jauge';
 
-/** L'entrée générique de `TOUTE_LA_MAISON` que `piece.aspirateurMaison` REMPLACE quand il est
- *  déclaré (jamais une tuile de plus — arbitrage du propriétaire, 2026-08-03).
+/** The generic `TOUTE_LA_MAISON` entry that `piece.aspirateurMaison` REPLACES when it is
+ *  declared (never one more tile — the owner's ruling, 2026-08-03).
  *
- *  Exportée et comparée PAR IDENTITÉ, pas par sa valeur d'entité : depuis que `aspirateurMaison`
- *  se saisit depuis Home Assistant (plan 3c, tâche 1), une comparaison `b.entite === 'vacuum.…'`
- *  recopiait le même fait à quinze lignes de sa source, et la tuile saisie cessait de remplacer
- *  quoi que ce soit — en silence — le jour où la table changeait d'aspirateur. */
+ *  Exported and compared BY IDENTITY, not by its entity value: since `aspirateurMaison` is
+ *  entered from Home Assistant (plan 3c, task 1), a `b.entite === 'vacuum.…'` comparison copied
+ *  the same fact fifteen lines away from its source, and the entered tile stopped replacing
+ *  anything — silently — the day the table changed vacuums. */
 export const ASPIRATEUR_GENERIQUE: Bouton = {
   libelle: 'Aspirateur', icone: 'home', entite: 'vacuum.aspirateur_cuisine',
   service: ['vacuum', 'start'],
@@ -39,55 +40,54 @@ export const TOUTE_LA_MAISON: Bouton[] = [
   { libelle: 'Cuisine', icone: 'bulb', entite: 'light.lumiere_cuisine', service: ['light', 'toggle'] },
   { libelle: 'Chambre', icone: 'bulb', entite: 'light.lumiere_chambre', service: ['light', 'toggle'] },
   { libelle: 'Bureau', icone: 'bulb', entite: 'light.bureau', service: ['light', 'toggle'] },
-  // 2026-08-29 : `cover.toggle` remplacé par les scripts, comme sur l'accueil des deux pièces.
-  // `cover.toggle` se résout en `open_cover`/`close_cover`, que ces moteurs Zigbee n'exécutent PAS
-  // jusqu'au bout — mesuré sur l'installation : `open_cover` s'arrête à mi-course et y reste, si
-  // bien que l'appui suivant repart dans l'autre sens depuis une position intermédiaire. Toute
-  // l'installation les contourne par `set_cover_position` (les automatisations portent la note
-  // « workaround bug ZHA open_cover »), et c'est ce que font `script.toggle_rideau_*`.
-  // `entite` reste le volet : c'est son état et sa position qu'on lit et qu'on règle au doigt.
-  // Le GLISSEMENT n'a jamais eu ce défaut — `descripteurRideau` (`src/jauge.ts`) appelle déjà
-  // `cover.set_cover_position` — c'est uniquement l'appui simple qui était câblé de travers.
+  // 2026-08-29: `cover.toggle` replaced by the scripts, as on the home screen of both rooms.
+  // `cover.toggle` resolves to `open_cover`/`close_cover`, which these Zigbee motors do NOT carry
+  // out to the end — measured on the installation: `open_cover` stops halfway and stays there,
+  // so that the next press goes back the other way from an intermediate position. The whole
+  // installation works around them with `set_cover_position` (the automations carry the note
+  // "workaround bug ZHA open_cover"), and that is what `script.toggle_rideau_*` do.
+  // `entite` remains the cover: it is its state and position that we read and adjust by finger.
+  // SLIDING never had this defect — `descripteurRideau` (`src/jauge.ts`) already calls
+  // `cover.set_cover_position` — only the simple press was wired the wrong way.
   { libelle: 'Rideau salon', icone: 'rideau', entite: 'cover.rideau_salon',
     service: ['script', 'turn_on'], cible: 'script.toggle_rideau_salon' },
   { libelle: 'Rideau cuisine', icone: 'rideau', entite: 'cover.rideau_cuisine',
     service: ['script', 'turn_on'], cible: 'script.toggle_rideau_cuisine' },
   { libelle: 'Chauffage', icone: 'flame', entite: 'climate.radiateur' },
   { libelle: 'Serrure', icone: 'lock', entite: 'lock.aqara_smart_lock_u200_lite', service: ['lock', 'unlock'] },
-  // Entrée REMPLACÉE, jamais recopiée : voir la doc d'`ASPIRATEUR_GENERIQUE` ci-dessus.
+  // A REPLACED entry, never copied: see the doc of `ASPIRATEUR_GENERIQUE` above.
   ASPIRATEUR_GENERIQUE,
 ];
 
 let appuyer: (etat: Etat, b: Bouton) => void = () => {};
 export function brancherAppuiMaison(fn: (etat: Etat, b: Bouton) => void) { appuyer = fn; }
 
-// Tâche 13 : dispatcher appui/glissement, même invariant « une seule instance partagée avec
-// l'écran de pièce » que `brancherAppuiMaison` ci-dessus (cf. docstring de tête : une deuxième
-// instance dédoublerait le throttle d'appels de service pour une même entité visible sur les
-// deux écrans, ex. `light.lumiere_salon`). Défaut non branché = appelle `surBascule`
-// immédiatement, comportement d'avant cette tâche (cf. `rendu/corps.ts`, même choix).
+// Task 13: press/slide dispatcher, same "a single instance shared with the room screen"
+// invariant as `brancherAppuiMaison` above (see the header docstring: a second instance would
+// duplicate the service-call throttle for the same entity visible on both screens, e.g.
+// `light.lumiere_salon`). Unwired default = calls `surBascule` immediately, the behaviour before
+// this task (see `rendu/corps.ts`, same choice).
 let geste: (ev: PointerEvent, entite: string, surBascule: () => void) => void =
   (_ev, _entite, surBascule) => surBascule();
 export function brancherGesteMaison(fn: typeof geste) { geste = fn; }
 
-// Tâche 9, ronde de correction 1 (retour du coordinateur, IMPORTANT) : cette vue est le pire des
-// trois écrans pour une panne silencieuse — elle ne montre pas de l'information, elle propose
-// neuf actions (lumières, rideaux, chauffage, SERRURE, aspirateur). Le remède principal est
-// `creerAppui`/`estHorsLigne` (`interaction.ts`), qui empêche l'optimisme trompeur quelle que
-// soit la pièce ou la vue ; celui-ci en est le complément « signaler ». Pas de nouveau bandeau
-// (`.hors-ligne`, `rendu/corps.ts`) : le budget de hauteur de cette vue est déjà serré (marge de
-// 53 px pour la pièce la plus chargée, cf. `tests/maison.test.ts`), un bloc de plus au gabarit de
-// `.alerte`/`.media` (~50-60 px) risquerait de dépasser silencieusement (`#app` en
-// `overflow: hidden`, sans défilement). L'étiquette existe déjà sur cette vue, occupe déjà une
-// ligne quel que soit son texte : la remplacer par « Hors ligne » (plus courte que « Toute la
-// maison », donc jamais de retour à la ligne inattendu) coûte zéro hauteur supplémentaire. Le
-// grisage `.muet` (universel, posé sur `#app` par `demarrage.ts`) reste le renfort ambiant sur
-// cette vue comme sur les deux autres.
+// Task 9, correction round 1 (coordinator's feedback, IMPORTANT): this view is the worst of the
+// three screens for a silent outage — it does not show information, it offers nine actions
+// (lights, curtains, heating, LOCK, vacuum). The main remedy is `createPress`/`estHorsLigne`
+// (`interaction.ts`), which prevents misleading optimism whatever the room or the view; this
+// one is its "signal" complement. No new banner (`.hors-ligne`, `rendu/corps.ts`): this view's
+// height budget is already tight (53 px of margin for the most loaded room, see
+// `tests/maison.test.ts`), one more block the size of `.alerte`/`.media` (~50-60 px) would risk
+// overflowing silently (`#app` in `overflow: hidden`, without scrolling). The label already
+// exists on this view and already takes one line whatever its text: replacing it with "Hors
+// ligne" (shorter than "Toute la maison", so never an unexpected line wrap) costs zero extra
+// height. The `.muet` greying (universal, set on `#app` by `demarrage.ts`) remains the ambient
+// reinforcement on this view as on the two others.
 export function rendreMaison(etat: Etat, piece: Ecran, horsLigne = false): TemplateResult {
-  // Tâche 12, arbitrage du propriétaire (2026-08-03) : `piece.aspirateurMaison`, quand déclaré,
-  // REMPLACE l'entrée commune dont l'entité vaut `vacuum.aspirateur_cuisine` (la tuile générique
-  // « Aspirateur », nettoyage complet du RDC) — jamais une tuile de plus (budget de 585px déjà
-  // plein en cuisine, cf. rapport de tâche 12). Absent partout ailleurs : aucun changement.
+  // Task 12, the owner's ruling (2026-08-03): `piece.aspirateurMaison`, when declared, REPLACES
+  // the common entry whose entity is `vacuum.aspirateur_cuisine` (the generic "Aspirateur" tile,
+  // full clean of the ground floor) — never one more tile (the 585px budget is already full in
+  // the kitchen, see the task 12 report). Absent everywhere else: no change.
   const boutons = [
     ...TOUTE_LA_MAISON.map((b) => (b === ASPIRATEUR_GENERIQUE && piece.aspirateurMaison)
       ? piece.aspirateurMaison : b),
@@ -98,19 +98,19 @@ export function rendreMaison(etat: Etat, piece: Ecran, horsLigne = false): Templ
       <div class="etiquette ${horsLigne ? 'hl' : ''}">${horsLigne ? 'Hors ligne' : 'Toute la maison'}</div>
       <div class="grille">
         ${boutons
-          // Même règle qu'en `rendu/corps.ts` : ce qui nomme son absence n'est
-          // jamais filtré. La tuile « Scanner » de la cuisine ne vit QUE ici.
+          // Same rule as in `rendu/corps.ts`: what names its absence is never
+          // filtered out. The kitchen's "Scanner" tile lives ONLY here.
           .filter((b) => etat.estUtilisable(b.entite) || b.absenceNommee !== undefined)
           .map((b) => {
-            // Tâche 13, même décision par domaine qu'en `rendu/corps.ts` : « Chauffage » (sans
-            // `service`), « Serrure »/« Aspirateur » (jamais de jauge) et les 6 lumières/rideaux
-            // (jauge) sont tous traités par la même règle, sans rien ajouter à `TOUTE_LA_MAISON`.
+            // Task 13, same per-domain decision as in `rendu/corps.ts`: "Chauffage" (without
+            // `service`), "Serrure"/"Aspirateur" (never a gauge) and the 6 lights/curtains
+            // (gauge) are all handled by the same rule, without adding anything to `TOUTE_LA_MAISON`.
             const d = descripteurJauge(b.entite, etat);
             const fraction = d ? fractionJauge(d) : 0;
-            // Une tuile qui NOMME son absence traverse le filtre ci-dessus avec une
-            // entité muette : `etat.lire` rend alors `undefined`, et le `!` d'avant
-            // le 2026-09-05 aurait levé au premier rendu. Elle est inerte (aucun
-            // appui n'est câblé) et porte son libellé d'absence sous son nom.
+            // A tile that NAMES its absence gets through the filter above with a
+            // silent entity: `etat.lire` then returns `undefined`, and the `!` from before
+            // 2026-09-05 would have thrown on the first render. It is inert (no press
+            // is wired) and carries its absence label under its name.
             const absente = !etat.estUtilisable(b.entite);
             return html`
             <div class="tuile ${!absente && etat.lire(b.entite)!.etat === 'on' ? 'actif' : ''} ${d ? 'jauge' : ''} ${absente ? 'absent' : ''}"

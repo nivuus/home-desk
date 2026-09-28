@@ -13,7 +13,7 @@ export type ActionsMinuteur = {
   fermer(): void;
   changerDuree(deltaMinutes: number): void;
   choisirEtiquette(nom: string): void;
-  demarrer(): void;
+  start(): void;
   pause(slot: number): void;
   reprendre(slot: number): void;
   annuler(slot: number): void;
@@ -21,7 +21,7 @@ export type ActionsMinuteur = {
 };
 
 const INERTE: ActionsMinuteur = {
-  ouvrir() {}, fermer() {}, changerDuree() {}, choisirEtiquette() {}, demarrer() {},
+  ouvrir() {}, fermer() {}, changerDuree() {}, choisirEtiquette() {}, start() {},
   pause() {}, reprendre() {}, annuler() {}, ajuster() {},
 };
 
@@ -126,7 +126,7 @@ export function rendreReglageMinuteur(
                  @pointerdown=${() => actions.choisirEtiquette(e)}>${e}</div>`)}
         </div>` : nothing}
       <div class="mn-nouveau" data-action="demarrer" data-mvt="detail:mn-nouveau"
-           @pointerdown=${() => actions.demarrer()}>
+           @pointerdown=${() => actions.start()}>
         ${icone('lecture')}Démarrer</div>
       <div class="xl" @pointerdown=${() => actions.fermer()}>${icone('home')}Retour</div>
     </div>`;
@@ -174,7 +174,7 @@ export function tuileMinuteur(sature: boolean): TemplateResult {
  *  défaut qui a figé les trois écrans dans la nuit du 2026-08-03 ; on mute donc le nœud texte
  *  existant plutôt que de le remplacer — le tic d'une seconde reste ainsi hors du moteur de
  *  mouvement (cf. `temps()` ci-dessus), qui ne voit jamais ce nœud. */
-export function ecrireTemps(el: HTMLElement, texte: string): void {
+export function writeTime(el: HTMLElement, texte: string): void {
   for (const n of Array.from(el.childNodes)) {
     if (n.nodeType === Node.TEXT_NODE) { (n as Text).data = texte; return; }
   }

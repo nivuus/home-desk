@@ -18,7 +18,7 @@ describe('chargerEcran — la commande envoyée', () => {
   it('rend l écran tel que HA l a résolu et validé', async () => {
     const ecran = { nom: 'cuisine', version: 1, hauteurUtile: 585 };
     const cx = transport(() => ecran);
-    expect(await chargerEcran(cx, 'cuisine')).toEqual({ ok: true, valeur: ecran });
+    expect(await chargerEcran(cx, 'cuisine')).toEqual({ ok: true, value: ecran });
   });
 });
 
@@ -66,7 +66,7 @@ describe('listerEcrans', () => {
     // renommable indépendamment par le geste générique de HA) sont DEUX champs distincts.
     const liste = [{ nom: 'salon', titre: 'Salon' }, { nom: 'cuisine', titre: 'Cuisine' }];
     const cx = transport(() => liste);
-    expect(await listerEcrans(cx)).toEqual({ ok: true, valeur: liste });
+    expect(await listerEcrans(cx)).toEqual({ ok: true, value: liste });
     expect(cx.envoyerCommande).toHaveBeenCalledWith({ type: 'home_desk/ecrans' });
   });
 
@@ -75,7 +75,7 @@ describe('listerEcrans', () => {
     // injoignable » : la première dit où aller configurer, la seconde parle de réseau. Les
     // confondre remplacerait un conseil juste par un conseil faux.
     const cx = transport(() => []);
-    expect(await listerEcrans(cx)).toEqual({ ok: true, valeur: [] });
+    expect(await listerEcrans(cx)).toEqual({ ok: true, value: [] });
   });
 
   it('signale l intégration absente quand HA ne connaît pas la commande', async () => {

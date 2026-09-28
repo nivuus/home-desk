@@ -1,82 +1,85 @@
-/** Les écrans que la tablette montre quand elle ne peut PAS montrer l'écran demandé.
+/** The screens the tablet shows when it can NOT show the requested screen.
  *
- *  Règle posée par la ronde de correction 1 et jamais relâchée depuis : aucune dégradation ne
- *  laisse `#app` vide. Un mur blanc sur un écran mural ne dit rien à qui passe devant, et ne
- *  laisse aucune prise pour comprendre.
+ *  policy: allow-fr-file — this module is the tablet's user-facing French copy: its screens are
+ *  multi-line French template literals rendered verbatim on the wall, which the English checker
+ *  cannot recognise as strings. Every comment and identifier here is nonetheless in English.
  *
- *  Règle propre à ce module : CHAQUE écran de PANNE nomme un GESTE. Décrire une panne sans dire
- *  quoi faire est le « bouton mort en prose » que ce projet s'interdit — et son cas le plus
- *  coûteux est `integrationAbsente()` : avant qu'il existe, une installation neuve tombait sur
- *  `erreurDemarrage()`, qui envoyait déboguer le réseau alors que Home Assistant avait répondu
- *  instantanément et correctement.
+ *  Rule set by correction round 1 and never relaxed since: no degradation ever leaves `#app`
+ *  empty. A blank wall on a wall screen tells nothing to whoever walks by, and gives no handle
+ *  for understanding.
  *
- *  Exception nommée, pas oubliée : `ecranEnAttente()` ne nomme aucun geste, à dessein. Ce n'est
- *  pas une panne mais un état transitoire qui se résout tout seul dès que la réponse de Home
- *  Assistant arrive — demander un geste à quelqu'un pendant qu'un chargement est en cours serait
- *  absurde. Une règle énoncée en absolu et fausse pour un cas sur NEUF serait elle-même une
- *  prose qui ment — corrigé en relecture finale de branche : ce module exporte HUIT fonctions
- *  d'écran (`sessionAbsente`, `erreurDemarrage`, `ecranEnAttente`, `aucunEcranConfigure`,
- *  `choisirEcran`, `versionRefusee`, `configIllisible`, `integrationAbsente`), plus un
- *  NEUVIÈME rendu EN LIGNE dans `ecranDeLaPanne` (le cas `'introuvable'`, « Écran inconnu ») —
- *  neuf écrans de repli en tout, pas sept.
+ *  Rule specific to this module: EVERY FAILURE screen names an ACTION. Describing a failure
+ *  without saying what to do is the "dead button in prose" this project forbids itself — and its
+ *  most costly case is `integrationAbsente()`: before it existed, a fresh install fell onto
+ *  `startupError()`, which sent the user off to debug the network when Home Assistant had
+ *  answered instantly and correctly.
  *
- *  Ces fonctions sont PURES : elles rendent un gabarit, ne touchent pas au DOM, n'appellent
- *  aucun transport. `demarrage.ts` les câble. Deux d'entre elles (`sessionAbsente`,
- *  `erreurDemarrage`) viennent de `demarrage.ts` et arrivent ici AVEC LEUR TEXTE INTACT : un
- *  déménagement qui réécrit ce qu'il déplace est une modification déguisée en rangement. */
+ *  A named exception, not a forgotten one: `ecranEnAttente()` names no action, on purpose. It
+ *  is not a failure but a transient state that resolves by itself as soon as Home Assistant's
+ *  answer arrives — asking someone for an action while a load is in progress would be absurd. A
+ *  rule stated as absolute and false for one case out of NINE would itself be prose that lies —
+ *  corrected in the final branch review: this module exports EIGHT screen functions
+ *  (`sessionAbsente`, `startupError`, `ecranEnAttente`, `aucunEcranConfigure`, `choisirEcran`,
+ *  `versionRefusee`, `configIllisible`, `integrationAbsente`), plus a NINTH one rendered INLINE
+ *  in `ecranDeLaPanne` (the `'introuvable'` case, "Écran inconnu") — nine fallback screens in
+ *  all, not seven.
+ *
+ *  These functions are PURE: they return a template, do not touch the DOM, call no transport.
+ *  `demarrage.ts` wires them. Two of them (`sessionAbsente`, `startupError`) come from
+ *  `demarrage.ts` and arrive here WITH THEIR TEXT INTACT: a move that rewrites what it moves is
+ *  a modification disguised as tidying up. */
 import { html, type TemplateResult } from 'lit';
-import type { EntreeListe, Panne } from '../configuration';
+import type { ListEntry, Panne } from '../configuration';
 
-/** Sans session HA ouverte sur la tablette, on explique plutôt que d'afficher du blanc. */
+/** With no HA session open on the tablet, we explain rather than display blank. */
 export function sessionAbsente(): TemplateResult {
   return html`<div class="cap"><div class="heure">Session</div>
     <div class="phrase">Ouvre Home Assistant sur cette tablette et connecte-toi,
     puis recharge cette page.</div></div>`;
 }
 
-/** `connecter()` peut échouer bien après « pas de jeton du tout » : `rafraichir()` lève si HA
- *  refuse le jeton de rafraîchissement (révoqué) ou si le réseau coupe au mauvais moment — ce
- *  qui arrive d'autant plus que le serveur HA est aussi le point d'accès Wi-Fi de la maison.
- *  Sans écran dédié, `render()` n'a jamais lieu et `#app` reste vide : un mur blanc, sans
- *  indice, pour qui passe devant. */
-export function erreurDemarrage(): TemplateResult {
+/** `connecter()` can fail well after "no token at all": `rafraichir()` throws if HA refuses the
+ *  refresh token (revoked) or if the network drops at the wrong moment — which happens all the
+ *  more since the HA server is also the house's Wi-Fi access point. Without a dedicated screen,
+ *  `render()` never happens and `#app` stays empty: a blank wall, without any clue, for whoever
+ *  walks by. */
+export function startupError(): TemplateResult {
   return html`<div class="cap"><div class="heure">Connexion impossible</div>
     <div class="phrase">L'écran n'arrive pas à joindre la maison. Ça peut venir du réseau ou
     de la session : une nouvelle tentative va avoir lieu automatiquement. Si ça persiste,
     réouvre Home Assistant sur cette tablette et reconnecte-toi.</div></div>`;
 }
 
-/** L'écran d'attente FRANC de la décision 10 : la configuration arrive par le réseau, donc il
- *  y a un instant où l'on n'a rien à montrer. On le dit, on nomme l'écran demandé — qui rend
- *  visible tout de suite une URL fautive — et on ne cache rien derrière un cache local. */
+/** The HONEST waiting screen of decision 10: the configuration arrives over the network, so
+ *  there is a moment when we have nothing to show. We say so, we name the requested screen —
+ *  which makes a wrong URL visible right away — and we hide nothing behind a local cache. */
 export function ecranEnAttente(nom: string): TemplateResult {
   return html`<div class="cap"><div class="heure">${nom}</div>
     <div class="phrase">Chargement de la configuration depuis Home Assistant…</div></div>`;
 }
 
-/** Deuxième dégradation. Distincte de « HA injoignable » À DESSEIN : ici Home Assistant a
- *  répondu, il n'a simplement aucun écran. Parler de réseau serait un conseil faux. */
+/** Second degradation. Distinct from "HA unreachable" ON PURPOSE: here Home Assistant did
+ *  answer, it simply has no screen. Talking about the network would be wrong advice. */
 export function aucunEcranConfigure(): TemplateResult {
   return html`<div class="cap"><div class="heure">Aucun écran configuré</div>
     <div class="phrase">Ouvre Home Assistant, puis Paramètres &gt; Appareils et services &gt;
     Tablettes murales, et ajoute un écran.</div></div>`;
 }
 
-/** Première dégradation : `?ecran=` absent ou inconnu. Une liste TAPABLE, jamais un mur blanc
- *  ni un écran deviné.
+/** First degradation: `?ecran=` missing or unknown. A TAPPABLE list, never a blank wall nor a
+ *  guessed screen.
  *
- *  Chaque entrée est un simple lien `?ecran=<nom>` : aucun JavaScript, donc rien qui puisse
- *  échouer sur la WebView d'une Fire 7, et une navigation que Fully Kiosk traite comme
- *  n'importe quelle autre.
+ *  Each entry is a plain `?ecran=<nom>` link: no JavaScript, so nothing that can fail on a
+ *  Fire 7's WebView, and a navigation that Fully Kiosk handles like any other.
  *
- *  `nom` et `titre` sont DEUX champs distincts : `nom` est la clé primaire du transport
- *  (appariée EXACTEMENT par `websocket.py`, `_trouver`), `titre` est `ConfigSubentry.title`,
- *  que l'utilisateur peut renommer seul depuis la page d'intégration. On NAVIGUE vers le nom et
- *  on AFFICHE le titre ; les confondre enverrait vers un écran introuvable dès qu'ils divergent.
+ *  `nom` and `titre` are TWO distinct fields: `nom` is the transport's primary key (matched
+ *  EXACTLY by `websocket.py`, `_trouver`), `titre` is `ConfigSubentry.title`, which the user
+ *  can rename on their own from the integration page. We NAVIGATE to the name and DISPLAY the
+ *  title; mixing them up would send to a screen that cannot be found as soon as they diverge.
  *
- *  Liste vide : on retombe sur la deuxième dégradation, qui dit où aller en créer un. Proposer
- *  « choisis » devant zéro choix serait un menu mort. */
-export function choisirEcran(entrees: EntreeListe[]): TemplateResult {
+ *  Empty list: we fall back to the second degradation, which says where to go to create one.
+ *  Offering "choose" in front of zero choices would be a dead menu. */
+export function choisirEcran(entrees: ListEntry[]): TemplateResult {
   if (entrees.length === 0) return aucunEcranConfigure();
   return html`<div class="cap"><div class="heure">Quel écran ?</div>
     <div class="phrase">Touche le nom de cette tablette.</div>
@@ -84,8 +87,8 @@ export function choisirEcran(entrees: EntreeListe[]): TemplateResult {
       <a href="?ecran=${encodeURIComponent(e.nom)}">${e.titre}</a></li>`)}</ul></div>`;
 }
 
-/** Quatrième dégradation, premier visage : la sous-entrée stockée porte une `version` que ce
- *  composant ne reconnaît pas, ou n'en porte aucune. Refus NET, jamais un rendu à moitié. */
+/** Fourth degradation, first face: the stored subentry carries a `version` this component does
+ *  not recognise, or carries none. A CLEAN refusal, never a half-done render. */
 export function versionRefusee(nom: string): TemplateResult {
   return html`<div class="cap"><div class="heure">Configuration illisible</div>
     <div class="phrase">La configuration de «&nbsp;${nom}&nbsp;» a été écrite par une autre
@@ -93,9 +96,9 @@ export function versionRefusee(nom: string): TemplateResult {
     depuis Paramètres &gt; Appareils et services &gt; Tablettes murales.</div></div>`;
 }
 
-/** Quatrième dégradation, second visage : la version est bonne mais le contenu ne respecte
- *  plus le contrat. Distinct du précédent — le geste n'est pas le même, et le composant a payé
- *  trois rondes pour que ces deux refus portent des codes différents. */
+/** Fourth degradation, second face: the version is right but the content no longer honours the
+ *  contract. Distinct from the previous one — the action is not the same, and the component
+ *  paid three rounds for these two refusals to carry different codes. */
 export function configIllisible(nom: string): TemplateResult {
   return html`<div class="cap"><div class="heure">Configuration invalide</div>
     <div class="phrase">La configuration de «&nbsp;${nom}&nbsp;» ne respecte plus le contrat.
@@ -103,16 +106,16 @@ export function configIllisible(nom: string): TemplateResult {
     une sauvegarde antérieure.</div></div>`;
 }
 
-/** CINQUIÈME dégradation, absente de la spec d'origine.
+/** FIFTH degradation, missing from the original spec.
  *
- *  Quand l'intégration n'est pas installée, la commande n'est pas enregistrée et c'est le cœur
- *  de Home Assistant qui répond : `unknown_command`, message « Unknown command. », en anglais,
- *  que ni ce dépôt ni ses traductions ne contrôlent. Sans cet écran, l'application retombait
- *  sur `erreurDemarrage()` — « ça peut venir du réseau ou de la session » — ce qui est un
- *  MENSONGE : HA a répondu, instantanément, correctement. Et c'est le cas exact de la première
- *  régression nommée par la spec : une installation neuve n'affiche plus rien.
+ *  When the integration is not installed, the command is not registered and it is Home
+ *  Assistant's core that answers: `unknown_command`, message "Unknown command.", in English,
+ *  which neither this repository nor its translations control. Without this screen, the app
+ *  fell back onto `startupError()` — "it may come from the network or the session" — which is a
+ *  LIE: HA answered, instantly, correctly. And it is the exact case of the first regression
+ *  named by the spec: a fresh install no longer displays anything.
  *
- *  Ne parle donc JAMAIS de réseau, et un test l'exige. */
+ *  So it NEVER talks about the network, and a test demands it. */
 export function integrationAbsente(): TemplateResult {
   return html`<div class="cap"><div class="heure">Intégration absente</div>
     <div class="phrase">L'intégration Tablettes murales n'est pas installée sur ce Home
@@ -120,13 +123,13 @@ export function integrationAbsente(): TemplateResult {
     services.</div></div>`;
 }
 
-/** La table panne → écran.
+/** The failure → screen table.
  *
- *  Le cas `introuvable` sans liste connue est traité ici plutôt que par `choisirEcran` : quand
- *  on sait qu'un écran nommé n'existe pas MAIS qu'on n'a pas pu obtenir la liste, proposer un
- *  menu vide serait pire que dire lequel a été demandé. Quand la liste EST connue, c'est
- *  `demarrage.ts` qui appelle directement `choisirEcran` — il a l'information, cette table
- *  ne l'a pas. */
+ *  The `introuvable` case without a known list is handled here rather than by `choisirEcran`:
+ *  when we know a named screen does not exist BUT could not get the list, offering an empty
+ *  menu would be worse than saying which one was requested. When the list IS known, it is
+ *  `demarrage.ts` that calls `choisirEcran` directly — it has the information, this table does
+ *  not. */
 export function ecranDeLaPanne(panne: Panne, nom: string): TemplateResult {
   switch (panne) {
     case 'introuvable':
@@ -137,6 +140,6 @@ export function ecranDeLaPanne(panne: Panne, nom: string): TemplateResult {
     case 'version': return versionRefusee(nom);
     case 'corrompu': return configIllisible(nom);
     case 'integrationAbsente': return integrationAbsente();
-    case 'reseau': return erreurDemarrage();
+    case 'reseau': return startupError();
   }
 }

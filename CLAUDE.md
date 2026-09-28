@@ -45,7 +45,7 @@
   | **survivraient au retrait des littéraux** | **15** (14 propres à cette maison, plus `sun.sun`) |
 
   Les quinze vivent dans `rendu/maison.ts` (table `TOUTE_LA_MAISON`),
-  `demarrage.ts` (les quatre `calendar.*`, `weather.maison`,
+  `boot/` (ex-`demarrage.ts`, découpé le 2026-09-28 : les quatre `calendar.*`, `weather.maison`,
   `input_boolean.mode_invites`, `input_number.duree_minuteur_cuisine`,
   `sun.sun`), `alertes.ts` (les trois `binary_sensor.tablette_*_mouvement`,
   les trois capteurs de présence, le distributeur de croquettes), puis
@@ -272,12 +272,12 @@ comme CONSTAT mesuré ; la spec porte la décision.
 - **Une entité inconnue du registre HA donne un avertissement, jamais un
   refus** (décision 7 de la spec citée ci-dessus) — tenue à la tâche 7 :
   `custom_components/home_desk/registre.py` (`entites_inconnues`,
-  `entites_dans`) lit le registre ET l'état (une entité créée en YAML ou
+  `entities_in`) lit le registre ET l'état (une entité créée en YAML ou
   par template répond sans être au registre). **Corrigé en relecture
   finale de branche (I3) : cette entrée comptait « les TROIS câblages »
   (les DEUX entrées de l'identité, `EcranSubentryFlow.async_step_user`/
   `async_step_identite`, et le squelette des sections « liste »,
-  `SectionsListeMixin._async_step_section_element`) et omettait le
+  `ListSectionsMixin._async_step_section_element`) et omettait le
   QUATRIÈME — exactement la faute que le commit `0bfa8ff` corrigeait par
   ailleurs (`_PORTES_ECRITURE` à qui il manquait `async_remove_
   subentry`).** Le quatrième câblage est la section « objet » `voiture`

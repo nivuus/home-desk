@@ -1,41 +1,40 @@
-/** Le client du transport websocket livré par le plan 3a (`custom_components/home_desk/
- *  websocket.py`). Il demande un écran ou la liste des écrans, et traduit tout refus en une
- *  PANNE NOMMÉE. Il ne rend rien et ne touche pas au DOM : c'est `rendu/repli.ts` qui sait
- *  quoi montrer pour chaque panne, et `demarrage.ts` qui câble les deux. */
+/** The client of the websocket transport delivered by plan 3a (`custom_components/home_desk/
+ *  websocket.py`). It requests a screen or the list of screens, and turns any refusal into a
+ *  NAMED FAILURE. It renders nothing and does not touch the DOM: it is `rendu/repli.ts` that
+ *  knows what to show for each failure, and `demarrage.ts` that wires the two. */
 import type { Ecran } from './ecran';
 import { RefusHA } from './connexion';
 
-/** Les cinq façons dont le chargement d'un écran peut échouer. Cinq, pas quatre : la spec
- *  d'origine n'en nommait que quatre et laissait « l'intégration n'est pas installée » tomber
- *  dans le message de panne réseau — qui dit à l'opérateur de déboguer son Wi-Fi alors que HA
- *  a répondu instantanément et correctement. */
+/** The five ways loading a screen can fail. Five, not four: the original spec named only four
+ *  and let "the integration is not installed" fall into the network failure message — which
+ *  tells the operator to debug their Wi-Fi when HA answered instantly and correctly. */
 export type Panne = 'introuvable' | 'version' | 'corrompu' | 'integrationAbsente' | 'reseau';
 
-export type Resultat<T> = { ok: true; valeur: T } | { ok: false; panne: Panne };
+export type Result<T> = { ok: true; value: T } | { ok: false; panne: Panne };
 
-/** Une ligne de `home_desk/ecrans`. `nom` est la clé primaire du transport (donnée saisie) ;
- *  `titre` est `ConfigSubentry.title`, une propriété générique de Home Assistant que
- *  l'utilisateur peut renommer seule. Deux champs distincts, même s'ils sont maintenus
- *  synchronisés par le formulaire d'identité. */
-export type EntreeListe = { nom: string; titre: string };
+/** One row of `home_desk/ecrans`. `nom` is the transport's primary key (entered data);
+ *  `titre` is `ConfigSubentry.title`, a generic Home Assistant property that the user can
+ *  rename on their own. Two distinct fields, even though they are kept in sync by the identity
+ *  form. */
+export type ListEntry = { nom: string; titre: string };
 
-/** Ce que ce module attend d'une connexion : juste `envoyerCommande`. Ni la classe concrète
- *  `Connexion` (ses champs privés interdiraient un double de test léger), ni `ConnexionLike`
- *  de `demarrage.ts` (qui en demande cinq fois plus). */
+/** What this module expects from a connection: just `envoyerCommande`. Neither the concrete
+ *  `Connexion` class (its private fields would rule out a lightweight test double), nor
+ *  `ConnexionLike` from `demarrage.ts` (which asks for five times more). */
 export type TransportConfig = {
   envoyerCommande(payload: Record<string, unknown>): Promise<unknown>;
 };
 
-/** Les codes tels qu'ils circulent SUR LE FIL, écrits en dur.
+/** The codes as they travel ON THE WIRE, hardcoded.
  *
- *  `app/src/` est en TypeScript et ne peut pas importer `const.py` : ces quatre chaînes sont
- *  écrites en dur des deux côtés de la frontière de langage, et le test qui les épingle est le
- *  seul filet qui existe. Mesurées le 2026-09-13 sur le composant installé.
+ *  `app/src/` is TypeScript and cannot import `const.py`: these four strings are hardcoded on
+ *  both sides of the language boundary, and the test that pins them is the only safety net
+ *  there is. Measured on 2026-09-13 on the installed component.
  *
- *  ⚠️ `not_found` et non `ecran_introuvable` : le composant réutilise délibérément
- *  `websocket_api.const.ERR_NOT_FOUND` de Home Assistant.
- *  `unknown_command` n'est PAS produit par ce dépôt : c'est le cœur de HA qui répond ça quand
- *  la commande n'est pas enregistrée, c'est-à-dire quand l'intégration n'est pas installée. */
+ *  ⚠️ `not_found` and not `ecran_introuvable`: the component deliberately reuses Home
+ *  Assistant's `websocket_api.const.ERR_NOT_FOUND`.
+ *  `unknown_command` is NOT produced by this repository: it is HA's core that answers that when
+ *  the command is not registered, that is, when the integration is not installed. */
 const PANNE_PAR_CODE: Record<string, Panne> = {
   not_found: 'introuvable',
   version_inconnue: 'version',
@@ -43,38 +42,38 @@ const PANNE_PAR_CODE: Record<string, Panne> = {
   unknown_command: 'integrationAbsente',
 };
 
-/** Tout ce qui n'est pas un refus NOMMÉ de HA est un problème de liaison : websocket fermé,
- *  JSON illisible, délai dépassé (`delai_depasse`, posé par `connexion.ts` quand HA ne répond
- *  pas). « reseau » est donc aussi le repli, à dessein — un code inconnu veut dire que le
- *  composant a évolué sans ce client, et l'écran réseau est le seul qui reste vrai. */
-function panneDe(erreur: unknown): Panne {
-  if (erreur instanceof RefusHA) return PANNE_PAR_CODE[erreur.code] ?? 'reseau';
+/** Anything that is not a NAMED refusal from HA is a link problem: websocket closed, unreadable
+ *  JSON, timeout (`delai_depasse`, set by `connexion.ts` when HA does not answer). "reseau" is
+ *  therefore also the fallback, on purpose — an unknown code means the component evolved
+ *  without this client, and the network screen is the only one that stays true. */
+function panneDe(error: unknown): Panne {
+  if (error instanceof RefusHA) return PANNE_PAR_CODE[error.code] ?? 'reseau';
   return 'reseau';
 }
 
-/** Demande à Home Assistant l'écran nommé, RÉSOLU ET VALIDÉ par le composant. */
-export async function chargerEcran(cx: TransportConfig, nom: string): Promise<Resultat<Ecran>> {
+/** Asks Home Assistant for the named screen, RESOLVED AND VALIDATED by the component. */
+export async function chargerEcran(cx: TransportConfig, nom: string): Promise<Result<Ecran>> {
   try {
     const brut = await cx.envoyerCommande({ type: 'home_desk/ecran', nom });
-    return { ok: true, valeur: brut as Ecran };
-  } catch (erreur) {
-    return { ok: false, panne: panneDe(erreur) };
+    return { ok: true, value: brut as Ecran };
+  } catch (error) {
+    return { ok: false, panne: panneDe(error) };
   }
 }
 
-/** Demande la liste des écrans configurés, pour la première dégradation.
+/** Asks for the list of configured screens, for the first degradation.
  *
- *  Le composant ne revalide PAS chaque écran ici, à dessein : un écran corrompu ne doit pas
- *  priver les tablettes du choix des autres. Une liste VIDE est donc un SUCCÈS — « HA joignable,
- *  aucun écran configuré » est une dégradation distincte de « HA injoignable », et les confondre
- *  remplacerait un conseil juste (« allez en créer un ») par un conseil faux (« vérifiez le
- *  réseau »). */
-export async function listerEcrans(cx: TransportConfig): Promise<Resultat<EntreeListe[]>> {
+ *  The component does NOT revalidate each screen here, on purpose: one corrupt screen must not
+ *  deprive the tablets of the choice of the others. An EMPTY list is therefore a SUCCESS — "HA
+ *  reachable, no screen configured" is a degradation distinct from "HA unreachable", and mixing
+ *  them up would replace right advice ("go create one") with wrong advice ("check the
+ *  network"). */
+export async function listerEcrans(cx: TransportConfig): Promise<Result<ListEntry[]>> {
   try {
     const brut = await cx.envoyerCommande({ type: 'home_desk/ecrans' });
     if (!Array.isArray(brut)) return { ok: false, panne: 'corrompu' };
-    return { ok: true, valeur: brut as EntreeListe[] };
-  } catch (erreur) {
-    return { ok: false, panne: panneDe(erreur) };
+    return { ok: true, value: brut as ListEntry[] };
+  } catch (error) {
+    return { ok: false, panne: panneDe(error) };
   }
 }

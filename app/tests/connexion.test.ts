@@ -371,14 +371,14 @@ describe('Connexion — un abonné aux états posé APRÈS la connexion', () => 
   // résolvait — météo absente, tuiles sans `absenceNommee` filtrées, tuiles qui en portent une
   // inertes, thème sombre en plein jour (`sun.sun` jamais résolu).
   //
-  // La cause est un ORDRE, et il est propre à `demarrer()` : cette porte connecte pour résoudre
+  // La cause est un ORDRE, et il est propre à `startScreen()` : cette porte connecte pour résoudre
   // la configuration, PUIS monte le corps, qui s'abonne alors par `surChangement`. Or `auth_ok`
   // envoie `get_states` immédiatement, et `emettre()` le distribue à `rappelsEtat` — vide à cet
   // instant. L'instantané se perd sans une erreur. Le second `connecter()` du corps retourne sur
   // la garde d'idempotence (`readyState === 1`) : aucun `get_states` n'est redemandé, et il ne
   // reste que les `state_changed` — donc les seules entités qui CHANGENT après coup.
   //
-  // `demarrerAvecEcran()` (branche `data-piece`) n'a jamais eu le défaut : elle s'abonne avant
+  // `startWithScreen()` (branche `data-piece`) n'a jamais eu le défaut : elle s'abonne avant
   // de connecter. C'est pourquoi le même bundle rendait juste par une porte et faux par l'autre,
   // et pourquoi 1 148 tests verts n'ont rien vu — ils montent tous par la porte qui marche.
   // `surEvenement`, dans cette même classe, traite DÉJÀ le cas de l'abonnement tardif
@@ -397,7 +397,7 @@ describe('Connexion — un abonné aux états posé APRÈS la connexion', () => 
       result: [{ entity_id: 'light.hotte', state: 'off', attributes: {} }],
     });
 
-    // C'est l'ordre exact de `demarrer()` : connecter, résoudre l'écran, PUIS monter le corps.
+    // C'est l'ordre exact de `startScreen()` : connecter, résoudre l'écran, PUIS monter le corps.
     const vus: string[] = [];
     cx.surChangement((e) => vus.push(e.entity_id));
 

@@ -1,39 +1,39 @@
-// Tâche 18 : logique pure de la vue « Tâches » — quelles listes afficher (`listesTachesPiece`),
+// Tâche 18 : logique pure de la vue « Tâches » — quelles listes afficher (`roomTodoLists`),
 // comment répartir une liste non bornée sur un budget fixe (`repartirTaches`), et comment armer
-// puis confirmer un cochage sans jamais recourir à un appui long (`creerArmement`/`creerCochage`).
+// puis confirmer un cochage sans jamais recourir à un appui long (`createArming`/`createTaskCheck`).
 // Même patron que `tests/interaction.test.ts`/`tests/geste.test.ts` : ces fabriques sont testées
 // isolément, sans DOM, avec un minuteur factice injecté.
 import { describe, it, expect, vi } from 'vitest';
 import { ECRANS, type Ecran } from '../src/ecran';
 import {
-  listesTachesPiece, libelleListe, aplatirTaches, repartirTaches, MAX_LIGNES_TACHES,
-  creerArmement, creerCochage,
+  roomTodoLists, listLabel, aplatirTaches, repartirTaches, MAX_LIGNES_TACHES,
+  createArming, createTaskCheck,
 } from '../src/cochage';
 
-describe('listesTachesPiece', () => {
+describe('roomTodoLists', () => {
   it('salon : seule todo.maintenance (synthese), aucun extra', () => {
-    expect(listesTachesPiece(ECRANS.salon)).toEqual(['todo.maintenance']);
+    expect(roomTodoLists(ECRANS.salon)).toEqual(['todo.maintenance']);
   });
 
   it('bureau : todo.travail et todo.maintenance, dans l ordre de synthese', () => {
-    expect(listesTachesPiece(ECRANS.bureau)).toEqual(['todo.travail', 'todo.maintenance']);
+    expect(roomTodoLists(ECRANS.bureau)).toEqual(['todo.travail', 'todo.maintenance']);
   });
 
   it("cuisine : trois listes, dans l'ordre entretien, DLC, courses", () => {
     // L'ordre est une DÉCISION : une DLC passe avant une course, parce que l'une a une échéance et
-    // l'autre non. `listesTachesPiece` respecte l'ordre de `synthese` puis celui de
+    // l'autre non. `roomTodoLists` respecte l'ordre de `synthese` puis celui de
     // `listesTachesExtra` — déclarer la ligne DLC après `todo.maintenance` suffit.
-    expect(listesTachesPiece(ECRANS.cuisine)).toEqual([
+    expect(roomTodoLists(ECRANS.cuisine)).toEqual([
       'todo.maintenance', 'todo.home_stock_expirations', 'todo.home_stock_shopping',
     ]);
   });
 
   it('salon : ne rend PAS la liste des DLC malgré sa ligne de synthèse', () => {
-    // `listesTachesPiece` collecte automatiquement toute entité `todo.` de `synthese` — déclarer
+    // `roomTodoLists` collecte automatiquement toute entité `todo.` de `synthese` — déclarer
     // la ligne au salon y ferait donc aussi apparaître la liste des DLC dans sa vue « Tâches », ce
     // que la spec refuse : sa vue Tâches n'a pas à porter une liste qu'on ne coche pas d'un canapé.
     // D'où `horsTaches`, posé UNIQUEMENT sur cette ligne-là.
-    expect(listesTachesPiece(ECRANS.salon)).toEqual(['todo.maintenance']);
+    expect(roomTodoLists(ECRANS.salon)).toEqual(['todo.maintenance']);
   });
 
   it('dedoublonne une entite presente a la fois dans synthese et listesTachesExtra', () => {
@@ -43,7 +43,7 @@ describe('listesTachesPiece', () => {
       listesTachesExtra: ['todo.maintenance'],
       sources: [], ouvrants: [],
     };
-    expect(listesTachesPiece(piece)).toEqual(['todo.maintenance']);
+    expect(roomTodoLists(piece)).toEqual(['todo.maintenance']);
   });
 
   it('une piece sans aucune liste todo.* rend un tableau vide, sans lever', () => {
@@ -51,20 +51,20 @@ describe('listesTachesPiece', () => {
       nom: 'Test', temperature: 'sensor.x', ambiances: [], commandes: [], synthese: [], extrasMaison: [],
       sources: [], ouvrants: [],
     };
-    expect(listesTachesPiece(piece)).toEqual([]);
+    expect(roomTodoLists(piece)).toEqual([]);
   });
 });
 
-describe('libelleListe', () => {
+describe('listLabel', () => {
   it('connait les trois listes reelles du parc', () => {
-    expect(libelleListe('todo.maintenance')).toBe('Entretien');
-    expect(libelleListe('todo.travail')).toBe('Travail');
-    expect(libelleListe('todo.home_stock_shopping')).toBe('Courses');
-    expect(libelleListe('todo.home_stock_expirations')).toBe('À consommer');
+    expect(listLabel('todo.maintenance')).toBe('Entretien');
+    expect(listLabel('todo.travail')).toBe('Travail');
+    expect(listLabel('todo.home_stock_shopping')).toBe('Courses');
+    expect(listLabel('todo.home_stock_expirations')).toBe('À consommer');
   });
 
   it('replie sur le nom brut (sans le prefixe todo.) pour une liste non prevue, jamais un texte vide', () => {
-    expect(libelleListe('todo.futureliste')).toBe('futureliste');
+    expect(listLabel('todo.futureliste')).toBe('futureliste');
   });
 });
 
@@ -76,9 +76,9 @@ describe('aplatirTaches', () => {
     };
     const r = aplatirTaches(parListe, ['todo.travail', 'todo.maintenance']);
     expect(r).toEqual([
-      { entite: 'todo.travail', uid: 'a', texte: 'Rapport', liste: 'Travail' },
-      { entite: 'todo.maintenance', uid: 'b', texte: 'Changer une pile', liste: 'Entretien' },
-      { entite: 'todo.maintenance', uid: 'c', texte: 'Vider le bac', liste: 'Entretien' },
+      { entite: 'todo.travail', uid: 'a', texte: 'Rapport', list: 'Travail' },
+      { entite: 'todo.maintenance', uid: 'b', texte: 'Changer une pile', list: 'Entretien' },
+      { entite: 'todo.maintenance', uid: 'c', texte: 'Vider le bac', list: 'Entretien' },
     ]);
   });
 
@@ -96,7 +96,7 @@ describe('aplatirTaches', () => {
 describe('repartirTaches', () => {
   it('en dessous du maximum, rend toutes les taches, aucun reste', () => {
     const taches = Array.from({ length: MAX_LIGNES_TACHES }, (_, i) =>
-      ({ entite: 'todo.maintenance', uid: String(i), texte: `t${i}`, liste: 'Entretien' }));
+      ({ entite: 'todo.maintenance', uid: String(i), texte: `t${i}`, list: 'Entretien' }));
     const r = repartirTaches(taches);
     expect(r.visibles).toHaveLength(MAX_LIGNES_TACHES);
     expect(r.reste).toBe(0);
@@ -108,7 +108,7 @@ describe('repartirTaches', () => {
   // montrées, jamais une tâche qui disparaît sans un mot.
   it('au-dessus du maximum, reserve la derniere ligne a un compte-rendu du reste EXACT', () => {
     const taches = Array.from({ length: MAX_LIGNES_TACHES + 3 }, (_, i) =>
-      ({ entite: 'todo.maintenance', uid: String(i), texte: `t${i}`, liste: 'Entretien' }));
+      ({ entite: 'todo.maintenance', uid: String(i), texte: `t${i}`, list: 'Entretien' }));
     const r = repartirTaches(taches);
     expect(r.visibles).toHaveLength(MAX_LIGNES_TACHES - 1);
     expect(r.reste).toBe(4);   // (N+3) - (MAX-1) = 4 tâches non montrées
@@ -118,17 +118,17 @@ describe('repartirTaches', () => {
 
   it('exactement un de plus que le maximum : une seule tache masquee par le compte-rendu', () => {
     const taches = Array.from({ length: MAX_LIGNES_TACHES + 1 }, (_, i) =>
-      ({ entite: 'todo.maintenance', uid: String(i), texte: `t${i}`, liste: 'Entretien' }));
+      ({ entite: 'todo.maintenance', uid: String(i), texte: `t${i}`, list: 'Entretien' }));
     const r = repartirTaches(taches);
     expect(r.reste).toBe(2);
   });
 });
 
-describe('creerArmement', () => {
+describe('createArming', () => {
   it('arme une cle, la desarme apres le delai, sans qu on ait rien confirme', () => {
     vi.useFakeTimers();
     try {
-      const armement = creerArmement(setTimeout, 3000);
+      const armement = createArming(setTimeout, 3000);
       const surExpiration = vi.fn();
       armement.armer('x', surExpiration);
       expect(armement.estArmee('x')).toBe(true);
@@ -144,7 +144,7 @@ describe('creerArmement', () => {
     vi.useFakeTimers();
     try {
       const avant = vi.getTimerCount();
-      const armement = creerArmement(setTimeout, 3000);
+      const armement = createArming(setTimeout, 3000);
       armement.armer('a', vi.fn());
       expect(vi.getTimerCount()).toBe(avant + 1);
       armement.armer('b', vi.fn());
@@ -158,7 +158,7 @@ describe('creerArmement', () => {
     vi.useFakeTimers();
     try {
       const avant = vi.getTimerCount();
-      const armement = creerArmement(setTimeout, 3000);
+      const armement = createArming(setTimeout, 3000);
       armement.armer('a', vi.fn());
       armement.desarmer();
       expect(vi.getTimerCount()).toBe(avant);
@@ -170,7 +170,7 @@ describe('creerArmement', () => {
     vi.useFakeTimers();
     try {
       const avant = vi.getTimerCount();
-      const armement = creerArmement(setTimeout, 3000);
+      const armement = createArming(setTimeout, 3000);
       for (let i = 0; i < 10; i++) armement.armer(`cle-${i}`, vi.fn());
       expect(vi.getTimerCount()).toBe(avant + 1);
       expect(armement.estArmee('cle-9')).toBe(true);
@@ -178,7 +178,7 @@ describe('creerArmement', () => {
   });
 });
 
-describe('creerCochage', () => {
+describe('createTaskCheck', () => {
   const deps = (surChangement = vi.fn()) => ({
     cx: { appelerService: vi.fn() },
     estHorsLigne: () => false,
@@ -188,7 +188,7 @@ describe('creerCochage', () => {
 
   it('premier appui : arme la ligne, n appelle aucun service, previent surChangement', () => {
     const d = deps();
-    const cochage = creerCochage(d);
+    const cochage = createTaskCheck(d);
     cochage.cocher('todo.maintenance', 'a');
     expect(cochage.estArmee('todo.maintenance', 'a')).toBe(true);
     expect(d.cx.appelerService).not.toHaveBeenCalled();
@@ -197,7 +197,7 @@ describe('creerCochage', () => {
 
   it('second appui sur la MEME ligne : confirme, appelle todo.update_item, masque localement', () => {
     const d = deps();
-    const cochage = creerCochage(d);
+    const cochage = createTaskCheck(d);
     cochage.cocher('todo.maintenance', 'a');
     cochage.cocher('todo.maintenance', 'a');
     expect(d.cx.appelerService).toHaveBeenCalledWith(
@@ -209,7 +209,7 @@ describe('creerCochage', () => {
 
   it('un appui sur une AUTRE ligne pendant qu une premiere est armee desarme la premiere', () => {
     const d = deps();
-    const cochage = creerCochage(d);
+    const cochage = createTaskCheck(d);
     cochage.cocher('todo.maintenance', 'a');
     cochage.cocher('todo.maintenance', 'b');
     expect(cochage.estArmee('todo.maintenance', 'a')).toBe(false);
@@ -221,7 +221,7 @@ describe('creerCochage', () => {
     vi.useFakeTimers();
     try {
       const d = deps();
-      const cochage = creerCochage(d);
+      const cochage = createTaskCheck(d);
       cochage.cocher('todo.maintenance', 'a');
       vi.advanceTimersByTime(3100);
       expect(cochage.estArmee('todo.maintenance', 'a')).toBe(false);
@@ -236,7 +236,7 @@ describe('creerCochage', () => {
   it('hors ligne : ni armement ni confirmation, aucun appel de service', () => {
     const cx = { appelerService: vi.fn() };
     const surChangement = vi.fn();
-    const cochage = creerCochage({ cx, estHorsLigne: () => true, minuteurFn: setTimeout, surChangement });
+    const cochage = createTaskCheck({ cx, estHorsLigne: () => true, minuteurFn: setTimeout, surChangement });
     cochage.cocher('todo.maintenance', 'a');
     expect(cochage.estArmee('todo.maintenance', 'a')).toBe(false);
     expect(cx.appelerService).not.toHaveBeenCalled();
@@ -254,7 +254,7 @@ describe('creerCochage', () => {
     vi.useFakeTimers();
     try {
       const avant = vi.getTimerCount();
-      const cochage = creerCochage(deps());
+      const cochage = createTaskCheck(deps());
       for (let i = 0; i < 10; i++) cochage.cocher('todo.maintenance', `uid-${i}`);
       expect(vi.getTimerCount()).toBe(avant + 1);
     } finally { vi.useRealTimers(); }

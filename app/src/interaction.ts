@@ -49,7 +49,7 @@ export function etatVise(actuel: string, service?: [string, string]): string {
   return actuel;
 }
 
-export function creerAppui(
+export function createPress(
   etat: Etat, cx: ConnexionAppelable, minuteur: typeof setTimeout,
   // Tâche 9, ronde de correction 1 (retour du coordinateur, IMPORTANT) : sans ce garde, un appui
   // sur une commande — au premier chef « Serrure » dans la vue « Toute la maison », l'écran qui

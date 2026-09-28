@@ -219,7 +219,7 @@ describe('tâche 19 — les quatre commandes ajoutées à la cuisine et au burea
 
   it('la cuisine porte la ligne DLC, en CINQUIÈME position', () => {
     // L'ordre compte deux fois : la ligne de synthèse n'affiche qu'un nombre borné d'écarts, et
-    // `listesTachesPiece` reprend cet ordre pour la vue « Tâches ». Déclarée APRÈS
+    // `roomTodoLists` reprend cet ordre pour la vue « Tâches ». Déclarée APRÈS
     // `todo.maintenance`, la DLC passe donc après l'entretien et avant les courses.
     const s = ECRANS.cuisine.synthese;
     expect(s).toHaveLength(5);

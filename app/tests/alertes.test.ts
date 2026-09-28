@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Etat } from '../src/etat';
-import { collecterAlertes, dernierMouvement, CAPTEURS_MOUVEMENT } from '../src/alertes';
+import { collecterAlertes, lastMotion, CAPTEURS_MOUVEMENT } from '../src/alertes';
 
 describe('collecterAlertes', () => {
   // Ronde de correction 1 : `binary_sensor.distributeur_de_croquettes_probleme` (device_class
@@ -69,7 +69,7 @@ describe('collecterAlertes', () => {
   });
 });
 
-describe('dernierMouvement', () => {
+describe('lastMotion', () => {
   it('retient le plus récent des six capteurs', () => {
     // `changeLe` est posé par Etat.appliquer, pas par Home Assistant : les événements
     // state_changed portent last_changed hors des attributs, et on ne le reçoit pas
@@ -78,17 +78,17 @@ describe('dernierMouvement', () => {
     e.appliquer({ entity_id: CAPTEURS_MOUVEMENT[0], state: 'on', attributes: {} });
     e.appliquer({ entity_id: CAPTEURS_MOUVEMENT[0], state: 'off', attributes: {} });
     const t = e.lire(CAPTEURS_MOUVEMENT[0])!.changeLe;
-    expect(dernierMouvement(e)).toBe(t);
+    expect(lastMotion(e)).toBe(t);
   });
 
   it('rend maintenant si un capteur est actif : quelqu un bouge à l instant', () => {
     const e = new Etat();
     e.appliquer({ entity_id: CAPTEURS_MOUVEMENT[0], state: 'on', attributes: {} });
-    expect(dernierMouvement(e)).toBeGreaterThan(Date.now() - 1000);
+    expect(lastMotion(e)).toBeGreaterThan(Date.now() - 1000);
   });
 
   it('rend 0 sans aucun capteur connu, ce qui laisse l alerte se replier', () => {
-    expect(dernierMouvement(new Etat())).toBe(0);
+    expect(lastMotion(new Etat())).toBe(0);
   });
 
   // Ajouté en plus du brief : les trois tests ci-dessus n'exercent jamais la branche `e.etat
@@ -110,8 +110,8 @@ describe('dernierMouvement', () => {
 
       vi.setSystemTime(new Date(2026, 7, 1, 14, 20));   // 20 min plus tard, capteur toujours 'on'
 
-      expect(dernierMouvement(e)).toBe(Date.now());
-      expect(dernierMouvement(e)).not.toBe(changeLeAncien);
+      expect(lastMotion(e)).toBe(Date.now());
+      expect(lastMotion(e)).not.toBe(changeLeAncien);
     } finally {
       vi.useRealTimers();
     }

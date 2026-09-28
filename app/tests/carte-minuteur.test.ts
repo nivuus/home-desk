@@ -5,7 +5,7 @@ import { render } from 'lit';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  rendreMinuteurs, tuileMinuteur, brancherMinuteur, ecrireTemps, rendreReglageMinuteur,
+  rendreMinuteurs, tuileMinuteur, brancherMinuteur, writeTime, rendreReglageMinuteur,
   type ActionsMinuteur,
 } from '../src/rendu/minuteur';
 import type { VueMinuteur } from '../src/minuteur';
@@ -13,7 +13,7 @@ import type { VueMinuteur } from '../src/minuteur';
 function actions(): ActionsMinuteur & Record<string, ReturnType<typeof vi.fn>> {
   return {
     ouvrir: vi.fn(), fermer: vi.fn(), changerDuree: vi.fn(), choisirEtiquette: vi.fn(),
-    demarrer: vi.fn(), pause: vi.fn(), reprendre: vi.fn(), annuler: vi.fn(), ajuster: vi.fn(),
+    start: vi.fn(), pause: vi.fn(), reprendre: vi.fn(), annuler: vi.fn(), ajuster: vi.fn(),
   } as any;
 }
 
@@ -203,7 +203,7 @@ describe('rendreReglageMinuteur', () => {
   it('démarre', () => {
     const el = rendre(rendreReglageMinuteur(7, null, ETIQUETTES));
     el.querySelector<HTMLElement>('[data-action="demarrer"]')!.dispatchEvent(new Event('pointerdown'));
-    expect(a.demarrer).toHaveBeenCalled();
+    expect(a.start).toHaveBeenCalled();
   });
 
   it('retire « − 5 » à la borne basse — jamais un bouton qui ne peut rien faire', () => {
@@ -235,13 +235,13 @@ describe('rendreReglageMinuteur', () => {
   });
 });
 
-describe('ecrireTemps', () => {
+describe('writeTime', () => {
   it('mute le nœud texte rendu par lit, sans détruire son marqueur', () => {
     const el = document.createElement('div');
     render(rendreMinuteurs([vue({ restantS: 300 })], true), el);
     const span = el.querySelector<HTMLElement>('.mn-temps')!;
     const avant = span.childNodes.length;
-    ecrireTemps(span, '04:59');
+    writeTime(span, '04:59');
     expect(span.textContent).toBe('04:59');
     expect(span.childNodes.length).toBe(avant);
     // Le rendu suivant ne doit pas lever : c'est exactement le défaut du 2026-08-03.
