@@ -1,0 +1,367 @@
+{
+  "selector": {
+    "geste": {
+      "options": {
+        "enregistrer": "Save",
+        "monter": "Move up",
+        "descendre": "Move down",
+        "supprimer": "Delete"
+      }
+    },
+    "bloc_defaut": {
+      "options": {
+        "voiture": "Car",
+        "repas": "Meal",
+        "agenda": "Agenda"
+      }
+    },
+    "zone": {
+      "options": {
+        "synthese": "Summary",
+        "blocCentral": "Central block",
+        "ambiances": "Ambiance",
+        "commandes": "Commands"
+      }
+    },
+    "mode": {
+      "options": {
+        "alerte": "Alert",
+        "recette": "Recipe",
+        "minuteur": "Timer",
+        "menage": "Cleaning",
+        "cinema": "Cinema",
+        "media": "Media",
+        "aeration": "Airing",
+        "voiture": "Car",
+        "defaut": "Default"
+      }
+    },
+    "modulateur": {
+      "options": {
+        "invites": "Guests",
+        "chaleur": "Heat",
+        "delorean": "DeLorean"
+      }
+    }
+  },
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wall tablets",
+        "description": "Adds the \"Wall tablets\" integration, once for the whole house. For an extra tablet, do not add a second integration: open this one from the integrations list and add a screen from its own menu."
+      }
+    }
+  },
+  "config_subentries": {
+    "ecran": {
+      "step": {
+        "user": {
+          "title": "Identity and budget",
+          "description": "The screen's name, the displayed temperature sensor, and the tablet's usable height, in pixels.",
+          "data": {
+            "nom": "Name",
+            "hauteurUtile": "Usable height (px)",
+            "temperature": "Temperature sensor",
+            "note": "Note",
+            "aspirateur": "Vacuum",
+            "delorean": "DeLorean"
+          }
+        },
+        "reconfigure": {
+          "title": "Edit the screen",
+          "description": "Choose a section to edit.{entites_inconnues}",
+          "menu_options": {
+            "identite": "Identity and budget",
+            "commandes": "Command tiles",
+            "ambiances": "Ambiance row",
+            "extrasMaison": "\"House extras\" tiles",
+            "ouvrants": "Openings",
+            "synthese": "Summary line",
+            "sources": "Media sources",
+            "minuteurs": "Timers",
+            "etiquettesMinuteur": "Timer labels",
+            "listesTachesExtra": "Extra task lists",
+            "agencement": "Blocks and modes",
+            "voiture": "Car",
+            "aspirateur_maison": "Room vacuum"
+          }
+        },
+        "identite": {
+          "title": "Identity and budget",
+          "description": "The screen's name, the displayed temperature sensor, and the tablet's usable height, in pixels.",
+          "data": {
+            "nom": "Name",
+            "hauteurUtile": "Usable height (px)",
+            "temperature": "Temperature sensor",
+            "note": "Note",
+            "aspirateur": "Vacuum",
+            "delorean": "DeLorean"
+          }
+        },
+        "commandes": {
+          "title": "Command tiles",
+          "description": "Pick an existing tile to edit, move or remove it, or check \"Add\" for a new one.{entites_inconnues}",
+          "data": {
+            "choix": "Existing tile",
+            "nouveau": "Add a new tile"
+          }
+        },
+        "commandes_element": {
+          "title": "Command tile",
+          "data": {
+            "libelle": "Label",
+            "icone": "Icon",
+            "entite": "Entity",
+            "cible": "Target entity",
+            "service_domaine": "Service: domain",
+            "service_action": "Service: action",
+            "lien": "Link",
+            "vue": "View (#anchor)",
+            "epingle": "Pinned",
+            "absenceNommee": "Label shown when the entity is absent",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "ambiances": {
+          "title": "Ambiance row",
+          "description": "Pick an existing tile to edit, move or remove it, or check \"Add\" for a new one.{entites_inconnues}",
+          "data": {
+            "choix": "Existing tile",
+            "nouveau": "Add a new tile"
+          }
+        },
+        "ambiances_element": {
+          "title": "Ambiance tile",
+          "data": {
+            "libelle": "Label",
+            "icone": "Icon",
+            "entite": "Entity",
+            "cible": "Target entity",
+            "service_domaine": "Service: domain",
+            "service_action": "Service: action",
+            "lien": "Link",
+            "vue": "View (#anchor)",
+            "epingle": "Pinned",
+            "absenceNommee": "Label shown when the entity is absent",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "extrasMaison": {
+          "title": "\"House extras\" tiles",
+          "description": "Pick an existing tile to edit, move or remove it, or check \"Add\" for a new one.{entites_inconnues}",
+          "data": {
+            "choix": "Existing tile",
+            "nouveau": "Add a new tile"
+          }
+        },
+        "extrasMaison_element": {
+          "title": "\"House extras\" tile",
+          "data": {
+            "libelle": "Label",
+            "icone": "Icon",
+            "entite": "Entity",
+            "cible": "Target entity",
+            "service_domaine": "Service: domain",
+            "service_action": "Service: action",
+            "lien": "Link",
+            "vue": "View (#anchor)",
+            "epingle": "Pinned",
+            "absenceNommee": "Label shown when the entity is absent",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "ouvrants": {
+          "title": "Openings",
+          "description": "Pick an existing opening to move or remove it, or check \"Add\" for a new one.{entites_inconnues}",
+          "data": {
+            "choix": "Existing opening",
+            "nouveau": "Add an opening"
+          }
+        },
+        "ouvrants_element": {
+          "title": "Opening",
+          "data": {
+            "entite": "Entity",
+            "geste": "Action"
+          }
+        },
+        "listesTachesExtra": {
+          "title": "Extra task lists",
+          "description": "Pick an existing list to move or remove it, or check \"Add\" for a new one.{entites_inconnues}",
+          "data": {
+            "choix": "Existing list",
+            "nouveau": "Add a list"
+          }
+        },
+        "listesTachesExtra_element": {
+          "title": "Extra task list",
+          "data": {
+            "entite": "Entity",
+            "geste": "Action"
+          }
+        },
+        "synthese": {
+          "title": "Summary line",
+          "description": "Pick an existing line to edit, move or remove it, or check \"Add\" for a new one.{entites_inconnues}",
+          "data": {
+            "choix": "Existing line",
+            "nouveau": "Add a new line"
+          }
+        },
+        "synthese_element": {
+          "title": "Summary line",
+          "data": {
+            "entite": "Entity",
+            "texte": "Text",
+            "operateur": "Operator",
+            "valeur": "Value",
+            "perso": "Custom",
+            "horsTaches": "Outside chores",
+            "absenceNommee": "Label shown when the entity is absent",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "sources": {
+          "title": "Media sources",
+          "description": "Pick an existing source to edit, move or remove it, or check \"Add\" for a new one.{entites_inconnues}",
+          "data": {
+            "choix": "Existing source",
+            "nouveau": "Add a new source"
+          }
+        },
+        "sources_element": {
+          "title": "Media source",
+          "description": "Fill in only the entities this source uses; leave the other fields empty.",
+          "data": {
+            "nom": "Name",
+            "titre": "Title entities",
+            "sousTitre": "Subtitle entities",
+            "affiche": "Cover art entities",
+            "progression": "Progress entities",
+            "transport": "Transport entities",
+            "volume": "Volume entities",
+            "allumee_entite": "\"On\" entity (optional)",
+            "allumee_etats": "\"On\" states, comma-separated",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "minuteurs": {
+          "title": "Timers",
+          "description": "Pick an existing slot to edit, move or remove it, or check \"Add\" for a new one.{entites_inconnues}",
+          "data": {
+            "choix": "Existing slot",
+            "nouveau": "Add a new slot"
+          }
+        },
+        "minuteurs_element": {
+          "title": "Timer slot",
+          "data": {
+            "timer": "Timer entity",
+            "nom": "Displayed name entity",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "etiquettesMinuteur": {
+          "title": "Timer labels",
+          "description": "Pick an existing label to edit, move or remove it, or check \"Add\" for a new one.{entites_inconnues}",
+          "data": {
+            "choix": "Existing label",
+            "nouveau": "Add a new label"
+          }
+        },
+        "etiquettesMinuteur_element": {
+          "title": "Timer label",
+          "data": {
+            "etiquette": "Label",
+            "geste": "Action"
+          }
+        },
+        "agencement": {
+          "title": "Blocks and modes",
+          "description": "Zones and modes are ordered the way you select them below.",
+          "data": {
+            "blocDefaut": "Default block",
+            "zones": "Zones (in the order shown)",
+            "modes": "Modes (in priority order)",
+            "modulateurs": "Modulators",
+            "note": "Note"
+          }
+        },
+        "voiture": {
+          "title": "Car",
+          "description": "Check \"No car\" to remove this section entirely, rather than leaving fields empty.",
+          "data": {
+            "sans_voiture": "No car",
+            "batterie": "Battery",
+            "autonomie": "Range",
+            "branchee": "Plugged in",
+            "enCharge": "Charging",
+            "clim": "Air conditioning (state)",
+            "demarrerClim": "Start air conditioning",
+            "arreterClim": "Stop air conditioning",
+            "note": "Note"
+          }
+        },
+        "aspirateur_maison": {
+          "title": "Room vacuum",
+          "description": "Replaces the generic \"Vacuum\" tile of the \"Whole house\" view with a device specific to this room. Check \"No room vacuum\" to go back to the generic tile.{entites_inconnues}",
+          "data": {
+            "sans_aspirateur_maison": "No room vacuum",
+            "libelle": "Label", "icone": "Icon", "entite": "Entity", "cible": "Target",
+            "service_domaine": "Service — domain", "service_action": "Service — action",
+            "lien": "Link", "vue": "View", "epingle": "Pinned",
+            "absenceNommee": "Text when the entity is unavailable", "note": "Note"
+          }
+        }
+      },
+      "error": {
+        "nom_vide": "The name cannot be empty.",
+        "nom_deja_utilise": "Another screen is already named \"{nom}\": choose a different name.",
+        "hauteur_hors_bornes": "The usable height must be between {min} and {max} px.",
+        "budget_intenable": "This screen overflows by {debordement} px. Increase the usable height, or remove a zone in \"Blocks and modes\".",
+        "champ_invalide": "This field is not valid.",
+        "champ_requis": "This field must be filled in.",
+        "champ_format_invalide": "This field does not match the expected format.",
+        "champ_type_invalide": "This field does not have the expected type.",
+        "champ_trop_court": "This field is too short.",
+        "champ_valeur_non_autorisee": "This value is not allowed for this field.",
+        "champ_valeur_figee": "This field can only take a single value.",
+        "champ_trop_peu_d_elements": "This field does not have enough items.",
+        "champ_trop_d_elements": "This field has too many items.",
+        "champ_doublon": "This field contains a duplicate.",
+        "champ_inconnu": "This field is not recognized.",
+        "champ_vide": "This field cannot be empty.",
+        "selection_manquante": "Check \"Add\" for a new item; if the list isn't empty, you can also pick an existing one.",
+        "service_incomplet": "Fill in both service fields, or clear them both.",
+        "allumee_incomplet": "Fill in both the \"on\" entity and its states, or clear them both.",
+        "champ_element_requis": "This list must contain a value the screen requires (\"Commands\" for zones, \"Default\" for modes).",
+        "recette_sans_mode": "This tile opens the Recipe view, but the \"recette\" mode is not in the screen's modes (\"Blocks and modes\" section): the screen will never show the recipe's resume point on the home screen. Add the \"recette\" mode in \"Blocks and modes\" before saving this tile.",
+        "budget_intenable_mode": "The {mode} mode overflows by {debordement} px with these zones. Increase the usable height, remove a zone, or remove this mode.",
+        "alerte_pas_en_tete": "An alert must never yield to another mode: uncheck every mode above, then check them again in the order you want, starting with \"Alert\".",
+        "ecran_deviendrait_invalide": "This change would make the screen invalid: it was not saved. Open the \"{section}\" section to fix the inconsistency before continuing."
+      },
+      "create_entry": {
+        "default": "The screen has been created.{entites_inconnues}"
+      }
+    }
+  },
+  "avertissements": {
+    "entites_inconnues": "Entities entered but missing from the Home Assistant registry, to check (an entity may appear later): {liste}"
+  },
+  "services": {
+    "exporter": {
+      "name": "Export screens",
+      "description": "Writes the configuration of every screen to config/home_desk_ecrans.yaml. Notes become comments above what they justify, readable in a git log."
+    },
+    "importer": {
+      "name": "Import screens",
+      "description": "Reads config/home_desk_ecrans.yaml back and replaces every configured screen with its content. Validates the whole file before writing anything: a single invalid screen or a duplicate name refuses the entire import, nothing is changed."
+    }
+  }
+}

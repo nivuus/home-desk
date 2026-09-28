@@ -1,0 +1,42 @@
+{
+  "_source": "Table de verite du budget de hauteur, lue par DEUX suites : app/tests/cas-budget.test.ts (TypeScript, app/src/modes.ts) et tests/composant/test_budget.py (Python, custom_components/home_desk/budget.py). Aucune donnee de maison : des modes et des hauteurs, rien d'autre.",
+  "_pourquoi": "Le formulaire de l'integration refuse une saisie sur la foi de verifier_budget. S'il calcule autre chose que verifierBudget, il refuse des ecrans qui tiennent et accepte des ecrans qui debordent — et personne ne le voit avant que la tablette soit au mur. Un terme retire d'un seul cote casse UNE des deux suites : c'est exactement le signal qu'on veut.",
+  "_zones": "null = les quatre zones du defaut, comme la valeur par defaut des deux implementations.",
+  "cas": [
+    {"mode": "defaut",   "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 585, "commandes": 4, "debordement": 0},
+    {"mode": "defaut",   "rangeeAmbiance": false, "zones": null, "hauteurUtile": 585, "commandes": 4, "debordement": 0},
+    {"mode": "media",    "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 585, "commandes": 2, "debordement": 0},
+    {"mode": "media",    "rangeeAmbiance": false, "zones": null, "hauteurUtile": 585, "commandes": 4, "debordement": 0},
+    {"mode": "cinema",   "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 585, "commandes": 2, "debordement": 0},
+    {"mode": "voiture",  "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 585, "commandes": 2, "debordement": 0},
+    {"mode": "alerte",   "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 585, "commandes": 4, "debordement": 0},
+    {"mode": "recette",  "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 585, "commandes": 4, "debordement": 0},
+    {"mode": "menage",   "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 585, "commandes": 4, "debordement": 0},
+    {"mode": "aeration", "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 585, "commandes": 4, "debordement": 0},
+
+    {"_note": "minuteur paie son cout depuis le plan 2 : 0 commande PARCE QUE rien ne tient, pas par court-circuit.",
+     "mode": "minuteur",  "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 585, "commandes": 0, "debordement": 0},
+    {"mode": "minuteur",  "rangeeAmbiance": false, "zones": null, "hauteurUtile": 585, "commandes": 2, "debordement": 0},
+    {"_note": "630 px = la mesure historique ecranModeMinuteur du 2026-08-03, que le modele reproduit au pixel sans avoir ete calibre dessus.",
+     "mode": "minuteur",  "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 657, "commandes": 2, "debordement": 0},
+    {"mode": "minuteur",  "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 500, "commandes": 0, "debordement": 58},
+
+    {"_note": "Le palier intermediaire : une rangee de moins.",
+     "mode": "defaut",   "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 521, "commandes": 2, "debordement": 0},
+    {"_note": "La gouttiere entre rangees (10 px) ne se voit qu'ici : 582 px avec, 572 sans.",
+     "mode": "defaut",   "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 577, "commandes": 2, "debordement": 0},
+    {"mode": "defaut",   "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 100, "commandes": 0, "debordement": 336},
+    {"mode": "defaut",   "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 2000, "commandes": 4, "debordement": 0},
+
+    {"_note": "Zones omises : le cout tombe de la zone ET de sa gouttiere.",
+     "mode": "defaut", "rangeeAmbiance": true,
+     "zones": ["ambiances", "commandes", "blocCentral"], "hauteurUtile": 100, "commandes": 0, "debordement": 296},
+    {"mode": "defaut", "rangeeAmbiance": true,
+     "zones": ["commandes", "blocCentral", "synthese"], "hauteurUtile": 100, "commandes": 0, "debordement": 239},
+    {"mode": "defaut", "rangeeAmbiance": true,
+     "zones": ["ambiances", "commandes", "synthese"], "hauteurUtile": 100, "commandes": 0, "debordement": 244},
+    {"_note": "Pas de zone commandes = pas de commande, quelle que soit la hauteur.",
+     "mode": "defaut", "rangeeAmbiance": true,
+     "zones": ["ambiances", "blocCentral", "synthese"], "hauteurUtile": 2000, "commandes": 0, "debordement": 0}
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "hauteurUtileParDefaut": 585,
+  "viewportReference": { "largeur": 343, "hauteur": 585 },
+  "modesABlocMinuteur": ["minuteur"],
+  "modesABlocHaut": ["media", "cinema", "voiture"],
+  "commandesParDefaut": 4,
+  "commandesSousBlocHaut": 2,
+  "tuilesParRangee": 2,
+  "hauteurs": {
+    "_source": "app/outils/mesurer-hauteurs.mjs, viewport 343x585, mesure du 2026-09-12 sur 11 modes et 3 ecrans. Chaque valeur est le COUT NET de la zone dans la colonne .corps (sa boite plus ses marges), au PIRE CAS des modes mesures. combien() les additionne, gouttiere comprise, au lieu d'appliquer une table.",
+    "_bandeau": "121 px, INVARIANT sur les 8 etats balayes : la date du jour et la date la plus longue de 28 ans de calendrier, croisees avec une pastille a une ligne, a deux lignes (le plafond de son clamp) et celle rendue par la maison, phrase interieure presente (sans elle la colonne gauche retrecit, donc le bandeau ne peut que baisser).",
+    "_blocMinuteur": "206 px, le bloc du mode minuteur. Consomme par combien() comme tout autre bloc central depuis le plan 2 : le mode minuteur rend 0 commande PARCE QUE 27 px restent apres son cout (585 - 558), pas par court-circuit. La cle modesSansCommande a disparu avec ce court-circuit ; modesABlocMinuteur la remplace, dans le meme role que modesABlocHaut, et sert aussi de proxy a app/outils/mesurer-hauteurs.mjs pour choisir la famille de bloc a publier.",
+    "gouttiere": 8,
+    "paddingCorps": 24,
+    "bandeau": 121,
+    "etiquetteAmbiance": 9,
+    "rangeeAmbiance": 72,
+    "rangeeCommandes": 64,
+    "gouttiereCommandes": 10,
+    "blocDefaut": 84,
+    "blocHaut": 153,
+    "blocMinuteur": 206,
+    "synthese": 32,
+    "touteLaMaison": 62
+  },
+  "mesures": {
+    "rangeeAmbiance": { "px": 100, "detail": "72 px de tuiles + etiquette + 8 px de gouttiere", "date": "2026-08-29" },
+    "rangeeCommandes": { "px": 74, "detail": "64 px + 10 px de gouttiere", "date": "2026-08-29" },
+    "ecranModeMinuteur": { "px": 630, "detail": "liste seule, 45 px au-dela du budget", "date": "2026-08-03" },
+    "ecranModeVoiture": { "px": 648, "detail": "bloc voiture a deux commandes", "date": "2026-08-03" }
+  }
+}

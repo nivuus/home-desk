@@ -522,7 +522,7 @@ export const MODES = [
     nom: 'alerte',
     etats: [
       ['lock.aqara_smart_lock_u200_lite', 'unlocked', {}],
-      // `dernierMouvement` (`alertes.ts`) : sans mouvement récent, une alerte se replie sur la
+      // `lastMotion` (`alertes.ts`) : sans mouvement récent, une alerte se replie sur la
       // ligne de synthèse au lieu d'occuper le bloc central (`alerteActive`, `contexte.ts`).
       ['binary_sensor.tablette_salon_mouvement', 'on', {}],
     ],
@@ -530,7 +530,7 @@ export const MODES = [
   },
   {
     // Tâche 14 (2026-08-03) : les six prochaines heures ont disparu — la cuisine reçoit
-    // désormais « ce qui est prévu à manger » (`rendreRepasSuivant`, `rendu/defaut.ts`), à la place de
+    // désormais « ce qui est prévu à manger » (`renderNextMeal`, `rendu/defaut.ts`), à la place de
     // l'ancien mode `previsions` que ce tableau mesurait ici (même page, même position, cf. le
     // commentaire au-dessus de `MODES` : la cuisine est aussi la seule pièce déjà visitée pour
     // `minuteur` juste après — les deux restent volontairement ADJACENTS, un seul changement de
@@ -606,7 +606,7 @@ export const MODES = [
     // de hauteur méritait le moins d'être laissé à l'estime.
     //
     // `repasInjecte: null` : le repas est VIDÉ délibérément (et non « laissé au hasard du
-    // planning ») — c'est cette absence qui fait tomber `rendreRepasSuivant` sur `undefined` et
+    // planning ») — c'est cette absence qui fait tomber `renderNextMeal` sur `undefined` et
     // donne la main au repli. Même méthode que `NEUTRE` pour les états : on ne mesure pas un mode en
     // espérant que la maison veuille bien être dans le bon état.
     //
@@ -849,6 +849,41 @@ export function lireIdentifiants() {
   return { url: (process.env.HA_URL ?? env.HA_URL).replace(/\/$/, ''), token: env.HA_TOKEN };
 }
 
+/** L'URL d'une piece. Deux formes coexistent pendant la migration (plan 3b/3c) :
+ *   - historique : `/local/wallpanel/<cle>.html`, la page qui lit `data-piece` ;
+ *   - neuve : `/home_desk/tablette?ecran=<nom>`, celle qui interroge Home Assistant. Served by the
+ *     `home_desk` component with `no-cache` (custom_components/home_desk/page.py), not from
+ *     `/local/`, whose 31-day cache hid a redeployed document on 2026-09-14.
+ *  Le verificateur doit savoir verifier LES DEUX tant que les deux sont servies — verifier
+ *  seulement la neuve laisserait le retour arriere des etapes 5 a 7 sans controle, et c'est
+ *  precisement ce retour arriere qui justifie la branche de transition. */
+const FORME_URL = process.env.WALLPANEL_URL === 'ecran' ? 'ecran' : 'historique';
+const NOM_ECRAN = { salon: 'Salon', bureau: 'Bureau', cuisine: 'Cuisine' };
+function urlPiece(haUrl, cle, requete = '') {
+  if (FORME_URL === 'ecran') {
+    // Ronde de correction 1 (2026-09-13) : l'ancien ternaire (`requete.startsWith('?') ? '&' :
+    // requete ? '&' : ''`) avait ses deux branches non vides identiques ('&') -- mort, il ne
+    // distinguait jamais rien. Consequence reelle : `#maison`/`#minuteur` passent `requete` sans
+    // `?` (leur `essai` vaut ''), et la forme neuve produisait `?ecran=Salon&#maison` au lieu de
+    // `?ecran=Salon#maison`. Corrige : `&` seulement quand `requete` porte deja un `?`.
+    const sep = requete.startsWith('?') ? '&' : '';
+    return `${haUrl}/home_desk/tablette?ecran=${encodeURIComponent(NOM_ECRAN[cle] ?? cle)}`
+      + sep + requete.replace(/^\?/, '');
+  }
+  return `${haUrl}/local/wallpanel/${cle}.html${requete}`;
+}
+/** Vrai quand `actuelle` (l'URL de la page, déjà interprétée par `page.url()`) est déjà sur la
+ *  piece `cle`, sous la forme actuellement mesurée — appelé avant `allerSurPage` pour éviter un
+ *  aller-retour réseau inutile quand la page y est déjà. */
+function estSurPage(actuelle, cle) {
+  if (!actuelle) return false;
+  if (FORME_URL === 'ecran') {
+    return actuelle.pathname === '/home_desk/tablette'
+      && actuelle.searchParams.get('ecran') === (NOM_ECRAN[cle] ?? cle);
+  }
+  return actuelle.pathname === `/local/wallpanel/${cle}.html`;
+}
+
 export function fabriquerJetons(url, token) {
   // `expires` est un epoch ms, pas un délai — cf. `connexion.ts`. Le jeton lu dans .mcp.json est
   // un jeton d'accès longue durée (HA), donc une expiration lointaine évite tout rafraîchissement
@@ -974,13 +1009,16 @@ function affiche(base, amplitude) {
 
 export const AFFICHES_PNG = new Map(AFFICHES.map((a) => [a.nom, affiche(a.base, a.amplitude)]));
 
-/** Tâche 18 — REJOUE UNE FEUILLE DE STYLE COMME LA LIRAIT LE MOTEUR DES TABLETTES CUISINE ET
- *  SALON. Relevé en lecture seule sur l'API d'administration Fully (`?cmd=deviceInfo`) le
- *  2026-08-03 : cuisine (192.168.0.159) et salon (192.168.0.218) rendent en **Chrome
- *  100.0.4896.127**, bureau (192.168.0.138) en **Chrome 119.0.6045.194**. Les unités de viewport
- *  dynamique (`dvh`, `svh`, `lvh`…) n'existent qu'à partir de Chrome 108 : sur DEUX écrans sur
- *  trois, une déclaration qui en contient une est invalide, donc JETÉE AU PARSING — la propriété
- *  retombe sur sa valeur héritée ou initiale, en silence.
+/** Tâche 18 — REJOUE UNE FEUILLE DE STYLE COMME LA LIRAIT LE MOTEUR DE DEUX DES TROIS TABLETTES
+ *  MURALES. Relevé en lecture seule sur l'API d'administration Fully (`?cmd=deviceInfo`) le
+ *  2026-08-03 : deux des trois tablettes rendent en **Chrome 100.0.4896.127**, la troisième en
+ *  **Chrome 119.0.6045.194**. Les IP qui identifiaient chaque tablette ont été retirées le
+ *  2026-09-14 — `app/` est la SOURCE dont `dist/` est bâti, et `dist/` est livré par
+ *  `git archive HEAD` (plan 3c, tâche 5, gardé par `tests/test_portabilite_app.py`). Le tableau
+ *  « quelle tablette porte quel moteur » vit désormais dans le dossier de production, pas dans
+ *  le dépôt. Les unités de viewport dynamique (`dvh`, `svh`, `lvh`…) n'existent qu'à partir de
+ *  Chrome 108 : sur DEUX écrans sur trois, une déclaration qui en contient une est invalide,
+ *  donc JETÉE AU PARSING — la propriété retombe sur sa valeur héritée ou initiale, en silence.
  *
  *  La simulation consiste à remplacer le token d'unité par une unité qui n'existe nulle part
  *  (`zvh`). Ce n'est pas une approximation : un moteur qui ne connaît PAS `dvh` et un moteur qui
@@ -1154,7 +1192,7 @@ export function analyserRendu(params) {
 
   // Ronde de correction 2 (relecteur, LE PLUS IMPORTANT) : jusqu'ici, ce vérificateur ne juge que
   // la géométrie — jamais si l'écran mesuré est le vrai tableau de bord ou un message d'erreur. Un
-  // écran bloqué en permanence sur « Connexion impossible » (`erreurDemarrage()`, `demarrage.ts`)
+  // écran bloqué en permanence sur « Connexion impossible » (`startupError()`, `demarrage.ts`)
   // ou « Session » (`sessionAbsente()`, même fichier) passait donc `jugerResultat` haut la main :
   // ces deux gabarits ne débordent pas, n'ont aucune cible tactile trop petite (ils n'en ont
   // AUCUNE), aucun contraste insuffisant. Un vérificateur qui ne peut jamais voir l'application
@@ -1829,7 +1867,7 @@ async function verifierPagesReelles(nav, { deploye = false } = {}) {
         // présence de ces points d'injection, jamais le rendu, mais autant rester au plus près de ce
         // qu'une vraie tablette charge (jamais ce paramètre) pour tout ce qui n'en a pas besoin.
         const essai = vue.recetteEssai ? '?essai=1' : '';
-        await page.goto(`${HA_URL}/local/wallpanel/${piece}.html${essai}${vue.hash}`, { waitUntil: 'load', timeout: 20000 });
+        await page.goto(urlPiece(HA_URL, piece, `${essai}${vue.hash}`), { waitUntil: 'load', timeout: 20000 });
         await page.waitForTimeout(3500);   // laisse le websocket s'authentifier et pousser get_states
         if (vue.recetteEssai) {
           // Tâche 12 (round 1, point 9) : sans neutralisation, ces trois vues restent exposées à
@@ -2211,7 +2249,7 @@ export const forcerRedessin = (page) =>
  *
  *  Ronde de correction 1, défaut trouvé à l'exécution et non supposé : changer l'heure figée
  *  (`clock.setFixedTime`) pour rendre une autre date fait bondir `Date.now()` de plusieurs mois.
- *  `Connexion` calcule son silence en `Date.now() - dernierMessage` : le bond franchit d'un coup
+ *  `Connexion` calcule son silence en `Date.now() - lastMessageAt` : le bond franchit d'un coup
  *  `SEUIL_MUET_MS` (30 s), `horsLigne` passe à vrai et `dessiner()` remplace ALORS le bloc central
  *  de TOUS les modes par `rendreHorsLigne()` — il prime sur tout, c'est sa raison d'être. La
  *  surveillance ne se rétracte qu'au tic suivant de son intervalle de 5 s : entre les deux, la
@@ -2254,8 +2292,8 @@ export async function attendreEcranVivant(page, limiteMs = 15_000) {
 async function allerSurPage(page, HA_URL, nomPage) {
   let actuelle;
   try { actuelle = new URL(page.url()); } catch { actuelle = null; }
-  if (actuelle && actuelle.pathname === `/local/wallpanel/${nomPage}.html`) return;
-  await page.goto(`${HA_URL}/local/wallpanel/${nomPage}.html?essai=1`, { waitUntil: 'load', timeout: 20000 });
+  if (estSurPage(actuelle, nomPage)) return;
+  await page.goto(urlPiece(HA_URL, nomPage, '?essai=1'), { waitUntil: 'load', timeout: 20000 });
   await page.waitForTimeout(3500);
   await page.clock.setFixedTime(JOUR_COURT);
   await attendreEcranVivant(page);
@@ -2776,7 +2814,7 @@ async function verifierDecompteMinuteur(nav, HA_URL, jetons, bundle) {
   page.on('pageerror', (err) => erreursPage.push(err.message));
 
   try {
-    await page.goto(`${HA_URL}/local/wallpanel/cuisine.html?essai=1`, { waitUntil: 'load', timeout: 20000 });
+    await page.goto(urlPiece(HA_URL, 'cuisine', '?essai=1'), { waitUntil: 'load', timeout: 20000 });
     await page.waitForTimeout(3500);
 
     // LE RÉVEIL D'ABORD, `attendreEcranVivant` ENSUITE — l'ordre inverse est un faux échec
@@ -2946,7 +2984,7 @@ async function verifierModes(nav, HA_URL, jetons, bundle) {
   // ⚠️ AVERTISSEMENT À QUI AJOUTERA UN `setFixedTime` ICI (ronde de correction 2). Une version
   // antérieure de ce commentaire affirmait que figer l'heure « neutralise au passage la
   // surveillance du silence websocket ». C'est vrai du PREMIER figement seulement — l'heure ne
-  // bouge plus, donc `Date.now() - dernierMessage` reste nul. Ce n'est PAS vrai d'un CHANGEMENT
+  // bouge plus, donc `Date.now() - lastMessageAt` reste nul. Ce n'est PAS vrai d'un CHANGEMENT
   // d'heure figée : passer du 7 mai au 13 septembre fait bondir `Date.now()` de quatre mois,
   // `Connexion` y lit un silence de quatre mois, franchit `SEUIL_MUET_MS` (30 s) et `dessiner()`
   // remplace le bloc central de TOUS les modes par `rendreHorsLigne()`, qui prime sur tout.
@@ -2968,7 +3006,7 @@ async function verifierModes(nav, HA_URL, jetons, bundle) {
   let bandeau = null;
 
   try {
-    await page.goto(`${HA_URL}/local/wallpanel/salon.html?essai=1`, { waitUntil: 'load', timeout: 20000 });
+    await page.goto(urlPiece(HA_URL, 'salon', '?essai=1'), { waitUntil: 'load', timeout: 20000 });
     await page.waitForTimeout(3500);
 
     const injecteurPresent = await page.evaluate(() => typeof window.__injecter === 'function');
@@ -3324,7 +3362,7 @@ const FIXTURES = [
     description: 'un texte en `white-space: nowrap` plus large que sa boîte doit être signalé',
   },
   {
-    // Ronde de correction 2 : reproduit fidèlement `erreurDemarrage()`/`sessionAbsente()`
+    // Ronde de correction 2 : reproduit fidèlement `startupError()`/`sessionAbsente()`
     // (`demarrage.ts`) — un unique `.cap`, sans `.corps`, exactement leur gabarit réel.
     nom: 'écran de repli (Connexion impossible / Session) affiché à la place du contenu',
     html: gabaritFixture(`
@@ -3626,7 +3664,7 @@ async function autoTestPeint(nav) {
 // tâche) déclaraient tout conforme. Trois causes cumulées, dont la plus profonde : le WebView de
 // la tablette émet PLUSIEURS `pointerdown` au cours d'un même glissement physique (un seul doigt,
 // posé une seule fois — vérifié sur les relevés d'appels de service du 2026-08-02, pas supposé).
-// `creerGeste` (`geste.ts`) s'en protège par une garde : un `pointerdown` supplémentaire pendant
+// `createGesture` (`geste.ts`) s'en protège par une garde : un `pointerdown` supplémentaire pendant
 // un geste déjà en cours est ignoré, pour ne jamais réinitialiser le point de référence
 // (`xDepart`/`valeurDepart`) en cours de route.
 //
@@ -3657,7 +3695,7 @@ const TUILE_Y = TUILE_HAUT + TUILE_HAUTEUR / 2;
 const SERRURE_HAUT = TUILE_HAUT + TUILE_HAUTEUR + 20;
 const SERRURE_Y = SERRURE_HAUT + TUILE_HAUTEUR / 2;
 
-/** Bundle `creerGeste` (`geste.ts`) et `Etat` (`etat.ts`) EN MÉMOIRE depuis `SRC_APP` — jamais
+/** Bundle `createGesture` (`geste.ts`) et `Etat` (`etat.ts`) EN MÉMOIRE depuis `SRC_APP` — jamais
  *  écrit sur disque (`write: false`), jamais un import direct de ces `.ts` par ce script `.mjs`
  *  (Node ne saurait pas les charger sans transpilation). `jauge.ts` est entraîné dans le bundle
  *  par l'import réel de `geste.ts` (pas listé ici séparément) : c'est le graphe d'imports RÉEL du
@@ -3665,7 +3703,7 @@ const SERRURE_Y = SERRURE_HAUT + TUILE_HAUTEUR / 2;
 async function bundlerGeste() {
   const resultat = await esbuild.build({
     stdin: {
-      contents: `export { creerGeste } from './geste.ts'; export { Etat } from './etat.ts';`,
+      contents: `export { createGesture } from './geste.ts'; export { Etat } from './etat.ts';`,
       resolveDir: SRC_APP,
       loader: 'ts',
     },
@@ -3675,7 +3713,7 @@ async function bundlerGeste() {
 }
 
 /** Gabarit de fixture : une tuile À jauge (`#tuile`, ex. « Lumières ») et une tuile SANS jauge
- *  (`#serrure`, même dispatcher `creerGeste`, mais `descripteurJauge` y rend `null` puisque
+ *  (`#serrure`, même dispatcher `createGesture`, mais `descripteurJauge` y rend `null` puisque
  *  `lock.*` n'est reconnu par aucun des quatre domaines de `jauge.ts`) — les deux branches réelles
  *  du `if (!d)` dans `geste.ts`, sur la même page. */
 function fixtureGeste(codeBundle) {
@@ -3706,7 +3744,7 @@ async function pageGeste(ctx, codeBundle, etatTuile) {
       estUtilisable: () => true,
       lire: (id) => (id === 'light.lumiere_salon' ? etatTuile : { etat: 'locked', attributs: {} }),
     };
-    const geste = window.GesteModule.creerGeste(etat, cx, () => false);
+    const geste = window.GesteModule.createGesture(etat, cx, () => false);
     document.getElementById('tuile').addEventListener('pointerdown', (ev) =>
       geste(ev, 'light.lumiere_salon', () => { window.__bascules++; }));
     document.getElementById('serrure').addEventListener('pointerdown', (ev) =>
@@ -4113,7 +4151,7 @@ async function verifierCadreSansDvh(nav, HA_URL, jetons, bundle, pieces, heure) 
     const page = await ctx.newPage();
     await page.clock.install({ time: heure });
     try {
-      await page.goto(`${HA_URL}/local/wallpanel/${piece}.html`, { waitUntil: 'load', timeout: 20000 });
+      await page.goto(urlPiece(HA_URL, piece), { waitUntil: 'load', timeout: 20000 });
       await page.waitForTimeout(3500);
       const m = await page.evaluate(mesurerCadre);
       const problemes = jugerCadre(m);

@@ -16,7 +16,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Etat } from '../src/etat';
 import { ligneSynthese } from '../src/rendu/corps';
-import { demarrer, type ConnexionLike } from '../src/demarrage';
+import { startWithScreen, type ConnexionLike } from '../src/demarrage';
 import { Connexion } from '../src/connexion';
 import type { Ecran } from '../src/ecran';
 import type { EvenementEtat } from '../src/connexion';
@@ -82,11 +82,13 @@ function connexionAvecSilence() {
   let cbEtat: (e: EvenementEtat) => void = () => {};
   const cx: ConnexionLike = {
     connecter: () => Promise.resolve(),
+    prete: () => Promise.resolve(),
     surChangement: (cb) => { cbEtat = cb; },
     appelerService: vi.fn(),
     surSilence: (cb) => { cbSilence = cb; },
     listerTaches: async () => [],
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
+    surEvenement: () => {},
   };
   return { cx, declencherSilence: (ms: number) => cbSilence(ms), emettre: (e: EvenementEtat) => cbEtat(e) };
 }
@@ -95,8 +97,8 @@ describe('grisage apres silence (brief tache 9, etape 3)', () => {
   it('grise #app et affiche un bandeau hors-ligne apres 30 s de silence, jamais avant, sans jamais vider l ecran', async () => {
     const racine = document.createElement('div');
     const { cx, declencherSilence } = connexionAvecSilence();
-    await demarrer(racine, piece, {
-      stockage: stockageAvecSession, creerConnexion: () => cx,
+    await startWithScreen(racine, piece, {
+      stockage: stockageAvecSession, createConnection: () => cx,
       intervalFn: vi.fn() as any, minuteurFn: vi.fn() as any,
       maintenant: () => new Date(2026, 7, 1, 10, 30),
     });
@@ -139,8 +141,8 @@ describe('grisage apres silence (brief tache 9, etape 3)', () => {
     try {
       const racine = document.createElement('div');
       const { cx, declencherSilence, emettre } = connexionAvecSilence();
-      await demarrer(racine, piece, {
-        stockage: stockageAvecSession, creerConnexion: () => cx,
+      await startWithScreen(racine, piece, {
+        stockage: stockageAvecSession, createConnection: () => cx,
         intervalFn: vi.fn() as any, minuteurFn: vi.fn() as any,
         maintenant: () => new Date(),
       });
@@ -165,13 +167,13 @@ describe('grisage apres silence (brief tache 9, etape 3)', () => {
   // Retour du coordinateur : `rendreNuit` seul (testé dans `tests/nuit.test.ts`) ne peut pas
   // prouver que `demarrage.ts` lui transmet réellement `horsLigne` — exactement la classe de
   // défaut déjà payée dans ce projet pour `alerteActive`/`mediaEnCours` (cf. commentaire tâche
-  // 8 bis) : une fonction de rendu correcte, jamais branchée. Ici, bout en bout via `demarrer()`,
+  // 8 bis) : une fonction de rendu correcte, jamais branchée. Ici, bout en bout via `startScreen()`,
   // à une heure de nuit (23h30).
   it('sur l ecran de nuit, le silence remplace aussi la temperature par la note hors-ligne (bout en bout, pas juste rendreNuit isole)', async () => {
     const racine = document.createElement('div');
     const { cx, declencherSilence, emettre } = connexionAvecSilence();
-    await demarrer(racine, piece, {
-      stockage: stockageAvecSession, creerConnexion: () => cx,
+    await startWithScreen(racine, piece, {
+      stockage: stockageAvecSession, createConnection: () => cx,
       intervalFn: vi.fn() as any, minuteurFn: vi.fn() as any,
       maintenant: () => new Date(2026, 7, 1, 23, 30),
     });
@@ -203,7 +205,7 @@ describe('grisage apres silence (brief tache 9, etape 3)', () => {
 // de service, cf. `estHorsLigne` dans `interaction.ts`) ET SIGNALER (étiquette « Hors ligne »,
 // cf. `rendu/maison.ts`) plutôt que l'un seul des deux — empêcher élimine le danger même si
 // personne ne lit le signal (écran mural, peu regardé) ; signaler évite qu'un écran qui refuse
-// tout sans un mot passe pour un écran cassé. Prouvé ici bout en bout via `demarrer()`, comme les
+// tout sans un mot passe pour un écran cassé. Prouvé ici bout en bout via `startScreen()`, comme les
 // autres branchements de cette tâche : `tests/interaction.test.ts` et `tests/maison.test.ts`
 // prouvent chaque brique isolément, mais aucun des deux ne peut prouver qu'elles sont réellement
 // reliées entre elles dans l'application réelle.
@@ -212,8 +214,8 @@ describe('vue Toute la maison hors ligne (retour du coordinateur, IMPORTANT)', (
     const racine = document.createElement('div');
     const { cx, declencherSilence, emettre } = connexionAvecSilence();
     try {
-      await demarrer(racine, piece, {
-        stockage: stockageAvecSession, creerConnexion: () => cx,
+      await startWithScreen(racine, piece, {
+        stockage: stockageAvecSession, createConnection: () => cx,
         intervalFn: vi.fn() as any, minuteurFn: vi.fn() as any,
         maintenant: () => new Date(2026, 7, 1, 14, 0),
       });
@@ -246,7 +248,7 @@ describe('vue Toute la maison hors ligne (retour du coordinateur, IMPORTANT)', (
 // Tâche 18 : la vue « Tâches » doit exactement la même garantie que « Toute la maison » ci-dessus
 // — cocher une tâche est une commande (`todo.update_item`), donc soumise à la même règle « le
 // mode hors ligne bloque les commandes ». Prouvé de bout en bout, comme ci-dessus : ni un test
-// unitaire de `creerCochage` seul (`tests/cochage.test.ts`) ni un test de rendu isolé de
+// unitaire de `createTaskCheck` seul (`tests/cochage.test.ts`) ni un test de rendu isolé de
 // `rendreTaches` (`tests/taches.test.ts`) ne peuvent prouver que les deux sont bien reliés dans
 // l'application réelle, câblée par `demarrage.ts`.
 describe('vue Taches hors ligne (tache 18, meme regle que Toute la maison)', () => {
@@ -264,15 +266,17 @@ describe('vue Taches hors ligne (tache 18, meme regle que Toute la maison)', () 
     };
     const cx: ConnexionLike = {
       connecter: () => Promise.resolve(),
+      prete: () => Promise.resolve(),
       surChangement: () => {},
       appelerService,
       surSilence: (cb) => { cbSilence = cb; },
       listerTaches: async () => [{ uid: 'u1', texte: 'Changer une pile' }],
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
+      surEvenement: () => {},
     };
     try {
-      await demarrer(racine, pieceAvecTaches, {
-        stockage: stockageAvecSession, creerConnexion: () => cx,
+      await startWithScreen(racine, pieceAvecTaches, {
+        stockage: stockageAvecSession, createConnection: () => cx,
         intervalFn: vi.fn() as any, minuteurFn: vi.fn() as any,
         maintenant: () => new Date(2026, 7, 1, 14, 0),
       });
@@ -320,7 +324,7 @@ describe('reconnexion interne cassee (jeton de rafraichissement revoque apres un
   // dans le rapport de la tâche 5 comme réserve non traitée. Avant le correctif de cette tâche
   // (`Connexion.reconnecter`), un jeton de rafraîchissement révoqué APRÈS une connexion établie
   // faisait mourir cette boucle au tout premier échec (rejet non intercepté, aucune nouvelle
-  // tentative), sans jamais afficher `erreurDemarrage()` puisque cette boucle ne passe jamais
+  // tentative), sans jamais afficher `startupError()` puisque cette boucle ne passe jamais
   // par `tenter()`. Ce test utilise la vraie classe `Connexion` : un double ne peut pas
   // reproduire ce chemin, qui vit entièrement dans son implémentation interne.
   it('une panne durable finit toujours par se voir, meme quand la reconnexion interne echoue indefiniment en silence', async () => {
@@ -345,13 +349,13 @@ describe('reconnexion interne cassee (jeton de rafraichissement revoque apres un
       });
 
       const racine = document.createElement('div');
-      await demarrer(racine, piece, {
-        stockage, creerConnexion: () => cxReel,
+      await startWithScreen(racine, piece, {
+        stockage, createConnection: () => cxReel,
         intervalFn: vi.fn() as any, minuteurFn: vi.fn() as any,
         maintenant: () => new Date(),
       });
 
-      // Connexion établie : un message arrive, marque `dernierMessage`.
+      // Connexion établie : un message arrive, marque `lastMessageAt`.
       derniereWs!.onmessage!({ data: JSON.stringify({ type: 'auth_ok' }) });
       expect(racine.classList.contains('muet')).toBe(false);
 
@@ -378,7 +382,7 @@ describe('reconnexion interne cassee (jeton de rafraichissement revoque apres un
       expect(racine.innerHTML.trim()).not.toBe('');
 
       // Jamais l'écran d'erreur dédié : cette boucle ne passe jamais par `tenter()`, donc
-      // `erreurDemarrage()` n'apparaît jamais pour cette panne-là — seul `.hors-ligne`/`.muet`
+      // `startupError()` n'apparaît jamais pour cette panne-là — seul `.hors-ligne`/`.muet`
       // la porte, ce qui est exactement le point de ce test.
       expect(racine.textContent).not.toContain('Connexion impossible');
     } finally {
@@ -440,8 +444,8 @@ describe('revue tâche 15 (M4) — la grille de commandes ne reste pas amputée 
   it('rend 2 commandes quand la carte média est là, 4 quand hors-ligne la remplace', async () => {
     const racine = document.createElement('div');
     const { cx, declencherSilence, emettre } = connexionAvecSilence();
-    await demarrer(racine, pieceAvecMedia, {
-      stockage: stockageAvecSession, creerConnexion: () => cx,
+    await startWithScreen(racine, pieceAvecMedia, {
+      stockage: stockageAvecSession, createConnection: () => cx,
       intervalFn: vi.fn() as any, minuteurFn: vi.fn() as any,
       maintenant: () => new Date(2026, 7, 1, 14, 0),
     });

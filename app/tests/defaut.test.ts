@@ -8,10 +8,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render } from 'lit';
 import {
-  rendreProchainRdv, rendreEntretien, rendreRepasSuivant, rendreRecetteReduite,
+  rendreProchainRdv, rendreEntretien, renderNextMeal, rendreRecetteReduite,
 } from '../src/rendu/defaut';
 import type { Evenement } from '../src/agenda';
-import type { RepasSuivant } from '../src/garde-manger';
+import type { NextMeal } from '../src/garde-manger';
 
 let hote: HTMLElement;
 beforeEach(() => { hote = document.createElement('div'); document.body.appendChild(hote); });
@@ -135,7 +135,7 @@ describe('rendreEntretien', () => {
 
   // Le SEUL garde-fou de hauteur du bloc : sans `deux-lignes`, `.mode-bloc .v` est en
   // `white-space: nowrap` (`base.css`) et trois résumés de 46 caractères seraient coupés à la
-  // première ligne. Avec, la hauteur du bloc est identique à celle de `rendreRepasSuivant`/
+  // première ligne. Avec, la hauteur du bloc est identique à celle de `renderNextMeal`/
   // `rendreProchainRdv` quel que soit le nombre de tâches — c'est ce qui garantit que le repli ne
   // coûte pas une commande de plus que les blocs qu'il remplace (`combien`, `modes.ts`).
   it('borne la valeur à deux lignes, quel que soit le nombre de tâches', () => {
@@ -154,23 +154,23 @@ describe('rendreEntretien', () => {
 });
 
 // Lot 6 (2026-08-21) : le repas SUIVANT vient des attributs de `sensor.home_stock_next_meal`
-// (`repasSuivant`, `src/garde-manger.ts`). La SOURCE a changé, le gabarit pas d'un pixel — c'est
+// (`nextMeal`, `src/garde-manger.ts`). La SOURCE a changé, le gabarit pas d'un pixel — c'est
 // le contrat de hauteur, tenu ici par une assertion de structure, avant même le navigateur.
-function peindre(t: ReturnType<typeof rendreRepasSuivant>): HTMLElement {
+function peindre(t: ReturnType<typeof renderNextMeal>): HTMLElement {
   const hote = document.createElement('div');
   if (t) render(t, hote);
   return hote;
 }
 
-/** Un `RepasSuivant` de `src/garde-manger.ts`, tel que `repasSuivant` le produit. */
-function repas(p: Partial<RepasSuivant> = {}): RepasSuivant {
+/** Un `NextMeal` de `src/garde-manger.ts`, tel que `nextMeal` le produit. */
+function repas(p: Partial<NextMeal> = {}): NextMeal {
   return { etiquette: 'Dîner', plat: 'Bol lentilles', mealId: 42, recetteId: 12,
            manquants: 0, ...p };
 }
 
-describe('rendreRepasSuivant', () => {
-  it("rend le bloc repas depuis un RepasSuivant de garde-manger", () => {
-    const hote = peindre(rendreRepasSuivant(repas()));
+describe('renderNextMeal', () => {
+  it("rend le bloc repas depuis un NextMeal de garde-manger", () => {
+    const hote = peindre(renderNextMeal(repas()));
     expect(hote.querySelector('.t')?.textContent).toBe('Dîner');
     expect(hote.querySelector('.v')?.textContent).toContain('Bol lentilles');
   });
@@ -178,7 +178,7 @@ describe('rendreRepasSuivant', () => {
   it('garde exactement le gabarit .mode-bloc / .t / .v.deux-lignes', () => {
     // Le contrat de HAUTEUR, tenu par une assertion de structure : c'est ce qui garantit « zéro
     // pixel ajouté » avant même de lancer le navigateur.
-    const hote = peindre(rendreRepasSuivant(repas()));
+    const hote = peindre(renderNextMeal(repas()));
     const bloc = hote.querySelector('.mode-bloc')!;
     expect(bloc.getAttribute('data-mvt')).toBe('bloc:repas');
     expect(bloc.querySelector('.mode-texte .t')).not.toBeNull();
@@ -187,7 +187,7 @@ describe('rendreRepasSuivant', () => {
   });
 
   it('ouvre la vue recette au contact quand il y a une recette', () => {
-    const hote = peindre(rendreRepasSuivant(repas({ recetteId: 12 })));
+    const hote = peindre(renderNextMeal(repas({ recetteId: 12 })));
     location.hash = '';
     hote.querySelector('.mode-bloc')!.dispatchEvent(new Event('pointerdown'));
     expect(location.hash).toBe('#recette');
@@ -196,18 +196,18 @@ describe('rendreRepasSuivant', () => {
   it('reste inerte pour un repas sans recette (une note, un produit)', () => {
     // Un bloc qui répond au contact sans rien ouvrir est le bouton mort que ce projet traque
     // partout.
-    const hote = peindre(rendreRepasSuivant(repas({ plat: 'Reste quinoa', recetteId: null })));
+    const hote = peindre(renderNextMeal(repas({ plat: 'Reste quinoa', recetteId: null })));
     location.hash = '';
     hote.querySelector('.mode-bloc')!.dispatchEvent(new Event('pointerdown'));
     expect(location.hash).toBe('');
   });
 
   it("ne rend rien quand le repas est undefined", () => {
-    expect(rendreRepasSuivant(undefined)).toBeUndefined();
+    expect(renderNextMeal(undefined)).toBeUndefined();
   });
 
   it('rend undefined sur un plat vide', () => {
-    expect(rendreRepasSuivant(repas({ plat: '  ' }))).toBeUndefined();
+    expect(renderNextMeal(repas({ plat: '  ' }))).toBeUndefined();
   });
 });
 

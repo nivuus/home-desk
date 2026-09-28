@@ -1,0 +1,367 @@
+{
+  "selector": {
+    "geste": {
+      "options": {
+        "enregistrer": "Enregistrer",
+        "monter": "Monter",
+        "descendre": "Descendre",
+        "supprimer": "Supprimer"
+      }
+    },
+    "bloc_defaut": {
+      "options": {
+        "voiture": "Voiture",
+        "repas": "Repas",
+        "agenda": "Agenda"
+      }
+    },
+    "zone": {
+      "options": {
+        "synthese": "Synthèse",
+        "blocCentral": "Bloc central",
+        "ambiances": "Ambiances",
+        "commandes": "Commandes"
+      }
+    },
+    "mode": {
+      "options": {
+        "alerte": "Alerte",
+        "recette": "Recette",
+        "minuteur": "Minuteur",
+        "menage": "Ménage",
+        "cinema": "Cinéma",
+        "media": "Média",
+        "aeration": "Aération",
+        "voiture": "Voiture",
+        "defaut": "Défaut"
+      }
+    },
+    "modulateur": {
+      "options": {
+        "invites": "Invités",
+        "chaleur": "Chaleur",
+        "delorean": "DeLorean"
+      }
+    }
+  },
+  "config": {
+    "step": {
+      "user": {
+        "title": "Tablettes murales",
+        "description": "Ajoute l'intégration « Tablettes murales », une fois pour toute la maison. Pour une tablette supplémentaire, n'ajoutez pas une seconde intégration : ouvrez celle-ci depuis la liste des intégrations et ajoutez un écran depuis son propre menu."
+      }
+    }
+  },
+  "config_subentries": {
+    "ecran": {
+      "step": {
+        "user": {
+          "title": "Identité et budget",
+          "description": "Le nom de l'écran, le capteur de température affiché, et la hauteur utile de la tablette, en pixels.",
+          "data": {
+            "nom": "Nom",
+            "hauteurUtile": "Hauteur utile (px)",
+            "temperature": "Capteur de température",
+            "note": "Note",
+            "aspirateur": "Aspirateur",
+            "delorean": "DeLorean"
+          }
+        },
+        "reconfigure": {
+          "title": "Modifier l'écran",
+          "description": "Choisissez une section à modifier.{entites_inconnues}",
+          "menu_options": {
+            "identite": "Identité et budget",
+            "commandes": "Tuiles de commande",
+            "ambiances": "Rangée d'ambiance",
+            "extrasMaison": "Tuiles « Extras maison »",
+            "ouvrants": "Ouvrants",
+            "synthese": "Ligne de synthèse",
+            "sources": "Sources média",
+            "minuteurs": "Minuteurs",
+            "etiquettesMinuteur": "Étiquettes de minuteur",
+            "listesTachesExtra": "Listes de tâches supplémentaires",
+            "agencement": "Blocs et modes",
+            "voiture": "Voiture",
+            "aspirateur_maison": "Aspirateur de la pièce"
+          }
+        },
+        "identite": {
+          "title": "Identité et budget",
+          "description": "Le nom de l'écran, le capteur de température affiché, et la hauteur utile de la tablette, en pixels.",
+          "data": {
+            "nom": "Nom",
+            "hauteurUtile": "Hauteur utile (px)",
+            "temperature": "Capteur de température",
+            "note": "Note",
+            "aspirateur": "Aspirateur",
+            "delorean": "DeLorean"
+          }
+        },
+        "commandes": {
+          "title": "Tuiles de commande",
+          "description": "Choisissez une tuile existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.{entites_inconnues}",
+          "data": {
+            "nouveau": "Ajouter une nouvelle tuile",
+            "choix": "Tuile existante"
+          }
+        },
+        "commandes_element": {
+          "title": "Tuile de commande",
+          "data": {
+            "libelle": "Libellé",
+            "icone": "Icône",
+            "entite": "Entité",
+            "cible": "Entité cible",
+            "service_domaine": "Service : domaine",
+            "service_action": "Service : action",
+            "lien": "Lien",
+            "vue": "Vue (#ancre)",
+            "epingle": "Épinglée",
+            "absenceNommee": "Libellé affiché si l'entité est absente",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "ambiances": {
+          "title": "Rangée d'ambiance",
+          "description": "Choisissez une tuile existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.{entites_inconnues}",
+          "data": {
+            "nouveau": "Ajouter une nouvelle tuile",
+            "choix": "Tuile existante"
+          }
+        },
+        "ambiances_element": {
+          "title": "Tuile d'ambiance",
+          "data": {
+            "libelle": "Libellé",
+            "icone": "Icône",
+            "entite": "Entité",
+            "cible": "Entité cible",
+            "service_domaine": "Service : domaine",
+            "service_action": "Service : action",
+            "lien": "Lien",
+            "vue": "Vue (#ancre)",
+            "epingle": "Épinglée",
+            "absenceNommee": "Libellé affiché si l'entité est absente",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "extrasMaison": {
+          "title": "Tuiles « Extras maison »",
+          "description": "Choisissez une tuile existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.{entites_inconnues}",
+          "data": {
+            "nouveau": "Ajouter une nouvelle tuile",
+            "choix": "Tuile existante"
+          }
+        },
+        "extrasMaison_element": {
+          "title": "Tuile « Extras maison »",
+          "data": {
+            "libelle": "Libellé",
+            "icone": "Icône",
+            "entite": "Entité",
+            "cible": "Entité cible",
+            "service_domaine": "Service : domaine",
+            "service_action": "Service : action",
+            "lien": "Lien",
+            "vue": "Vue (#ancre)",
+            "epingle": "Épinglée",
+            "absenceNommee": "Libellé affiché si l'entité est absente",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "ouvrants": {
+          "title": "Ouvrants",
+          "description": "Choisissez un ouvrant existant pour le déplacer ou le supprimer, ou cochez « Ajouter » pour un nouveau.{entites_inconnues}",
+          "data": {
+            "nouveau": "Ajouter un ouvrant",
+            "choix": "Ouvrant existant"
+          }
+        },
+        "ouvrants_element": {
+          "title": "Ouvrant",
+          "data": {
+            "entite": "Entité",
+            "geste": "Action"
+          }
+        },
+        "listesTachesExtra": {
+          "title": "Listes de tâches supplémentaires",
+          "description": "Choisissez une liste existante pour la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.{entites_inconnues}",
+          "data": {
+            "nouveau": "Ajouter une liste",
+            "choix": "Liste existante"
+          }
+        },
+        "listesTachesExtra_element": {
+          "title": "Liste de tâches supplémentaire",
+          "data": {
+            "entite": "Entité",
+            "geste": "Action"
+          }
+        },
+        "synthese": {
+          "title": "Ligne de synthèse",
+          "description": "Choisissez une ligne existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.{entites_inconnues}",
+          "data": {
+            "nouveau": "Ajouter une nouvelle ligne",
+            "choix": "Ligne existante"
+          }
+        },
+        "synthese_element": {
+          "title": "Ligne de synthèse",
+          "data": {
+            "entite": "Entité",
+            "texte": "Texte",
+            "operateur": "Opérateur",
+            "valeur": "Valeur",
+            "perso": "Personnalisée",
+            "horsTaches": "Hors tâches",
+            "absenceNommee": "Libellé affiché si l'entité est absente",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "sources": {
+          "title": "Sources média",
+          "description": "Choisissez une source existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.{entites_inconnues}",
+          "data": {
+            "nouveau": "Ajouter une nouvelle source",
+            "choix": "Source existante"
+          }
+        },
+        "sources_element": {
+          "title": "Source média",
+          "description": "Renseignez uniquement les entités que cette source utilise ; laissez les autres champs vides.",
+          "data": {
+            "nom": "Nom",
+            "titre": "Entités de titre",
+            "sousTitre": "Entités de sous-titre",
+            "affiche": "Entités d'affiche",
+            "progression": "Entités de progression",
+            "transport": "Entités de transport",
+            "volume": "Entités de volume",
+            "allumee_entite": "Entité « allumée » (facultatif)",
+            "allumee_etats": "États « allumée », séparés par des virgules",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "minuteurs": {
+          "title": "Minuteurs",
+          "description": "Choisissez un slot existant pour le modifier, le déplacer ou le supprimer, ou cochez « Ajouter » pour un nouveau.{entites_inconnues}",
+          "data": {
+            "nouveau": "Ajouter un nouveau slot",
+            "choix": "Slot existant"
+          }
+        },
+        "minuteurs_element": {
+          "title": "Slot de minuteur",
+          "data": {
+            "timer": "Minuteur (timer)",
+            "nom": "Entité du nom affiché",
+            "note": "Note",
+            "geste": "Action"
+          }
+        },
+        "etiquettesMinuteur": {
+          "title": "Étiquettes de minuteur",
+          "description": "Choisissez une étiquette existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.{entites_inconnues}",
+          "data": {
+            "nouveau": "Ajouter une nouvelle étiquette",
+            "choix": "Étiquette existante"
+          }
+        },
+        "etiquettesMinuteur_element": {
+          "title": "Étiquette de minuteur",
+          "data": {
+            "etiquette": "Étiquette",
+            "geste": "Action"
+          }
+        },
+        "agencement": {
+          "title": "Blocs et modes",
+          "description": "L'ordre des zones et des modes est celui dans lequel vous les sélectionnez ci-dessous.",
+          "data": {
+            "blocDefaut": "Bloc par défaut",
+            "zones": "Zones (dans l'ordre affiché)",
+            "modes": "Modes (dans l'ordre de priorité)",
+            "modulateurs": "Modulateurs",
+            "note": "Note"
+          }
+        },
+        "voiture": {
+          "title": "Voiture",
+          "description": "Cochez « Pas de voiture » pour retirer entièrement cette section, plutôt que de laisser des champs vides.",
+          "data": {
+            "sans_voiture": "Pas de voiture",
+            "batterie": "Batterie",
+            "autonomie": "Autonomie",
+            "branchee": "Branchée",
+            "enCharge": "En charge",
+            "clim": "Climatisation (état)",
+            "demarrerClim": "Démarrer la climatisation",
+            "arreterClim": "Arrêter la climatisation",
+            "note": "Note"
+          }
+        },
+        "aspirateur_maison": {
+          "title": "Aspirateur de la pièce",
+          "description": "Remplace la tuile « Aspirateur » générique de la vue « Toute la maison » par un appareil propre à cette pièce. Cochez « Pas d'aspirateur de pièce » pour revenir à la tuile générique.{entites_inconnues}",
+          "data": {
+            "sans_aspirateur_maison": "Pas d'aspirateur de pièce",
+            "libelle": "Libellé", "icone": "Icône", "entite": "Entité", "cible": "Cible",
+            "service_domaine": "Service — domaine", "service_action": "Service — action",
+            "lien": "Lien", "vue": "Vue", "epingle": "Épinglée",
+            "absenceNommee": "Texte quand l'entité est muette", "note": "Note"
+          }
+        }
+      },
+      "error": {
+        "nom_vide": "Le nom ne peut pas être vide.",
+        "nom_deja_utilise": "Un autre écran s'appelle déjà « {nom} » : choisissez un nom différent.",
+        "hauteur_hors_bornes": "La hauteur utile doit être comprise entre {min} et {max} px.",
+        "budget_intenable": "Cet écran déborde de {debordement} px. Augmentez la hauteur utile, ou retirez une zone dans « Blocs et modes ».",
+        "champ_invalide": "Ce champ n'est pas valide.",
+        "champ_requis": "Ce champ doit être rempli.",
+        "champ_format_invalide": "Ce champ ne respecte pas le format attendu.",
+        "champ_type_invalide": "Ce champ n'a pas le type attendu.",
+        "champ_trop_court": "Ce champ est trop court.",
+        "champ_valeur_non_autorisee": "Cette valeur n'est pas autorisée pour ce champ.",
+        "champ_valeur_figee": "Ce champ ne peut prendre qu'une seule valeur.",
+        "champ_trop_peu_d_elements": "Ce champ n'a pas assez d'éléments.",
+        "champ_trop_d_elements": "Ce champ a trop d'éléments.",
+        "champ_doublon": "Ce champ contient un doublon.",
+        "champ_inconnu": "Ce champ n'est pas reconnu.",
+        "champ_vide": "Ce champ ne peut pas être vide.",
+        "selection_manquante": "Cochez « Ajouter » pour un nouvel élément ; si la liste n'est pas vide, vous pouvez aussi en choisir un existant.",
+        "service_incomplet": "Renseignez les deux champs du service, ou videz-les tous les deux.",
+        "allumee_incomplet": "Renseignez l'entité et les états « allumée », ou videz les deux champs.",
+        "champ_element_requis": "Cette liste doit contenir un élément que l'écran exige (« Commandes » pour les zones, « Défaut » pour les modes).",
+        "recette_sans_mode": "Cette tuile ouvre la vue Recette, mais le mode « recette » n'est pas dans les modes de l'écran (section « Blocs et modes ») : l'écran n'affichera jamais le point de reprise de la recette sur l'accueil. Ajoutez le mode « recette » dans « Blocs et modes » avant d'enregistrer cette tuile.",
+        "budget_intenable_mode": "Le mode {mode} déborde de {debordement} px avec ces zones. Augmentez la hauteur utile, retirez une zone, ou retirez ce mode.",
+        "alerte_pas_en_tete": "Une alerte ne doit céder à aucun autre mode : décochez tous les modes ci-dessus, puis recochez-les dans l'ordre voulu en commençant par « Alerte ».",
+        "ecran_deviendrait_invalide": "Cette modification rendrait l'écran invalide : elle n'a pas été enregistrée. Ouvrez la section « {section} » pour corriger l'incohérence avant de continuer."
+      },
+      "create_entry": {
+        "default": "L'écran a été créé.{entites_inconnues}"
+      }
+    }
+  },
+  "avertissements": {
+    "entites_inconnues": "Entités saisies mais absentes du registre de Home Assistant, à vérifier (une entité peut arriver plus tard) : {liste}"
+  },
+  "services": {
+    "exporter": {
+      "name": "Exporter les écrans",
+      "description": "Écrit la configuration de tous les écrans dans config/home_desk_ecrans.yaml. Les notes redeviennent des commentaires au-dessus de ce qu'elles justifient, lisibles dans un git log."
+    },
+    "importer": {
+      "name": "Importer les écrans",
+      "description": "Relit config/home_desk_ecrans.yaml et remplace tous les écrans configurés par son contenu. Valide l'intégralité du fichier avant d'écrire quoi que ce soit : un seul écran invalide ou un nom en double refuse l'import entier, rien n'est modifié."
+    }
+  }
+}

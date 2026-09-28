@@ -1,9 +1,9 @@
 import { defineConfig } from 'vitest/config';
 
-// `tests/setup-animate.ts` : stub global de `Element.prototype.animate` (absent de jsdom), pour
-// que les suites qui montent réellement `demarrer()` (donc le vrai `creerMoteur(racine)`, sans
-// `animer` injecté) ne désactivent plus silencieusement le moteur de mouvement dès le premier
-// verdict joué. Cf. le docstring du fichier de setup pour le mécanisme complet.
+// `tests/setup-animate.ts`: a global stub of `Element.prototype.animate` (missing from jsdom), so
+// that the suites that really mount `startScreen()` (hence the real motion engine factory,
+// without an injected `animer`) no longer silently disable the motion engine from the first
+// verdict played. See the setup file's docstring for the full mechanism.
 export default defineConfig({
   test: {
     setupFiles: ['./tests/setup-animate.ts'],

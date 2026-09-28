@@ -55,11 +55,11 @@ export const CHEMINS: Record<string, TemplateResult> = {
   // clim de la voiture plutôt que de le laisser retomber sur `cloudy` (repli par défaut d'`icone()`
   // ci-dessous), trompeur pour une clim.
   clim: svg`<rect x="4" y="5" width="16" height="6" rx="2"/><path d="M6.5 14.5q1.5 2 3 0t3 0 3 0 3 0"/><path d="M6.5 18.5q1.5 2 3 0t3 0 3 0 3 0"/>`,
-  // Tâche 14 (2026-08-03) : les six heures disparaissent, remplacées par « ce qui est prévu à
-  // manger » (cuisine) et « le prochain rendez-vous » (bureau) — pas dans le brief d'icônes
-  // d'origine (qui listait `minuteur`/`pause`/`lecture`/`croix`/`plus`, tâche 4 du plan
-  // minuteurs-cuisine), ajoutées pour ne pas laisser `rendreRepasSuivant`/`rendreProchainRdv`
-  // (`rendu/defaut.ts`) retomber sur `cloudy` (repli par défaut d'`icone()`).
+  // Task 14 (2026-08-03): the six hours disappear, replaced by "what is planned to eat"
+  // (kitchen) and "the next appointment" (office) — not in the original icon brief (which listed
+  // `minuteur`/`pause`/`lecture`/`croix`/`plus`, task 4 of the kitchen-timers plan), added so as
+  // not to let `renderNextMeal`/`rendreProchainRdv` (`rendu/defaut.ts`) fall back on `cloudy`
+  // (the default fallback of `icone()`).
   // `repas` : fourchette (trois dents fusionnant en un manche) à gauche, couteau à droite.
   repas: svg`<path d="M7 3v5M9 3v5M11 3v5M9 8v13"/><path d="M16 3c-1.8.6-2.6 2-2.6 4s.8 3.4 2.6 4v10"/>`,
   // `agenda` : même grammaire que `fenetre` (rect + traits) — un calendrier mural, deux attaches.

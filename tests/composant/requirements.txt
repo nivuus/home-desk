@@ -1,0 +1,8 @@
+# Epingle une version de Home Assistant. Celle-ci doit correspondre a la 2026.9.1
+# du conteneur `homeassistant` de cette maison, verifiee le 2026-09-12 par
+#   docker exec homeassistant python -c "from homeassistant.const import __version__; print(__version__)"
+# La faire deriver, c'est tester le composant contre une API que la production
+# n'a pas. Version etablie le 2026-09-12 par l'API JSON de PyPI (requires_dist
+# de chaque version, jusqu'a trouver celle qui epingle homeassistant==2026.9.1)
+# — cf. rapport de la tache 3.
+pytest-homeassistant-custom-component==0.13.364

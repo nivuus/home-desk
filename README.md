@@ -26,6 +26,51 @@ le seul fichier à ouvrir.
 > annule cette décision : la donnée part chez Home Assistant, le type reste ici.
 > Ce plan-ci (1/3) ne déplace encore aucune donnée.
 
+## Configuration des écrans depuis Home Assistant (`custom_components/home_desk`)
+
+Une intégration Home Assistant, une entrée « Tablettes murales », **une
+sous-entrée par écran** : ajouter une quatrième tablette est la même
+opération que pour les trois premières. Se configure entièrement depuis
+l'interface (`config_flow.py`) ; un écran devenu invalide ne peut pas être
+enregistré (`garde_ecran.py`). Deux commandes websocket
+(`home_desk/ecran`, `home_desk/ecrans`) et un événement de bus
+(`home_desk_config_changed`) publient la configuration vers `app/src/`.
+
+### `home_desk.exporter` / `home_desk.importer`
+
+Les `note` du contrat (le raisonnement derrière un choix — pourquoi une
+porte est épinglée, pourquoi un mode existe) vivent dans `.storage`, hors de
+git. Deux services les font voyager vers un fichier versionnable,
+`config/home_desk_ecrans.yaml` :
+
+- **`home_desk.exporter`** écrit tous les écrans actuels dans ce fichier —
+  les `note` y redeviennent des **commentaires** (`# ...`), jamais des
+  champs : un `note: "..."` au milieu des données serait une chaîne de
+  plus, un `#` au-dessus de ce qu'il justifie est ce qu'un humain relit
+  dans un `git log`.
+- **`home_desk.importer`** relit ce fichier et **remplace** l'intégralité
+  des écrans configurés par son contenu. **Atomique** : tous les écrans du
+  fichier sont validés avant qu'un seul ne soit écrit — un import partiel
+  laisserait la configuration dans un état que personne n'a voulu.
+  `importer` est aussi le point d'entrée d'une future migration des écrans
+  aujourd'hui en dur dans `app/src/ecran.ts` vers cette intégration.
+
+### Ce que ça coûte — les régressions nommées, franchement
+
+1. **Une installation neuve n'affiche plus rien** tant qu'on n'a pas
+   configuré au moins un écran. C'est le prix direct de la portabilité.
+2. **La configuration n'est plus versionnée par défaut.** Elle vit dans
+   `.storage`, donc dans les sauvegardes HA. `home_desk.exporter` le
+   rattrape à la demande, pas automatiquement.
+3. **Le raisonnement quitte le dépôt.** Les `note` sont sauvegardées avec
+   HA, pas avec git ; un `git log` ne raconte plus pourquoi « Porte » est
+   épinglée, tant que personne n'a exporté.
+4. **Un aller-retour réseau s'ajoute au démarrage** (les deux commandes
+   websocket), là où le bundle affichait immédiatement.
+5. **Une dépendance de test lourde entre**
+   (`pytest-homeassistant-custom-component`), qui épingle une version de
+   HA et qu'il faudra suivre — voir `make test-composant` ci-dessous.
+
 ## Installation
 
 Par le wizard Nivuus. Le manifeste déclare `requires: packages: [home-manager]`,
@@ -71,9 +116,17 @@ Le hook n'écrit **jamais** dans `configuration.yaml` : il signale, vous ajoutez
 ```bash
 cd app && npm ci
 npm run build        # ecrit dans ../dist/, SUIVI PAR GIT
-npm test             # 41 fichiers vitest, 912 tests
-cd .. && make test   # les 4 tests du package (python3 + PyYAML)
+npm test             # 47 fichiers vitest, 1048 tests
+cd .. && make test            # les 5 scripts du package (python3 + PyYAML)
+make test-composant           # custom_components/home_desk (pytest + Home Assistant, voir ci-dessus)
 ```
+
+Trois suites, trois raisons d'être — `make test` doit rester lançable sur la
+cible d'installation (aucune dépendance hors `python3` + PyYAML), `make
+test-app` couvre l'application TypeScript, `make test-composant` couvre
+l'intégration Home Assistant et tire une dépendance lourde (régression n°5
+ci-dessus) : les mélanger rendrait le package intestable partout où l'une
+des trois n'est pas disponible.
 
 **`dist/` est versionné**, et ce n'est pas négociable : le contrat
 `nivuus.dev/v1` livre par `git archive HEAD`, donc seuls les fichiers suivis

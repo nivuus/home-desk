@@ -284,7 +284,7 @@ describe('rendreVueRecette', () => {
   });
 
   it("un seul emplacement armé à la fois : le rendu n'arme rien lui-même", () => {
-    // C'est `demarrage.ts` qui porte l'armement (`creerArmement`, une instance par page) : ce
+    // C'est `demarrage.ts` qui porte l'armement (`createArming`, une instance par page) : ce
     // rendu ne fait que demander l'action et afficher l'état qu'on lui donne.
     const actions = actionsFactices();
     brancherRecette(actions);

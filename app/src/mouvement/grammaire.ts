@@ -32,8 +32,9 @@ export const DEPLACEMENT_MS = 350;
 /** Les petits éléments secondaires. Un objet de cette taille qui se déplace lit comme du bruit,
  *  pas comme un geste : famille « effets », opacité seule. */
 export const DETAIL_MS = 140;
-/** L'UNIQUE durée du projet qui soit aussi une durée CSS : `base.css` la lit dans `--mvt-palette`
- *  (`.fondu-palette`), variable que `creerMoteur` pose sur `<html>` à partir de cette constante. */
+/** The ONLY duration of the project that is also a CSS duration: `base.css` reads it in
+ *  `--mvt-palette` (`.fondu-palette`), a variable that `creerMoteur` sets on `<html>` from
+ *  this constant. */
 export const PALETTE_MS = 600;
 
 /** Décalage par rang dans une cascade. */

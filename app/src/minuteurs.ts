@@ -1,5 +1,5 @@
 /** Source UNIQUE des valeurs par défaut de `intervalFn`/`minuteurFn` injectées dans `Connexion`
- *  (`connexion.ts`) et `demarrer()` (`demarrage.ts`).
+ *  (`connexion.ts`) et `startScreen()` (`demarrage.ts`).
  *
  *  Ronde de correction 2 (relecteur) : avant ce module, `.bind(globalThis)` était recopié à trois
  *  endroits indépendants (`connexion.ts` une fois, `demarrage.ts` deux fois) — trois points de

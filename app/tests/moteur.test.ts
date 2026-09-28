@@ -4,7 +4,7 @@ import { render, type TemplateResult } from 'lit';
 import { lireMarques, positionReelle } from '../src/mouvement/marques';
 import { comparer } from '../src/mouvement/diff';
 import { Etat } from '../src/etat';
-import { rendreRepasSuivant, rendreEntretien, rendreProchainRdv } from '../src/rendu/defaut';
+import { renderNextMeal, rendreEntretien, rendreProchainRdv } from '../src/rendu/defaut';
 import { rendreMenage, rendreAeration } from '../src/rendu/modes';
 import { rendreBandeau } from '../src/rendu/bandeau';
 import { rendreCarteMedia } from '../src/rendu/media';
@@ -852,9 +852,9 @@ describe('data-mvt des blocs de mode — une clé par genre (ronde de correction
       const [decl] = lireMarques(div).keys();
       cles.add(decl);
     };
-    // Lot 6 : `rendreRepasSuivant` a changé de SOURCE (`sensor.home_stock_next_meal`) — même bloc,
+    // Lot 6 : `renderNextMeal` a changé de SOURCE (`sensor.home_stock_next_meal`) — même bloc,
     // même clé `bloc:repas`, ce que ce test vérifie justement. Rien d'autre ne change ici.
-    releve(rendreRepasSuivant({ etiquette: 'Dîner', plat: 'Riz', mealId: 1, recetteId: null,
+    releve(renderNextMeal({ etiquette: 'Dîner', plat: 'Riz', mealId: 1, recetteId: null,
                                 manquants: 0 })!);
     releve(rendreEntretien([{ uid: '1', texte: 'Filtre à changer' }])!);
     releve(rendreProchainRdv(

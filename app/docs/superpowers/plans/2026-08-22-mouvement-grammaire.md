@@ -1042,10 +1042,13 @@ git commit -m "test(rendu): échouer si un élément apparaît sans marque de mo
 
 ### Task 9: Nettoyage, déploiement et contrôle sur les tablettes
 
-**Files:**
-- Delete: `outils/maquette-mouvement.html`, `/opt/nivuus/HomeAssistant/config/www/wallpanel/maquette-mouvement.html`
+**Files** (le chemin de déploiement du bundle wallpanel a été corrigé le 2026-09-14 — l'ancien
+préfixe qu'il portait a disparu le 2026-08-28, cf. la note de migration d'`app/README.md` pour le
+détail) :
+- Delete: `outils/maquette-mouvement.html`, `/opt/nivuus/home-manager/config/www/wallpanel/maquette-mouvement.html`
 - Modify: `README.md` (section mouvement, si elle décrit le régulateur ou le balayage)
-- Modify: `/opt/nivuus/HomeAssistant/data/CLAUDE.md` (règle de couleurs de la section « Contraintes de conception »)
+- Modify: le `CLAUDE.md` du package `home-manager` déployé (règle de couleurs de la section
+  « Contraintes de conception ») — son emplacement dépend de l'installation, non vérifié ici
 
 - [ ] **Step 1: Vérifier qu'aucune référence au code retiré ne subsiste**
 
@@ -1060,7 +1063,7 @@ Expected: aucune correspondance. Toute correspondance restante est un commentair
 
 ```bash
 rm outils/maquette-mouvement.html
-rm /opt/nivuus/HomeAssistant/config/www/wallpanel/maquette-mouvement.html
+rm /opt/nivuus/home-manager/config/www/wallpanel/maquette-mouvement.html
 ```
 
 - [ ] **Step 3: Suite complète et vérificateur**

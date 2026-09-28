@@ -1,10 +1,10 @@
-/** Fabriques partagées par les suites qui montent RÉELLEMENT `demarrer()` (`tests/demarrage.test.ts`,
+/** Fabriques partagées par les suites qui montent RÉELLEMENT `startScreen()` (`tests/demarrage.test.ts`,
  *  `tests/orchestration.test.ts`, `tests/navigation.test.ts`, `tests/pannes.test.ts`).
  *
  *  Ce fichier ne contient AUCUN test : nommé `aides.ts` et non `aides.test.ts` pour que vitest ne
  *  le ramasse pas comme une suite vide. */
 import { vi } from 'vitest';
-import { demarrer, type ConnexionLike } from '../src/demarrage';
+import { startScreen, type ConnexionLike } from '../src/demarrage';
 import type { Ecran } from '../src/ecran';
 import type { EvenementEtat } from '../src/connexion';
 import type { Prevision } from '../src/meteo';
@@ -22,9 +22,9 @@ export const stockageAvecSession = { getItem: () => JSON.stringify(jetons), setI
 export const stockageSansSession = { getItem: () => null, setItem: vi.fn() } as any;
 
 /** Double minimal de `Connexion` : ne construit aucun WebSocket, se contente de résoudre ou de
- *  rejeter `connecter()` sur commande selon une séquence — exactement ce dont `demarrer()` a
+ *  rejeter `connecter()` sur commande selon une séquence — exactement ce dont `startScreen()` a
  *  besoin pour être testé sans réseau ni navigateur réel. Depuis la ronde de correction 2,
- *  `creerConnexion` n'est appelé qu'une seule fois par `demarrer()` (plus une fois par
+ *  `createConnection` n'est appelé qu'une seule fois par `startScreen()` (plus une fois par
  *  tentative) : c'est `connecter()` lui-même qui doit varier d'un appel à l'autre pour simuler
  *  un échec suivi d'une réussite.
  */
@@ -38,6 +38,7 @@ export function connexionFactice(...sequence: ('succes' | 'echec')[]): Connexion
         ? Promise.resolve()
         : Promise.reject(new Error('Rafraîchissement refusé : 400'));
     },
+    prete: () => Promise.resolve(),
     surChangement: (_cb: (e: EvenementEtat) => void) => {},
     // Depuis la tâche 7, `ConnexionLike` porte aussi `appelerService` (retour optimiste,
     // cf. `interaction.ts`) : aucun des tests existants n'appuie sur une tuile, donc ce double
@@ -51,6 +52,10 @@ export function connexionFactice(...sequence: ('succes' | 'echec')[]): Connexion
     // la vue « Recette »). Aucun des tests qui utilisent ce double n'ouvre cette vue : rejeter est
     // la réponse la plus honnête — c'est ce que fait `Connexion` sur une socket fermée.
     envoyerCommande: async () => { throw new Error('websocket indisponible'); },
+    // Tâche 5 du plan 3b : `ConnexionLike` porte aussi `surEvenement` (rechargement à chaud).
+    // Aucun des tests qui utilisent ce double n'édite l'écran depuis Home Assistant pendant le
+    // test, donc pas besoin de faire autre chose que satisfaire le type.
+    surEvenement: () => {},
   };
 }
 
@@ -156,7 +161,7 @@ export type Montage = {
   listerTaches: ReturnType<typeof vi.fn>;
 };
 
-/** Monte `demarrer()` sur un `#app` neuf, avec toutes ses dépendances injectées et aucun minuteur
+/** Monte `startScreen()` sur un `#app` neuf, avec toutes ses dépendances injectées et aucun minuteur
  *  réel. Rend de quoi pousser un état, simuler un silence et inspecter les appels de service. */
 export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}): Promise<Montage> {
   installerReseau(options.reseau ?? {});
@@ -178,16 +183,24 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
     return reponse(charge);
   });
 
-  await demarrer(racine, piece, {
+  await startScreen(racine, piece.nom, {
     stockage: options.stockage ?? stockageAvecSession,
-    creerConnexion: () => ({
+    createConnection: () => ({
       connecter: () => Promise.resolve(),
+      prete: () => Promise.resolve(),
       surChangement: (cb) => { emettre = cb; },
       appelerService,
       surSilence: (cb) => { silencer = cb; },
       listerTaches,
       envoyerCommande,
+      // Tâche 5 du plan 3b : aucun de ces tests ne pousse `home_desk_config_changed`, donc pas
+      // besoin de faire autre chose que satisfaire le type.
+      surEvenement: () => {},
     }),
+    // L'écran est fourni directement : ces tests montent un écran CONNU, ils n'ont rien à
+    // apprendre du transport. Mais ils traversent quand même la coquille — écran d'attente,
+    // résolution, délégation — donc chacun des 292 sites en est une épreuve de plus.
+    chargerEcran: async () => ({ ok: true, value: piece }),
     intervalFn: intervalFn as any,
     minuteurFn: minuteurFn as any,
     maintenant: options.maintenant ?? (() => new Date(2026, 7, 1, 14, 0)),

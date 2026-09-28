@@ -9,6 +9,18 @@ import { fileURLToPath } from 'node:url';
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(RACINE, 'dist');
 
+// The bundle carries the household's French interface text, and minified multi-line template
+// literals are not recognised as strings by the org's English check (nivuus/.github,
+// `check-english.sh`), which would flag every rebuilt line of `dist/wallpanel.js`. That check
+// honours a whole-file marker meant precisely for multi-line user-facing text; the banner below
+// writes it at the top of the bundle and terser is told to keep that one comment. The marker is
+// assembled from two halves so that THIS file, whose own comments must stay checked, does not
+// contain it verbatim (the check greps the raw file for it).
+const MARQUEUR_TEXTE_UI = ['policy:', 'allow-fr-file'].join(' ');
+// terser keeps ONLY this exact banner: matching the bare marker would also keep any source comment
+// that happens to carry it (`rendu/repli.ts` does), and ship that prose inside the bundle.
+const BANNIERE = `${MARQUEUR_TEXTE_UI} -- generated bundle carrying French UI text`;
+
 export default {
   input: 'src/index.ts',
   output: {
@@ -22,10 +34,11 @@ export default {
     dir: DIST,
     entryFileNames: 'wallpanel.js',
     format: 'iife', name: 'Wallpanel', sourcemap: false,
+    banner: `/* ${BANNIERE} */`,
   },
   plugins: [
     resolve(), typescript(), json(),
     css({ output: 'wallpanel.css' }),
-    terser({ format: { comments: false } }),
+    terser({ format: { comments: new RegExp(`^ ${BANNIERE} $`) } }),
   ],
 };

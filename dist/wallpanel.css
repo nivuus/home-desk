@@ -102,7 +102,7 @@
    Tâche 20 : les jetons M3 (générés, `jetons.css`) sont scopés à la classe `.m3`/`.sombre`, posée
    sur `racine` (`#app`, cf. `demarrage.ts`) — `html`/`body`, ses ANCÊTRES, n'y ont jamais accès :
    une propriété personnalisée CSS hérite uniquement vers les descendants, jamais vers un ancêtre.
-   `demarrer()` pose donc désormais les deux mêmes classes en plus sur `<html>` (jamais en les
+   `startScreen()` pose donc désormais les deux mêmes classes en plus sur `<html>` (jamais en les
    retirant de `racine` : purement additif, cf. son commentaire), en miroir de celles de `racine`
    à chaque redessin — ce qui rend `--md-surface` visible ici aussi. `var(--md-surface, #14181a)` :
    le même gris neutre et sombre qu'avant reste le repli (avant l'exécution de ce script, ou s'il
@@ -111,8 +111,12 @@
    sans jamais pouvoir remontrer de blanc. */
 /* Tâche 18 (2026-08-03) — `height: 100%` SUR LES TROIS NIVEAUX, ET PLUS AUCUNE UNITÉ DE VIEWPORT.
    Ce qui a été mesuré, en lecture seule, sur l'API d'administration Fully (`?cmd=deviceInfo`) :
-   les trois tablettes n'ont PAS le même moteur. Cuisine (192.168.0.159) et salon (192.168.0.218)
-   rendent en Chrome 100.0.4896.127 ; le bureau (192.168.0.138), lui, en Chrome 119.0.6045.194.
+   les trois tablettes n'ont PAS le même moteur de rendu : deux d'entre elles rendent en Chrome
+   100.0.4896.127, la troisième en Chrome 119.0.6045.194 (mesuré le 2026-08-03). Les IP qui
+   identifiaient chaque tablette ont été retirées le 2026-09-14 — `app/` est la SOURCE dont
+   `dist/` est bâti, et `dist/` est livré par `git archive HEAD` (plan 3c, tâche 5, gardé par
+   `tests/test_portabilite_app.py`). Le tableau « quelle tablette porte quel moteur » vit
+   désormais dans le dossier de production, pas dans le dépôt.
    `dvh` n'existe qu'à partir de Chrome 108 : sur DEUX écrans sur trois, le `height: 100dvh` que
    `#app` déclarait seul depuis la tâche 11 était une déclaration invalide, JETÉE au parsing.
    `height` retombait à `auto`, `#app` prenait la hauteur de son contenu, et `.xl

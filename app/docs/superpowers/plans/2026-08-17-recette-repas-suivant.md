@@ -21,7 +21,9 @@
 - Moteur cible : **Chrome 100** (Fire 7) — pas de `dvh`, pas de syntaxe récente non transpilée.
 - `npm run build` **DÉPLOIE en production** : ne l'exécuter qu'à la tâche 12.
 - jsdom ne calcule **aucune** mise en page : toute affirmation de hauteur/contraste vient de `node outils/verifier-rendu.mjs`.
-- Base Grocy résolue par l'origine : `http://192.168.0.1:9283` en HTTP, `https://grocy.allanic.me` en HTTPS.
+- Base Grocy résolue par l'origine : la passerelle réseau locale sur le port `9283` en HTTP,
+  `https://grocy.allanic.me` en HTTPS (l'IP locale qui figurait ici en clair a été retirée le
+  2026-09-14 — propre à cette maison).
 - Emplacements de minuteur : `timer.cuisine`, `timer.cuisine_2`, `timer.cuisine_3` — **jamais `timer.change`** (HA refuse « beyond duration »), toujours `timer.start` avec une durée recalculée.
 
 ---
@@ -65,8 +67,10 @@ const PLAN_OK = {
 };
 
 describe('baseGrocy', () => {
+  // IP locale retiree le 2026-09-14 (propre a cette maison) : `[ip-locale]` remplace
+  // l'adresse de la passerelle reseau qui figurait ici en clair, port 9283 inchange.
   it('vise le Grocy local en HTTP et le distant en HTTPS', () => {
-    expect(baseGrocy({ protocol: 'http:' })).toBe('http://192.168.0.1:9283');
+    expect(baseGrocy({ protocol: 'http:' })).toBe('http://[ip-locale]:9283');
     expect(baseGrocy({ protocol: 'https:' })).toBe('https://grocy.allanic.me');
   });
 });
@@ -173,9 +177,10 @@ export type Ingredient = {
 /** Le Grocy local n'est joignable qu'en HTTP ; une page servie en HTTPS (accès distant, téléphone)
  *  verrait ce `fetch` bloqué comme contenu mixte. Même règle que le `isRemote` de
  *  `config/www/grocy-scanner.html`. Les deux hôtes répondent sans clé et autorisent l'origine
- *  correspondante (`Access-Control-Allow-Origin`, vérifié sur les deux). */
+ *  correspondante (`Access-Control-Allow-Origin`, vérifié sur les deux). L'IP locale qui
+ *  figurait ici en clair a été retirée le 2026-09-14 — propre à cette maison. */
 export function baseGrocy(origine: { protocol: string }): string {
-  return origine.protocol === 'https:' ? 'https://grocy.allanic.me' : 'http://192.168.0.1:9283';
+  return origine.protocol === 'https:' ? 'https://grocy.allanic.me' : 'http://[ip-locale]:9283';
 }
 
 type PosGrocy = { recipe_id: number; product_id: number; amount: number; qu_id: number };

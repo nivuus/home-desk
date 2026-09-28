@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 //
-// Seul fichier de test qui a besoin d'un vrai DOM : `demarrer()` appelle `render()` (lit) sur
+// Seul fichier de test qui a besoin d'un vrai DOM : `startScreen()` appelle `render()` (lit) sur
 // un élément et bascule des classes CSS dessus. Le reste de la suite tourne en environnement
 // `node` (par défaut), plus rapide — ce docblock ne change l'environnement que pour ce fichier.
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { demarrer } from '../src/demarrage';
+import { startScreen, startWithScreen } from '../src/demarrage';
 import { niveauDemande } from '../src/mouvement';
 import { Connexion } from '../src/connexion';
 import type { Ecran } from '../src/ecran';
@@ -18,10 +18,10 @@ import {
 } from './aides';
 import { ECRANS } from '../src/ecran';
 
-describe('demarrer', () => {
+describe('startScreen', () => {
   it('sans session ouverte sur la tablette, affiche le message de session plutôt qu une page vide', async () => {
     const racine = document.createElement('div');
-    await demarrer(racine, piece, { stockage: stockageSansSession });
+    await startWithScreen(racine, piece, { stockage: stockageSansSession });
     expect(racine.textContent).toContain('Session');
     expect(racine.textContent).toContain('connecte-toi');
   });
@@ -29,12 +29,12 @@ describe('demarrer', () => {
   // Ronde de correction 1 (CRITIQUE) : avant ce correctif, un `connecter()` qui rejette (jeton
   // de rafraîchissement révoqué, ou simple coupure Wi-Fi — le serveur HA est aussi le point
   // d'accès de la maison) ne déclenchait aucun `render()` : `#app` restait vide, sans le
-  // moindre message. `void demarrer()` en tête de fichier avalait le rejet silencieusement.
+  // moindre message. `void startScreen()` en tête de fichier avalait le rejet silencieusement.
   it('si la connexion échoue au démarrage, affiche un écran d erreur — jamais une page vide', async () => {
     const racine = document.createElement('div');
-    await demarrer(racine, piece, {
+    await startWithScreen(racine, piece, {
       stockage: stockageAvecSession,
-      creerConnexion: () => connexionFactice('echec'),
+      createConnection: () => connexionFactice('echec'),
       minuteurFn: vi.fn() as any,   // on ne veut pas qu une vraie nouvelle tentative parte ici
     });
 
@@ -46,9 +46,9 @@ describe('demarrer', () => {
   it('programme une nouvelle tentative après échec, avec le repli exponentiel de delaiReconnexion', async () => {
     const racine = document.createElement('div');
     const minuteurFn = vi.fn();
-    await demarrer(racine, piece, {
+    await startWithScreen(racine, piece, {
       stockage: stockageAvecSession,
-      creerConnexion: () => connexionFactice('echec'),
+      createConnection: () => connexionFactice('echec'),
       minuteurFn: minuteurFn as any,
     });
 
@@ -61,9 +61,9 @@ describe('demarrer', () => {
   it('une nouvelle tentative qui réussit efface l écran d erreur et dessine le bandeau', async () => {
     const racine = document.createElement('div');
     const minuteurFn = vi.fn();
-    await demarrer(racine, piece, {
+    await startWithScreen(racine, piece, {
       stockage: stockageAvecSession,
-      creerConnexion: () => connexionFactice('echec', 'succes'),
+      createConnection: () => connexionFactice('echec', 'succes'),
       intervalFn: vi.fn() as any,
       minuteurFn: minuteurFn as any,
       maintenant: () => new Date(2026, 7, 1, 10, 30),
@@ -82,13 +82,13 @@ describe('demarrer', () => {
   // `html`/`body` (fond de secours de `base.css`) ne pouvaient jusqu'ici jamais suivre l'ambiance
   // (jour/soir/nuit) de `#app`, `.m3`/`.sombre` étant scopées à `racine`, un DESCENDANT dont les
   // propriétés personnalisées CSS n'héritent jamais vers ses ancêtres. Vérifié ici plutôt que
-  // supposé (cf. règle 6 du contexte) : sans le miroir posé dans `demarrer()`, ce test rougirait,
+  // supposé (cf. règle 6 du contexte) : sans le miroir posé dans `startScreen()`, ce test rougirait,
   // `document.documentElement` ne portant alors ni `.m3` ni `.sombre`.
   it('pose .m3 sur <html> et y reflète .sombre en pleine nuit, en plus de racine', async () => {
     const racine = document.createElement('div');
-    await demarrer(racine, piece, {
+    await startWithScreen(racine, piece, {
       stockage: stockageAvecSession,
-      creerConnexion: () => connexionFactice('succes'),
+      createConnection: () => connexionFactice('succes'),
       intervalFn: vi.fn() as any,
       minuteurFn: vi.fn() as any,
       maintenant: () => new Date(2026, 7, 1, 2, 0),   // 2 h du matin : nuit, cf. momentDuJour
@@ -108,15 +108,17 @@ describe('demarrer', () => {
   it('retire .sombre de <html> en plein jour, sans fuite depuis le test précédent', async () => {
     const racine = document.createElement('div');
     let emettre: ((e: EvenementEtat) => void) | undefined;
-    await demarrer(racine, piece, {
+    await startWithScreen(racine, piece, {
       stockage: stockageAvecSession,
-      creerConnexion: () => ({
+      createConnection: () => ({
         connecter: () => Promise.resolve(),
+        prete: () => Promise.resolve(),
         surChangement: (cb) => { emettre = cb; },
         appelerService: vi.fn(),
         surSilence: (_cb: (ms: number) => void) => {},
         listerTaches: async () => [],
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
+      surEvenement: () => {},
       }),
       intervalFn: vi.fn() as any,
       minuteurFn: vi.fn() as any,
@@ -159,7 +161,7 @@ describe('demarrer', () => {
     bascules.mockRestore();
   });
 
-  // Ronde de correction 2 (CRITIQUE, récidive) : `creerConnexion` était appelé à chaque
+  // Ronde de correction 2 (CRITIQUE, récidive) : `createConnection` était appelé à chaque
   // tentative, donc une nouvelle instance de `Connexion` à chaque échec. `connecter()` arme un
   // `setInterval` de surveillance du silence *avant* la ligne qui peut lever (`rafraichir()`) ;
   // la garde `silenceArme` de la tâche 3 protège une instance contre un double armement, mais
@@ -189,9 +191,9 @@ describe('demarrer', () => {
       constructor(public url: string) {}
     }
 
-    await demarrer(racine, piece, {
+    await startWithScreen(racine, piece, {
       stockage,
-      creerConnexion: (j) => new Connexion(j, {
+      createConnection: (j) => new Connexion(j, {
         fetchFn, intervalFn: intervalFn as any, stockage,
         origineWs: 'ws://test', WebSocketImpl: FauxWebSocket as any,
       }),
@@ -221,18 +223,18 @@ describe('demarrer', () => {
     expect(delais).toEqual([1000, 2000, 4000, 8000, 16000, 30000, 30000]);
   });
 
-  // Ronde de correction 3 (IMPORTANT) : `creerConnexion`, `cx.surChangement(...)` et
-  // `etat.surMaj(...)` s'exécutaient hors de tout `try/catch` dans `demarrer()`. Si l'un des
+  // Ronde de correction 3 (IMPORTANT) : `createConnection`, `cx.surChangement(...)` et
+  // `etat.surMaj(...)` s'exécutaient hors de tout `try/catch` dans `startScreen()`. Si l'un des
   // trois lève — la fabrique par défaut ne le fait jamais en pratique, mais rien ne l'interdit
-  // à un `creerConnexion` injecté, et le docblock de `demarrer()` promettait à tort qu'il ne
-  // lève jamais — le rejet n'était rattrapé nulle part : `index.ts` appelle `demarrer()` en
+  // à un `createConnection` injecté, et le docblock de `startScreen()` promettait à tort qu'il ne
+  // lève jamais — le rejet n'était rattrapé nulle part : `index.ts` appelle `startScreen()` en
   // oublie-et-continue, donc `#app` restait vide. Exactement la classe de bug de la ronde 1,
-  // revenue trois lignes plus haut. Ce test force `creerConnexion` à lever pour le prouver.
-  it('si l initialisation (creerConnexion) lève, affiche un écran d erreur — jamais une page vide', async () => {
+  // revenue trois lignes plus haut. Ce test force `createConnection` à lever pour le prouver.
+  it('si l initialisation (createConnection) lève, affiche un écran d erreur — jamais une page vide', async () => {
     const racine = document.createElement('div');
-    await demarrer(racine, piece, {
+    await startWithScreen(racine, piece, {
       stockage: stockageAvecSession,
-      creerConnexion: () => { throw new Error('globale absente ou fabrique cassée'); },
+      createConnection: () => { throw new Error('globale absente ou fabrique cassée'); },
       minuteurFn: vi.fn() as any,
     });
 
@@ -241,12 +243,12 @@ describe('demarrer', () => {
     expect(racine.textContent).not.toContain('Session');
   });
 
-  // Tâche 7 (câblage) : `tests/interaction.test.ts` prouve que `creerAppui` est correct pris
+  // Tâche 7 (câblage) : `tests/interaction.test.ts` prouve que `createPress` est correct pris
   // isolément, mais rien n'y prouve qu'il est réellement branché sur les tuiles rendues par
   // l'application — c'est exactement la classe de défaut qu'un test unitaire de la seule
   // fonction ne peut pas voir (le brief l'illustrait dans `index.ts`, où `etat`/`cx` n'existent
   // pas ; voir le commentaire dans `demarrage.ts`). Ce test simule un vrai appui sur la tuile DOM
-  // rendue par `demarrer()` et vérifie de bout en bout : le service HA est appelé avec les bons
+  // rendue par `startScreen()` et vérifie de bout en bout : le service HA est appelé avec les bons
   // arguments, et la tuile prend la classe `actif`, sans attendre aucune réponse de HA (rien ici
   // ne fait avancer de promesse entre le geste et l'assertion).
   //
@@ -271,15 +273,17 @@ describe('demarrer', () => {
     const appelerService = vi.fn();
     let emettre: ((e: EvenementEtat) => void) | undefined;
 
-    await demarrer(racine, pieceLumiere, {
+    await startWithScreen(racine, pieceLumiere, {
       stockage: stockageAvecSession,
-      creerConnexion: () => ({
+      createConnection: () => ({
         connecter: () => Promise.resolve(),
+        prete: () => Promise.resolve(),
         surChangement: (cb) => { emettre = cb; },
         appelerService,
         surSilence: (_cb: (ms: number) => void) => {},
         listerTaches: async () => [],
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
+      surEvenement: () => {},
       }),
       intervalFn: vi.fn() as any,
       minuteurFn: vi.fn() as any,
@@ -310,7 +314,7 @@ describe('demarrer', () => {
   // jamais être appelée par `dessiner()` — exactement la classe de défaut qu'un test unitaire de
   // `rendreCorps` seul (cf. tests/corps.test.ts) ne peut pas voir, comme pour l'appui ci-dessus.
   // `vi.setSystemTime` fige `Date.now()` (utilisé À LA FOIS par
-  // `Etat.appliquer` pour `changeLe` et par `dernierMouvement` pour « bouge à l'instant ») sur la
+  // `Etat.appliquer` pour `changeLe` et par `lastMotion` pour « bouge à l'instant ») sur la
   // même valeur que `maintenant()` injecté, pour que les deux horloges ne divergent jamais —
   // sans ça, un `Date.now()` réel très éloigné de la date fixe utilisée ailleurs dans ce fichier
   // ferait paraître la maison calme depuis « des jours », et l'alerte se replierait aussitôt.
@@ -324,15 +328,17 @@ describe('demarrer', () => {
     try {
       const racine = document.createElement('div');
       let emettre: ((e: EvenementEtat) => void) | undefined;
-      await demarrer(racine, piece, {
+      await startWithScreen(racine, piece, {
         stockage: stockageAvecSession,
-        creerConnexion: () => ({
+        createConnection: () => ({
           connecter: () => Promise.resolve(),
+          prete: () => Promise.resolve(),
           surChangement: (cb) => { emettre = cb; },
           appelerService: vi.fn(),
           surSilence: (_cb: (ms: number) => void) => {},
           listerTaches: async () => [],
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
+      surEvenement: () => {},
         }),
         intervalFn: vi.fn() as any,
         minuteurFn: vi.fn() as any,
@@ -380,15 +386,17 @@ describe('demarrer', () => {
       sources: [], ouvrants: [],
     };
     const appelerService = vi.fn();
-    await demarrer(racine, pieceAvecTaches, {
+    await startWithScreen(racine, pieceAvecTaches, {
       stockage: stockageAvecSession,
-      creerConnexion: () => ({
+      createConnection: () => ({
         connecter: () => Promise.resolve(),
+        prete: () => Promise.resolve(),
         surChangement: () => {},
         appelerService,
         surSilence: (_cb: (ms: number) => void) => {},
         listerTaches: async () => [{ uid: 'u1', texte: 'Changer une pile' }],
         envoyerCommande: async () => { throw new Error('websocket indisponible'); },
+        surEvenement: () => {},
       }),
       intervalFn: vi.fn() as any,
       minuteurFn: vi.fn() as any,
@@ -521,7 +529,7 @@ describe('tictacProgression — les trois refus', () => {
   // une symétrie.
   it('mouvement=aucun (URL) : le tic n\'écrit pas --progression, même carte média affichée', async () => {
     // `niveauDemande` (`src/mouvement.ts`) lit `location.href` une seule fois, à la construction
-    // de `demarrer()` — le paramètre doit donc être posé AVANT de monter.
+    // de `startScreen()` — le paramètre doit donc être posé AVANT de monter.
     const avant = location.href;
     window.history.pushState({}, '', '/?mouvement=aucun');
     try {
@@ -702,7 +710,7 @@ describe('minuteurs de cuisine', () => {
   // Tâche 10 bis, remplaçant du garde-fou `if (reglageMinuteur && !slotLibre) reglageMinuteur =
   // false` (supprimé avec l'état local) : si le dernier emplacement se remplit PENDANT que la
   // sous-vue reste ouverte (minuteur vocal), `ouvrir()` n'aurait de toute façon pas pu s'ouvrir à
-  // cet instant, et `demarrer()` refuse déjà tout seul (`premierSlotLibre === null`). Aucun appel
+  // cet instant, et `startScreen()` refuse déjà tout seul (`premierSlotLibre === null`). Aucun appel
   // de service ne doit en sortir.
   it('« Démarrer » ne fait rien si le dernier emplacement se remplit pendant que le réglage est ouvert', async () => {
     const m = await monterCuisine();
@@ -814,7 +822,7 @@ describe('minuteurs de cuisine', () => {
   // `reprendre` est le seul appel de ce fichier dont la justesse tient à l'ABSENCE d'un argument :
   // `timer.start` SANS `duration` reprend un minuteur en pause là où il s'était arrêté ; avec une
   // `duration`, HA le relancerait de zéro. Une régression qui ajouterait `{ duration: … }` par
-  // symétrie avec `demarrer`/`ajuster` (qui, eux, EN passent une) romprait ce comportement sans
+  // symétrie avec `start`/`ajuster` (qui, eux, EN passent une) romprait ce comportement sans
   // qu'aucun autre test ne le voie.
   it('reprend un minuteur en pause SANS repartir de zéro (aucune duration)', async () => {
     const m = await monterCuisine();
@@ -892,7 +900,7 @@ describe('minuteurs de cuisine', () => {
   // test jumeau du rail (describe `tictacProgression`, plus haut) : les deux tics partagent la
   // MÊME lecture de `niveauInitial`, il n'y a pas besoin de la reprouver deux fois.
   it('mouvement=aucun (URL) : le décompte descend QUAND MÊME, contrairement au rail média', async () => {
-    // `niveauDemande` lit `location.href` une seule fois, à la construction de `demarrer()` : le
+    // `niveauDemande` lit `location.href` une seule fois, à la construction de `startScreen()` : le
     // paramètre doit être posé AVANT de monter (même précaution que le test jumeau du rail).
     const avantUrl = location.href;
     window.history.pushState({}, '', '/?mouvement=aucun');
@@ -1121,7 +1129,7 @@ describe('voiture au salon', () => {
 
 // Tâche 14 (2026-08-03) : les six prochaines heures disparaissent partout, remplacées par ce qui
 // est prévu à manger (cuisine) et le prochain rendez-vous du jour (bureau) — cf. `ecran.ts`
-// (`blocDefaut`), `rendu/defaut.ts`. Preuve de bout en bout à travers `demarrer()`, comme
+// (`blocDefaut`), `rendu/defaut.ts`. Preuve de bout en bout à travers `startScreen()`, comme
 // `describe('voiture au salon')` ci-dessus le fait pour la voiture ; le rendu pur des deux
 // fonctions est couvert par `tests/defaut.test.ts`.
 //
@@ -1230,12 +1238,12 @@ describe('bloc par défaut : repas et agenda', () => {
 // Tâche 17 (2026-08-03) : le repli des deux blocs ci-dessus vers les tâches d'entretien. Constat
 // de terrain : la cuisine (aucun plat planifié) et le bureau (agenda vide le soir)
 // laissaient ~185 px et ~175 px de fond nu — les deux cas les plus COURANTS, pas des cas limites.
-// Preuve de bout en bout à travers `demarrer()`, comme `describe('bloc par défaut …')` ci-dessus ;
+// Preuve de bout en bout à travers `startScreen()`, comme `describe('bloc par défaut …')` ci-dessus ;
 // le rendu pur du bloc est couvert par `tests/defaut.test.ts`.
 describe('repli du bloc par défaut vers l\'entretien', () => {
   /** Les tâches d'entretien telles que `chargerTaches` les charge : `todo.maintenance` est
    *  déclaré dans la `synthese` des trois pièces (`ecran.ts`), donc présent dans
-   *  `listesTachesPiece` (`cochage.ts`) — aucune requête de plus à câbler, le cache est déjà là. */
+   *  `roomTodoLists` (`cochage.ts`) — aucune requête de plus à câbler, le cache est déjà là. */
   const ENTRETIEN = {
     'todo.maintenance': [
       { uid: 'a', texte: 'Purificateur — filtre à remplacer' },
@@ -1506,5 +1514,222 @@ describe('repli du bloc par défaut vers l\'entretien', () => {
     const m = await monterDemarrage(ECRANS.cuisine, { taches: ENTRETIEN, etats: POULET });
     await m.pousser('input_boolean.mode_invites', 'on', {});
     expect(m.racine.querySelector('.mode-bloc .t')?.textContent).toBe('Dîner');
+  });
+});
+
+describe('startScreen — la coquille résout l écran avant de déléguer', () => {
+  // ⚠️ `ecranVide` est une CONSTANTE (`app/tests/aides.ts:14`), importée ici sous le nom
+  // `piece`, pas une fabrique. On en dérive un écran nommé plutôt que de l'appeler.
+  const ecranDeNom = (nom: string) => ({ ...piece, nom });
+
+  function deps(sur: Record<string, unknown> = {}) {
+    return {
+      stockage: stockageAvecSession,
+      createConnection: () => ({
+        connecter: () => Promise.resolve(),
+        prete: () => Promise.resolve(),
+        surChangement: () => {}, surSilence: () => {},
+        appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
+        surEvenement: () => {},
+      }),
+      intervalFn: vi.fn() as any,
+      minuteurFn: vi.fn() as any,
+      maintenant: () => new Date(2026, 7, 1, 14, 0),
+      ...sur,
+    };
+  }
+
+  it('affiche l écran d attente AVANT que la configuration arrive', async () => {
+    // Décision 10 : écran d'attente franc, pas de cache local. Il faut donc qu'il soit peint
+    // avant l'aller-retour, pas après.
+    const racine = document.createElement('div');
+    let vuPendantLeChargement = '';
+    await startScreen(racine, 'Cuisine', deps({
+      chargerEcran: async () => {
+        vuPendantLeChargement = racine.textContent!.replace(/\s+/g, ' ').trim();
+        return { ok: true as const, value: ecranDeNom('Cuisine') };
+      },
+    }));
+    expect(vuPendantLeChargement).toBe(
+      'Cuisine Chargement de la configuration depuis Home Assistant…');
+  });
+
+  it('demande l écran par SON NOM, tel quel', async () => {
+    const chargerEcran = vi.fn(async () => ({ ok: true as const, value: ecranDeNom('Salon') }));
+    await startScreen(document.createElement('div'), 'Salon', deps({ chargerEcran }));
+    expect(chargerEcran).toHaveBeenCalledWith(expect.anything(), 'Salon');
+  });
+
+  it('ne demande RIEN et propose la liste quand le nom est vide', async () => {
+    // Première dégradation : `?ecran=` absent. Demander un écran nommé « » serait un
+    // aller-retour dont on connaît déjà la réponse.
+    const chargerEcran = vi.fn();
+    const racine = document.createElement('div');
+    await startScreen(racine, '', deps({
+      chargerEcran,
+      listerEcrans: async () => ({ ok: true as const, value: [{ nom: 'Salon', titre: 'Salon' }] }),
+    }));
+    expect(chargerEcran).not.toHaveBeenCalled();
+    expect(racine.querySelector('a')!.getAttribute('href')).toBe('?ecran=Salon');
+  });
+
+  it('propose la liste quand l écran demandé est introuvable', async () => {
+    const racine = document.createElement('div');
+    await startScreen(racine, 'Grenier', deps({
+      chargerEcran: async () => ({ ok: false as const, panne: 'introuvable' as const }),
+      listerEcrans: async () => ({
+        ok: true as const,
+        value: [{ nom: 'Salon', titre: 'Salon' }, { nom: 'Cuisine', titre: 'Cuisine' }],
+      }),
+    }));
+    // Décor à DEUX écrans (leçon 3) : avec un seul, une implémentation qui n'en rendrait
+    // qu'un passerait.
+    expect(Array.from(racine.querySelectorAll('a')).map((a) => a.getAttribute('href')))
+      .toEqual(['?ecran=Salon', '?ecran=Cuisine']);
+  });
+
+  it('dit « aucun écran configuré » quand HA répond une liste vide', async () => {
+    const racine = document.createElement('div');
+    await startScreen(racine, '', deps({
+      listerEcrans: async () => ({ ok: true as const, value: [] }),
+    }));
+    expect(racine.textContent).toMatch(/Aucun écran configuré/);
+    expect(racine.textContent).not.toMatch(/réseau/);
+  });
+
+  it('affiche l écran de CHAQUE panne, et ne retente pas celles qui exigent un humain', async () => {
+    for (const [panne, motif] of [
+      // `\s+` et non un simple espace : `versionRefusee()` (rendu/repli.ts) coupe sa phrase entre
+      // « autre » et « version » sur deux lignes du template littéral ; `textContent` en jsdom
+      // garde le saut de ligne et l'indentation tels quels, sans les collapser comme un navigateur
+      // le ferait visuellement.
+      ['version', /autre\s+version de l'intégration/],
+      ['corrompu', /ne respecte plus le contrat/],
+      ['integrationAbsente', /n'est pas installée/],
+    ] as const) {
+      const racine = document.createElement('div');
+      const minuteurFn = vi.fn();
+      await startScreen(racine, 'Salon', deps({
+        chargerEcran: async () => ({ ok: false as const, panne }),
+        minuteurFn: minuteurFn as any,
+      }));
+      expect(racine.textContent).toMatch(motif);
+      // Retenter une configuration illisible en boucle n'a jamais rien réparé : ces trois
+      // pannes attendent un geste humain, et l'écran le nomme.
+      expect(minuteurFn).not.toHaveBeenCalled();
+    }
+  });
+
+  it('retente en repli exponentiel sur une panne réseau, et finit par afficher l écran', async () => {
+    let appels = 0;
+    const rappels: (() => void)[] = [];
+    const minuteurFn = vi.fn((fn: () => void, _ms: number) => { rappels.push(fn); return 1 as any; });
+    const racine = document.createElement('div');
+    await startScreen(racine, 'Salon', deps({
+      minuteurFn: minuteurFn as any,
+      chargerEcran: async () => (++appels < 3
+        ? { ok: false as const, panne: 'reseau' as const }
+        : { ok: true as const, value: ecranDeNom('Salon') }),
+    }));
+    expect(racine.textContent).toMatch(/Connexion impossible/);
+    expect(minuteurFn.mock.calls[0][1]).toBe(1000);
+
+    await rappels[0]!();
+    expect(minuteurFn.mock.calls[1][1]).toBe(2000);
+    await rappels[1]!();
+    expect(racine.textContent).not.toMatch(/Connexion impossible/);
+  });
+
+  it('affiche l écran de session AVANT tout aller-retour réseau', async () => {
+    const chargerEcran = vi.fn();
+    const racine = document.createElement('div');
+    await startScreen(racine, 'Salon', deps({ stockage: stockageSansSession, chargerEcran }));
+    expect(racine.textContent).toMatch(/Ouvre Home Assistant/);
+    expect(chargerEcran).not.toHaveBeenCalled();
+  });
+
+  it('ne crée qu UNE SEULE connexion pour la résolution ET pour le corps', async () => {
+    // Une seconde instance de `Connexion` poserait un second `setInterval` de surveillance du
+    // silence, fermé sur une instance abandonnée — la fuite que la ronde de correction 2 a
+    // fermée, rouverte par la coquille.
+    const createConnection = vi.fn(() => ({
+      connecter: () => Promise.resolve(), prete: () => Promise.resolve(),
+      surChangement: () => {}, surSilence: () => {},
+      appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
+      surEvenement: () => {},
+    }));
+    await startScreen(document.createElement('div'), 'Salon', deps({
+      createConnection,
+      chargerEcran: async () => ({ ok: true as const, value: ecranDeNom('Salon') }),
+    }));
+    expect(createConnection).toHaveBeenCalledTimes(1);
+  });
+
+  // Relecture finale (défaut Important, trouvé par mutation) : retirer `await cx.prete();` en
+  // tête de `tenterChargement()` fait passer la suite complète sans un souffle. C'est exactement
+  // la propriété pour laquelle `prete()` existe (tâche 1) : sans elle, la toute première commande
+  // websocket de l'application (`chargerEcran`) partirait sur une socket encore en CONNECTING.
+  // Le double ci-dessous rend une promesse de `prete()` CONTRÔLÉE par le test, pour observer
+  // l'ordre plutôt que de le supposer.
+  it('attend prete() avant tout échange avec Home Assistant', async () => {
+    let resoudrePrete: () => void = () => {};
+    const pretePromesse = new Promise<void>((r) => { resoudrePrete = r; });
+    const chargerEcran = vi.fn(async () => ({ ok: true as const, value: ecranDeNom('Salon') }));
+
+    const enCours = startScreen(document.createElement('div'), 'Salon', deps({
+      createConnection: () => ({
+        connecter: () => Promise.resolve(),
+        prete: () => pretePromesse,
+        surChangement: () => {}, surSilence: () => {},
+        appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
+        surEvenement: () => {},
+      }),
+      chargerEcran,
+    }));
+
+    // Laisse `connecter()` se résoudre et `tenterChargement()` atteindre `await cx.prete()` —
+    // qui, lui, reste en attente tant que `resoudrePrete()` n'a pas été appelé.
+    await vider();
+    expect(chargerEcran).not.toHaveBeenCalled();
+
+    resoudrePrete();
+    await enCours;
+    expect(chargerEcran).toHaveBeenCalledTimes(1);
+  });
+
+  // Défaut Important trouvé en relecture : `tests/rechargement.test.ts` garde solidement le
+  // MODULE `armerRechargement` en isolation, mais rien ne prouvait que la coquille l'appelle
+  // réellement — retirer l'appel de câblage dans `startScreen()` laissait toute la suite verte.
+  // Capture le rappel passé à `surEvenement` (même patron que `surChangement: (cb) => { emettre
+  // = cb; }` ci-dessus) et injecte un `recharger` espion par `deps.recharger`, pour qu'aucun
+  // `location.reload()` réel ne parte pendant le test. Décor à DEUX noms d'écran, même raison
+  // que dans `tests/rechargement.test.ts` : avec un seul, un branchement qui rechargerait sur
+  // TOUT événement passerait ce test sans qu'on s'en aperçoive.
+  it('propage home_desk_config_changed jusqu au recharger injecté, filtré par nom (branchement réel)', async () => {
+    let evenementCb: ((donnees: Record<string, unknown>) => void) | undefined;
+    const recharger = vi.fn();
+
+    await startScreen(document.createElement('div'), 'Salon', deps({
+      recharger,
+      chargerEcran: async () => ({ ok: true as const, value: ecranDeNom('Salon') }),
+      createConnection: () => ({
+        connecter: () => Promise.resolve(),
+        prete: () => Promise.resolve(),
+        surChangement: () => {}, surSilence: () => {},
+        appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
+        surEvenement: (type: string, cb: (donnees: Record<string, unknown>) => void) => {
+          if (type === 'home_desk_config_changed') evenementCb = cb;
+        },
+      }),
+    }));
+
+    // Le nom de CET écran ('Salon') recharge.
+    evenementCb!({ nom: 'Salon' });
+    expect(recharger).toHaveBeenCalledTimes(1);
+
+    // Le nom d'un AUTRE écran ('Cuisine') ne recharge pas une seconde fois — le filtre marche
+    // tel que branché, pas seulement dans le module isolé.
+    evenementCb!({ nom: 'Cuisine' });
+    expect(recharger).toHaveBeenCalledTimes(1);
   });
 });

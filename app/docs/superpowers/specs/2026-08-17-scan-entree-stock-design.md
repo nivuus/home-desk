@@ -72,8 +72,9 @@ Point d'entrée sur la tablette : la tuile **« Scanner »** de « Toute la mais
 Trois niveaux, dans cet ordre, repris de la page autonome :
 
 1. **`BarcodeDetector` natif** sur les images de `getUserMedia` (formats EAN-13/EAN-8/UPC).
-2. **Service de décodage local** (`POST http://192.168.0.1:9284/decode`, `https://grocy.allanic.me/decode`
-   en distant) après un seuil d'échecs client, avec intervalle minimum entre deux envois.
+2. **Service de décodage local** (`POST http://[ip-locale]:9284/decode` — IP retirée le 2026-09-14,
+   propre à cette maison —, `https://grocy.allanic.me/decode` en distant) après un seuil d'échecs
+   client, avec intervalle minimum entre deux envois.
 3. **Gemini** (`/decode/gemini`) pour reconnaître un produit sans code-barres lisible, et pour deviner
    nom et emplacement d'un produit qu'OFF ne connaît pas — cas réel : le « Shampooing kétoconazole »,
    absent d'OpenFoodFacts.
