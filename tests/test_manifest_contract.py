@@ -94,6 +94,13 @@ if installer:
 else:
     print("NIVUUS_INSTALLER_DIR absent : verification locale seule")
 
+# The release source `nivuus update` follows: removing or misspelling it
+# would silently stop the package from ever being updated.
+check("release source", data.get("source"), {"github": "nivuus/home-desk"})
+if os.environ.get("NIVUUS_INSTALLER_DIR"):
+    check("engine parser: release source",
+          load_manifest(str(MANIFEST)).source.github, "nivuus/home-desk")
+
 if failures:
     print("\n".join(failures))
     sys.exit(1)
