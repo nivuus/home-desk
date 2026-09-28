@@ -1,59 +1,59 @@
-"""Le garde qui protege l'invariant que cette integration peut desormais
-s'offrir : depuis que `schema.valider()` passe des la creation d'une
-sous-entree (`listes_champs.SECTIONS` initialise les sections « liste »
-a `[]`, voir le rapport de tache 7), un ecran valide doit RESTER valide a
-CHAQUE etape qui persiste — jamais verifie sur SA SEULE forme locale
-(schema.BOUTON, schema.AGENCEMENT, schema.VOITURE...), qui ne voit pas les
-invariants CROISES entre sections (mode "minuteur" sans slot de minuteur,
-blocDefaut "voiture" sans objet voiture).
+"""The guard that protects the invariant this integration can now afford:
+since `schema.valider()` passes from the very creation of a subentry
+(`list_fields.SECTIONS` initialises the "list" sections to `[]`, see the
+task 7 report), a valid screen must STAY valid at EVERY step that
+persists — never checked against ITS LOCAL shape ALONE (schema.BOUTON,
+schema.AGENCEMENT, schema.VOITURE...), which does not see the CROSS
+invariants between sections ("minuteur" mode without a timer slot,
+blocDefaut "voiture" without a car object).
 
-Trouve par la ronde 1 de relecture de la tache 7 (le Critique) : ni
-`listes.py` ni `objets.py` ne rejouaient `schema.valider()` sur l'ECRAN
-COMPLET avant de persister — chacun ne verifiait que le fragment qu'il
-venait de construire. Trois chemins mesures, tous acceptes en silence
-avant ce module : retirer le dernier slot de minuteur pendant que le mode
-"minuteur" restait actif, choisir `blocDefaut: voiture` sans objet
-`voiture`, et RETIRER la voiture pendant que `blocDefaut` valait encore
-"voiture" — ce dernier cas rendait meme un ecran DEJA VALIDE invalide sans
-un mot, par le geste que la tache 7 venait de livrer.
+Found by review round 1 of task 7 (the Critical): neither
+`list_sections.py` nor `objets.py` replayed `schema.valider()` on the
+COMPLETE SCREEN before persisting — each one only checked the fragment it
+had just built. Three measured paths, all silently accepted before this
+module: removing the last timer slot while the "minuteur" mode stayed
+active, choosing `blocDefaut: voiture` without a `voiture` object, and
+REMOVING the car while `blocDefaut` was still "voiture" — that last case
+even turned an ALREADY VALID screen invalid without a word, through the
+very gesture task 7 had just delivered.
 
-Reutilise directement `err.path` — PAS `fautes.localiser()`, qui tronque le
-DERNIER segment pour "required" (une regle pensee pour faire correspondre
-`motif()` au corpus ajv, `contrat/cas-schema.json` : "un champ manquant
-requis" designe l'OBJET qui le porte, pas le champ lui-meme, hors de
-propos ici). Ce module n'a besoin QUE du PREMIER segment du chemin — le
-champ RACINE fautif — jamais tronque quel que soit le mot-cle. Verifie par
-execution : un ecran ou `agencement.modes` contient "minuteur" et
-`minuteurs` est vide (present, VIDE — jamais absent, depuis que `SECTIONS`
-le initialise) leve avec `err.path == ['minuteurs']` (`_FauteMinItems`, pas
-tronquee) ; un ecran ou `blocDefaut` vaut "voiture" sans objet `voiture`
-leve avec `err.path == ['voiture']` (`RequiredFieldInvalid`, un chemin a UN
-SEUL segment — rien a tronquer, `localiser()` l'aurait pourtant vide).
+Reuses `err.path` directly — NOT `fautes.localiser()`, which truncates the
+LAST segment for "required" (a rule designed to make `motif()` match the
+ajv corpus, `contrat/cas-schema.json`: "a missing required field" designates
+the OBJECT that carries it, not the field itself, irrelevant here). This
+module needs ONLY the FIRST segment of the path — the faulty ROOT field —
+never truncated whatever the keyword. Verified by execution: a screen where
+`agencement.modes` contains "minuteur" and `minuteurs` is empty (present,
+EMPTY — never absent, since `SECTIONS` initialises it) raises with
+`err.path == ['minuteurs']` (`_FauteMinItems`, not truncated); a screen
+where `blocDefaut` is "voiture" without a `voiture` object raises with
+`err.path == ['voiture']` (`RequiredFieldInvalid`, a path with a SINGLE
+segment — nothing to truncate, yet `localiser()` would have emptied it).
 
-**Ronde 2 de relecture, deux corrections supplementaires :**
+**Review round 2, two further corrections:**
 
-1. **Le refus nommait la section ou l'erreur est DETECTEE, pas celle qui
-   peut la CORRIGER.** Retirer la voiture pendant que `blocDefaut` l'exige
-   encore levait `err.path == ["voiture"]` — nommer "voiture" a l'utilisateur
-   qui vient d'essayer de la retirer, ALORS QU'IL EST DEJA SUR CETTE
-   SECTION, ou il n'y a rien de plus a y corriger (il vient d'en sortir).
-   Le seul remede reel est dans « Blocs et modes » (retirer `blocDefaut:
-   voiture`, ou le mode "minuteur"). `section_courante` (fourni par
-   l'appelant, qui sait DEPUIS QUELLE section il persiste) permet cette
-   distinction : si la section nommee par l'erreur est celle-la meme d'ou
-   vient l'ecriture, la garde renvoie "agencement" a la place — le SEUL
-   autre levier possible pour les deux invariants (`blocDefaut`/`modes` n'y
-   vivent que la). Dans le cas INVERSE (l'utilisateur EST dans "agencement"
-   et y choisit `blocDefaut: voiture` ou le mode "minuteur" sans que l'objet/
-   le slot existe) : `section_courante == "agencement"` et la section nommee
-   ("voiture"/"minuteurs") ne lui est jamais egale — aucune redirection,
-   nommer la section MANQUANTE reste le bon conseil, puisque l'utilisateur
-   n'y est pas deja.
-2. **`{section}` interpolait l'identifiant BRUT du contrat** ("minuteurs",
-   jamais "Minuteurs") — la meme faute que le mineur 6 de la ronde 1 fermait
-   deja pour les options de `SelectSelector`, laissee ouverte ici parce que
-   ce chemin ne passe pas par un selecteur. `libelles.section(hass, ...)`
-   relit la MEME table de traduction que le menu de reconfiguration.
+1. **The refusal named the section where the error is DETECTED, not the
+   one that can FIX it.** Removing the car while `blocDefaut` still
+   requires it raised `err.path == ["voiture"]` — naming "voiture" to the
+   user who has just tried to remove it, WHILE THEY ARE ALREADY ON THAT
+   SECTION, where there is nothing more to fix (they have just left it).
+   The only real remedy is in "Blocks and modes" (remove `blocDefaut:
+   voiture`, or the "minuteur" mode). `section_courante` (supplied by the
+   caller, which knows FROM WHICH section it persists) makes this
+   distinction possible: if the section named by the error is the very one
+   the write comes from, the guard points to "agencement" instead — the
+   ONLY other possible lever for both invariants (`blocDefaut`/`modes` live
+   only there). In the OPPOSITE case (the user IS in "agencement" and picks
+   `blocDefaut: voiture` or the "minuteur" mode there without the object/
+   the slot existing): `section_courante == "agencement"` and the named
+   section ("voiture"/"minuteurs") is never equal to it — no redirection,
+   naming the MISSING section remains the right advice, since the user is
+   not already there.
+2. **`{section}` interpolated the RAW contract identifier** ("minuteurs",
+   never "Minuteurs") — the same fault that minor 6 of round 1 had already
+   closed for the `SelectSelector` options, left open here because this
+   path does not go through a selector. `libelles.section(hass, ...)`
+   rereads the SAME translation table as the reconfiguration menu.
 """
 from __future__ import annotations
 
@@ -65,46 +65,46 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigSubentry
 
 from . import libelles, schema
-from .const import ERREUR_ECRAN_DEVIENDRAIT_INVALIDE, SOUS_ENTREE_ECRAN, VERSION_CONFIG
+from .const import ERROR_SCREEN_WOULD_BECOME_INVALID, SUBENTRY_SCREEN, VERSION_CONFIG
 
 
 def noms_utilises(entry: Any, *, exclure: str | None = None) -> frozenset[str]:
-    """Les `nom` des sous-entrees « ecran » de `entry`, hors `exclure`.
+    """The `nom` of the "ecran" subentries of `entry`, excluding `exclure`.
 
-    Ronde 1 de relecture (Important, tache 8) : `nom` est la cle PRIMAIRE
-    du transport (`websocket.py` resout un ecran PAR SON NOM) -- deux
-    homonymes rendraient l'un des deux definitivement inatteignable.
-    `config_flow._valider_identite` l'utilise pour refuser un `nom` deja
-    pris avant d'ecrire ; vit ici (pas dans `config_flow.py`, deja a la
-    limite des 500 lignes) comme les autres invariants qui depassent la
-    portee d'une seule sous-entree."""
+    Review round 1 (Important, task 8): `nom` is the PRIMARY key of the
+    transport (`websocket.py` resolves a screen BY ITS NAME) -- two
+    namesakes would make one of the two permanently unreachable.
+    `config_flow._valider_identite` uses it to refuse an already taken
+    `nom` before writing; lives here (not in `config_flow.py`, already at
+    the 500-line limit) like the other invariants that go beyond the scope
+    of a single subentry."""
     return frozenset(
-        sous_entree.data["nom"]
-        for subentry_id, sous_entree in entry.subentries.items()
-        if subentry_id != exclure and "nom" in sous_entree.data
+        subentry.data["nom"]
+        for subentry_id, subentry in entry.subentries.items()
+        if subentry_id != exclure and "nom" in subentry.data
     )
 
 
-def verifier_ecran_complet(
-    donnees: dict, *, section_courante: str | None = None, hass: Any = None
+def check_complete_screen(
+    screen_data: dict, *, section_courante: str | None = None, hass: Any = None
 ) -> tuple[dict[str, str], dict[str, str]]:
-    """Rejoue `schema.valider()` sur DONNEES, l'ecran COMPLET candidat —
-    jamais un fragment. Vide (aucune erreur) si l'ecran tient ; sinon un
-    refus pose sur "base" (ce n'est pas un champ DE CE STEP qui est en
-    cause, c'est la COHERENCE entre sections) qui NOMME la section a
-    corriger dans `description_placeholders["section"]` — un appelant
-    (`persister_si_valide` ci-dessous, le seul) fusionne ce refus dans son
-    propre `errors`/`description_placeholders` plutot que de persister.
+    """Replays `schema.valider()` on SCREEN_DATA, the COMPLETE candidate
+    screen — never a fragment. Empty (no error) if the screen holds;
+    otherwise a refusal set on "base" (it is not a field OF THIS STEP that
+    is at fault, it is the CONSISTENCY between sections) which NAMES the
+    section to fix in `description_placeholders["section"]` — a caller
+    (`persister_si_valide` below, the only one) merges this refusal into
+    its own `errors`/`description_placeholders` instead of persisting.
 
-    `section_courante` : la section DEPUIS laquelle cet appel persiste (si
-    connue) — quand la section fautive lui est identique, le remede reel
-    est redirige vers "agencement" (voir la docstring de module, point 1).
-    `hass` : si fourni, le nom rendu est le libelle HUMAIN
-    (`libelles.section`) plutot que l'identifiant brut du contrat (point 2)
-    — optionnel pour que les tests unitaires du MECANISME (sans flow HA)
-    restent simples a ecrire."""
+    `section_courante`: the section FROM which this call persists (if
+    known) — when the faulty section is identical to it, the real remedy is
+    redirected to "agencement" (see the module docstring, point 1).
+    `hass`: if supplied, the rendered name is the HUMAN label
+    (`libelles.section`) rather than the raw contract identifier (point 2)
+    — optional so that the unit tests of the MECHANISM (without an HA flow)
+    stay simple to write."""
     try:
-        schema.valider(donnees)
+        schema.valider(screen_data)
     except vol.Invalid as err:
         if isinstance(err, vol.MultipleInvalid):
             err = err.errors[0]
@@ -112,7 +112,7 @@ def verifier_ecran_complet(
         if section_brute == section_courante:
             section_brute = "agencement"
         section = libelles.section(hass, section_brute) if hass is not None else section_brute
-        return {"base": ERREUR_ECRAN_DEVIENDRAIT_INVALIDE}, {"section": section}
+        return {"base": ERROR_SCREEN_WOULD_BECOME_INVALID}, {"section": section}
     return {}, {}
 
 
@@ -120,7 +120,7 @@ def persister_si_valide(
     flow: Any,
     entry: Any,
     subentry: Any,
-    donnees_completes: dict,
+    complete_screen_data: dict,
     errors: dict[str, str],
     description_placeholders: dict[str, str],
     *,
@@ -128,34 +128,35 @@ def persister_si_valide(
     data_updates: dict | None = None,
     titre: str | None = None,
 ) -> bool:
-    """LE site d'ecriture unique du paquet (ronde 2 de relecture) : le SEUL
-    appel a `ConfigSubentryFlow._async_update` de tout `custom_components/
-    home_desk` vit ICI — gardee par `test_garde_ecran_est_le_seul_module_a_
-    appeler_async_update` (AST, meme idiome que `test_formulaire_est_le_
-    seul_module_a_appeler_async_show_form_avec_un_data_schema`).
+    """THE single write site of the package (review round 2): the ONLY
+    call to `ConfigSubentryFlow._async_update` in all of `custom_components/
+    home_desk` lives HERE — guarded by `test_garde_ecran_est_le_seul_module_a_
+    appeler_async_update` (AST, same idiom as the `test_formulaire_est_le_
+    seul_module_...` test guarding `async_show_form` with a `data_schema`).
 
-    Avant cette ronde, `listes.py` portait un SECOND site (`_persister`,
-    appele par `_persister_si_valide` ET, en theorie, par n'importe quel
-    futur code qui l'appellerait directement en sautant la garde) : le seul
-    test qui pretendait garantir l'unicite du site d'ecriture COMPTAIT les
-    appels par fichier plutot que d'en verifier l'UNICITE globale — faire
-    ecrire les quatre gestes SANS passer par la garde (un `_persister(...)`
-    direct) laissait ce compte EGAL des deux cotes, donc VERT. Il ne peut
-    plus y avoir de second site : ce module est le seul a contenir le nom
-    `_async_update`.
+    Before this round, `list_sections.py` held a SECOND site (`_persister`,
+    called by `_persister_si_valide` AND, in theory, by any future code that
+    would call it directly, skipping the guard): the only test that claimed
+    to guarantee the uniqueness of the write site COUNTED the calls per
+    file rather than checking their global UNIQUENESS — making the four
+    gestures write WITHOUT going through the guard (a direct
+    `_persister(...)`) left that count EQUAL on both sides, hence GREEN.
+    There can no longer be a second site: this module is the only one to
+    contain the name `_async_update`.
 
-    Rend `True` et persiste si `schema.valider()` accepte `donnees_
-    completes` ; rend `False` et peuple `errors`/`description_placeholders`
-    sinon, SANS RIEN ECRIRE. `data_updates`, si fourni, est passe a
-    `_async_update` a la place de `data=donnees_completes` (l'UNION que
-    `listes.py` utilise pour ses sections « liste », qui ne retire jamais
-    de cle) ; `titre`, si fourni, renomme aussi le TITRE de la sous-entree
-    (`_async_update(title=...)`) — necessaire pour `async_step_identite`,
-    dont `nom` doit rester synchronise avec le titre que la page
-    d'integration affiche (voir la ronde 2, point 4 : un renommage qui ne
-    passait pas par ce parametre laissait le titre divergent)."""
-    errors_ecran, placeholders_ecran = verifier_ecran_complet(
-        donnees_completes, section_courante=section_courante, hass=flow.hass
+    Returns `True` and persists if `schema.valider()` accepts
+    `complete_screen_data`; returns `False` and populates
+    `errors`/`description_placeholders` otherwise, WITHOUT WRITING
+    ANYTHING. `data_updates`, if supplied, is passed to `_async_update`
+    instead of `data=complete_screen_data` (the UNION that
+    `list_sections.py` uses for its "list" sections, which never removes a
+    key); `titre`, if supplied, also renames the subentry's TITLE
+    (`_async_update(title=...)`) — required for `async_step_identite`,
+    whose `nom` must stay in sync with the title the integration page
+    displays (see round 2, point 4: a rename that did not go through this
+    parameter left the title diverging)."""
+    errors_ecran, placeholders_ecran = check_complete_screen(
+        complete_screen_data, section_courante=section_courante, hass=flow.hass
     )
     if errors_ecran:
         errors.update(errors_ecran)
@@ -167,98 +168,96 @@ def persister_si_valide(
     if data_updates is not None:
         flow._async_update(entry=entry, subentry=subentry, data_updates=data_updates, **kwargs)
     else:
-        flow._async_update(entry=entry, subentry=subentry, data=donnees_completes, **kwargs)
+        flow._async_update(entry=entry, subentry=subentry, data=complete_screen_data, **kwargs)
     return True
 
 
 def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]]) -> None:
-    """Tache 9 : le SECOND site d'ecriture legitime de ce module -- le
-    chemin de CREATION EN MASSE que ce garde protege, pour
-    `home_desk.importer` (services.py). `ecrans` : une liste de (titre,
-    donnees), `donnees` portant deja toutes les cles que `schema.ECRAN`
-    attend ("note" comprise partout ou le contrat l'autorise -- ce n'est
-    qu'un champ optionnel de plus pour `schema.valider`, aucun traitement
-    special ici).
+    """Task 9: the SECOND legitimate write site of this module -- the BULK
+    CREATION path this guard protects, for `home_desk.importer`
+    (services.py). `ecrans`: a list of (title, screen data), each
+    `screen_data` already carrying every key `schema.ECRAN` expects ("note"
+    included wherever the contract allows it -- it is only one more
+    optional field for `schema.valider`, no special handling here).
 
-    ATOMIQUE (spec, brief tache 9) : les DEUX passes sont separees a
-    dessein. La premiere ne fait QUE valider, chaque ecran contre
-    `schema.valider` -- la MEME autorite que `verifier_ecran_complet`
-    invoque plus haut, invariants croises compris (`_invariants_croises`,
-    schema.py). Rien n'est ecrit tant qu'un seul echoue : un import
-    partiel laisserait la configuration dans un etat que personne n'a
-    voulu et que rien ne nomme, pire qu'un refus (docstring du brief). La
-    seconde ne construit les `ConfigSubentry` et n'ecrit qu'une fois la
-    premiere passee en entier.
+    ATOMIC (spec, task 9 brief): the TWO passes are deliberately separate.
+    The first ONLY validates, each screen against `schema.valider` -- the
+    SAME authority that `check_complete_screen` invokes above, cross
+    invariants included (`_invariants_croises`, schema.py). Nothing is
+    written as long as a single one fails: a partial import would leave the
+    configuration in a state nobody wanted and nothing names, worse than a
+    refusal (brief docstring). The second builds the `ConfigSubentry`
+    objects and writes only once the first has passed in full.
 
-    REMPLACE ENTIEREMENT les sous-entrees actuelles de `entry` -- jamais une
-    fusion. C'est la lecture la plus honnete d'un "import" symetrique d'un
-    "export" qui, lui, enumere l'INTEGRALITE des ecrans actuels (voir
-    services.py) : le fichier est la verite entiere, pas un delta. C'est
-    aussi le chemin que `home_desk.importer` sert a la migration du plan 3c
-    (semer les ecrans du depot dans une installation neuve, ou aucune
-    sous-entree n'existe encore).
+    ENTIRELY REPLACES the current subentries of `entry` -- never a merge.
+    It is the most honest reading of an "import" symmetrical to an "export"
+    which, for its part, enumerates ALL the current screens (see
+    services.py): the file is the whole truth, not a delta. It is also the
+    path that `home_desk.importer` serves for the plan 3c migration (seeding
+    the repository's screens into a fresh installation, where no subentry
+    exists yet).
 
-    Une SEULE ecriture reelle (`_async_update_entry`, une des cinq portes
-    gardees par `test_garde_ecran_est_le_seul_module_a_appeler_une_porte_
-    d_ecriture` -- ce module en est exempte) : construire d'abord le dict
-    complet des nouvelles sous-entrees puis l'ecrire d'un coup, plutot
-    qu'un `async_add_subentry`/`async_remove_subentry` par ecran, est ce
-    qui rend la bascule elle-meme indivisible du point de vue de tout code
-    qui lirait `entry.subentries` entre-temps (il n'y a pas d'"entre-temps"
-    : un seul appel, synchrone, comme tout le reste de ce module).
+    A SINGLE real write (`_async_update_entry`, one of the five gates
+    guarded by `test_garde_ecran_est_le_seul_module_a_appeler_une_porte_
+    d_ecriture` -- this module is exempt from it): building the complete
+    dict of the new subentries first and then writing it in one go, rather
+    than one `async_add_subentry`/`async_remove_subentry` per screen, is
+    what makes the switch itself indivisible from the point of view of any
+    code that would read `entry.subentries` in the meantime (there is no
+    "meantime": a single call, synchronous, like the rest of this module).
 
-    CONTRAINTE AJOUTEE PAR CE MODULE, PAS PAR LE CONTRAT (a dire
-    explicitement, jamais en silence) : `nom` doit rester UNIQUE parmi
-    `ecrans` -- la MEME regle que `noms_utilises`/`_valider_identite`
-    (config_flow.py) imposent a la CREATION/RECONFIGURATION d'un ecran par
-    le formulaire. `contrat/ecran.schema.json` ne porte et ne peut pas
-    porter cette contrainte (chaque sous-entree y est validee seule) ; sans
-    elle ICI, un import pourrait semer deux ecrans homonymes que le FORMULAIRE
-    n'aurait jamais laisse coexister -- rendant l'un des deux
-    DEFINITIVEMENT inatteignable par `home_desk/ecran` (websocket.py, qui
-    rend toujours le premier trouve).
+    CONSTRAINT ADDED BY THIS MODULE, NOT BY THE CONTRACT (to be stated
+    explicitly, never silently): `nom` must stay UNIQUE among `ecrans` --
+    the SAME rule that `noms_utilises`/`_valider_identite` (config_flow.py)
+    impose on the CREATION/RECONFIGURATION of a screen through the form.
+    `contrat/ecran.schema.json` does not and cannot carry this constraint
+    (each subentry is validated alone there); without it HERE, an import
+    could seed two namesake screens that the FORM would never have let
+    coexist -- making one of the two PERMANENTLY unreachable through
+    `home_desk/ecran` (websocket.py, which always returns the first one
+    found).
 
-    Releve en relecture finale de branche : "la MEME regle" ci-dessus etait
-    fausse jusqu'a cette correction -- `_valider_identite` STRIPPE `nom`
-    avant de comparer ET avant de persister (ronde 2, tache 8 : "salon "
-    passait sinon les gardes mais se stockait brut) ; cette fonction
-    comparait les `nom` BRUTS. Mesure : "Salon"/"Salon " importes ensemble
-    passaient tous deux, persistes bruts, et le transport les servait
-    l'un ET l'autre -- exactement la regression que le ruling 41 (tache 8)
-    avait fermee cote formulaire. `nom` est desormais strippe ICI AUSSI,
-    avant le calcul des doublons ET avant l'ecriture -- la meme valeur
-    normalisee des deux cotes, jamais deux regles qui se ressemblent.
+    Spotted in the final branch review: "the SAME rule" above was false
+    until this correction -- `_valider_identite` STRIPS `nom` before
+    comparing AND before persisting (round 2, task 8: "salon " otherwise
+    passed the guards but was stored raw); this function compared the RAW
+    `nom` values. Measured: "Salon"/"Salon " imported together both passed,
+    persisted raw, and the transport served both of them -- exactly the
+    regression that ruling 41 (task 8) had closed on the form side. `nom` is
+    now stripped HERE TOO, before computing duplicates AND before writing
+    -- the same normalised value on both sides, never two rules that look
+    alike.
 
-    `version` EST POSEE ICI QUAND ELLE EST ABSENTE (ronde 1 de relecture,
-    le Critique) -- avant cette correction, un ecran SANS `version`
-    (`contrat/ecran.schema.json` ne la rend jamais requise : `schema.py`,
-    `vol.Optional("version")`) passait `schema.valider` (qui l'accepte
-    absente) et etait persiste tel quel, pour etre ensuite refuse a la
-    LECTURE par `websocket._resoudre` ("ne porte aucune version [...]
-    Recreez cet ecran") -- exactement le geste que l'import devait eviter,
-    mesure sur les trois ecrans REELS d'`app/src/ecran.ts` (aucun ne porte
-    `version`, aucune raison qu'un fichier ecrit a la main ou issu d'une
-    migration la porte). `websocket._resoudre` nomme deja `home_desk.
-    importer` parmi les portes non gardees qu'elle rattrape a la LECTURE ;
-    ce module la ferme desormais aussi a l'ECRITURE, au plus tot. Une
-    version PRESENTE mais DIFFERENTE de `VERSION_CONFIG` reste un refus NET
-    (une vraie incompatibilite, jamais une omission a corriger a la
-    place de l'operateur) -- nommee, jamais fondue avec le cas absent."""
+    `version` IS SET HERE WHEN IT IS ABSENT (review round 1, the Critical)
+    -- before this correction, a screen WITHOUT `version`
+    (`contrat/ecran.schema.json` never makes it required: `schema.py`,
+    `vol.Optional("version")`) passed `schema.valider` (which accepts it
+    absent) and was persisted as is, only to be refused on READ by
+    `websocket._resoudre` ("carries no version [...] Recreate this screen")
+    -- exactly the gesture the import was meant to avoid, measured on the
+    three REAL screens of `app/src/ecran.ts` (none carries `version`, no
+    reason for a hand-written or migrated file to carry it).
+    `websocket._resoudre` already names `home_desk.importer` among the
+    unguarded gates it catches on READ; this module now closes it on WRITE
+    too, as early as possible. A version PRESENT but DIFFERENT from
+    `VERSION_CONFIG` remains a CLEAR refusal (a real incompatibility, never
+    an omission to fix on the operator's behalf) -- named, never merged
+    with the absent case."""
     ecrans_normalises: list[tuple[str, dict]] = []
-    for titre, donnees in ecrans:
-        donnees = dict(donnees)
-        # Releve en relecture finale de branche : STRIPPE ICI, avant le
-        # calcul des doublons ET avant l'ecriture -- la MEME regle que
-        # `_valider_identite` (config_flow.py), jamais une comparaison sur
-        # le brut qui laisserait passer "Salon"/"Salon " comme deux noms
-        # distincts. Seule une chaine est strippee : `schema.valider`
-        # (plus bas) refuse deja un `nom` absent ou d'un autre type, donc
-        # rien ici n'a besoin de le supposer present.
-        if isinstance(donnees.get("nom"), str):
-            donnees["nom"] = donnees["nom"].strip()
-        version = donnees.get("version")
+    for titre, screen_data in ecrans:
+        screen_data = dict(screen_data)
+        # Spotted in the final branch review: STRIPPED HERE, before
+        # computing duplicates AND before writing -- the SAME rule as
+        # `_valider_identite` (config_flow.py), never a comparison on the
+        # raw value that would let "Salon"/"Salon " through as two
+        # distinct names. Only a string is stripped: `schema.valider`
+        # (below) already refuses an absent `nom` or one of another type,
+        # so nothing here needs to assume it is present.
+        if isinstance(screen_data.get("nom"), str):
+            screen_data["nom"] = screen_data["nom"].strip()
+        version = screen_data.get("version")
         if version is None:
-            donnees["version"] = VERSION_CONFIG
+            screen_data["version"] = VERSION_CONFIG
         elif version != VERSION_CONFIG:
             raise vol.Invalid(
                 f"l'ecran {titre!r} porte la version {version!r}, que ce "
@@ -267,9 +266,9 @@ def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]]) -> No
                 "reessayer, ou retirez ce champ 'version' du fichier pour "
                 "laisser l'import le poser lui-meme"
             )
-        ecrans_normalises.append((titre, donnees))
+        ecrans_normalises.append((titre, screen_data))
 
-    noms = [donnees.get("nom") for _titre, donnees in ecrans_normalises]
+    noms = [screen_data.get("nom") for _titre, screen_data in ecrans_normalises]
     doublons = sorted({nom for nom in noms if nom is not None and noms.count(nom) > 1})
     if doublons:
         raise vol.Invalid(
@@ -278,27 +277,27 @@ def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]]) -> No
             "renommez l'un d'eux dans le fichier avant de reessayer"
         )
 
-    # Releve en relecture finale de branche (deuxieme ronde) : la valeur de
-    # RETOUR de `schema.valider` etait jetee -- `donnees` (le brut deja
-    # normalise ci-dessus) etait persiste tel quel, jamais la version que
-    # `schema.valider` VALIDE ET NORMALISE (`_trie()` sur `modulateurs`,
-    # entre autres). Mesure : les trois ecrans reels importes puis
-    # ouverts/enregistres SANS RIEN changer par "Blocs et modes"
-    # produisaient un `modulateurs` TRIE (le formulaire, lui, persiste
-    # bien la valeur validee) -- l'import, seul, gardait le brut. Le
-    # prochain export portait alors un diff pour un geste nul, exactement
-    # ce que `_trie()` existe pour eviter.
+    # Spotted in the final branch review (second round): the RETURN value
+    # of `schema.valider` was thrown away -- `screen_data` (the raw value
+    # already normalised above) was persisted as is, never the version that
+    # `schema.valider` VALIDATES AND NORMALISES (`_trie()` on `modulateurs`,
+    # among others). Measured: the three real screens imported, then
+    # opened/saved WITHOUT CHANGING ANYTHING through "Blocks and modes",
+    # produced a SORTED `modulateurs` (the form, for its part, does persist
+    # the validated value) -- the import alone kept the raw value. The next
+    # export then carried a diff for a no-op gesture, exactly what `_trie()`
+    # exists to avoid.
     ecrans_valides: list[tuple[str, dict]] = [
-        (titre, schema.valider(donnees)) for titre, donnees in ecrans_normalises
+        (titre, schema.valider(screen_data)) for titre, screen_data in ecrans_normalises
     ]
 
-    nouvelles_sous_entrees: dict[str, ConfigSubentry] = {}
-    for titre, donnees in ecrans_valides:
-        sous_entree = ConfigSubentry(
-            data=MappingProxyType(donnees),
-            subentry_type=SOUS_ENTREE_ECRAN,
+    new_subentries: dict[str, ConfigSubentry] = {}
+    for titre, screen_data in ecrans_valides:
+        subentry = ConfigSubentry(
+            data=MappingProxyType(screen_data),
+            subentry_type=SUBENTRY_SCREEN,
             title=titre,
             unique_id=None,
         )
-        nouvelles_sous_entrees[sous_entree.subentry_id] = sous_entree
-    hass.config_entries._async_update_entry(entry, subentries=nouvelles_sous_entrees)
+        new_subentries[subentry.subentry_id] = subentry
+    hass.config_entries._async_update_entry(entry, subentries=new_subentries)

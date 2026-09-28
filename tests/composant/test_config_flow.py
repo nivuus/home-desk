@@ -7,7 +7,7 @@ Le squelette des sections « liste » (tuiles de commande, rangee d'ambiance,
 extras maison, ouvrants, ligne de synthese) est teste a part, dans
 `test_config_flow_listes.py` — separe d'ici en ronde 1 de relecture pour
 rester sous 500 lignes chacun, jamais a un compte de lignes arbitraire :
-c'est la meme couture que `listes.py`/`listes_champs.py`.
+c'est la meme couture que `list_sections.py`/`list_fields.py`.
 """
 import ast
 import json
@@ -21,34 +21,34 @@ from custom_components.home_desk.budget import BUDGET
 from custom_components.home_desk.config_flow import EcranSubentryFlow
 from custom_components.home_desk.const import (
     DOMAIN,
-    ERREUR_ALLUMEE_INCOMPLETE,
-    ERREUR_BUDGET_INTENABLE,
-    ERREUR_BUDGET_INTENABLE_MODE,
-    ERREUR_CHAMP_DOUBLON,
-    ERREUR_CHAMP_ELEMENT_REQUIS,
-    ERREUR_CHAMP_FORMAT_INVALIDE,
-    ERREUR_CHAMP_INCONNU,
-    ERREUR_CHAMP_INVALIDE,
-    ERREUR_CHAMP_REQUIS,
-    ERREUR_CHAMP_TROP_COURT,
-    ERREUR_CHAMP_TROP_D_ELEMENTS,
-    ERREUR_CHAMP_TROP_PEU_D_ELEMENTS,
-    ERREUR_CHAMP_TYPE_INVALIDE,
-    ERREUR_CHAMP_VALEUR_FIGEE,
-    ERREUR_CHAMP_VALEUR_NON_AUTORISEE,
-    ERREUR_CHAMP_VIDE,
-    ERREUR_ECRAN_DEVIENDRAIT_INVALIDE,
-    ERREUR_HAUTEUR_HORS_BORNES,
-    ERREUR_NOM_DEJA_UTILISE,
-    ERREUR_NOM_VIDE,
-    ERREUR_RECETTE_SANS_MODE,
-    ERREUR_SELECTION_MANQUANTE,
-    ERREUR_SERVICE_INCOMPLET,
-    SOUS_ENTREE_ECRAN,
+    ERROR_POWERED_ON_INCOMPLETE,
+    ERROR_BUDGET_UNTENABLE,
+    ERROR_BUDGET_UNTENABLE_MODE,
+    ERROR_FIELD_DUPLICATE,
+    ERROR_FIELD_ITEM_REQUIRED,
+    ERROR_FIELD_INVALID_FORMAT,
+    ERROR_FIELD_UNKNOWN,
+    ERROR_FIELD_INVALID,
+    ERROR_FIELD_REQUIRED,
+    ERROR_FIELD_TOO_SHORT,
+    ERROR_FIELD_TOO_MANY_ITEMS,
+    ERROR_FIELD_TOO_FEW_ITEMS,
+    ERROR_FIELD_INVALID_TYPE,
+    ERROR_FIELD_VALUE_FIXED,
+    ERROR_FIELD_VALUE_NOT_ALLOWED,
+    ERROR_FIELD_EMPTY,
+    ERROR_SCREEN_WOULD_BECOME_INVALID,
+    ERROR_HEIGHT_OUT_OF_BOUNDS,
+    ERROR_NAME_ALREADY_USED,
+    ERROR_NAME_EMPTY,
+    ERROR_RECIPE_WITHOUT_MODE,
+    ERROR_SELECTION_MISSING,
+    ERROR_SERVICE_INCOMPLETE,
+    SUBENTRY_SCREEN,
     VERSION_CONFIG,
 )
-from custom_components.home_desk.listes import SectionsListeMixin
-from custom_components.home_desk.listes_champs import SECTIONS
+from custom_components.home_desk.list_sections import ListSectionsMixin
+from custom_components.home_desk.list_fields import SECTIONS
 from custom_components.home_desk.objets import SCHEMA_AGENCEMENT, SCHEMA_VOITURE
 from custom_components.home_desk import schema
 from custom_components.home_desk.schema import HAUTEUR_MAX, HAUTEUR_MIN
@@ -79,7 +79,7 @@ def _toutes_les_cles(donnee) -> set[str]:
 
 def _cles_attendues() -> set[str]:
     """Les cles de traduction qu'EXIGE LE CODE, derivees de `SECTIONS`
-    (listes_champs.py) et de `const.py` — jamais une liste recopiee a la
+    (list_fields.py) et de `const.py` — jamais une liste recopiee a la
     main. Corrige I5 (ronde 1 de relecture) : comparer fr a en (l'ancien
     test, garde plus bas) n'attrape qu'une DISSYMETRIE ; une perte SYMETRIQUE
     (tout un formulaire perd ses libelles dans LES DEUX langues a la fois)
@@ -96,33 +96,33 @@ def _cles_attendues() -> set[str]:
         "/config_subentries/ecran/step/user/data/temperature",
         "/config_subentries/ecran/step/user/data/note",
         "/config_subentries/ecran/step/reconfigure/title",
-        f"/config_subentries/ecran/error/{ERREUR_HAUTEUR_HORS_BORNES}",
-        f"/config_subentries/ecran/error/{ERREUR_BUDGET_INTENABLE}",
-        f"/config_subentries/ecran/error/{ERREUR_CHAMP_INVALIDE}",
-        f"/config_subentries/ecran/error/{ERREUR_CHAMP_REQUIS}",
-        f"/config_subentries/ecran/error/{ERREUR_CHAMP_FORMAT_INVALIDE}",
-        f"/config_subentries/ecran/error/{ERREUR_CHAMP_TYPE_INVALIDE}",
-        f"/config_subentries/ecran/error/{ERREUR_CHAMP_TROP_COURT}",
-        f"/config_subentries/ecran/error/{ERREUR_CHAMP_VALEUR_NON_AUTORISEE}",
-        f"/config_subentries/ecran/error/{ERREUR_CHAMP_VALEUR_FIGEE}",
-        f"/config_subentries/ecran/error/{ERREUR_CHAMP_TROP_PEU_D_ELEMENTS}",
-        f"/config_subentries/ecran/error/{ERREUR_CHAMP_TROP_D_ELEMENTS}",
-        f"/config_subentries/ecran/error/{ERREUR_CHAMP_DOUBLON}",
-        f"/config_subentries/ecran/error/{ERREUR_CHAMP_INCONNU}",
-        f"/config_subentries/ecran/error/{ERREUR_CHAMP_VIDE}",
-        f"/config_subentries/ecran/error/{ERREUR_NOM_VIDE}",
-        f"/config_subentries/ecran/error/{ERREUR_NOM_DEJA_UTILISE}",
-        f"/config_subentries/ecran/error/{ERREUR_SELECTION_MANQUANTE}",
-        f"/config_subentries/ecran/error/{ERREUR_SERVICE_INCOMPLET}",
+        f"/config_subentries/ecran/error/{ERROR_HEIGHT_OUT_OF_BOUNDS}",
+        f"/config_subentries/ecran/error/{ERROR_BUDGET_UNTENABLE}",
+        f"/config_subentries/ecran/error/{ERROR_FIELD_INVALID}",
+        f"/config_subentries/ecran/error/{ERROR_FIELD_REQUIRED}",
+        f"/config_subentries/ecran/error/{ERROR_FIELD_INVALID_FORMAT}",
+        f"/config_subentries/ecran/error/{ERROR_FIELD_INVALID_TYPE}",
+        f"/config_subentries/ecran/error/{ERROR_FIELD_TOO_SHORT}",
+        f"/config_subentries/ecran/error/{ERROR_FIELD_VALUE_NOT_ALLOWED}",
+        f"/config_subentries/ecran/error/{ERROR_FIELD_VALUE_FIXED}",
+        f"/config_subentries/ecran/error/{ERROR_FIELD_TOO_FEW_ITEMS}",
+        f"/config_subentries/ecran/error/{ERROR_FIELD_TOO_MANY_ITEMS}",
+        f"/config_subentries/ecran/error/{ERROR_FIELD_DUPLICATE}",
+        f"/config_subentries/ecran/error/{ERROR_FIELD_UNKNOWN}",
+        f"/config_subentries/ecran/error/{ERROR_FIELD_EMPTY}",
+        f"/config_subentries/ecran/error/{ERROR_NAME_EMPTY}",
+        f"/config_subentries/ecran/error/{ERROR_NAME_ALREADY_USED}",
+        f"/config_subentries/ecran/error/{ERROR_SELECTION_MISSING}",
+        f"/config_subentries/ecran/error/{ERROR_SERVICE_INCOMPLETE}",
         # Tache 7 : les deux regles hors-schema, et les deux refus qui
         # etaient jusque-la un FILET non exerce (`allumee_incomplet`,
-        # `champ_element_requis` — voir listes_erreurs._ERREUR_PAR_MOT_CLE et
-        # listes_champs_sources.AllumeeIncomplete).
-        f"/config_subentries/ecran/error/{ERREUR_ALLUMEE_INCOMPLETE}",
-        f"/config_subentries/ecran/error/{ERREUR_CHAMP_ELEMENT_REQUIS}",
-        f"/config_subentries/ecran/error/{ERREUR_RECETTE_SANS_MODE}",
-        f"/config_subentries/ecran/error/{ERREUR_BUDGET_INTENABLE_MODE}",
-        f"/config_subentries/ecran/error/{ERREUR_ECRAN_DEVIENDRAIT_INVALIDE}",
+        # `champ_element_requis` — voir list_errors._ERROR_BY_KEYWORD et
+        # list_fields_sources.AllumeeIncomplete).
+        f"/config_subentries/ecran/error/{ERROR_POWERED_ON_INCOMPLETE}",
+        f"/config_subentries/ecran/error/{ERROR_FIELD_ITEM_REQUIRED}",
+        f"/config_subentries/ecran/error/{ERROR_RECIPE_WITHOUT_MODE}",
+        f"/config_subentries/ecran/error/{ERROR_BUDGET_UNTENABLE_MODE}",
+        f"/config_subentries/ecran/error/{ERROR_SCREEN_WOULD_BECOME_INVALID}",
         # I4, ronde 1 de relecture : reconfigurer l'identite, aux memes
         # cles de donnee que le step "user" (SCHEMA_IDENTITE, reutilise).
         "/config_subentries/ecran/step/reconfigure/menu_options/identite",
@@ -196,31 +196,31 @@ async def test_un_ecran_qui_deborde_est_REFUSE_avec_son_chiffre(hass, entree):
     """LE test de la tache 5. Le formulaire refuse une hauteur ou l'ecran ne
     tient pas, et dit de combien — pas « valeur invalide »."""
     flow = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        (entree.entry_id, SUBENTRY_SCREEN),
         context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {**IDENTITE_MINIMALE, "hauteurUtile": 100})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["hauteurUtile"] == ERREUR_BUDGET_INTENABLE
+    assert resultat["errors"]["hauteurUtile"] == ERROR_BUDGET_UNTENABLE
     assert "336" in str(resultat["description_placeholders"]), (
         "le formulaire doit dire DE COMBIEN l'ecran deborde, pas seulement qu'il deborde")
 
 
 async def test_une_hauteur_hors_bornes_est_refusee_a_la_saisie(hass, entree):
     flow = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        (entree.entry_id, SUBENTRY_SCREEN),
         context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {**IDENTITE_MINIMALE, "hauteurUtile": 10000})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["hauteurUtile"] == ERREUR_HAUTEUR_HORS_BORNES
+    assert resultat["errors"]["hauteurUtile"] == ERROR_HEIGHT_OUT_OF_BOUNDS
     placeholders = str(resultat["description_placeholders"])
     assert str(HAUTEUR_MIN) in placeholders and str(HAUTEUR_MAX) in placeholders
 
 
 async def test_une_saisie_refusee_garde_le_nom_et_la_note(hass, entree):
     flow = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        (entree.entry_id, SUBENTRY_SCREEN),
         context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"],
@@ -233,7 +233,7 @@ async def test_une_saisie_refusee_garde_le_nom_et_la_note(hass, entree):
 
 async def test_un_ecran_valide_est_accepte_et_porte_sa_version(hass, entree):
     flow = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        (entree.entry_id, SUBENTRY_SCREEN),
         context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {**IDENTITE_MINIMALE, "note": "Fire 7, mur du salon"})
@@ -253,19 +253,19 @@ async def test_creer_un_second_ecran_du_meme_nom_est_refuse(hass, entree):
     en nommant le conflit, plutot que de laisser deux sous-entrees
     partager un nom que rien ne distinguerait plus cote transport."""
     premier = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        (entree.entry_id, SUBENTRY_SCREEN),
         context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.subentries.async_configure(
         premier["flow_id"], IDENTITE_MINIMALE)
     assert resultat["type"] is data_entry_flow.FlowResultType.CREATE_ENTRY
 
     second = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        (entree.entry_id, SUBENTRY_SCREEN),
         context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.subentries.async_configure(
         second["flow_id"], IDENTITE_MINIMALE)
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["nom"] == ERREUR_NOM_DEJA_UTILISE
+    assert resultat["errors"]["nom"] == ERROR_NAME_ALREADY_USED
     assert IDENTITE_MINIMALE["nom"] in str(resultat["description_placeholders"])
 
     entry = hass.config_entries.async_get_entry(entree.entry_id)
@@ -281,19 +281,19 @@ async def test_un_nom_avec_un_espace_final_est_le_MEME_homonyme(hass, entree):
     UNE FOIS, reutilise pour les trois : ce test verifie que "salon " est
     bien traite comme le MEME nom que "salon", refuse comme homonyme."""
     premier = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        (entree.entry_id, SUBENTRY_SCREEN),
         context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.subentries.async_configure(
         premier["flow_id"], {**IDENTITE_MINIMALE, "nom": "salon"})
     assert resultat["type"] is data_entry_flow.FlowResultType.CREATE_ENTRY
 
     second = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        (entree.entry_id, SUBENTRY_SCREEN),
         context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.subentries.async_configure(
         second["flow_id"], {**IDENTITE_MINIMALE, "nom": "salon "})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["nom"] == ERREUR_NOM_DEJA_UTILISE
+    assert resultat["errors"]["nom"] == ERROR_NAME_ALREADY_USED
 
     entry = hass.config_entries.async_get_entry(entree.entry_id)
     assert len(entry.subentries) == 1
@@ -304,12 +304,12 @@ async def test_nom_vide_est_refuse_a_la_saisie(hass, entree):
     vide (ou blanc) etait accepte et PERSISTE, alors que le contrat exige
     `minLength: 1`."""
     flow = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        (entree.entry_id, SUBENTRY_SCREEN),
         context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {**IDENTITE_MINIMALE, "nom": "   "})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["nom"] == ERREUR_NOM_VIDE
+    assert resultat["errors"]["nom"] == ERROR_NAME_EMPTY
 
 
 def test_ecransubentryflow_porte_le_mixin_EN_PREMIER_dans_son_mro():
@@ -320,7 +320,7 @@ def test_ecransubentryflow_porte_le_mixin_EN_PREMIER_dans_son_mro():
     deux classes ne definit de nom en commun aujourd'hui, exactement le piege
     que la ronde 1 decrivait dans sa propre docstring (config_flow.py)."""
     mro = EcranSubentryFlow.__mro__
-    assert mro.index(SectionsListeMixin) < mro.index(ConfigSubentryFlow)
+    assert mro.index(ListSectionsMixin) < mro.index(ConfigSubentryFlow)
 
 
 async def test_hauteurUtile_est_preremplie_du_budget_par_defaut(hass, entree):
@@ -331,7 +331,7 @@ async def test_hauteurUtile_est_preremplie_du_budget_par_defaut(hass, entree):
     les Fire 7), lu depuis le contrat — jamais un 585 retape a la main qui
     pourrait diverger du budget en silence."""
     flow = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        (entree.entry_id, SUBENTRY_SCREEN),
         context={"source": config_entries.SOURCE_USER})
     marqueurs = {str(cle): cle for cle in flow["data_schema"].schema}
     assert marqueurs["hauteurUtile"].default() == BUDGET["hauteurUtileParDefaut"]
@@ -362,7 +362,7 @@ def test_hauteurUtile_par_defaut_vient_reellement_de_BUDGET(monkeypatch):
 def test_temperature_n_impose_aucun_domaine():
     """Ronde 2 de relecture : `_DOMAINES_TEMPERATURE = ["sensor"]` n'etait
     tenu par aucun test — retire pour la meme raison que le domaine de
-    $defs/bouton (listes_champs.py) : une contrainte non verifiee est une
+    $defs/bouton (list_fields.py) : une contrainte non verifiee est une
     contrainte inventee, le contrat ($defs/entite) n'en pose aucune."""
     from custom_components.home_desk.config_flow import SCHEMA_IDENTITE
     marqueurs = {str(cle): sel for cle, sel in SCHEMA_IDENTITE.schema.items()}
@@ -373,7 +373,7 @@ async def test_note_vide_n_est_pas_persistee(hass, entree):
     """Ronde 1 : `note: ""` etait stocke tel quel la ou le contrat la veut
     ABSENTE (Optional, jamais une chaine vide)."""
     flow = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        (entree.entry_id, SUBENTRY_SCREEN),
         context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {**IDENTITE_MINIMALE, "note": ""})
@@ -399,7 +399,7 @@ async def test_note_vide_n_est_pas_persistee(hass, entree):
 def test_les_traductions_nomment_le_debordement(langue):
     traductions = json.loads(
         (CHEMIN_TRADUCTIONS / f"{langue}.json").read_text(encoding="utf-8"))
-    phrase = traductions["config_subentries"][SOUS_ENTREE_ECRAN]["error"][ERREUR_BUDGET_INTENABLE]
+    phrase = traductions["config_subentries"][SUBENTRY_SCREEN]["error"][ERROR_BUDGET_UNTENABLE]
     assert "{debordement}" in phrase
 
 
@@ -408,13 +408,13 @@ def test_le_champ_invalide_n_interpole_plus_de_motif(langue):
     """Ronde 4 de relecture : ce test affirmait l'INVERSE avant cette ronde
     (« {motif} DOIT etre dans la phrase ») — exactement la fuite que la
     ronde 4 corrige, clouee ici par le propre test qui la garantissait.
-    `ERREUR_CHAMP_INVALIDE` ne reste que le REPLI d'un mot-cle imprevu
+    `ERROR_FIELD_INVALID` ne reste que le REPLI d'un mot-cle imprevu
     (chaque mot-cle CONNU a desormais son propre code, `listes_erreurs.
-    _ERREUR_PAR_MOT_CLE`) : son message est STATIQUE, jamais un `{motif}`
+    _ERROR_BY_KEYWORD`) : son message est STATIQUE, jamais un `{motif}`
     JSON Schema montre a un humain."""
     traductions = json.loads(
         (CHEMIN_TRADUCTIONS / f"{langue}.json").read_text(encoding="utf-8"))
-    phrase = traductions["config_subentries"][SOUS_ENTREE_ECRAN]["error"][ERREUR_CHAMP_INVALIDE]
+    phrase = traductions["config_subentries"][SUBENTRY_SCREEN]["error"][ERROR_FIELD_INVALID]
     assert "{motif}" not in phrase
 
 

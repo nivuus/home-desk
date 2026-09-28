@@ -1,7 +1,7 @@
 """Ce que chaque section « liste » a de PARTICULIER : ses champs, ses
 selecteurs, la construction/l'affichage d'un element — le miroir de test de
-`listes_champs.py`, exactement comme `test_config_flow_listes.py` est celui
-de `listes.py` (le squelette commun choisir/ajouter/modifier/monter/
+`list_fields.py`, exactement comme `test_config_flow_listes.py` est celui
+de `list_sections.py` (le squelette commun choisir/ajouter/modifier/monter/
 descendre/supprimer, teste a part).
 
 Separe de `test_config_flow_listes.py` en ronde 2 de relecture pour rester
@@ -12,15 +12,15 @@ import json
 import pathlib
 
 from conftest import _commandes, _creer_ecran, _init_reconfigure
-from custom_components.home_desk import listes_champs, schema
+from custom_components.home_desk import list_fields, schema
 from custom_components.home_desk.const import (
-    ACTION_ENREGISTRER,
-    ERREUR_CHAMP_REQUIS,
-    ERREUR_CHAMP_TYPE_INVALIDE,
-    ERREUR_SERVICE_INCOMPLET,
-    SOUS_ENTREE_ECRAN,
+    ACTION_SAVE,
+    ERROR_FIELD_REQUIRED,
+    ERROR_FIELD_INVALID_TYPE,
+    ERROR_SERVICE_INCOMPLETE,
+    SUBENTRY_SCREEN,
 )
-from custom_components.home_desk.listes_champs import SECTIONS
+from custom_components.home_desk.list_fields import SECTIONS
 from custom_components.home_desk.schema import OPERATEURS
 from homeassistant import data_entry_flow
 
@@ -36,7 +36,7 @@ def _message_erreur(langue: str, code: str) -> str:
     message qui ment ou reste illisible ; seul le TEXTE final le prouve)."""
     traductions = json.loads(
         (CHEMIN_TRADUCTIONS / f"{langue}.json").read_text(encoding="utf-8"))
-    return traductions["config_subentries"][SOUS_ENTREE_ECRAN]["error"][code]
+    return traductions["config_subentries"][SUBENTRY_SCREEN]["error"][code]
 
 
 # ---------------------------------------------------------------------------
@@ -51,19 +51,19 @@ def test_champs_bouton_couvre_exactement_les_proprietes_du_contrat():
     `$defs/bouton` sans etre ajoute ici) en silence — `_fusionner` la
     laisserait alors s'effacer exactement comme le Critique."""
     proprietes = set(schema._DEFS["bouton"]["properties"])
-    assert listes_champs.CHAMPS_BOUTON == proprietes
+    assert list_fields.CHAMPS_BOUTON == proprietes
 
 
 def test_champs_synthese_couvre_exactement_les_proprietes_du_contrat():
     proprietes = set(schema._DEFS["synthese"]["properties"])
-    assert listes_champs.CHAMPS_SYNTHESE == proprietes
+    assert list_fields.CHAMPS_SYNTHESE == proprietes
 
 
 def test_composition_du_formulaire_bouton_est_complete():
     """Mineur (ronde 1) : la composition du formulaire n'etait fixee par
     aucun test — `cible` ou `epingle` pouvaient disparaitre du formulaire,
     suite verte."""
-    champs = {str(k) for k in listes_champs._schema_bouton(True).schema}
+    champs = {str(k) for k in list_fields._schema_bouton(True).schema}
     assert champs == {
         "libelle", "icone", "entite", "cible", "service_domaine", "service_action",
         "lien", "vue", "epingle", "absenceNommee", "note", "geste",
@@ -71,7 +71,7 @@ def test_composition_du_formulaire_bouton_est_complete():
 
 
 def test_composition_du_formulaire_synthese_est_complete():
-    champs = {str(k) for k in listes_champs._schema_synthese(True).schema}
+    champs = {str(k) for k in list_fields._schema_synthese(True).schema}
     assert champs == {
         "entite", "texte", "operateur", "valeur", "perso", "horsTaches",
         "absenceNommee", "note", "geste",
@@ -93,7 +93,7 @@ async def test_synthese_operateur_dordre_refuse_une_valeur_non_numerique_avec_un
     Ronde 4 de relecture, un des quatre chemins mesures par le relecteur :
     avant cette ronde, le message REELLEMENT rendu etait « Ce champ n'est
     pas valide : /valeur: type. » — le mot-cle JSON Schema brut, montre a un
-    humain. `errors["valeur"]` porte desormais `ERREUR_CHAMP_TYPE_INVALIDE`,
+    humain. `errors["valeur"]` porte desormais `ERROR_FIELD_INVALID_TYPE`,
     dont le message dit quoi faire, sans plus jamais interpoler de motif."""
     subentry_id = await _creer_ecran(hass, entree)
     flow = await _init_reconfigure(hass, entree, subentry_id)
@@ -110,10 +110,10 @@ async def test_synthese_operateur_dordre_refuse_une_valeur_non_numerique_avec_un
         },
     )
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["valeur"] == ERREUR_CHAMP_TYPE_INVALIDE
+    assert resultat["errors"]["valeur"] == ERROR_FIELD_INVALID_TYPE
     assert not resultat["description_placeholders"]
     for langue in ("fr", "en"):
-        message = _message_erreur(langue, ERREUR_CHAMP_TYPE_INVALIDE)
+        message = _message_erreur(langue, ERROR_FIELD_INVALID_TYPE)
         assert ": type" not in message and "{motif}" not in message
 
 
@@ -174,32 +174,32 @@ def test_operateurs_est_une_liste_ordonnee_selon_le_contrat():
 
 
 def test_le_champ_operateur_ne_propose_que_les_quatre_valeurs_du_schema():
-    champs_schema = listes_champs._schema_synthese(editable=False).schema
+    champs_schema = list_fields._schema_synthese(editable=False).schema
     selecteur = next(v for k, v in champs_schema.items() if str(k) == "operateur")
     assert set(selecteur.config["options"]) == {"==", "!=", "<", ">"}
 
 
 def test_convertir_valeur_garde_un_entier_entier():
-    resultat = listes_champs._convertir_valeur("35")
+    resultat = list_fields._convert_value("35")
     assert resultat == 35
     assert isinstance(resultat, int) and not isinstance(resultat, float)
 
 
 def test_convertir_valeur_reconnait_un_flottant():
-    assert listes_champs._convertir_valeur("19.5") == 19.5
+    assert list_fields._convert_value("19.5") == 19.5
 
 
 def test_convertir_valeur_garde_une_chaine_non_numerique():
-    assert listes_champs._convertir_valeur("chaud") == "chaud"
+    assert list_fields._convert_value("chaud") == "chaud"
 
 
 def test_icone_vient_du_contrat_embarque_pas_d_une_liste_ecrite_a_la_main():
-    """Ronde de mutation : si `listes_champs._ICONES_OPTIONS` etait une liste
+    """Ronde de mutation : si `list_fields._ICONES_OPTIONS` etait une liste
     tapee a la main plutot que lue depuis contrat/icones.json, ce test
     resterait vert tant que personne n'ajoute une icone des deux cotes a la
     fois — le piege deja corrige au plan 1. On verifie la PROVENANCE."""
-    brut = json.loads(listes_champs.CHEMIN_ICONES.read_text(encoding="utf-8"))
-    assert listes_champs._ICONES_OPTIONS == brut["icones"]
+    brut = json.loads(list_fields.CHEMIN_ICONES.read_text(encoding="utf-8"))
+    assert list_fields._ICONES_OPTIONS == brut["icones"]
 
 
 # ---------------------------------------------------------------------------
@@ -258,12 +258,12 @@ def test_bouton_n_impose_aucun_domaine_verifie_sur_les_trois_ecrans_reels():
     largement toute liste blanche raisonnable : `entite`/`cible` ne doivent
     filtrer AUCUN domaine, exactement comme `$defs/entite` du contrat, qui
     n'en restreint aucun."""
-    champs = listes_champs._schema_bouton(False).schema
+    champs = list_fields._schema_bouton(False).schema
     for nom in ("entite", "cible"):
         selecteur = next(v for k, v in champs.items() if str(k) == nom)
         assert "domain" not in selecteur.config, (
             f"{nom} ne doit filtrer aucun domaine (voir la note de "
-            "listes_champs.py sur l'inventaire reel des trois ecrans)")
+            "list_fields.py sur l'inventaire reel des trois ecrans)")
 
 
 def test_synthese_n_impose_aucun_domaine():
@@ -271,7 +271,7 @@ def test_synthese_n_impose_aucun_domaine():
     todo/lock/cover) semblait valide par l'inventaire reel mais n'etait tenu
     par AUCUN test — retiree pour la meme raison que le domaine de
     $defs/bouton ci-dessus : une contrainte non verifiee est inventee."""
-    champs = listes_champs._schema_synthese(False).schema
+    champs = list_fields._schema_synthese(False).schema
     selecteur = next(v for k, v in champs.items() if str(k) == "entite")
     assert "domain" not in selecteur.config
 
@@ -279,7 +279,7 @@ def test_synthese_n_impose_aucun_domaine():
 def test_ouvrant_n_impose_aucun_domaine():
     """Meme correction que ci-dessus pour `_DOMAINES_OUVRANT`
     (binary_sensor)."""
-    champs = listes_champs._schema_ouvrant(False).schema
+    champs = list_fields._schema_ouvrant(False).schema
     selecteur = next(v for k, v in champs.items() if str(k) == "entite")
     assert "domain" not in selecteur.config
 
@@ -291,7 +291,7 @@ def test_le_selecteur_de_geste_declare_translation_key_geste():
     `_selecteur_geste()` laisserait cette suite verte tant que le JSON garde
     ses cles, exactement le meme angle mort que corrige
     `test_icone_vient_du_contrat_embarque...` pour les icones."""
-    selecteur = listes_champs._selecteur_geste()
+    selecteur = list_fields._selecteur_geste()
     assert selecteur.config["translation_key"] == "geste"
 
 
@@ -324,7 +324,7 @@ async def test_service_a_demi_rempli_est_refuse_a_l_ajout(hass, entree):
     relecture finale de branche) — un motif JSON Schema ("minItems") pose sur
     "base" (aucun champ surligne), pour un message reellement affiche
     "Ce champ n'est pas valide : : minItems." Charabia, corrige : le refus
-    porte maintenant `ERREUR_SERVICE_INCOMPLET`, pose sur le champ
+    porte maintenant `ERROR_SERVICE_INCOMPLETE`, pose sur le champ
     REELLEMENT vide (`service_action` ici)."""
     subentry_id = await _creer_ecran(hass, entree)
     flow = await _init_reconfigure(hass, entree, subentry_id)
@@ -342,7 +342,7 @@ async def test_service_a_demi_rempli_est_refuse_a_l_ajout(hass, entree):
         },
     )
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["service_action"] == ERREUR_SERVICE_INCOMPLET
+    assert resultat["errors"]["service_action"] == ERROR_SERVICE_INCOMPLETE
     assert _commandes(hass) == [], "aucune tuile ne doit avoir ete ecrite"
 
 
@@ -383,11 +383,11 @@ async def test_service_a_demi_efface_est_refuse_et_ne_supprime_pas_le_service_ex
             "entite": "cover.portail",
             "service_domaine": "",  # efface UN SEUL des deux champs.
             "service_action": "open_cover",
-            "geste": ACTION_ENREGISTRER,
+            "geste": ACTION_SAVE,
         },
     )
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["service_domaine"] == ERREUR_SERVICE_INCOMPLET
+    assert resultat["errors"]["service_domaine"] == ERROR_SERVICE_INCOMPLETE
     assert _commandes(hass)[0]["service"] == ["cover", "open_cover"], (
         "un refus ne doit RIEN ecrire : le service existant doit survivre intact")
 
@@ -429,7 +429,7 @@ async def test_vider_les_deux_champs_service_retire_le_service_existant(hass, en
             "entite": "cover.portail",
             "service_domaine": "",
             "service_action": "",
-            "geste": ACTION_ENREGISTRER,
+            "geste": ACTION_SAVE,
         },
     )
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
@@ -438,7 +438,7 @@ async def test_vider_les_deux_champs_service_retire_le_service_existant(hass, en
 
 
 # ---------------------------------------------------------------------------
-# Ronde 2 de relecture (point 2) : `listes.py` portait le MEME defaut de
+# Ronde 2 de relecture (point 2) : `list_sections.py` portait le MEME defaut de
 # troncature que `garde_ecran.py` corrigeait deja pour agencement/voiture —
 # un champ REQUIS omis de la donnee CONSTRUITE retombait sur "base" via
 # `schema.localiser()`. `valeur` (SYNTHESE) est la SEULE des quatre formes
@@ -465,6 +465,6 @@ async def test_valeur_vide_sur_une_ligne_de_synthese_nomme_le_champ_pas_base(has
         {"entite": "sensor.x", "texte": "Texte", "operateur": "==", "valeur": ""},
     )
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["valeur"] == ERREUR_CHAMP_REQUIS
+    assert resultat["errors"]["valeur"] == ERROR_FIELD_REQUIRED
     assert "base" not in resultat["errors"]
 

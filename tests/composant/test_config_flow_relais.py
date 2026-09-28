@@ -8,11 +8,11 @@ Separe de `test_config_flow.py` (ce fichier approchait 500 lignes) --  meme
 couture que `test_config_flow_identite.py`/`test_config_flow_objets.py`.
 """
 from custom_components.home_desk.config_flow import EcranSubentryFlow
-from custom_components.home_desk.listes_champs import SECTIONS
+from custom_components.home_desk.list_fields import SECTIONS
 
 
 def test_les_relais_de_section_sont_rendus_generiquement():
-    """Les 2 steps x N sections qu'exige `listes.SectionsListeMixin`.
+    """Les 2 steps x N sections qu'exige `list_sections.ListSectionsMixin`.
 
     Home Assistant appelle un step PAR SON NOM (`getattr(flow,
     f"async_step_{step_id}")`), donc on ne peut pas s'en passer -- mais on

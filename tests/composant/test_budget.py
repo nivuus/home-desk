@@ -10,7 +10,7 @@ import pathlib
 import pytest
 
 from custom_components.home_desk import budget as _module_budget
-from custom_components.home_desk.budget import CHEMIN_BUDGET, combien, verifier_budget
+from custom_components.home_desk.budget import CHEMIN_BUDGET, combien, check_budget
 
 CORPUS = json.loads(
     (pathlib.Path(__file__).resolve().parents[2] / "contrat" / "cas-budget.json")
@@ -26,7 +26,7 @@ def test_le_corpus_rend_le_meme_verdict(cas):
     rendu_commandes = combien(cas["mode"], cas["rangeeAmbiance"], cas["hauteurUtile"], cas["zones"])
     assert rendu_commandes == cas["commandes"], (
         f"{nom} : combien() rend {rendu_commandes}, le corpus attend {cas['commandes']}")
-    rendu_debordement = verifier_budget(cas["mode"], cas["rangeeAmbiance"], cas["hauteurUtile"], cas["zones"])
+    rendu_debordement = check_budget(cas["mode"], cas["rangeeAmbiance"], cas["hauteurUtile"], cas["zones"])
     assert rendu_debordement == cas["debordement"], (
         f"{nom} : verifier_budget() rend {rendu_debordement}, "
         f"le corpus attend {cas['debordement']}")

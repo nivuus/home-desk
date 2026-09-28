@@ -5,12 +5,12 @@ recompose) — le squelette choisir/ajouter/monter/descendre/supprimer, lui,
 est deja couvert par `test_config_flow_listes.py`.
 
 Separe de `test_config_flow_objets.py` en ronde 2 de relecture (ce dernier
-depassait 500 lignes) — meme couture que `listes_champs_sources.py`
+depassait 500 lignes) — meme couture que `list_fields_sources.py`
 lui-meme : « une section = un fichier »."""
 from homeassistant import data_entry_flow
 
 from conftest import _creer_ecran, _init_reconfigure
-from custom_components.home_desk.const import ERREUR_ALLUMEE_INCOMPLETE
+from custom_components.home_desk.const import ERROR_POWERED_ON_INCOMPLETE
 
 
 async def test_source_dont_un_seul_champ_multi_entite_est_touche_est_acceptee(hass, entree):
@@ -52,13 +52,13 @@ async def test_source_allumee_incomplete_est_refusee(hass, entree):
         {"nom": "Salon TV", "allumee_entite": "binary_sensor.tv_allumee"},
     )
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["allumee_etats"] == ERREUR_ALLUMEE_INCOMPLETE
+    assert resultat["errors"]["allumee_etats"] == ERROR_POWERED_ON_INCOMPLETE
     subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
     assert subentry.data["sources"] == [], "un refus ne doit RIEN persister"
 
 
 async def test_source_avec_allumee_se_reedite_avec_les_deux_champs_preremplis(hass, entree):
-    """Mineur de la ronde 1 : la recomposition `_afficher_source` (l'inverse
+    """Mineur de la ronde 1 : la recomposition `_display_source` (l'inverse
     de la construction, pour l'objet `allumee`) n'etait exercee par AUCUN
     aller-retour d'edition."""
     subentry_id = await _creer_ecran(hass, entree)

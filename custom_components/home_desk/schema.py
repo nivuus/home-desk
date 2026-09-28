@@ -1,39 +1,38 @@
-"""Le miroir voluptuous de contrat/ecran.schema.json.
+"""The voluptuous mirror of contrat/ecran.schema.json.
 
-DEUX validateurs pour une seule forme, et c'est assume : ajv ne tourne pas dans
-Home Assistant, voluptuous ne tourne pas dans un navigateur. Ce qui les empeche
-de diverger n'est pas la discipline, c'est contrat/cas-schema.json — un corpus
-que les DEUX suites rejouent, ou un cas present d'un cote et absent de l'autre
-est impossible puisque c'est le meme fichier.
+TWO validators for a single shape, and that is deliberate: ajv does not run
+in Home Assistant, voluptuous does not run in a browser. What keeps them from
+diverging is not discipline, it is contrat/cas-schema.json — a corpus that
+BOTH suites replay, where a case present on one side and absent from the
+other is impossible since it is the same file.
 
-`fautes.motif()` (reexportee ici) rend la faute au format du corpus :
-`chemin: mot-cle`. Les deux validateurs doivent nommer le MEME endroit ; sans
-quoi un test negatif passe pour la mauvaise raison. La hierarchie `_Faute` et
-`motif()` elle-meme vivent dans `fautes.py`, separees d'ici en ronde 3 de
-relecture (une seule et meme preoccupation — nommer une faute — pas celle de
-ce module, qui MIROITE le contrat).
+`fautes.motif()` (re-exported here) returns the fault in the corpus format:
+`path: keyword`. Both validators must name the SAME place; otherwise a
+negative test passes for the wrong reason. The `_Faute` hierarchy and
+`motif()` itself live in `fautes.py`, split from here in review round 3 (one
+and the same concern — naming a fault — not this module's concern, which
+MIRRORS the contract).
 
-Le schema lu ici est celui EMBARQUE (`contrat/` sous ce module), jamais celui
-du depot : une fois installe, ce composant tourne depuis
-config/custom_components/home_desk/ et n'a aucun chemin vers le depot. Un
-chemin relatif remontant vers ../../contrat marcherait en test (le depot est
-la) et casserait en production — sans qu'aucune suite ne le voie, puisque les
-trois tournent depuis le depot. D'ou `pathlib.Path(__file__).parent`, jamais
-un chemin qui remonte.
+The schema read here is the EMBEDDED one (`contrat/` under this module),
+never the repository's: once installed, this component runs from
+config/custom_components/home_desk/ and has no path to the repository. A
+relative path climbing up to ../../contrat would work in tests (the
+repository is there) and break in production — without any suite seeing
+it, since all three run from the repository. Hence
+`pathlib.Path(__file__).parent`, never a path that climbs up.
 
-Les vocabulaires qui bougent (icones, operateurs, enums d'agencement) sont LUS
-depuis ce JSON plutot que retranscrits en dur : une troisieme copie a la main,
-a cote de celle deja generee dans ecran.schema.json depuis icones.json,
-serait exactement la sorte de divergence silencieuse que ce fichier existe
-pour empecher.
+The vocabularies that move (icons, operators, layout enums) are READ from
+this JSON rather than transcribed by hand: a third hand-made copy, next to
+the one already generated into ecran.schema.json from icones.json, would be
+exactly the kind of silent divergence this file exists to prevent.
 
-Les validateurs FEUILLE (`_chaine`, `_enum`, `_const`, `_uniques`...) vivent
-dans `validateurs.py`, separes d'ici en relecture finale de branche
-(deuxieme ronde) pour la MEME raison que `fautes.py` (ronde 3, tache 6) :
-une couture reelle, pas une coupe arbitraire pour rester sous 500 lignes.
-Ce module reste le SEUL a LIRE le contrat embarque ; `validateurs.py` ne
-fait que composer des fabriques pures, parametrees par ce que CE module
-en tire (`HAUTEUR_MIN`/`HAUTEUR_MAX`, notamment)."""
+The LEAF validators (`_string`, `_enum`, `_const`, `_uniques`...) live in
+`validateurs.py`, split from here during the final branch review (second
+round) for the SAME reason as `fautes.py` (round 3, task 6): a real seam,
+not an arbitrary cut to stay under 500 lines. This module remains the ONLY
+one that READS the embedded contract; `validateurs.py` only composes pure
+factories, parameterised by what THIS module extracts from it
+(`HAUTEUR_MIN`/`HAUTEUR_MAX`, notably)."""
 from __future__ import annotations
 
 import json
@@ -50,16 +49,16 @@ from .fautes import (
     motif,
 )
 
-# Decision de la tache 3 : jamais "../../contrat", toujours relatif au module.
-# Clouee par test_schema_lit_le_contrat_embarque (tests/composant/test_schema.py).
+# Task 3 decision: never "../../contrat", always relative to the module.
+# Pinned by test_schema_lit_le_contrat_embarque (tests/composant/test_schema.py).
 CHEMIN_SCHEMA = pathlib.Path(__file__).parent / "contrat" / "ecran.schema.json"
 
-# Publique (ronde de correction 2, tache 7) : ce module reste le SEUL a LIRE
-# le contrat embarque (voir la docstring de module) -- `registre.py` avait
-# ouvert sa PROPRE lecture du meme fichier pour descendre valeur/sous-schema
-# en parallele (`entites_dans`), une seconde copie que ce module existe pour
-# empecher. Meme raisonnement que `HAUTEUR_MIN`/`HAUTEUR_MAX` ci-dessous : le
-# JSON deja lu, publie une seule fois, ici.
+# Public (fix round 2, task 7): this module remains the ONLY one that READS
+# the embedded contract (see the module docstring) -- `registre.py` had
+# opened its OWN read of the same file to walk value/sub-schema in parallel
+# (`entities_in`), a second copy this module exists to prevent. Same
+# reasoning as `HAUTEUR_MIN`/`HAUTEUR_MAX` below: the JSON already read,
+# published once, here.
 SCHEMA_JSON = json.loads(CHEMIN_SCHEMA.read_text(encoding="utf-8"))
 
 _DEFS = SCHEMA_JSON["$defs"]
@@ -70,58 +69,58 @@ _OPERATEURS = frozenset(_DEFS["synthese"]["properties"]["operateur"]["enum"])
 _ENTITE_PATTERN = re.compile(_DEFS["entite"]["pattern"])
 _VUE_PATTERN = re.compile(_DEFS["bouton"]["properties"]["vue"]["pattern"])
 
-# Publiques (pas de prefixe _) : config_flow.py les reutilise pour refuser
-# une hauteur hors bornes DES LA SAISIE, avant que schema.valider() ne le
-# fasse plus tard sur l'ecran complet. Les bornes viennent du contrat une
-# seule fois, ici ; les redupliquer en dur dans config_flow.py aurait ete
-# exactement la seconde copie que ce fichier existe pour empecher.
+# Public (no _ prefix): config_flow.py reuses them to refuse an
+# out-of-bounds height AS SOON AS IT IS ENTERED, before schema.valider()
+# does it later on the complete screen. The bounds come from the contract
+# once, here; duplicating them by hand in config_flow.py would have been
+# exactly the second copy this file exists to prevent.
 HAUTEUR_MIN = SCHEMA_JSON["properties"]["hauteurUtile"]["minimum"]
 HAUTEUR_MAX = SCHEMA_JSON["properties"]["hauteurUtile"]["maximum"]
 
-# Ronde 2 de relecture (tache 8) : DERIVEE du contrat, exactement comme
-# HAUTEUR_MIN/HAUTEUR_MAX ci-dessus -- jamais un `1` retape a la main. La
-# ronde 1 avait couple `_const(1)` a `const.VERSION_CONFIG` (import), mais
-# son commentaire affirmait a tort que `version` serait « propre a
-# home_desk, pas au contrat partage avec ajv » : FAUX, mesure --
-# `contrat/ecran.schema.json:10` porte `"version": {"const": 1}`, le MEME
-# fichier que `SCHEMA_JSON` lit ligne 57 et qu'ajv consomme aussi. Ce qui
-# est propre a home_desk, c'est seulement l'ABSENCE de cas sur `version`
-# dans `contrat/cas-schema.json` (compte : 0) -- la mesure d'un trou de
-# couverture du corpus partage, pas une dispense de le lire depuis lui.
+# Review round 2 (task 8): DERIVED from the contract, exactly like
+# HAUTEUR_MIN/HAUTEUR_MAX above -- never a `1` retyped by hand. Round 1 had
+# coupled `_const(1)` to `const.VERSION_CONFIG` (import), but its comment
+# wrongly claimed that `version` would be "specific to home_desk, not to the
+# contract shared with ajv": FALSE, measured --
+# `contrat/ecran.schema.json:10` carries `"version": {"const": 1}`, the SAME
+# file that `SCHEMA_JSON` reads on line 57 and that ajv consumes too. What
+# is specific to home_desk is only the ABSENCE of cases on `version` in
+# `contrat/cas-schema.json` (count: 0) -- the measure of a coverage gap in
+# the shared corpus, not an exemption from reading it from there.
 #
-# L'assertion ci-dessous fait du contrat l'AUTORITE : si quelqu'un change
-# `VERSION_CONFIG` (const.py) sans repercuter le contrat (ou l'inverse),
-# l'import de ce module echoue net plutot que de laisser les deux copies
-# diverger en silence.
+# The assertion below makes the contract the AUTHORITY: if someone changes
+# `VERSION_CONFIG` (const.py) without carrying it over to the contract (or
+# the reverse), importing this module fails outright rather than letting the
+# two copies silently diverge.
 VERSION_SCHEMA: int = SCHEMA_JSON["properties"]["version"]["const"]
 assert VERSION_SCHEMA == VERSION_CONFIG, (
-    f"contrat/ecran.schema.json declare version={VERSION_SCHEMA!r} mais "
-    f"const.VERSION_CONFIG vaut {VERSION_CONFIG!r} -- les deux doivent "
-    "rester identiques : le second est la version de FORME que ce "
-    "composant sait lire, le premier est celle que le contrat publie."
+    f"contrat/ecran.schema.json declares version={VERSION_SCHEMA!r} but "
+    f"const.VERSION_CONFIG is {VERSION_CONFIG!r} -- the two must stay "
+    "identical: the second is the SHAPE version this component can read, "
+    "the first is the one the contract publishes."
 )
 
-# Publique pour la meme raison : listes.py construit le SelectSelector
-# d'`operateur` de la ligne de synthese sur CES quatre valeurs, jamais une
-# liste ecrite a la main a cote de _OPERATEURS. LISTE, pas _OPERATEURS
-# (un frozenset) : un menu affiche dans l'ORDRE de ses options, et l'ordre
-# d'un frozenset n'est pas garanti stable d'un processus Python a l'autre
-# (verifie : trois lancements, trois ordres) — corrige en ronde 1 de
-# relecture de la tache 6. La liste vient du JSON directement, jamais de
-# l'ensemble prive derive pour la validation membership.
+# Public for the same reason: list_sections.py builds the `operateur`
+# SelectSelector of the summary line on THESE four values, never a list
+# written by hand next to _OPERATEURS. A LIST, not _OPERATEURS (a
+# frozenset): a menu displays in the ORDER of its options, and the order of
+# a frozenset is not guaranteed stable from one Python process to another
+# (verified: three runs, three orders) — fixed in review round 1 of task 6.
+# The list comes straight from the JSON, never from the private set derived
+# for membership validation.
 OPERATEURS: list[str] = list(_DEFS["synthese"]["properties"]["operateur"]["enum"])
 
-# Publiques pour la MEME raison qu'OPERATEURS : ZONES, BLOC_DEFAUT, MODES et
-# MODULATEURS sont des LISTES ordonnees des maintenant, alors qu'AUCUN
-# formulaire ne les consomme encore (elles ne servent ici qu'a la validation
-# d'appartenance, via `frozenset(...)` construit a la volee plus bas dans
-# AGENCEMENT) -- la tache "Blocs et modes" (apres la tache 6) leur donnera un
-# SelectSelector, exactement comme OPERATEURS pour la ligne de synthese.
-# Correction PREVENTIVE, ronde 2 de relecture de la tache 6 : les ecrire en
-# frozenset aujourd'hui et les decouvrir non ordonnees ce jour-la aurait ete
-# la MEME dette qu'OPERATEURS portait avant la ronde 1, repoussee d'une tache
-# pour rien. Listes, jamais des ensembles prives : le meme ordre que le
-# contrat, garanti stable d'un processus Python a l'autre.
+# Public for the SAME reason as OPERATEURS: ZONES, BLOC_DEFAUT, MODES and
+# MODULATEURS are ordered LISTS from now on, although NO form consumes them
+# yet (here they only serve membership validation, via `frozenset(...)`
+# built on the fly further down in AGENCEMENT) -- the "Blocks and modes"
+# task (after task 6) will give them a SelectSelector, exactly like
+# OPERATEURS for the summary line. PREVENTIVE fix, review round 2 of task
+# 6: writing them as frozensets today and discovering them unordered on
+# that day would have been the SAME debt OPERATEURS carried before round 1,
+# postponed by one task for nothing. Lists, never private sets: the same
+# order as the contract, guaranteed stable from one Python process to
+# another.
 ZONES: list[str] = list(_DEFS["agencement"]["properties"]["zones"]["items"]["enum"])
 BLOC_DEFAUT: list[str] = list(_DEFS["agencement"]["properties"]["blocDefaut"]["enum"])
 MODES: list[str] = list(_DEFS["agencement"]["properties"]["modes"]["items"]["enum"])
@@ -129,21 +128,21 @@ MODULATEURS: list[str] = list(_DEFS["agencement"]["properties"]["modulateurs"]["
 
 
 # --------------------------------------------------------------------------
-# Validateurs feuille : DEPLACES dans validateurs.py en relecture finale de
-# branche (deuxieme ronde), pour rester sous 500 lignes -- meme couture que
-# celle qui avait deja produit fautes.py (ronde 3, tache 6). `hauteur_utile`
-# reste l'exception : sa fabrique (`_hauteur_utile`) vit la-bas, mais SA
-# VALEUR PUBLIQUE (bornee par le contrat EMBARQUE que SEUL ce module lit)
-# est composee ICI, pour que `config_flow.py`/`objets.py` continuent de la
-# lire comme `schema.hauteur_utile`, sans aucun changement d'interface.
+# Leaf validators: MOVED to validateurs.py during the final branch review
+# (second round), to stay under 500 lines -- same seam as the one that had
+# already produced fautes.py (round 3, task 6). `hauteur_utile` remains the
+# exception: its factory (`_hauteur_utile`) lives over there, but ITS
+# PUBLIC VALUE (bounded by the EMBEDDED contract that ONLY this module
+# reads) is composed HERE, so that `config_flow.py`/`objets.py` keep reading
+# it as `schema.hauteur_utile`, with no interface change at all.
 # --------------------------------------------------------------------------
 from .validateurs import (  # noqa: E402
     _alerte_en_tete,
-    _chaine,
+    _string,
     _const,
     _enum,
     _hauteur_utile,
-    _motif_chaine,
+    _string_pattern,
     _paire_service,
     _trie,
     _uniques,
@@ -151,72 +150,73 @@ from .validateurs import (  # noqa: E402
 
 hauteur_utile = _hauteur_utile(HAUTEUR_MIN, HAUTEUR_MAX)
 
-ENTITE = _motif_chaine(_ENTITE_PATTERN)
+ENTITE = _string_pattern(_ENTITE_PATTERN)
 
 
 # --------------------------------------------------------------------------
-# Objets imbriques ($defs/*)
+# Nested objects ($defs/*)
 # --------------------------------------------------------------------------
 
 BOUTON = vol.Schema(
     {
-        vol.Required("libelle"): _chaine(1),
-        vol.Required("icone"): vol.All(_chaine(1), _enum(_ICONES)),
+        vol.Required("libelle"): _string(1),
+        vol.Required("icone"): vol.All(_string(1), _enum(_ICONES)),
         vol.Required("entite"): ENTITE,
         vol.Optional("cible"): ENTITE,
         vol.Optional("service"): _paire_service(),
-        vol.Optional("lien"): _chaine(1),
-        vol.Optional("vue"): _motif_chaine(_VUE_PATTERN),
+        vol.Optional("lien"): _string(1),
+        vol.Optional("vue"): _string_pattern(_VUE_PATTERN),
         vol.Optional("epingle"): _const(True),
-        vol.Optional("absenceNommee"): _chaine(),
-        vol.Optional("note"): _chaine(),
+        vol.Optional("absenceNommee"): _string(),
+        vol.Optional("note"): _string(),
     },
     extra=vol.PREVENT_EXTRA,
 )
 
 
-def _valeur_synthese(donnee: dict) -> dict:
-    """Les deux `allOf` de $defs/synthese : le type de `valeur` depend de
-    `operateur`. `path=["valeur"]` : c'est la valeur, pas l'objet entier, que
-    ajv designe (`/synthese/0/valeur`)."""
-    operateur = donnee.get("operateur")
-    valeur = donnee.get("valeur")
-    est_nombre = isinstance(valeur, (int, float)) and not isinstance(valeur, bool)
-    if operateur in ("<", ">") and not est_nombre:
+def _summary_value(item_data: dict) -> dict:
+    """The two `allOf` of $defs/synthese: the type of the value field
+    depends on `operateur`. The path names that value field, not the whole
+    object: it is the field, not the object, that ajv designates (the value
+    field under `/synthese/0/`)."""
+    operateur = item_data.get("operateur")
+    value = item_data.get("valeur")
+    is_number = isinstance(value, (int, float)) and not isinstance(value, bool)
+    if operateur in ("<", ">") and not is_number:
         raise _FauteType("valeur doit etre un nombre", path=["valeur"])
-    if operateur in ("==", "!=") and not (est_nombre or isinstance(valeur, str)):
+    if operateur in ("==", "!=") and not (is_number or isinstance(value, str)):
         raise _FauteType("valeur doit etre une chaine ou un nombre", path=["valeur"])
-    return donnee
+    return item_data
 
 
 SYNTHESE = vol.All(
     vol.Schema(
         {
             vol.Required("entite"): ENTITE,
-            vol.Required("texte"): _chaine(1),
+            vol.Required("texte"): _string(1),
             vol.Required("operateur"): _enum(_OPERATEURS),
             vol.Required("valeur"): object,
             vol.Optional("perso"): _const(True),
             vol.Optional("horsTaches"): _const(True),
-            vol.Optional("absenceNommee"): _chaine(),
-            vol.Optional("note"): _chaine(),
+            vol.Optional("absenceNommee"): _string(),
+            vol.Optional("note"): _string(),
         },
         extra=vol.PREVENT_EXTRA,
     ),
-    _valeur_synthese,
+    _summary_value,
 )
 
 _ALLUMEE = vol.Schema(
     {
         vol.Required("entite"): ENTITE,
-        vol.Required("etats"): [_chaine()],
+        vol.Required("etats"): [_string()],
     },
     extra=vol.PREVENT_EXTRA,
 )
 
 SOURCE = vol.Schema(
     {
-        vol.Required("nom"): _chaine(1),
+        vol.Required("nom"): _string(1),
         vol.Required("titre"): [ENTITE],
         vol.Required("sousTitre"): [ENTITE],
         vol.Required("affiche"): [ENTITE],
@@ -224,7 +224,7 @@ SOURCE = vol.Schema(
         vol.Required("transport"): [ENTITE],
         vol.Required("volume"): [ENTITE],
         vol.Optional("allumee"): _ALLUMEE,
-        vol.Optional("note"): _chaine(),
+        vol.Optional("note"): _string(),
     },
     extra=vol.PREVENT_EXTRA,
 )
@@ -233,7 +233,7 @@ MINUTEUR_SLOT = vol.Schema(
     {
         vol.Required("timer"): ENTITE,
         vol.Required("nom"): ENTITE,
-        vol.Optional("note"): _chaine(),
+        vol.Optional("note"): _string(),
     },
     extra=vol.PREVENT_EXTRA,
 )
@@ -247,7 +247,7 @@ VOITURE = vol.Schema(
         vol.Required("clim"): ENTITE,
         vol.Required("demarrerClim"): ENTITE,
         vol.Required("arreterClim"): ENTITE,
-        vol.Optional("note"): _chaine(),
+        vol.Optional("note"): _string(),
     },
     extra=vol.PREVENT_EXTRA,
 )
@@ -262,30 +262,31 @@ AGENCEMENT = vol.Schema(
             [_enum(frozenset(MODES))], _uniques(), vol.Contains("defaut"), _alerte_en_tete()
         ),
         vol.Required("modulateurs"): vol.All([_enum(frozenset(MODULATEURS))], _uniques(), _trie()),
-        vol.Optional("note"): _chaine(),
+        vol.Optional("note"): _string(),
     },
     extra=vol.PREVENT_EXTRA,
 )
 
 
 # --------------------------------------------------------------------------
-# La forme complete, et les trois invariants croises que l'allOf racine du
-# JSON Schema exprime (README.md, contrat/) : blocDefaut "voiture" => voiture,
-# mode "minuteur" => minuteurs non vide. Le troisieme (agencement complet) est
-# deja porte par AGENCEMENT ci-dessus (ses trois listes sont Required).
+# The complete shape, and the three cross-field invariants that the JSON
+# Schema root allOf expresses (README.md, contrat/): blocDefaut "voiture" =>
+# voiture, mode "minuteur" => non-empty minuteurs. The third (complete
+# layout) is already carried by AGENCEMENT above (its three arrays are
+# Required).
 # --------------------------------------------------------------------------
 
 _ECRAN_STRUCTURE = vol.Schema(
     {
-        # Ronde 2 de relecture (tache 8) : `_const(VERSION_SCHEMA)`, DERIVEE
-        # du contrat (voir sa definition plus haut, a cote de HAUTEUR_MIN),
-        # et non plus `_const(VERSION_CONFIG)` -- la ronde 1 avait couple
-        # a la constante Python, mais la valeur qui compte ICI est celle
-        # QUE LE CONTRAT PUBLIE, l'assertion module-level garantissant deja
-        # que les deux ne peuvent pas diverger silencieusement.
+        # Review round 2 (task 8): `_const(VERSION_SCHEMA)`, DERIVED from
+        # the contract (see its definition above, next to HAUTEUR_MIN), and
+        # no longer `_const(VERSION_CONFIG)` -- round 1 had coupled it to
+        # the Python constant, but the value that matters HERE is the one
+        # THE CONTRACT PUBLISHES, the module-level assertion already
+        # guaranteeing the two cannot silently diverge.
         vol.Optional("version"): _const(VERSION_SCHEMA),
-        vol.Required("nom"): _chaine(1),
-        vol.Optional("note"): _chaine(),
+        vol.Required("nom"): _string(1),
+        vol.Optional("note"): _string(),
         vol.Optional("hauteurUtile"): hauteur_utile,
         vol.Required("temperature"): ENTITE,
         vol.Required("ambiances"): [BOUTON],
@@ -298,7 +299,7 @@ _ECRAN_STRUCTURE = vol.Schema(
         vol.Optional("aspirateur"): ENTITE,
         vol.Optional("listesTachesExtra"): [ENTITE],
         vol.Optional("minuteurs"): [MINUTEUR_SLOT],
-        vol.Optional("etiquettesMinuteur"): [_chaine()],
+        vol.Optional("etiquettesMinuteur"): [_string()],
         vol.Optional("voiture"): VOITURE,
         vol.Optional("delorean"): _const(True),
         vol.Optional("agencement"): AGENCEMENT,
@@ -308,10 +309,10 @@ _ECRAN_STRUCTURE = vol.Schema(
 
 
 def _invariants_croises(ecran: dict) -> dict:
-    """Les deux `if`/`then` de l'`allOf` racine. `vol.RequiredFieldInvalid`
-    avec `path=[<champ manquant>]` : motif() en retire le dernier segment,
-    exactement comme pour un `required` structurel — c'est le meme mot-cle,
-    juste porte par une regle inter-champs plutot que par le dict lui-meme."""
+    """The two `if`/`then` of the root `allOf`. `vol.RequiredFieldInvalid`
+    with `path=[<missing field>]`: motif() strips its last segment, exactly
+    as for a structural `required` — it is the same keyword, just carried by
+    a cross-field rule rather than by the dict itself."""
     agencement = ecran.get("agencement")
     if not agencement:
         return ecran
@@ -332,8 +333,8 @@ ECRAN: vol.Schema = vol.Schema(vol.All(_ECRAN_STRUCTURE, _invariants_croises))
 
 
 def valider(brut: dict) -> dict:
-    """Valide et normalise un ecran. Leve vol.Invalid (en pratique une
-    vol.MultipleInvalid, qui en est une sous-classe) si `brut` n'est pas
-    conforme."""
+    """Validates and normalises a screen. Raises vol.Invalid (in practice a
+    vol.MultipleInvalid, which is a subclass of it) if `brut` does not
+    conform."""
     return ECRAN(brut)
 

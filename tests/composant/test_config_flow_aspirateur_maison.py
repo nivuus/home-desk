@@ -13,9 +13,9 @@ from homeassistant.helpers import translation
 from conftest import _creer_ecran, _init_reconfigure
 from custom_components.home_desk.const import (
     DOMAIN,
-    ERREUR_CHAMP_FORMAT_INVALIDE,
-    ERREUR_CHAMP_VIDE,
-    ERREUR_SERVICE_INCOMPLET,
+    ERROR_FIELD_INVALID_FORMAT,
+    ERROR_FIELD_EMPTY,
+    ERROR_SERVICE_INCOMPLETE,
 )
 
 
@@ -68,7 +68,7 @@ async def test_une_paire_service_a_demi_remplie_est_refusee_sans_rien_persister(
     del demi["service_action"]
     resultat = await _soumettre(hass, entree, subentry_id, demi)
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["service_action"] == ERREUR_SERVICE_INCOMPLET
+    assert resultat["errors"]["service_action"] == ERROR_SERVICE_INCOMPLETE
     subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
     assert "aspirateurMaison" not in subentry.data
 
@@ -77,7 +77,7 @@ async def test_un_libelle_fait_d_espaces_est_refuse(hass, entree):
     subentry_id = await _creer_ecran(hass, entree)
     resultat = await _soumettre(hass, entree, subentry_id, {**BOUTON, "libelle": "   "})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["libelle"] == ERREUR_CHAMP_VIDE
+    assert resultat["errors"]["libelle"] == ERROR_FIELD_EMPTY
 
 
 async def test_cocher_sans_aspirateur_maison_retire_la_cle_entierement(hass, entree):
@@ -93,9 +93,9 @@ async def test_cocher_sans_aspirateur_maison_retire_la_cle_entierement(hass, ent
 
 
 async def test_une_vue_qui_ne_commence_pas_par_diese_est_refusee(hass, entree):
-    """Le formulaire (`_schema_bouton`, listes_champs.py) ne pose AUCUNE
+    """Le formulaire (`_schema_bouton`, list_fields.py) ne pose AUCUNE
     contrainte de forme sur `vue` (`vol.Optional("vue"): str`, large a
-    dessein -- voir la docstring de module de listes_champs.py) : seul
+    dessein -- voir la docstring de module de list_fields.py) : seul
     `schema.BOUTON` (`_VUE_PATTERN`, motif `^#` du contrat) la garde.
     Mutation de l'etape 11 (rapportee dans task-1-report.md) : remplacer
     `schema.BOUTON(candidat)` par `candidat` laissait ce refus disparaitre
@@ -104,7 +104,7 @@ async def test_une_vue_qui_ne_commence_pas_par_diese_est_refusee(hass, entree):
     subentry_id = await _creer_ecran(hass, entree)
     resultat = await _soumettre(hass, entree, subentry_id, {**BOUTON, "vue": "taches"})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["vue"] == ERREUR_CHAMP_FORMAT_INVALIDE
+    assert resultat["errors"]["vue"] == ERROR_FIELD_INVALID_FORMAT
     subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
     assert "aspirateurMaison" not in subentry.data
 

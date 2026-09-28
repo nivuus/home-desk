@@ -114,7 +114,7 @@ async def entree_peuplee(hass, entree_peuplee):
        CONSTAT (ronde 2 de relecture), a dire sans l'armer : `aspirateurMaison`
        (un BOUTON, comme les tuiles) est un TROISIEME champ-dict que rien
        ici n'exerce. Il passe par exactement le meme code que `agencement`/
-       `voiture` (`_rendre_champ`, branche `isinstance(valeur, dict)`,
+       `voiture` (`_rendre_champ`, branche `isinstance(value, dict)`,
        generique aux noms de champs) -- verifie par sonde, la lacune est
        donc sans risque reel. Ajouter une troisieme note ici pour le seul
        principe de couverture serait armer une regle deja gardee deux fois
@@ -280,7 +280,7 @@ async def test_exporter_et_importer_font_leur_ES_hors_de_la_boucle_d_evenements(
     suite D'ALORS entierement verte, voir services.py -- le nombre exact
     ne nomme plus rien de reproductible une fois la suite elle-meme
     modifiee, seule la propriete compte). Cette sonde verifie directement
-    ce que ce depot PEUT prouver : que `_lire_fichier`/`_ecrire_fichier`
+    ce que ce depot PEUT prouver : que `_read_file`/`_write_file`
     passent bien PAR `hass.async_add_executor_job`, jamais par un appel
     direct depuis la coroutine du service."""
     appels: list[str] = []
@@ -295,8 +295,8 @@ async def test_exporter_et_importer_font_leur_ES_hors_de_la_boucle_d_evenements(
     await hass.services.async_call(DOMAIN, "exporter", blocking=True)
     await hass.services.async_call(DOMAIN, "importer", blocking=True)
 
-    assert "_ecrire_fichier" in appels
-    assert "_lire_fichier" in appels
+    assert "_write_file" in appels
+    assert "_read_file" in appels
 
 
 async def test_exporter_et_importer_refusent_un_champ_inconnu(hass, entree):

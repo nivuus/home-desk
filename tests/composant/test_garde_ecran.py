@@ -1,5 +1,5 @@
 """Le mecanisme central de la ronde 1 de relecture (le Critique, tache 7) :
-`garde_ecran.verifier_ecran_complet` — teste ICI directement (sans passer
+`garde_ecran.check_complete_screen` — teste ICI directement (sans passer
 par un flow HA), la propriete elle-meme plutot que trois cas particuliers.
 Les cas particuliers (via le flow reel) vivent dans
 `test_config_flow_objets.py` ; ce fichier tient le MECANISME qui les rend
@@ -12,7 +12,7 @@ test. » Ce module et son complement structurel plus bas repondent a ce
 constat : le MECANISME, pas seulement ses trois manifestations mesurees.
 
 Ronde 2 de relecture : le complement structurel de la ronde 1 (« chaque
-`_async_update` est appaire d'un `verifier_ecran_complet` ») COMPTAIT les
+`_async_update` est appaire d'un `check_complete_screen` ») COMPTAIT les
 appels par fichier plutot que de verifier une UNICITE globale — un
 `_persister(...)` qui ecrivait EN SAUTANT la garde laissait le compte tomber
 a zero des DEUX cotes a la fois, donc rester VERT. Remplace par
@@ -25,7 +25,7 @@ Relecture finale de branche (deuxieme ronde) : les tests de
 `garde_ecran.importer_ecrans` (tache 9) sont partis dans
 `test_garde_ecran_importer.py` -- ce fichier depassait 500 lignes une
 fois deux tests de plus ajoutes a ce mecanisme-la. Seam reel : ces deux
-fonctions (`verifier_ecran_complet` ici, `importer_ecrans` la-bas) sont
+fonctions (`check_complete_screen` ici, `importer_ecrans` la-bas) sont
 les deux SEULS appelants legitimes du site d'ecriture unique, mais ne
 partagent aucune fixture -- chaque fichier construit ses propres factices."""
 import ast
@@ -34,7 +34,7 @@ import pathlib
 import pytest
 
 from custom_components.home_desk import garde_ecran
-from custom_components.home_desk.const import ERREUR_ECRAN_DEVIENDRAIT_INVALIDE
+from custom_components.home_desk.const import ERROR_SCREEN_WOULD_BECOME_INVALID
 
 _ECRAN_BASE = {
     "nom": "x",
@@ -51,7 +51,7 @@ _ECRAN_BASE = {
 
 
 def test_un_ecran_valide_sans_agencement_ne_leve_rien():
-    errors, placeholders = garde_ecran.verifier_ecran_complet(_ECRAN_BASE)
+    errors, placeholders = garde_ecran.check_complete_screen(_ECRAN_BASE)
     assert errors == {}
     assert placeholders == {}
 
@@ -60,7 +60,7 @@ def test_mode_minuteur_sans_slot_est_refuse_et_nomme_minuteurs():
     """LE cas mesure par le relecteur (l'agencement reel de la cuisine,
     `app/src/ecran.ts`) : `agencement.modes` contient "minuteur",
     `minuteurs` est present mais VIDE — jamais absent, depuis que
-    `listes_champs.SECTIONS` l'initialise a la creation.
+    `list_fields.SECTIONS` l'initialise a la creation.
 
     Ronde 2 de relecture (mineur) : la constante `ERREUR_ECRAN_
     DEVIENDRAIT_INVALIDE` est importee ICI, jamais retapee en dur — la
@@ -69,8 +69,8 @@ def test_mode_minuteur_sans_slot_est_refuse_et_nomme_minuteurs():
         **_ECRAN_BASE,
         "agencement": {"zones": ["commandes"], "modes": ["defaut", "minuteur"], "modulateurs": []},
     }
-    errors, placeholders = garde_ecran.verifier_ecran_complet(ecran)
-    assert errors == {"base": ERREUR_ECRAN_DEVIENDRAIT_INVALIDE}
+    errors, placeholders = garde_ecran.check_complete_screen(ecran)
+    assert errors == {"base": ERROR_SCREEN_WOULD_BECOME_INVALID}
     assert placeholders == {"section": "minuteurs"}
 
 
@@ -82,7 +82,7 @@ def test_mode_minuteur_avec_un_slot_ne_leve_rien():
         "minuteurs": [{"timer": "timer.t", "nom": "input_text.n"}],
         "agencement": {"zones": ["commandes"], "modes": ["defaut", "minuteur"], "modulateurs": []},
     }
-    errors, placeholders = garde_ecran.verifier_ecran_complet(ecran)
+    errors, placeholders = garde_ecran.check_complete_screen(ecran)
     assert errors == {}
     assert placeholders == {}
 
@@ -96,13 +96,13 @@ def test_blocDefaut_voiture_sans_objet_voiture_est_refuse_et_nomme_voiture():
             "zones": ["commandes"], "modes": ["defaut"], "modulateurs": [], "blocDefaut": "voiture",
         },
     }
-    errors, placeholders = garde_ecran.verifier_ecran_complet(ecran)
-    assert errors == {"base": ERREUR_ECRAN_DEVIENDRAIT_INVALIDE}
+    errors, placeholders = garde_ecran.check_complete_screen(ecran)
+    assert errors == {"base": ERROR_SCREEN_WOULD_BECOME_INVALID}
     assert placeholders == {"section": "voiture"}
 
 
 def test_le_nom_de_section_n_est_jamais_tronque_contrairement_a_fautes_localiser():
-    """Ronde 1 de relecture : `verifier_ecran_complet` utilise `err.path`
+    """Ronde 1 de relecture : `check_complete_screen` utilise `err.path`
     DIRECTEMENT, jamais `fautes.localiser()`, qui tronque le DERNIER
     segment pour "required" (pour faire correspondre `motif()` au corpus
     ajv — hors de propos ici). Preuve DIRECTE que la troncature de
@@ -144,8 +144,8 @@ def test_section_courante_egale_a_la_section_fautive_redirige_vers_agencement():
             "zones": ["commandes"], "modes": ["defaut"], "modulateurs": [], "blocDefaut": "voiture",
         },
     }
-    errors, placeholders = garde_ecran.verifier_ecran_complet(ecran, section_courante="voiture")
-    assert errors == {"base": ERREUR_ECRAN_DEVIENDRAIT_INVALIDE}
+    errors, placeholders = garde_ecran.check_complete_screen(ecran, section_courante="voiture")
+    assert errors == {"base": ERROR_SCREEN_WOULD_BECOME_INVALID}
     assert placeholders == {"section": "agencement"}
 
 
@@ -161,8 +161,8 @@ def test_section_courante_differente_de_la_section_fautive_ne_redirige_pas():
             "zones": ["commandes"], "modes": ["defaut"], "modulateurs": [], "blocDefaut": "voiture",
         },
     }
-    errors, placeholders = garde_ecran.verifier_ecran_complet(ecran, section_courante="agencement")
-    assert errors == {"base": ERREUR_ECRAN_DEVIENDRAIT_INVALIDE}
+    errors, placeholders = garde_ecran.check_complete_screen(ecran, section_courante="agencement")
+    assert errors == {"base": ERROR_SCREEN_WOULD_BECOME_INVALID}
     assert placeholders == {"section": "voiture"}
 
 
@@ -184,8 +184,8 @@ def test_hass_fourni_traduit_la_section_en_libelle_humain():
         **_ECRAN_BASE,
         "agencement": {"zones": ["commandes"], "modes": ["defaut", "minuteur"], "modulateurs": []},
     }
-    errors, placeholders = garde_ecran.verifier_ecran_complet(ecran, hass=_HassFactice())
-    assert errors == {"base": ERREUR_ECRAN_DEVIENDRAIT_INVALIDE}
+    errors, placeholders = garde_ecran.check_complete_screen(ecran, hass=_HassFactice())
+    assert errors == {"base": ERROR_SCREEN_WOULD_BECOME_INVALID}
     assert placeholders == {"section": "Timers"}, "le libelle EN du menu, jamais l'identifiant brut"
 
 
@@ -262,7 +262,7 @@ def _appels_portes_ecriture(chemin: pathlib.Path) -> set[str]:
 
 def test_garde_ecran_est_le_seul_module_a_appeler_une_porte_d_ecriture():
     """Ronde 2 de relecture (le clou qui n'etait pas le bon) : le test
-    precedent comptait `_async_update` face a `verifier_ecran_complet`,
+    precedent comptait `_async_update` face a `check_complete_screen`,
     PAR FICHIER — un `_persister(...)` qui ecrivait en SAUTANT la garde
     laissait ce compte EGAL (zero des deux cotes), donc VERT.
 
@@ -287,7 +287,7 @@ def test_garde_ecran_est_le_seul_module_a_appeler_une_porte_d_ecriture():
     lui-meme (`config_entries.py:2741`) contourne son propre gel par ce
     meme appel — rien n'empeche un appelant de faire l'IDENTIQUE
     directement, sans jamais nommer une des quatre portes. Mesure : ce
-    mutant precis (`_persister_si_valide`, listes.py, remplace par
+    mutant precis (`_persister_si_valide`, list_sections.py, remplace par
     `object.__setattr__(subentry, "data", {**subentry.data, cle:
     elements}); return True`) laisse CE test VERT — un test AST sur des
     noms d'attribut ne peut structurellement pas voir un appel qui n'en
@@ -341,8 +341,8 @@ def test_garde_ecran_est_le_seul_module_a_appeler_une_porte_d_ecriture():
 
 
 # ---------------------------------------------------------------------------
-# Point 2 de la ronde 2 : `listes_erreurs._localiser_champ` (le meme mecanisme que
-# `garde_ecran.verifier_ecran_complet`, applique cette fois aux HUIT
+# Point 2 de la ronde 2 : `list_errors._localiser_champ` (le meme mecanisme que
+# `garde_ecran.check_complete_screen`, applique cette fois aux HUIT
 # sections « liste ») ne tronque plus le nom du champ pour "required".
 # ---------------------------------------------------------------------------
 
@@ -362,7 +362,7 @@ def test_localiser_champ_ne_tronque_aucune_des_quatre_formes():
     (test_config_flow_champs.py)."""
     import voluptuous as vol
     from custom_components.home_desk import schema
-    from custom_components.home_desk.listes_erreurs import _localiser_champ
+    from custom_components.home_desk.list_errors import _localiser_champ
 
     cas = (
         ("BOUTON/entite", schema.BOUTON, {"libelle": "x", "icone": "bulb"}, "entite"),

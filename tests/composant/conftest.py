@@ -6,8 +6,8 @@ import pytest
 from homeassistant import config_entries, data_entry_flow
 from homeassistant.setup import async_setup_component
 
-from custom_components.home_desk.const import DOMAIN, SOUS_ENTREE_ECRAN
-from custom_components.home_desk.listes_champs import SECTIONS
+from custom_components.home_desk.const import DOMAIN, SUBENTRY_SCREEN
+from custom_components.home_desk.list_fields import SECTIONS
 
 pytest_plugins = "pytest_homeassistant_custom_component"
 
@@ -18,7 +18,7 @@ pytest_plugins = "pytest_homeassistant_custom_component"
 IDENTITE_MINIMALE = {"nom": "Salon d essai", "hauteurUtile": 900, "temperature": "sensor.temp_salon"}
 
 # Un element VALIDE par section « liste », utilise par test_config_flow_
-# listes.py (ajout generique par section, refus generalise a toutes les
+# list_sections.py (ajout generique par section, refus generalise a toutes les
 # sections, preuve de bout en bout que seul `sources` manque encore a
 # schema.valider()). Ronde 3 de relecture : la mention de test_config_
 # flow.py etait perimee — ce fichier n'importe pas ELEMENTS_VALIDES.
@@ -107,7 +107,7 @@ async def _creer_ecran(hass, entree, **overrides) -> str:
     de config_flow (identite et sections « liste »)."""
     donnee = {**IDENTITE_MINIMALE, **overrides}
     flow = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN), context={"source": config_entries.SOURCE_USER})
+        (entree.entry_id, SUBENTRY_SCREEN), context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.subentries.async_configure(flow["flow_id"], donnee)
     assert resultat["type"] is data_entry_flow.FlowResultType.CREATE_ENTRY
     return next(iter(hass.config_entries.async_get_entry(entree.entry_id).subentries))
@@ -115,7 +115,7 @@ async def _creer_ecran(hass, entree, **overrides) -> str:
 
 async def _init_reconfigure(hass, entree, subentry_id: str):
     return await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        (entree.entry_id, SUBENTRY_SCREEN),
         context={"source": config_entries.SOURCE_RECONFIGURE, "subentry_id": subentry_id})
 
 
@@ -163,7 +163,7 @@ async def _geste(hass, section: str, index: int, geste: str):
         _champ_scalaire(section): element, "geste": geste}
 
     flow = await hass.config_entries.subentries.async_init(
-        (entry.entry_id, SOUS_ENTREE_ECRAN),
+        (entry.entry_id, SUBENTRY_SCREEN),
         context={
             "source": config_entries.SOURCE_RECONFIGURE,
             "subentry_id": subentry.subentry_id,
@@ -208,7 +208,7 @@ async def entree_peuplee(hass, entree):
     « monter la troisieme » (index 2) soit distinguable d'un simple echange
     des deux premieres — ce qu'un ecran a deux tuiles ne permettrait pas."""
     flow = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        (entree.entry_id, SUBENTRY_SCREEN),
         context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], IDENTITE_MINIMALE)
@@ -225,7 +225,7 @@ async def entree_peuplee(hass, entree):
     ]
     for tuile in tuiles:
         flow = await hass.config_entries.subentries.async_init(
-            (entree.entry_id, SOUS_ENTREE_ECRAN),
+            (entree.entry_id, SUBENTRY_SCREEN),
             context={
                 "source": config_entries.SOURCE_RECONFIGURE,
                 "subentry_id": subentry_id,
@@ -236,7 +236,7 @@ async def entree_peuplee(hass, entree):
         await hass.config_entries.subentries.async_configure(
             flow["flow_id"], {"nouveau": True})
         # Ajout : le formulaire n'a PAS de champ "geste" (reserve a
-        # l'edition d'un element EXISTANT, cf. listes._schema_bouton) — le
+        # l'edition d'un element EXISTANT, cf. list_sections._schema_bouton) — le
         # soumettre ferait echouer data_schema (cle inconnue).
         resultat = await hass.config_entries.subentries.async_configure(
             flow["flow_id"], tuile)

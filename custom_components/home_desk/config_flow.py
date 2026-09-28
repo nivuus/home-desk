@@ -1,77 +1,77 @@
-"""Les flows de configuration : une entree unique, et une sous-entree par ecran.
+"""The configuration flows: a single entry, and one subentry per screen.
 
-Verifie contre les sources reelles de Home Assistant 2026.9.1 (conteneur
-`homeassistant`, cf. rapport de tache), pas ecrit de memoire : l'etape
-d'entree d'un `ConfigSubentryFlow` est `async_step_user`,
-`async_get_supported_subentry_types` est `classmethod` + `callback`, et
-`ConfigSubentryFlow.async_create_entry` exige `self.source == SOURCE_USER`
-(sinon `ValueError`) — ce que le contexte `SOURCE_USER` du test garantit deja.
-Ces trois points sont ceux que le brief laissait ouverts ; les sources du
-composant `bayesian` (qui porte deja des sous-entrees) les confirment tous
-les trois.
+Checked against the real sources of Home Assistant 2026.9.1 (container
+`homeassistant`, cf. task report), not written from memory: the entry
+step of a `ConfigSubentryFlow` is `async_step_user`,
+`async_get_supported_subentry_types` is `classmethod` + `callback`, and
+`ConfigSubentryFlow.async_create_entry` requires `self.source == SOURCE_USER`
+(otherwise `ValueError`) — which the test's `SOURCE_USER` context already guarantees.
+These three points are the ones the brief left open; the sources of the
+`bayesian` component (which already carries subentries) confirm all
+three.
 
-Le refus `single_instance_allowed` du brief passait par
-`self._async_abort_entries_match()` DANS l'etape. Le test donne, lui, appelle
-`async_init` puis `async_configure` en DEUX temps sur l'entree unique : un
-step qui cree l'entree des `async_init` (donc sans jamais atteindre
-`async_configure`, le flow ayant deja quitte `_progress`) fait echouer le
-second appel avec `UnknownFlow`, pour une raison sans rapport avec le refus
-teste. Les sources de Home Assistant (`color_extractor`, entre autres)
-montrent l'idiome actuel : `manifest.json` porte `"single_config_entry":
-true`, et `ConfigEntriesFlowManager.async_init` verifie ce champ et ABORTE
-*avant meme d'appeler le step* si une entree existe deja — le step, lui,
-reste un aller-retour normal `show_form` puis `create_entry`.
-`_async_abort_entries_match()` reste correct pour un abus applicatif futur
-(ex. deux entrees issues de sources differentes), mais ici le manifeste dit
-deja tout : suivre l'API reelle plutot que le brief, comme demande.
+The brief's `single_instance_allowed` rejection went through
+`self._async_abort_entries_match()` INSIDE the step. The given test, however, calls
+`async_init` then `async_configure` in TWO stages on the single entry: a
+step that creates the entry as early as `async_init` (thus never reaching
+`async_configure`, the flow having already left `_progress`) makes the
+second call fail with `UnknownFlow`, for a reason unrelated to the rejection
+under test. The Home Assistant sources (`color_extractor`, among others)
+show the current idiom: `manifest.json` carries `"single_config_entry":
+true`, and `ConfigEntriesFlowManager.async_init` checks that field and ABORTS
+*before even calling the step* if an entry already exists — the step itself
+remains a normal `show_form` then `create_entry` round trip.
+`_async_abort_entries_match()` remains correct for a future application misuse
+(e.g. two entries from different sources), but here the manifest already
+says it all: follow the real API rather than the brief, as requested.
 
-**Ronde 1 de relecture : le message de ce refus vient du COEUR de Home
-Assistant, jamais de ce module.** `ConfigEntriesFlowManager.async_init`
-construit lui-meme le `ConfigFlowResult` d'abort avec
-`translation_domain=HOMEASSISTANT_DOMAIN` (pas `DOMAIN`), et le frontend
-resout la traduction sur `translation_domain or handler.domain` : la cle
-effectivement lue est donc `component.homeassistant.config.abort.
-single_instance_allowed` (« Deja configure. Une seule configuration est
-possible. »), jamais `component.home_desk.config.abort.
-single_instance_allowed`. Une cle `config.abort.single_instance_allowed`
-dans `translations/fr.json` serait donc MORTE : aucun chemin utilisateur ne
-l'atteint, et elle a ete retiree. Le geste que l'utilisateur doit faire —
-ajouter un ecran depuis l'integration EXISTANTE, pas une seconde integration
-— vit desormais dans `config.step.user.description` de `translations/fr.json`
-(et `en.json`), la SEULE description que la premiere installation affiche
-reellement.
+**Review round 1: the message of this rejection comes from the Home
+Assistant CORE, never from this module.** `ConfigEntriesFlowManager.async_init`
+builds the abort `ConfigFlowResult` itself with
+`translation_domain=HOMEASSISTANT_DOMAIN` (not `DOMAIN`), and the frontend
+resolves the translation on `translation_domain or handler.domain`: the key
+actually read is therefore `component.homeassistant.config.abort.
+single_instance_allowed` ("Already configured. Only a single configuration is
+possible."), never `component.home_desk.config.abort.
+single_instance_allowed`. A `config.abort.single_instance_allowed` key
+in `translations/fr.json` would therefore be DEAD: no user path
+reaches it, and it has been removed. The gesture the user must make —
+add a screen from the EXISTING integration, not a second integration
+— now lives in `config.step.user.description` of `translations/fr.json`
+(and `en.json`), the ONLY description the first installation actually
+displays.
 
-**Une entree, N sous-entrees.** L'entree « Tablettes murales » ne detient
-RIEN : toute la configuration vit dans les sous-entrees, une par ecran.
-Ajouter une quatrieme tablette est alors la MEME operation que pour les trois
-premieres. Une seconde entree detiendrait une seconde verite, et le transport
-(taches 8-9) ne saurait pas laquelle publier — d'ou le refus
-`single_instance_allowed`.
+**One entry, N subentries.** The "Tablettes murales" (wall tablets) entry holds
+NOTHING: the whole configuration lives in the subentries, one per screen.
+Adding a fourth tablet is then the SAME operation as for the first
+three. A second entry would hold a second truth, and the transport
+(tasks 8-9) would not know which one to publish — hence the
+`single_instance_allowed` rejection.
 
-La section « Identite et budget » de la sous-entree porte `nom`,
-`hauteurUtile`, `temperature`, `note`. Le budget doit deja etre verifie ICI :
-c'est la seule donnee qui existe a cette etape, et le mode le moins cher
-(`defaut`, `rangeeAmbiance=True`) suffit a refuser un ecran qu'AUCUN mode ne
-pourrait tenir.
+The subentry's "Identity and budget" section carries `nom`,
+`hauteurUtile`, `temperature`, `note`. The budget must already be checked HERE:
+it is the only data that exists at this step, and the cheapest mode
+(`defaut`, `rangeeAmbiance=True`) is enough to reject a screen that NO mode
+could fit.
 
-**Ronde 1 de relecture (tache 6) : `temperature` a rejoint cette section.**
-C'est un champ RACINE requis du contrat (`contrat/ecran.schema.json`,
-"required") qu'aucune tache du plan ne portait encore — ni la tache 5, ni
-le plan de la tache 6, qui couvrait les sections « liste » mais pas les
-champs scalaires du contrat. Sans lui, la sous-entree n'aurait jamais pu
-passer `schema.valider()`, quelles que soient les sections « liste »
-livrees par ailleurs. `temperature` n'est pas une liste : elle vit ici,
-dans l'identite, jamais dans `listes.py`.
+**Review round 1 (task 6): `temperature` has joined this section.**
+It is a required ROOT field of the contract (`contrat/ecran.schema.json`,
+"required") that no task of the plan carried yet — neither task 5, nor
+the task 6 plan, which covered the "list" sections but not the
+scalar fields of the contract. Without it, the subentry could never have
+passed `schema.valider()`, whatever "list" sections were
+delivered elsewhere. `temperature` is not a list: it lives here,
+in the identity, never in `list_sections.py`.
 
-**Ronde 1 de relecture, second refus : `hauteurUtile` porte aussi les bornes
-du contrat** (`schema.HAUTEUR_MIN`/`HAUTEUR_MAX`, 320 et 4000 px). Le budget
-seul ne les couvre pas : une hauteur enorme (10 000 px, par exemple) ne
-deborde JAMAIS (`verifier_budget` y rend 0), et sans cette seconde garde le
-formulaire l'acceptait — pour que `schema.valider()` la refuse plus tard,
-inversant exactement ce que cette tache existe pour eviter (refuser a la
-saisie, pas devant la tablette). La garde reutilise `schema.hauteur_utile`,
-la MEME fonction que `schema.py` applique a l'ecran complet : aucune borne
-n'est redupliquee ici.
+**Review round 1, second rejection: `hauteurUtile` also carries the contract
+bounds** (`schema.HAUTEUR_MIN`/`HAUTEUR_MAX`, 320 and 4000 px). The budget
+alone does not cover them: a huge height (10,000 px, for example) NEVER
+overflows (`check_budget` returns 0 for it), and without this second guard the
+form accepted it — only for `schema.valider()` to reject it later,
+reversing exactly what this task exists to avoid (reject at
+input time, not in front of the tablet). The guard reuses `schema.hauteur_utile`,
+the SAME function `schema.py` applies to the complete screen: no bound
+is duplicated here.
 """
 from __future__ import annotations
 
@@ -92,174 +92,174 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from . import schema
-from .budget import BUDGET, verifier_budget
+from .budget import BUDGET, check_budget
 from .const import (
     DOMAIN,
-    ERREUR_BUDGET_INTENABLE,
-    ERREUR_HAUTEUR_HORS_BORNES,
-    ERREUR_NOM_DEJA_UTILISE,
-    ERREUR_NOM_VIDE,
-    SOUS_ENTREE_ECRAN,
+    ERROR_BUDGET_UNTENABLE,
+    ERROR_HEIGHT_OUT_OF_BOUNDS,
+    ERROR_NAME_ALREADY_USED,
+    ERROR_NAME_EMPTY,
+    SUBENTRY_SCREEN,
     VERSION_CONFIG,
 )
 from .formulaire import reafficher
-# Ronde 1 de relecture (Critique) : verifie l'ecran COMPLET avant tout
-# persist — voir garde_ecran.py. `async_step_identite` (I4, meme ronde) en
-# a besoin au meme titre que listes.py/objets.py. Ronde 2 : importe comme
-# MODULE — `garde_ecran.persister_si_valide` est LE site d'ecriture unique
-# du paquet, ce module ne nomme plus `_async_update` lui-meme.
+# Review round 1 (Critical): checks the COMPLETE screen before any
+# persist — see garde_ecran.py. `async_step_identite` (I4, same round)
+# needs it just as list_sections.py/objets.py do. Round 2: imported as a
+# MODULE — `garde_ecran.persister_si_valide` is THE single write site
+# of the package, this module no longer names `_async_update` itself.
 from . import garde_ecran
-from .listes import SectionsListeMixin
-from .listes_champs import SECTIONS
-# Tache 7 : les deux sections « objet » (Blocs et modes, Voiture) vivent
-# dans leur PROPRE mixin, `objets.py` — extrait de ce module pour rester
-# sous 500 lignes (meme couture que `listes.py`/`listes_champs.py`).
+from .list_sections import ListSectionsMixin
+from .list_fields import SECTIONS
+# Task 7: the two "object" sections (Blocks and modes, Car) live
+# in their OWN mixin, `objets.py` — extracted from this module to stay
+# under 500 lines (same seam as `list_sections.py`/`list_fields.py`).
 from .objets import SectionsObjetMixin
-# Decision 7 de la spec, tenue a la tache 7 : une entite inconnue du
-# registre AVERTIT, ne refuse jamais (voir registre.py). Relecture finale
-# de branche (C1) : `avertissement_entites_inconnues` remplace l'appel
-# direct a `entites_inconnues` -- voir sa docstring.
+# Spec decision 7, kept in task 7: an entity unknown to the
+# registry WARNS, never rejects (see registre.py). Final branch review
+# (C1): `avertissement_entites_inconnues` replaces the direct call
+# to `entites_inconnues` -- see its docstring.
 from .registre import avertissement_entites_inconnues
 
-# `temperature` ($defs/entite) : le capteur que l'ecran affiche en bandeau.
-# Ronde 1 de relecture (tache 6) : c'etait un champ RACINE requis du contrat
-# (contrat/ecran.schema.json, "required") que ni la tache 5 ni la tache 6 ne
-# portaient encore — aucune tache du plan ne le couvrait, sans quoi la
-# sous-entree n'aurait jamais pu passer schema.valider(). Il appartient a
-# l'identite (config_flow.py), pas a listes.py : ce n'est pas une liste.
+# `temperature` ($defs/entite): the sensor the screen shows in its header band.
+# Review round 1 (task 6): it was a required ROOT field of the contract
+# (contrat/ecran.schema.json, "required") that neither task 5 nor task 6
+# carried yet — no task of the plan covered it, without which the
+# subentry could never have passed schema.valider(). It belongs to
+# the identity (config_flow.py), not to list_sections.py: it is not a list.
 #
-# Ronde 2 de relecture : AUCUNE restriction de domaine — retiree pour la MEME
-# raison que $defs/bouton (listes_champs.py) : "sensor" semblait plausible
-# mais n'etait tenu par aucun test, et le contrat ($defs/entite) ne restreint
-# lui-meme aucun domaine. Une contrainte non tenue par un test est une
-# contrainte INVENTEE.
+# Review round 2: NO domain restriction — removed for the SAME
+# reason as $defs/bouton (list_fields.py): "sensor" seemed plausible
+# but was held by no test, and the contract ($defs/entite) itself
+# restricts no domain. A constraint not held by a test is an
+# INVENTED constraint.
 
-# La section « Identite et budget » seule ; les sections « liste » (tuiles de
-# commande, rangee d'ambiance, ligne de synthese) sont dans listes.py depuis
-# la tache 6, reutilisees ci-dessous par EcranSubentryFlow. Le type de
-# `hauteurUtile` reste `int` ici (le champ frontend) : la validation reelle
-# des bornes passe par `schema.hauteur_utile`, appelee explicitement dans
+# The "Identity and budget" section alone; the "list" sections (control
+# tiles, ambience row, summary line) have been in list_sections.py since
+# task 6, reused below by EcranSubentryFlow. The type of
+# `hauteurUtile` stays `int` here (the frontend field): the actual bounds
+# validation goes through `schema.hauteur_utile`, called explicitly in
 # `EcranSubentryFlow.async_step_user`.
 #
-# Correction tache 6 : `data_schema` EST applique automatiquement par
-# `FlowManager._async_configure` avant d'appeler le step (verifie dans
-# data_entry_flow.py, cf. la docstring de listes.py) — l'affirmation inverse
-# ci-dessus, ecrite en tache 5, etait fausse. Sans consequence ICI : les deux
-# champs valides par SCHEMA_IDENTITE (`str`, `int`) n'y ajoutent aucune regle
-# metier, seulement un type deja correct pour tout appelant de ce module. Les
-# refus du budget et des bornes restent des controles APRES coup, dans le
-# step lui-meme — c'est la seule facon d'obtenir un formulaire reaffiche avec
-# erreurs plutot qu'une exception (listes.py, meme raison pour les sections
-# « liste »).
+# Task 6 correction: `data_schema` IS applied automatically by
+# `FlowManager._async_configure` before calling the step (checked in
+# data_entry_flow.py, cf. the docstring of list_sections.py) — the opposite claim
+# above, written in task 5, was wrong. No consequence HERE: the two
+# fields validated by SCHEMA_IDENTITE (`str`, `int`) add no business
+# rule to it, only a type already correct for any caller of this module. The
+# budget and bounds rejections remain AFTER-the-fact checks, in the
+# step itself — it is the only way to get a form redisplayed with
+# errors rather than an exception (list_sections.py, same reason for the "list"
+# sections).
 #
-# Ronde 2 de relecture : `hauteurUtile` reste `vol.Required` ICI, alors que
-# le contrat la porte `Optional` ($defs/ecran, schema.py) — ECART ASSUME,
-# jamais une lecture fautive du contrat. Un ecran ne peut refuser un budget
-# intenable A LA SAISIE (le but meme de `async_step_user` ci-dessous) que
-# s'il connait une hauteur CONCRETE ; laisser le champ vide interdirait cette
-# verification precoce, pas la contourner. Les trois ecrans reels
-# (app/src/ecran.ts) ne declarent d'ailleurs JAMAIS `hauteurUtile` — le champ
-# est donc PRE-REMPLI avec `BUDGET["hauteurUtileParDefaut"]` (585, les
-# Fire 7), lu depuis le contrat, jamais retape a la main : un utilisateur qui
-# ne touche pas ce champ obtient exactement la valeur que l'application
-# suppose deja en son absence (`budget.py`, `combien()`).
+# Review round 2: `hauteurUtile` stays `vol.Required` HERE, whereas
+# the contract carries it as `Optional` ($defs/ecran, schema.py) — a DELIBERATE
+# DEVIATION, never a misreading of the contract. A screen can reject an
+# untenable budget AT INPUT TIME (the very purpose of `async_step_user` below) only
+# if it knows a CONCRETE height; leaving the field empty would forbid that
+# early check, not work around it. The three real screens
+# (app/src/ecran.ts) moreover NEVER declare `hauteurUtile` — the field
+# is therefore PRE-FILLED with `BUDGET["hauteurUtileParDefaut"]` (585, the
+# Fire 7s), read from the contract, never retyped by hand: a user who
+# does not touch this field gets exactly the value the application
+# already assumes in its absence (`budget.py`, `combien()`).
 SCHEMA_IDENTITE = vol.Schema(
     {
         vol.Required("nom"): str,
-        # Ronde 3 de relecture (trou de couverture) : un `default=585` retape
-        # a la main aurait survecu au test qui compare simplement a
-        # `BUDGET[...]` (585 aujourd'hui des deux cotes). `default=` est ici
-        # un CALLABLE (voluptuous ne l'enveloppe pas, `Marker.default` reste
-        # le callable lui-meme) : il relit BUDGET a CHAQUE appel de
-        # `.default()`, jamais une seule fois a l'import — un test qui
-        # monkeypatche BUDGET prouve donc la PROVENANCE, pas seulement la
-        # valeur du jour.
+        # Review round 3 (coverage hole): a `default=585` retyped
+        # by hand would have survived the test that simply compares against
+        # `BUDGET[...]` (585 today on both sides). `default=` here is
+        # a CALLABLE (voluptuous does not wrap it, `Marker.default` stays
+        # the callable itself): it re-reads BUDGET on EVERY call of
+        # `.default()`, never once at import — a test that
+        # monkeypatches BUDGET therefore proves the PROVENANCE, not just
+        # today's value.
         vol.Required(
             "hauteurUtile", default=lambda: BUDGET["hauteurUtileParDefaut"]
         ): int,
         vol.Required("temperature"): selector.EntitySelector(selector.EntitySelectorConfig()),
         vol.Optional("note"): str,
-        # Plan 3b : deux des quatre champs racine SANS porte de saisie (spec
-        # amendee du 2026-09-13) -- les trois ecrans reels les portent et
-        # survivaient a toute edition, mais ne pouvaient ni se creer ni se
-        # modifier depuis HA. Optionnels : le contrat les porte `Optional`.
+        # Plan 3b: two of the four root fields WITHOUT an input door (spec
+        # amended on 2026-09-13) -- the three real screens carry them and
+        # survived every edit, but could be neither created nor
+        # modified from HA. Optional: the contract carries them as `Optional`.
         vol.Optional("aspirateur"): selector.EntitySelector(selector.EntitySelectorConfig()),
-        # `delorean` est `const: true` au contrat : une case a cocher.
-        # Decochee, la cle doit etre RETIREE (`False` y est REFUSE) -- voir
-        # `_valider_identite`, meme filtre que "note", DEUX sites.
+        # `delorean` is `const: true` in the contract: a checkbox.
+        # Unchecked, the key must be REMOVED (`False` is REJECTED there) -- see
+        # `_valider_identite`, same filter as "note", TWO sites.
         vol.Optional("delorean"): bool,
     }
 )
 
 
 def _valider_identite(user_input: dict[str, Any], *, noms_existants: frozenset[str] = frozenset()) -> tuple[dict[str, str], dict[str, str], dict[str, Any] | None]:
-    """Les QUATRE gardes communes a la CREATION et a la RECONFIGURATION
-    (`async_step_user`/`async_step_identite`) : nom non vide, nom non DEJA
-    UTILISE (`garde_ecran.noms_utilises` -- `nom` est la cle primaire du
-    transport websocket), budget du mode le moins cher, bornes de hauteur.
-    `noms_existants` est vide a la creation. Rend `(errors,
-    description_placeholders, donnee)`, `donnee` etant `None` sauf si les
-    quatre gardes passent."""
+    """The FOUR guards common to CREATION and RECONFIGURATION
+    (`async_step_user`/`async_step_identite`): name not empty, name not ALREADY
+    USED (`garde_ecran.noms_utilises` -- `nom` is the primary key of the
+    websocket transport), budget of the cheapest mode, height bounds.
+    `noms_existants` is empty at creation. Returns `(errors,
+    description_placeholders, identity_data)`, `identity_data` being `None` unless the
+    four guards pass."""
     errors: dict[str, str] = {}
     description_placeholders: dict[str, str] = {}
-    # Ronde 2 (tache 8) : `nom` STRIPPE ICI, reutilise pour vide/unicite/
-    # persistance -- "salon " passait sinon les deux gardes mais se stockait brut.
+    # Round 2 (task 8): `nom` STRIPPED HERE, reused for empty/uniqueness/
+    # persistence -- "salon " otherwise passed both guards but was stored raw.
     nom = user_input["nom"].strip()
     if not nom:
-        errors["nom"] = ERREUR_NOM_VIDE
+        errors["nom"] = ERROR_NAME_EMPTY
         return errors, description_placeholders, None
     if nom in noms_existants:
-        errors["nom"] = ERREUR_NOM_DEJA_UTILISE
+        errors["nom"] = ERROR_NAME_ALREADY_USED
         description_placeholders["nom"] = nom
         return errors, description_placeholders, None
-    deborde = verifier_budget(
+    deborde = check_budget(
         "defaut", rangee_ambiance=True, hauteur_utile=user_input["hauteurUtile"]
     )
     if deborde:
-        errors["hauteurUtile"] = ERREUR_BUDGET_INTENABLE
+        errors["hauteurUtile"] = ERROR_BUDGET_UNTENABLE
         description_placeholders["debordement"] = str(deborde)
         return errors, description_placeholders, None
     try:
         schema.hauteur_utile(user_input["hauteurUtile"])
     except vol.Invalid:
-        errors["hauteurUtile"] = ERREUR_HAUTEUR_HORS_BORNES
+        errors["hauteurUtile"] = ERROR_HEIGHT_OUT_OF_BOUNDS
         description_placeholders["min"] = str(schema.HAUTEUR_MIN)
         description_placeholders["max"] = str(schema.HAUTEUR_MAX)
         return errors, description_placeholders, None
-    # Ronde 1 (tache 6) : `note` vide etait PERSISTE ("" reste "") la ou le
-    # contrat la veut ABSENTE (Optional, jamais une chaine vide). Ruling 15
-    # (tache 7) : `delorean` decochee arrive comme `False` -- MEME filtre,
-    # sinon PERSISTE alors que le contrat la porte `const: true` (`False` y
-    # est REFUSE) -- plus aucun ecran ne pourrait s'enregistrer des qu'on
-    # ouvre ce formulaire sans cocher la case. Second site : `async_step_
-    # identite`, qui retire aussi la cle de `nouvelles_donnees`.
-    donnee = {
+    # Round 1 (task 6): an empty `note` was PERSISTED ("" stays "") where the
+    # contract wants it ABSENT (Optional, never an empty string). Ruling 15
+    # (task 7): an unchecked `delorean` arrives as `False` -- SAME filter,
+    # otherwise PERSISTED whereas the contract carries it as `const: true` (`False` is
+    # REJECTED there) -- no screen could be saved any more as soon as one
+    # opens this form without ticking the box. Second site: `async_step_
+    # identite`, which also removes the key from `new_data`.
+    identity_data = {
         k: v for k, v in user_input.items()
         if not (k == "note" and v == "") and not (k == "delorean" and v is False)
     }
-    donnee["nom"] = nom  # le STRIPPE, jamais le brut
-    return errors, description_placeholders, donnee
+    identity_data["nom"] = nom  # the STRIPPED one, never the raw one
+    return errors, description_placeholders, identity_data
 
 
 class HomeDeskConfigFlow(ConfigFlow, domain=DOMAIN):
-    """L'entree unique. Elle ne detient RIEN : toute la configuration vit dans
-    les sous-entrees, une par ecran. Une seconde entree detiendrait une
-    seconde verite, et le transport ne saurait pas laquelle publier.
+    """The single entry. It holds NOTHING: the whole configuration lives in
+    the subentries, one per screen. A second entry would hold a
+    second truth, and the transport would not know which one to publish.
 
-    Le refus "single_instance_allowed" vient de `manifest.json`
-    (`single_config_entry: true`) : Home Assistant l'applique avant meme
-    d'appeler cette classe, donc ce step n'a rien a verifier lui-meme — et
-    son MESSAGE vient du coeur de Home Assistant, jamais de nos traductions
-    (voir la docstring de module)."""
+    The "single_instance_allowed" rejection comes from `manifest.json`
+    (`single_config_entry: true`): Home Assistant applies it before even
+    calling this class, so this step has nothing to check itself — and
+    its MESSAGE comes from the Home Assistant core, never from our translations
+    (see the module docstring)."""
 
     VERSION = 1
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Confirme la creation de l'entree unique. Aucune donnee a saisir :
-        un aller-retour minimal (show_form puis create_entry), pour que
-        l'utilisateur voie et valide l'ajout de l'integration."""
+        """Confirms the creation of the single entry. No data to enter:
+        a minimal round trip (show_form then create_entry), so that
+        the user sees and validates the addition of the integration."""
         if user_input is not None:
             return self.async_create_entry(title="Tablettes murales", data={})
         return self.async_show_form(step_id="user")
@@ -269,83 +269,83 @@ class HomeDeskConfigFlow(ConfigFlow, domain=DOMAIN):
     def async_get_supported_subentry_types(
         cls, config_entry: ConfigEntry
     ) -> dict[str, type[ConfigSubentryFlow]]:
-        """Les types de sous-entree que l'entree « Tablettes murales » sait
-        porter. Un seul pour l'instant : un ecran de tablette."""
-        return {SOUS_ENTREE_ECRAN: EcranSubentryFlow}
+        """The subentry types the "Tablettes murales" (wall tablets) entry can
+        carry. Only one for now: a tablet screen."""
+        return {SUBENTRY_SCREEN: EcranSubentryFlow}
 
 
-class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFlow):
-    """Une sous-entree, un ecran. `async_step_user` (tache 5) cree la
-    sous-entree avec sa seule section « Identite et budget ». Une fois creee,
-    on y REVIENT par `async_step_reconfigure` (source `SOURCE_RECONFIGURE`,
-    cf. listes.py) : c'est la que vivent les sections « liste » (listes.py)
-    et « objet » (objets.py, tache 7).
+class EcranSubentryFlow(ListSectionsMixin, SectionsObjetMixin, ConfigSubentryFlow):
+    """One subentry, one screen. `async_step_user` (task 5) creates the
+    subentry with its sole "Identity and budget" section. Once created,
+    one COMES BACK to it through `async_step_reconfigure` (source `SOURCE_RECONFIGURE`,
+    cf. list_sections.py): that is where the "list" sections (list_sections.py)
+    and "object" sections (objets.py, task 7) live.
 
-    Ronde 1 de relecture : les mixins viennent EN PREMIER dans les bases (et
-    non en dernier, l'ordre precedent) — convention Python standard pour un
-    mixin, qui doit apparaitre avant la classe fonctionnelle de base pour
-    pouvoir la surcharger via le MRO. Sans effet observable ici (aucune des
-    trois classes ne definit de nom en commun aujourd'hui), mais c'est
-    l'inverse qui aurait ete un piege pour la prochaine surcharge."""
+    Review round 1: the mixins come FIRST in the bases (and
+    not last, the previous order) — standard Python convention for a
+    mixin, which must appear before the functional base class to
+    be able to override it through the MRO. No observable effect here (none of the
+    three classes defines a name in common today), but the
+    opposite would have been a trap for the next override."""
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Saisie de `nom`, `hauteurUtile`, `temperature`, `note`. Refuse AU
-        MOMENT DE LA SAISIE un nom vide, une hauteur ou meme le mode le
-        moins cher ne tient pas (et dit de combien), ou une hauteur hors des
-        bornes du contrat (10 000 px ne deborde jamais, mais
-        `schema.valider()` le refuserait quand meme, plus tard) — jamais
-        « valeur invalide », qui signalerait un refus sans dire quoi faire.
+        """Input of `nom`, `hauteurUtile`, `temperature`, `note`. Rejects AT
+        INPUT TIME an empty name, a height where even the cheapest mode
+        does not fit (and says by how much), or a height outside the
+        contract bounds (10,000 px never overflows, but
+        `schema.valider()` would reject it anyway, later) — never
+        "invalid value", which would signal a rejection without saying what to do.
 
-        `nom` est verifie EN PREMIER (ronde 1, tache 6 : dette de la tache 5,
-        `nom` vide passait), puis son UNICITE (tache 8). Le budget vient ensuite : c'est la garde la plus
-        frequente sur `hauteurUtile` (toute hauteur trop juste, meme dans les
-        bornes, deborde), et c'est elle que
-        `test_un_ecran_qui_deborde_est_REFUSE_avec_son_chiffre` exerce avec
-        100 px — une valeur qui, en pratique, deborde toujours avant d'etre
-        hors bornes (le cout minimal d'un ecran depasse deja 320 px, la borne
-        basse). Les bornes ne sont donc la seule garde atteignable que pour
-        une hauteur EXCESSIVE, au-dela de ce que le budget peut jamais
-        signaler. `temperature` n'a besoin d'aucun controle manuel : un
-        `entity_id` reel satisfait toujours le format attendu par
-        `schema.ENTITE` — et son `EntitySelector` ne filtre plus AUCUN
-        domaine depuis la ronde 2 de relecture (voir la note pres de
+        `nom` is checked FIRST (round 1, task 6: task 5 debt,
+        an empty `nom` got through), then its UNIQUENESS (task 8). The budget comes next: it is the most
+        frequent guard on `hauteurUtile` (any height that is too tight, even within the
+        bounds, overflows), and it is the one the overflowing-screen
+        rejection test (test_config_flow.py) exercises with
+        100 px — a value that, in practice, always overflows before being
+        out of bounds (the minimal cost of a screen already exceeds 320 px, the lower
+        bound). The bounds are therefore the only reachable guard only for
+        an EXCESSIVE height, beyond anything the budget can ever
+        report. `temperature` needs no manual check: a
+        real `entity_id` always satisfies the format expected by
+        `schema.ENTITE` — and its `EntitySelector` no longer filters ANY
+        domain since review round 2 (see the note near
         `SCHEMA_IDENTITE`)."""
         errors: dict[str, str] = {}
         description_placeholders: dict[str, str] = {}
 
         if user_input is not None:
-            errors, description_placeholders, donnee = _valider_identite(
+            errors, description_placeholders, identity_data = _valider_identite(
                 user_input, noms_existants=garde_ecran.noms_utilises(self._get_entry())
             )
-            if donnee is not None:
-                donnee["version"] = VERSION_CONFIG
-                # Ronde 3 de relecture (Important 1) : une section jamais
-                # ouverte ne persistait RIEN -- la cle restait ABSENTE, pas
-                # vide, alors que le contrat exige les cinq cles de liste a
-                # la RACINE. Semees ICI, DERIVEES de `SECTIONS` -- jamais
-                # recopiees a la main, jamais ecrasees si deja portees.
+            if identity_data is not None:
+                identity_data["version"] = VERSION_CONFIG
+                # Review round 3 (Important 1): a section never
+                # opened persisted NOTHING -- the key stayed ABSENT, not
+                # empty, whereas the contract requires the five list keys at
+                # the ROOT. Seeded HERE, DERIVED from `SECTIONS` -- never
+                # copied by hand, never overwritten if already carried.
                 for cle in SECTIONS:
-                    donnee.setdefault(cle, [])
-                # Decision 7 : AVERTIT, ne refuse jamais. Ruling 18 :
-                # `_valider_identite` est SANS acces a `hass`, l'appel vit
-                # ICI. C1 : placeholder TOUJOURS pose -- ce flow se TERMINE
-                # ici, seul `create_entry.default` peut encore le montrer.
+                    identity_data.setdefault(cle, [])
+                # Decision 7: WARNS, never rejects. Ruling 18:
+                # `_valider_identite` has NO access to `hass`, the call lives
+                # HERE. C1: placeholder ALWAYS set -- this flow ENDS
+                # here, only `create_entry.default` can still show it.
                 description_placeholders["entites_inconnues"] = avertissement_entites_inconnues(
                     self.hass,
-                    [v for v in (donnee.get("temperature"), donnee.get("aspirateur")) if v],
+                    [v for v in (identity_data.get("temperature"), identity_data.get("aspirateur")) if v],
                 )
                 return self.async_create_entry(
-                    title=donnee["nom"], data=donnee,
+                    title=identity_data["nom"], data=identity_data,
                     description_placeholders=description_placeholders,
                 )
 
-        # Reaffiche la saisie precedente (nom, note) apres un refus : sans ce
-        # pre-remplissage, un budget intenable effacerait aussi ce que
-        # l'utilisateur avait deja correctement rempli. `reafficher`
-        # (formulaire.py) est le SEUL endroit qui ecrit ce geste, ronde 2 de
-        # relecture — plus jamais retape a la main ici ni dans listes.py.
+        # Redisplays the previous input (nom, note) after a rejection: without this
+        # pre-filling, an untenable budget would also erase what
+        # the user had already filled in correctly. `reafficher`
+        # (formulaire.py) is the ONLY place that writes this gesture, review
+        # round 2 — never again retyped by hand here or in list_sections.py.
         return reafficher(self, "user", SCHEMA_IDENTITE, user_input, errors, description_placeholders)
 
     async def async_step_reconfigure(
@@ -353,41 +353,41 @@ class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFl
         user_input: dict[str, Any] | None = None,
         description_placeholders: dict[str, str] | None = None,
     ) -> SubentryFlowResult:
-        """Point d'entree d'une sous-entree EXISTANTE. Un menu vers les
-        sections « liste » de `listes_champs.SECTIONS` (tuiles de commande,
-        rangee d'ambiance, extras maison, ouvrants, ligne de synthese,
-        sources media, slots de minuteur, etiquettes de minuteur,
-        `listesTachesExtra` — les quatre dernieres ajoutees a la tache 7),
-        plus les DEUX sections « objet » de cette meme tache (`agencement` —
-        « Blocs et modes » — et `voiture`), qui n'ont pas leur place dans
-        `SECTIONS` : ce ne sont pas des collections d'elements choisis un
-        par un, mais un objet unique par ecran.
+        """Entry point of an EXISTING subentry. A menu to the
+        "list" sections of `list_fields.SECTIONS` (control tiles,
+        ambience row, house extras, openings, summary line,
+        media sources, timer slots, timer labels,
+        the extra to-do lists — the last four added in task 7),
+        plus the TWO "object" sections of that same task (`agencement` —
+        "Blocks and modes" — and `voiture`), which have no place in
+        `SECTIONS`: they are not collections of items chosen one
+        by one, but a single object per screen.
 
-        `description_placeholders`, si fourni (decision 7) : l'avertissement
-        d'entite inconnue calcule par `async_step_identite` avant de revenir
-        ICI -- optionnel, ce step restant appelable directement par HA.
+        `description_placeholders`, if provided (decision 7): the unknown-entity
+        warning computed by `async_step_identite` before coming back
+        HERE -- optional, this step remaining directly callable by HA.
 
-        Ronde de tache 7 (a rapporter, pas a taire) : le brief decrit QUATRE
-        nouvelles lignes de menu. Ce menu en ajoute SIX (`listesTachesExtra`
-        comprise, ruling du supplement) : les slots de minuteur et les
-        etiquettes proposees (`etiquettesMinuteur`, un champ RACINE distinct
-        du contrat) sont deux sections DIFFERENTES au sens du contrat --
-        les fusionner sous une seule ligne aurait exige un sous-menu dedie
-        pour un gain cosmetique qu'aucun test n'exige. Chaque ligne reste
-        tracable a UNE cle du contrat.
+        Task 7 round (to report, not to keep quiet): the brief describes FOUR
+        new menu lines. This menu adds SIX (the extra to-do lists
+        included, supplement ruling): the timer slots and the
+        proposed labels (`etiquettesMinuteur`, a distinct ROOT field
+        of the contract) are two DIFFERENT sections in the contract's sense --
+        merging them under a single line would have required a dedicated submenu
+        for a cosmetic gain that no test requires. Each line remains
+        traceable to ONE contract key.
 
-        Ronde 1 de relecture (Important I4) : `"identite"` rejoint ce menu.
-        Avant cette ronde, `nom`/`hauteurUtile`/`temperature`/`note`
-        n'etaient saisis QU'A LA CREATION (`async_step_user`) — aucune
-        entree de ce menu n'y ramenait jamais, les rendant IMMUABLES a vie.
-        `async_step_identite` reutilise `SCHEMA_IDENTITE` et les memes
-        gardes que la creation (`_valider_identite`).
+        Review round 1 (Important I4): `"identite"` joins this menu.
+        Before this round, `nom`/`hauteurUtile`/`temperature`/`note`
+        were entered ONLY AT CREATION (`async_step_user`) — no
+        entry of this menu ever led back to them, making them IMMUTABLE for life.
+        `async_step_identite` reuses `SCHEMA_IDENTITE` and the same
+        guards as creation (`_valider_identite`).
 
-        C1 : seul ECRAN qu'atteignent `async_step_identite` et les sections
-        « objet » d'entite unique de `objets.SectionsObjetMixin` (voiture,
-        aspirateur_maison -- 3c/1) apres un persist reussi -- sa description
-        porte donc `{entites_inconnues}` (translations/*.json), defaut ""
-        ICI pour les appelants qui ne le calculent pas eux-memes."""
+        C1: the only SCREEN reached by `async_step_identite` and the single-entity
+        "object" sections of `objets.SectionsObjetMixin` (voiture,
+        aspirateur_maison -- 3c/1) after a successful persist -- its description
+        therefore carries `{entites_inconnues}` (translations/*.json), default ""
+        HERE for the callers that do not compute it themselves."""
         return self.async_show_menu(
             step_id="reconfigure",
             menu_options=["identite", *SECTIONS, "agencement", "voiture", "aspirateur_maison"],
@@ -397,97 +397,97 @@ class EcranSubentryFlow(SectionsListeMixin, SectionsObjetMixin, ConfigSubentryFl
     async def async_step_identite(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Reconfigure `nom`/`hauteurUtile`/`temperature`/`note` d'une
-        sous-entree EXISTANTE — I4, ronde 1 de relecture. Rejoue les MEMES
-        quatre gardes que la creation (`_valider_identite`), l'unicite du
-        `nom` EXCLUANT cette sous-entree elle-meme, PUIS `garde_ecran.
-        persister_si_valide` (ronde 1, Critique ; ronde 2, LE site
-        d'ecriture unique) : changer la hauteur utile ne peut aujourd'hui
-        casser aucun invariant croise, mais l'appliquer ICI AUSSI evite
-        d'avoir a s'en souvenir le jour ou une regle future le pourrait.
+        """Reconfigures `nom`/`hauteurUtile`/`temperature`/`note` of an
+        EXISTING subentry — I4, review round 1. Replays the SAME
+        four guards as creation (`_valider_identite`), the uniqueness of
+        `nom` EXCLUDING this subentry itself, THEN `garde_ecran.
+        persister_si_valide` (round 1, Critical; round 2, THE single
+        write site): changing the usable height cannot today
+        break any cross invariant, but applying it HERE TOO avoids
+        having to remember it the day a future rule could.
 
-        Ronde 2 de relecture (point 4) : `titre=nouvelles_donnees["nom"]`
-        — mesure, `_async_update` etait appele SANS `title=` ; renommer un
-        ecran (`nom`) laissait le TITRE de la sous-entree (celui que la
-        page d'integration liste, pose par `async_step_user` a la
-        creation) inchange, les deux divergeant des la premiere
+        Review round 2 (point 4): `titre=new_data["nom"]`
+        — measured, `_async_update` was called WITHOUT `title=`; renaming a
+        screen (`nom`) left the TITLE of the subentry (the one the
+        integration page lists, set by `async_step_user` at
+        creation) unchanged, the two diverging from the first
         reconfiguration."""
         entry = self._get_entry()
         subentry = self._get_reconfigure_subentry()
         errors: dict[str, str] = {}
         description_placeholders: dict[str, str] = {}
-        valeurs_affichees = {
+        displayed_values = {
             cle: subentry.data[cle]
             for cle in ("nom", "hauteurUtile", "temperature", "note", "aspirateur", "delorean")
             if cle in subentry.data
         }
 
         if user_input is not None:
-            valeurs_affichees = user_input
+            displayed_values = user_input
             noms = garde_ecran.noms_utilises(entry, exclure=subentry.subentry_id)
-            errors, description_placeholders, donnee = _valider_identite(
+            errors, description_placeholders, identity_data = _valider_identite(
                 user_input, noms_existants=noms
             )
-            if donnee is not None:
-                nouvelles_donnees = dict(subentry.data)
-                nouvelles_donnees.update(donnee)
-                if "note" not in donnee:
-                    nouvelles_donnees.pop("note", None)
-                # Ruling 15, SECOND site : `.update()` est une UNION qui ne
-                # retire jamais une cle deja PERSISTEE -- sans ce jumeau,
-                # decocher une case DEJA cochee ne la retirerait jamais.
-                if "delorean" not in donnee:
-                    nouvelles_donnees.pop("delorean", None)
+            if identity_data is not None:
+                new_data = dict(subentry.data)
+                new_data.update(identity_data)
+                if "note" not in identity_data:
+                    new_data.pop("note", None)
+                # Ruling 15, SECOND site: `.update()` is a UNION that
+                # never removes an already PERSISTED key -- without this twin,
+                # unchecking an ALREADY checked box would never remove it.
+                if "delorean" not in identity_data:
+                    new_data.pop("delorean", None)
                 entites = [
                     v for v in (
-                        nouvelles_donnees.get("temperature"),
-                        nouvelles_donnees.get("aspirateur"),
+                        new_data.get("temperature"),
+                        new_data.get("aspirateur"),
                     ) if v
                 ]
-                # C1 : placeholder TOUJOURS pose -- l'ecran qui le montre
-                # reellement est le menu "reconfigure" (voir sa docstring),
-                # jamais ce step-ci, qui se quitte des la ligne suivante.
+                # C1: placeholder ALWAYS set -- the screen that actually
+                # shows it is the "reconfigure" menu (see its docstring),
+                # never this step, which is left on the very next line.
                 description_placeholders["entites_inconnues"] = avertissement_entites_inconnues(
                     self.hass, entites
                 )
                 if garde_ecran.persister_si_valide(
-                    self, entry, subentry, nouvelles_donnees, errors, description_placeholders,
-                    section_courante="identite", titre=nouvelles_donnees["nom"],
+                    self, entry, subentry, new_data, errors, description_placeholders,
+                    section_courante="identite", titre=new_data["nom"],
                 ):
                     return await self.async_step_reconfigure(
                         description_placeholders=description_placeholders
                     )
 
         return reafficher(
-            self, "identite", SCHEMA_IDENTITE, valeurs_affichees, errors, description_placeholders
+            self, "identite", SCHEMA_IDENTITE, displayed_values, errors, description_placeholders
         )
 
     def __getattr__(self, nom: str) -> Any:
-        """Les relais (2 steps x N sections, `listes_champs.SECTIONS`) qu'exige
-        `listes.SectionsListeMixin`, rendus generiques.
+        """The relays (2 steps x N sections, `list_fields.SECTIONS`) that
+        `list_sections.ListSectionsMixin` requires, made generic.
 
-        Home Assistant appelle un step PAR SON NOM
-        (`getattr(flow, f"async_step_{step_id}")`, `data_entry_flow.py`) et
-        verifie son existence par `hasattr` : il faut donc que ces noms
-        repondent, mais rien n'oblige a les ECRIRE. Seize methodes d'un
-        appel chacune coutaient 82 lignes dans un fichier qui plafonne a
-        500, et toute section « liste » supplementaire en coutait dix de
-        plus -- la neuvieme (`listesTachesExtra`, tache 7) faisait franchir
-        le plafond.
+        Home Assistant calls a step BY ITS NAME
+        (`getattr(flow, f"async_step_{step_id}")`, `data_entry_flow.py`) and
+        checks its existence through `hasattr`: these names must therefore
+        answer, but nothing forces us to WRITE them. Sixteen one-call
+        methods cost 82 lines in a file capped at
+        500, and every additional "list" section cost ten more
+        -- the ninth (the extra to-do lists, task 7) pushed it over
+        the cap.
 
-        `__getattr__` n'est appele QUE si la recherche normale echoue : les
-        vraies methodes (`async_step_user`, `_async_step_section`...)
-        gagnent toujours.
+        `__getattr__` is called ONLY if the normal lookup fails: the
+        real methods (`async_step_user`, `_async_step_section`...)
+        always win.
 
-        CE QUI COMPTE ICI, c'est le `raise AttributeError` final. Sans lui,
-        `hasattr` rendrait vrai pour N'IMPORTE QUEL nom, et
-        `_raise_if_step_does_not_exist` cesserait de proteger : une faute de
-        frappe dans un identifiant de step ne leverait plus `UnknownStep`,
-        elle partirait dans le squelette d'une section inexistante et
-        casserait plus loin, ailleurs, sans rapport visible avec sa cause.
-        Couvre aussi les noms DUNDER que Python cherche tout seul
-        (`__deepcopy__`...) : ils ne commencent pas par `async_step_`, donc
-        y retombent -- le comportement correct."""
+        WHAT MATTERS HERE is the final `raise AttributeError`. Without it,
+        `hasattr` would return true for ANY name, and
+        `_raise_if_step_does_not_exist` would stop protecting: a
+        typo in a step identifier would no longer raise `UnknownStep`,
+        it would go into the skeleton of a non-existent section and
+        break further on, elsewhere, with no visible link to its cause.
+        Also covers the DUNDER names Python looks up on its own
+        (`__deepcopy__`...): they do not start with `async_step_`, so
+        they fall through to it -- the correct behaviour."""
         if nom.startswith("async_step_"):
             reste = nom.removeprefix("async_step_")
             if reste.endswith("_element"):

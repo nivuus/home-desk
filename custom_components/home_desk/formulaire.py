@@ -1,14 +1,14 @@
-"""Le SEUL point de sortie qui reaffiche un formulaire de sous-entree, que ce
-soit le premier affichage d'une etape ou un refus.
+"""The ONLY exit point that redisplays a subentry form, whether it is the
+first display of a step or a rejection.
 
-Ronde 1 de relecture (tache 6) avait deja corrige DEUX fois le meme defaut,
-dans deux modules voisins : un refus qui reaffichait les valeurs STOCKEES
-d'avant plutot que la saisie FAUTIVE de l'utilisateur (`listes.py`, Important
-2 ; `config_flow.py`, meme dette heritee de la tache 5). Ronde 2 : une
-troisieme occurrence de l'idiome ecrit a la main serait apparue des que
-`_async_step_section` (listes.py) a du, a son tour, refuser une soumission —
-et une quatrieme l'aurait suivie a la tache 7 (minuteurs). L'idiome ne vit
-donc plus qu'ICI, une seule fois, reutilise par les trois appelants.
+Review round 1 (task 6) had already fixed the same defect TWICE, in two
+neighbouring modules: a rejection that redisplayed the previously STORED
+values rather than the user's FAULTY input (`list_sections.py`, Important
+2; `config_flow.py`, same debt inherited from task 5). Round 2: a third
+occurrence of the hand-written idiom would have appeared as soon as
+`_async_step_section` (list_sections.py) had, in turn, to reject a submission —
+and a fourth would have followed it in task 7 (timers). The idiom therefore
+lives only HERE, once, reused by the three callers.
 """
 from __future__ import annotations
 
@@ -23,19 +23,19 @@ def reafficher(
     flow: ConfigSubentryFlow,
     step_id: str,
     schema_form: vol.Schema,
-    valeurs: dict[str, Any] | None,
+    values: dict[str, Any] | None,
     errors: dict[str, str] | None = None,
     description_placeholders: dict[str, str] | None = None,
 ) -> SubentryFlowResult:
-    """Reaffiche `step_id` avec `valeurs` PRE-REMPLIES
-    (`add_suggested_values_to_schema`) : au premier affichage, ce sont les
-    valeurs STOCKEES (ou rien, pour un ajout) ; sur un refus, `valeurs` DOIT
-    etre la saisie fautive elle-meme (`user_input`), jamais les valeurs
-    d'avant — c'est l'appelant qui choisit laquelle passer, cette fonction ne
-    fait que le geste commun aux trois."""
+    """Redisplays `step_id` with `values` PRE-FILLED
+    (`add_suggested_values_to_schema`): on first display, these are the
+    STORED values (or nothing, for an addition); on a rejection, `values` MUST
+    be the faulty input itself (`user_input`), never the previous values
+    — it is the caller that chooses which one to pass, this function only
+    performs the gesture common to all three."""
     return flow.async_show_form(
         step_id=step_id,
-        data_schema=flow.add_suggested_values_to_schema(schema_form, valeurs),
+        data_schema=flow.add_suggested_values_to_schema(schema_form, values),
         errors=errors or {},
         description_placeholders=description_placeholders or {},
     )

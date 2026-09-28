@@ -2,11 +2,11 @@
 (choisir/ajouter, modifier, monter, descendre, supprimer) — teste sur
 "commandes", plus les regles qui s'appliquent aux CINQ sections a la fois
 (couverture, refus explicite du menu, reaffichage sur erreur). Le mirroir de
-`listes.py`.
+`list_sections.py`.
 
 Ce qui est PARTICULIER a chaque section (ses champs, ses selecteurs, la ligne
 de synthese, les domaines) vit dans `test_config_flow_champs.py` depuis la
-ronde 2 de relecture — le mirroir de `listes_champs.py`. Separe de
+ronde 2 de relecture — le mirroir de `list_fields.py`. Separe de
 `test_config_flow.py` (identite, budget, traductions) en ronde 1, pour rester
 sous 500 lignes chacun — jamais a un compte de lignes arbitraire, la meme
 couture que le code lui-meme.
@@ -25,14 +25,14 @@ from conftest import (
 )
 from custom_components.home_desk import schema
 from custom_components.home_desk.const import (
-    ACTION_DESCENDRE,
-    ACTION_ENREGISTRER,
-    ACTION_MONTER,
-    ACTION_SUPPRIMER,
-    ERREUR_CHAMP_FORMAT_INVALIDE,
-    ERREUR_SELECTION_MANQUANTE,
+    ACTION_MOVE_DOWN,
+    ACTION_SAVE,
+    ACTION_MOVE_UP,
+    ACTION_DELETE,
+    ERROR_FIELD_INVALID_FORMAT,
+    ERROR_SELECTION_MISSING,
 )
-from custom_components.home_desk.listes_champs import SECTIONS, _fusionner
+from custom_components.home_desk.list_fields import SECTIONS, _fusionner
 
 
 # ---------------------------------------------------------------------------
@@ -46,7 +46,7 @@ async def test_monter_une_tuile_change_son_rang_et_RIEN_D_AUTRE(hass, entree_peu
     sur »). Encore faut-il que ce soit vraiment sur — c'est-a-dire que la
     tuile change de rang et que rien d'autre ne bouge."""
     avant = _commandes(hass)
-    await _geste(hass, "commandes", index=2, geste=ACTION_MONTER)
+    await _geste(hass, "commandes", index=2, geste=ACTION_MOVE_UP)
     apres = _commandes(hass)
     assert [c["libelle"] for c in apres] == [
         avant[0]["libelle"], avant[2]["libelle"], avant[1]["libelle"],
@@ -60,15 +60,15 @@ async def test_monter_la_PREMIERE_ne_fait_rien_et_ne_leve_pas(hass, entree_peupl
     qu'en cliquant, devant le formulaire, sur la seule ligne qu'on ne pense
     pas a essayer. Idem pour « descendre » sur la derniere."""
     avant = _commandes(hass)
-    await _geste(hass, "commandes", index=0, geste=ACTION_MONTER)
+    await _geste(hass, "commandes", index=0, geste=ACTION_MOVE_UP)
     assert _commandes(hass) == avant
-    await _geste(hass, "commandes", index=len(avant) - 1, geste=ACTION_DESCENDRE)
+    await _geste(hass, "commandes", index=len(avant) - 1, geste=ACTION_MOVE_DOWN)
     assert _commandes(hass) == avant
 
 
 async def test_supprimer_une_tuile_retire_UNE_seule_entree(hass, entree_peuplee):
     avant = _commandes(hass)
-    await _geste(hass, "commandes", index=1, geste=ACTION_SUPPRIMER)
+    await _geste(hass, "commandes", index=1, geste=ACTION_DELETE)
     apres = _commandes(hass)
     assert [c["libelle"] for c in apres] == [
         c["libelle"] for c in avant if c["libelle"] != avant[1]["libelle"]]
@@ -147,7 +147,7 @@ async def test_modifier_le_libelle_seul_preserve_tous_les_autres_champs(hass, en
     await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {"next_step_id": "commandes"})
     await hass.config_entries.subentries.async_configure(flow["flow_id"], {"choix": "0"})
-    resoumis = {**complet, "libelle": "Portail (renomme)", "geste": ACTION_ENREGISTRER}
+    resoumis = {**complet, "libelle": "Portail (renomme)", "geste": ACTION_SAVE}
     resultat = await hass.config_entries.subentries.async_configure(flow["flow_id"], resoumis)
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
 
@@ -173,7 +173,7 @@ def test_fusionner_preserve_un_champ_que_le_formulaire_ne_gere_pas_encore():
     donnees courantes : si un champ du contrat existe sur un element mais
     N'EST PAS dans `champs_contrat` (le formulaire ne le gere pas encore),
     `_fusionner` doit le laisser INTACT — jamais l'effacer parce que
-    `donnee` ne le porte pas. Prouve la regle meme si, aujourd'hui,
+    `item_data` ne le porte pas. Prouve la regle meme si, aujourd'hui,
     CHAMPS_BOUTON/CHAMPS_SYNTHESE couvrent deja tout le contrat."""
     geres = frozenset({"libelle"})
     existant = {"libelle": "Avant", "vue": "#garage", "epingle": True}
@@ -184,14 +184,14 @@ def test_fusionner_preserve_un_champ_que_le_formulaire_ne_gere_pas_encore():
 
 def test_listes_ne_reexporte_plus_SECTIONS_ni_Section():
     """Ronde 3 de relecture (trou de couverture) : le seam SECTIONS/Section
-    a deux adresses a ete resolu en ronde 2 (retire de `listes.__all__`,
-    `listes_champs.py` devenu la seule adresse canonique) — mais RIEN ne le
-    TENAIT : remettre `SECTIONS`/`Section` dans `listes.__all__` (la meme
+    a deux adresses a ete resolu en ronde 2 (retire de `list_sections.__all__`,
+    `list_fields.py` devenu la seule adresse canonique) — mais RIEN ne le
+    TENAIT : remettre `SECTIONS`/`Section` dans `list_sections.__all__` (la meme
     regression qu'un futur renommage pourrait introduire sans y penser)
     laissait la suite verte."""
-    from custom_components.home_desk import listes
-    assert "SECTIONS" not in listes.__all__
-    assert "Section" not in listes.__all__
+    from custom_components.home_desk import list_sections
+    assert "SECTIONS" not in list_sections.__all__
+    assert "Section" not in list_sections.__all__
 
 
 def test_sections_declare_les_neuf_sections_attendues():
@@ -256,18 +256,18 @@ async def test_monter_descendre_supprimer_fonctionnent_sur_les_cinq_sections(has
     avant = _elements(hass, entree, cle)
     assert len(avant) == 3
 
-    await _geste(hass, cle, index=1, geste=ACTION_MONTER)
+    await _geste(hass, cle, index=1, geste=ACTION_MOVE_UP)
     apres_monter = _elements(hass, entree, cle)
     assert apres_monter == [avant[1], avant[0], avant[2]]
 
-    await _geste(hass, cle, index=0, geste=ACTION_MONTER)
+    await _geste(hass, cle, index=0, geste=ACTION_MOVE_UP)
     assert _elements(hass, entree, cle) == apres_monter, "borne : monter la premiere ne fait rien"
 
-    await _geste(hass, cle, index=len(apres_monter) - 1, geste=ACTION_DESCENDRE)
+    await _geste(hass, cle, index=len(apres_monter) - 1, geste=ACTION_MOVE_DOWN)
     assert _elements(hass, entree, cle) == apres_monter, (
         "borne : descendre la derniere ne fait rien")
 
-    await _geste(hass, cle, index=1, geste=ACTION_SUPPRIMER)
+    await _geste(hass, cle, index=1, geste=ACTION_DELETE)
     apres_suppr = _elements(hass, entree, cle)
     assert len(apres_suppr) == 2
     assert apres_monter[1] not in apres_suppr
@@ -346,7 +346,7 @@ async def test_soumettre_le_menu_de_section_sans_choix_refuse_explicitement(hass
         flow["flow_id"], {"next_step_id": "commandes"})
     resultat = await hass.config_entries.subentries.async_configure(flow["flow_id"], {})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["nouveau"] == ERREUR_SELECTION_MANQUANTE
+    assert resultat["errors"]["nouveau"] == ERROR_SELECTION_MISSING
 
 
 # Tache 7 : le champ valide par $defs/entite ne s'appelle PAS toujours
@@ -354,7 +354,7 @@ async def test_soumettre_le_menu_de_section_sans_choix_refuse_explicitement(hass
 # `minuteurs` sur `timer` (un scalaire, comme "entite" partout ailleurs).
 # `etiquettesMinuteur` n'a AUCUN champ valide par $defs/entite (son unique
 # champ, `etiquette`, est une chaine LIBRE sans contrainte de format —
-# voir listes_champs_minuteurs.py) : elle est exclue de ce test, qui sonde
+# voir list_fields_timers.py) : elle est exclue de ce test, qui sonde
 # specifiquement le refus d'un FORMAT d'entite invalide, une regle qui ne
 # s'applique pas a elle.
 _CHAMP_ENTITE_PAR_SECTION = {
@@ -384,7 +384,7 @@ async def test_un_refus_reaffiche_la_saisie_sur_TOUTES_les_sections(hass, entree
     Ronde 3 de relecture : assertion ajoutee sur `resultat["errors"]["entite"]`
     — `ouvrants` est la seule section dont `schema.ENTITE` est applique EN
     DEHORS d'un `vol.Schema({...})` (un validateur FEUILLE, pas imbrique) ;
-    sans `listes_champs._valider_ouvrant`, un `entite` invalide y aurait leve
+    sans `list_fields._valider_ouvrant`, un `entite` invalide y aurait leve
     avec un chemin VIDE et serait retombe sur "base", aucun champ surligne —
     la MEME classe de defaut que le motif de `service` corrige au point 2."""
     subentry_id = await _creer_ecran(hass, entree)
@@ -401,7 +401,7 @@ async def test_un_refus_reaffiche_la_saisie_sur_TOUTES_les_sections(hass, entree
     }
     resultat = await hass.config_entries.subentries.async_configure(flow["flow_id"], invalide)
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"][champ] == ERREUR_CHAMP_FORMAT_INVALIDE
+    assert resultat["errors"][champ] == ERROR_FIELD_INVALID_FORMAT
     marqueurs = {str(c): c for c in resultat["data_schema"].schema}
     attendu = [valeur_invalide] if en_liste else valeur_invalide
     assert marqueurs[champ].description == {"suggested_value": attendu}

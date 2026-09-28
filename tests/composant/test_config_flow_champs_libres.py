@@ -10,7 +10,7 @@ from homeassistant import config_entries, data_entry_flow
 from homeassistant.helpers import entity_registry as er
 
 from conftest import IDENTITE_MINIMALE, _creer_ecran, _init_reconfigure
-from custom_components.home_desk.const import SOUS_ENTREE_ECRAN
+from custom_components.home_desk.const import SUBENTRY_SCREEN
 
 
 # ---------------------------------------------------------------------------
@@ -23,7 +23,7 @@ from custom_components.home_desk.const import SOUS_ENTREE_ECRAN
 
 async def test_delorean_cochee_est_persistee_a_true_a_la_creation(hass, entree):
     flow = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        (entree.entry_id, SUBENTRY_SCREEN),
         context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {**IDENTITE_MINIMALE, "delorean": True})
@@ -37,7 +37,7 @@ async def test_delorean_decochee_n_est_pas_persistee_et_l_ecran_s_enregistre(has
     la porte `const: true` (`False` y est REFUSE) -- l'ecran ne pouvait plus
     s'enregistrer des qu'on ouvrait ce formulaire sans cocher la case."""
     flow = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        (entree.entry_id, SUBENTRY_SCREEN),
         context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {**IDENTITE_MINIMALE, "delorean": False})
@@ -46,7 +46,7 @@ async def test_delorean_decochee_n_est_pas_persistee_et_l_ecran_s_enregistre(has
 
 
 async def test_reconfigurer_delorean_de_coche_a_decochee_retire_la_cle(hass, entree):
-    """Le SECOND site (ruling 15) : `nouvelles_donnees.update(donnee)` est
+    """Le SECOND site (ruling 15) : `new_data.update(identity_data)` est
     une UNION qui ne retire JAMAIS une cle deja persistee -- sans son
     jumeau, decocher une case DEJA cochee sur un ecran existant echouerait
     a la retirer (exactement la forme du defaut que "note" a eu en ronde 1
@@ -73,7 +73,7 @@ async def test_reconfigurer_delorean_de_coche_a_decochee_retire_la_cle(hass, ent
 
 async def test_aspirateur_est_persiste_a_la_creation(hass, entree):
     flow = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        (entree.entry_id, SUBENTRY_SCREEN),
         context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {**IDENTITE_MINIMALE, "aspirateur": "vacuum.salon"})
@@ -97,7 +97,7 @@ async def test_une_entite_inconnue_AVERTIT_au_lieu_de_REFUSER_a_la_creation(hass
         "sensor", "demo", "u1", suggested_object_id="temperature_salon")
 
     flow = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        (entree.entry_id, SUBENTRY_SCREEN),
         context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"],
@@ -156,7 +156,7 @@ async def test_aucune_entite_inconnue_ne_produit_aucun_avertissement(hass, entre
     registre.async_get_or_create("vacuum", "demo", "u2", suggested_object_id="salon")
 
     flow = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN),
+        (entree.entry_id, SUBENTRY_SCREEN),
         context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"],
@@ -244,7 +244,7 @@ async def test_une_entite_inconnue_AVERTIT_pour_une_section_a_element_nu(hass, e
 # imbriques EN LIGNE (sans `$defs` propre) manquaient -- `minuteurs[].timer`/
 # `.nom`, et les sept champs de `voiture`. `voiture` n'a PAS de test ici :
 # son chemin d'appel passe par `objets.py`/`SectionsObjetMixin.async_step_
-# voiture`, un module SEPARE du squelette des sections (`listes.py`) que ce
+# voiture`, un module SEPARE du squelette des sections (`list_sections.py`) que ce
 # fichier exerce. Voir `test_config_flow_voiture.py` pour son cablage --
 # reste ouvert en ronde 2, ferme en ronde de correction 3.
 # ---------------------------------------------------------------------------
@@ -255,7 +255,7 @@ async def test_LE_TEST_DE_LA_COLLISION_dans_le_squelette_des_sections(hass, entr
     un element de la section `sources` porte ENSEMBLE `titre` (une vraie
     entite, inconnue -- doit etre citee) et `nom` (texte libre qui A LA
     FORME d'une entite -- ne doit PAS l'etre). Si ce test passe, la
-    correction est structurellement juste ; s'il tombe, `entites_dans` est
+    correction est structurellement juste ; s'il tombe, `entities_in` est
     redevenu un ensemble de noms deconnecte du CHEMIN."""
     subentry_id = await _creer_ecran(hass, entree)
 

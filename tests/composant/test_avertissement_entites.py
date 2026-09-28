@@ -27,7 +27,7 @@ import pytest
 from homeassistant import config_entries, data_entry_flow
 
 from conftest import IDENTITE_MINIMALE, _creer_ecran, _init_reconfigure
-from custom_components.home_desk.const import SOUS_ENTREE_ECRAN
+from custom_components.home_desk.const import SUBENTRY_SCREEN
 
 COMPOSANT_DIR = pathlib.Path(__file__).resolve().parents[2] / "custom_components" / "home_desk"
 CHEMIN_TRADUCTIONS = COMPOSANT_DIR / "translations"
@@ -71,7 +71,7 @@ def _cles_calculees_par_le_code() -> set[str]:
     """Les noms de placeholder assignes a partir d'un appel a
     `registre.avertissement_entites_inconnues` -- derive de l'AST, jamais
     tape en dur : peu importe la CLE choisie ou le NOMBRE de sites qui
-    l'appellent (listes.py, objets.py, config_flow.py x2 aujourd'hui), ce
+    l'appellent (list_sections.py, objets.py, config_flow.py x2 aujourd'hui), ce
     test les retrouve tous. Couvre deux formes : l'affectation directe
     (`description_placeholders["x"] = avertissement_entites_inconnues(...)`,
     les quatre sites actuels) et l'entree d'un dict litteral dont la valeur
@@ -138,7 +138,7 @@ def test_ce_qui_est_visible_est_reellement_fourni_par_le_code(langue):
 
 # ---------------------------------------------------------------------------
 # 2. Bout en bout -- un vrai flow HA, sur le squelette des sections « liste »
-#    (listes.py), le chemin qui couvre le plus grand nombre de sites C1.
+#    (list_sections.py), le chemin qui couvre le plus grand nombre de sites C1.
 # ---------------------------------------------------------------------------
 
 
@@ -205,7 +205,7 @@ async def test_avertissement_visible_a_la_creation_via_create_entry(hass, entree
     aucun formulaire -- le flow se TERMINE (`CREATE_ENTRY`). Le seul ecran
     qui peut encore montrer l'avertissement est `create_entry.default`."""
     flow = await hass.config_entries.subentries.async_init(
-        (entree.entry_id, SOUS_ENTREE_ECRAN), context={"source": config_entries.SOURCE_USER})
+        (entree.entry_id, SUBENTRY_SCREEN), context={"source": config_entries.SOURCE_USER})
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {**IDENTITE_MINIMALE, "temperature": "sensor.n_existe_pas_non_plus"})
 

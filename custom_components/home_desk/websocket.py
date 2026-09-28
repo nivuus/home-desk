@@ -1,37 +1,37 @@
-"""Le transport : deux commandes websocket, et rien d'autre.
+"""The transport: two websocket commands, and nothing else.
 
-Ce module est ce qui fait qu'une tablette recoit enfin sa configuration --
-les taches 1 a 7 n'ont livre que la SAISIE (l'integration, ses sections, sa
-garde d'ecran valide). Deux commandes :
+This module is what finally lets a tablet receive its configuration --
+tasks 1 to 7 only delivered the INPUT side (the integration, its sections,
+its valid-screen guard). Two commands:
 
-`home_desk/ecran` { "nom": "salon" } -> l'ecran RESOLU ET VALIDE, `version`
-comprise. Refuse `ERREUR_ECRAN_INTROUVABLE` si aucune sous-entree ne porte
-ce `nom` (un objet vide serait un ecran SANS TUILES, indistinguable d'une
-absence pour l'application) ; refuse `ERREUR_VERSION_INCONNUE` si la
-sous-entree stockee porte une `version` que ce composant ne reconnait pas
-(quatrieme degradation, spec decision 10) ; refuse `ERREUR_ECRAN_CORROMPU`
-si la version est connue mais que les DONNEES ne respectent plus le
-contrat -- un code DISTINCT du precedent, et du `invalid_format` generique
-que Home Assistant produit pour une requete CLIENTE mal formee (voir
-ronde 1 de relecture, Critique + Point 4 : les deux partageaient le meme
-code avant cette correction, rendant les deux fautes indiscernables pour
-`app/src/`).
+`home_desk/ecran` { "nom": "salon" } -> the RESOLVED AND VALID screen,
+`version` included. Rejects with `ERROR_SCREEN_NOT_FOUND` if no subentry
+carries that `nom` (an empty object would be a screen WITH NO TILES,
+indistinguishable from an absence for the application); rejects with
+`ERROR_VERSION_UNKNOWN` if the stored subentry carries a `version` this
+component does not recognise (fourth degradation, spec decision 10);
+rejects with `ERROR_SCREEN_CORRUPT` if the version is known but the DATA
+no longer honours the contract -- a code DISTINCT from the previous one,
+and from the generic `invalid_format` Home Assistant produces for a
+malformed CLIENT request (see review round 1, Critical + Point 4: both
+shared the same code before this fix, making the two faults
+indistinguishable for `app/src/`).
 
-`home_desk/ecrans` -> [{ "nom": ..., "titre": ... }, ...], une par
-sous-entree. N'EST PAS UN CONFORT : c'est ce que l'application affiche
-quand `?ecran=` est absent ou inconnu, la PREMIERE des quatre degradations.
-Sans elle, ce cas n'a d'autre issue qu'un mur blanc ou un ecran devine, et
-les deux sont interdits -- elle ne revalide donc PAS chaque sous-entree
-(une seule ecran corrompu ne doit jamais empecher les tablettes de choisir
-parmi les autres). Rend aussi `[]` si l'integration n'a plus d'entree du
-tout (DEUXIEME degradation nommee par la spec : HA joignable, aucun ecran
-configure -- y compris juste apres le retrait de l'integration, puisque
-rien ne desenregistre ces commandes a `async_unload_entry` : Home Assistant
-n'offre pas de contraire a `async_register_command`).
+`home_desk/ecrans` -> [{ "nom": ..., "titre": ... }, ...], one per
+subentry. IT IS NOT A CONVENIENCE: it is what the application shows when
+`?ecran=` is missing or unknown, the FIRST of the four degradations.
+Without it, that case has no way out other than a blank wall or a guessed
+screen, and both are forbidden -- so it does NOT revalidate each subentry
+(a single corrupt screen must never prevent the tablets from choosing
+among the others). Also returns `[]` if the integration has no entry at
+all any more (SECOND degradation named by the spec: HA reachable, no
+screen configured -- including right after the integration is removed,
+since nothing unregisters these commands at `async_unload_entry`: Home
+Assistant offers no inverse of `async_register_command`).
 
-Les deux commandes sont enregistrees par `__init__.async_setup_entry` ;
-l'evenement `EVENEMENT_CHANGEMENT` est emis par un ECOUTEUR DE MISE A JOUR
-DE L'ENTREE, pas par un appel depuis ce module -- voir `__init__.py`.
+Both commands are registered by `__init__.async_setup_entry`; the
+`EVENEMENT_CHANGEMENT` event is fired by an ENTRY UPDATE LISTENER, not by
+a call from this module -- see `__init__.py`.
 """
 from __future__ import annotations
 
@@ -45,9 +45,9 @@ from homeassistant.core import HomeAssistant, callback
 from . import schema
 from .const import (
     DOMAIN,
-    ERREUR_ECRAN_CORROMPU,
-    ERREUR_ECRAN_INTROUVABLE,
-    ERREUR_VERSION_INCONNUE,
+    ERROR_SCREEN_CORRUPT,
+    ERROR_SCREEN_NOT_FOUND,
+    ERROR_VERSION_UNKNOWN,
     VERSION_CONFIG,
     WS_ECRAN,
     WS_ECRANS,
@@ -55,17 +55,16 @@ from .const import (
 
 
 class _VersionInconnue(Exception):
-    """Levee par `_resoudre` quand la `version` stockee ne correspond pas a
-    `VERSION_CONFIG` -- refus net, jamais une lecture a moitie.
+    """Raised by `_resoudre` when the stored `version` does not match
+    `VERSION_CONFIG` -- a clean refusal, never a half read.
 
-    `raison` distingue deux cas qui n'appellent PAS le meme geste (ronde 1
-    de relecture, Mineur) : "absente" (aucune `version` du tout -- une
-    config ANTERIEURE au suivi de version, qu'aucune version de ce
-    composant n'a jamais ecrite ; « mettez a jour l'integration » y serait
-    un geste inutile, l'integration etant deja plus recente que la donnee)
-    contre "future" (une `version` PRESENTE mais differente de
-    `VERSION_CONFIG` -- la seule qui appelle vraiment une mise a jour du
-    composant)."""
+    `raison` distinguishes two cases that do NOT call for the same action
+    (review round 1, Minor): "absente" (no `version` at all -- a config
+    PREDATING version tracking, which no version of this component ever
+    wrote; "update the integration" would be a useless action there, the
+    integration already being newer than the data) versus "future" (a
+    `version` that is PRESENT but different from `VERSION_CONFIG` -- the
+    only one that truly calls for updating the component)."""
 
     def __init__(self, version: Any, raison: str) -> None:
         super().__init__(version, raison)
@@ -74,26 +73,26 @@ class _VersionInconnue(Exception):
 
 
 class _EcranCorrompu(Exception):
-    """Levee par `_resoudre` quand la `version` est CONNUE mais que
-    `schema.valider()` refuse quand meme les donnees -- le troisieme
-    chemin nomme par la docstring de `_resoudre` (sauvegarde restauree,
-    import direct) rencontre pour de vrai, pas seulement en theorie."""
+    """Raised by `_resoudre` when the `version` is KNOWN but
+    `schema.valider()` still rejects the data -- the third path named by
+    the `_resoudre` docstring (restored backup, direct import) met for
+    real, not only in theory."""
 
     def __init__(self, cause: vol.Invalid) -> None:
         super().__init__(str(cause))
         self.cause = cause
 
 
-def _sous_entrees(hass: HomeAssistant) -> list[Any]:
-    """Les sous-entrees « ecran » de l'entree « Tablettes murales », ou `[]`
-    si elle n'existe plus (integration retiree apres coup : rien ne
-    desenregistre ces commandes, `async_unload_entry` n'en a pas les
-    moyens -- voir la docstring de module). Ronde 1 de relecture
-    (Important) : la version precedente indexait `[0]` sans garde, une
-    docstring affirmant l'impossibilite d'une liste vide -- affirmation
-    fausse, mesuree : un `IndexError` non rattrape y crashait la commande
-    (`unknown_error` cote client, trace complete cote serveur) exactement
-    dans le cas que la DEUXIEME degradation (spec) doit couvrir."""
+def _subentries(hass: HomeAssistant) -> list[Any]:
+    """The "ecran" subentries of the "Tablettes murales" entry, or `[]`
+    if it no longer exists (integration removed afterwards: nothing
+    unregisters these commands, `async_unload_entry` has no means to --
+    see the module docstring). Review round 1 (Important): the previous
+    version indexed `[0]` without a guard, with a docstring claiming an
+    empty list was impossible -- a false claim, measured: an uncaught
+    `IndexError` crashed the command there (`unknown_error` on the client
+    side, full traceback on the server side) exactly in the case the
+    SECOND degradation (spec) must cover."""
     entrees = hass.config_entries.async_entries(DOMAIN)
     if not entrees:
         return []
@@ -101,44 +100,44 @@ def _sous_entrees(hass: HomeAssistant) -> list[Any]:
 
 
 def _trouver(hass: HomeAssistant, nom: str) -> Any | None:
-    """La sous-entree dont `data["nom"]` vaut `nom`, ou None."""
-    for sous_entree in _sous_entrees(hass):
-        if sous_entree.data.get("nom") == nom:
-            return sous_entree
+    """The subentry whose `data["nom"]` equals `nom`, or None."""
+    for subentry in _subentries(hass):
+        if subentry.data.get("nom") == nom:
+            return subentry
     return None
 
 
-def _resoudre(sous_entree: Any) -> dict:
-    """Rend l'ecran tel que l'application le recevra : valide, `version`
-    comprise.
+def _resoudre(subentry: Any) -> dict:
+    """Returns the screen as the application will receive it: valid,
+    `version` included.
 
-    VALIDE A LA LECTURE, et pas seulement a l'ecriture. Une sous-entree peut
-    avoir ete ecrite par une version anterieure du schema, restauree depuis
-    une sauvegarde HA, ou importee par `home_desk.importer` -- trois
-    chemins qui ne passent pas par le formulaire. Servir sans revalider,
-    c'est faire confiance a trois portes dont une seule est gardee.
+    VALIDATED ON READ, and not only on write. A subentry may have been
+    written by an earlier version of the schema, restored from an HA
+    backup, or imported by `home_desk.importer` -- three paths that do not
+    go through the form. Serving without revalidating means trusting three
+    doors of which only one is guarded.
 
-    La `version` est verifiee EN PREMIER, et separement de
-    `schema.valider()` : le contrat n'accepte que `VERSION_CONFIG` (via
-    `schema._const`, couplee a cette meme constante), donc une version
-    FUTURE y leverait de toute facon un `vol.Invalid` -- mais generique,
-    sans le code `version_inconnue` distinct que la quatrieme degradation
-    exige (spec, decision 10).
+    The `version` is checked FIRST, and separately from
+    `schema.valider()`: the contract only accepts `VERSION_CONFIG` (through
+    `schema._const`, tied to that same constant), so a FUTURE version
+    would raise a `vol.Invalid` there anyway -- but a generic one, without
+    the distinct `version_inconnue` code the fourth degradation requires
+    (spec, decision 10).
 
-    Ronde 1 de relecture (Critique) : la premiere version de ce module
-    laissait `schema.valider()` remonter son `vol.Invalid` NU jusqu'a la
-    commande, ou il se confondait avec le `invalid_format` generique d'une
-    requete CLIENTE mal formee (mesure cote a cote : meme code, meme
-    grammaire de message pour "sources manquant dans la sous-entree" et
-    "nom manquant dans le message websocket"). Rattrape ICI et relevee en
-    `_EcranCorrompu`, pour que `ws_ecran` lui attribue un code DEDIE."""
-    version = sous_entree.data.get("version")
+    Review round 1 (Critical): the first version of this module let
+    `schema.valider()` propagate its BARE `vol.Invalid` up to the command,
+    where it was confused with the generic `invalid_format` of a malformed
+    CLIENT request (measured side by side: same code, same message grammar
+    for "sources missing in the subentry" and "nom missing in the websocket
+    message"). Caught HERE and re-raised as `_EcranCorrompu`, so that
+    `ws_ecran` gives it a DEDICATED code."""
+    version = subentry.data.get("version")
     if version is None:
         raise _VersionInconnue(version, "absente")
     if version != VERSION_CONFIG:
         raise _VersionInconnue(version, "future")
     try:
-        return schema.valider(dict(sous_entree.data))
+        return schema.valider(dict(subentry.data))
     except vol.Invalid as err:
         raise _EcranCorrompu(err) from err
 
@@ -151,19 +150,19 @@ def _resoudre(sous_entree: Any) -> dict:
 )
 @callback
 def ws_ecran(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
-    """`home_desk/ecran` : l'ecran RESOLU ET VALIDE nomme `nom`."""
-    sous_entree = _trouver(hass, msg["nom"])
-    if sous_entree is None:
+    """`home_desk/ecran`: the RESOLVED AND VALID screen named `nom`."""
+    subentry = _trouver(hass, msg["nom"])
+    if subentry is None:
         connection.send_error(
             msg["id"],
-            ERREUR_ECRAN_INTROUVABLE,
+            ERROR_SCREEN_NOT_FOUND,
             f"aucun ecran nomme {msg['nom']!r} -- voir home_desk/ecrans pour "
             "la liste des ecrans configures, ou creez-le depuis Parametres > "
             "Appareils et services > Tablettes murales",
         )
         return
     try:
-        ecran = _resoudre(sous_entree)
+        ecran = _resoudre(subentry)
     except _VersionInconnue as err:
         if err.raison == "absente":
             message = (
@@ -179,12 +178,12 @@ def ws_ecran(hass: HomeAssistant, connection: websocket_api.ActiveConnection, ms
                 "mettez a jour l'integration home_desk avant de servir cet "
                 "ecran"
             )
-        connection.send_error(msg["id"], ERREUR_VERSION_INCONNUE, message)
+        connection.send_error(msg["id"], ERROR_VERSION_UNKNOWN, message)
         return
     except _EcranCorrompu as err:
         connection.send_error(
             msg["id"],
-            ERREUR_ECRAN_CORROMPU,
+            ERROR_SCREEN_CORRUPT,
             f"la configuration stockee de {msg['nom']!r} ne respecte plus le "
             f"contrat ({err.cause}) -- corrigez-la depuis Parametres > "
             "Appareils et services > Tablettes murales, ou restaurez une "
@@ -197,19 +196,19 @@ def ws_ecran(hass: HomeAssistant, connection: websocket_api.ActiveConnection, ms
 @websocket_api.websocket_command({vol.Required("type"): WS_ECRANS})
 @callback
 def ws_ecrans(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
-    """`home_desk/ecrans` : la liste `[{"nom": ..., "titre": ...}, ...]` --
-    la premiere des quatre degradations (voir la docstring de module),
-    jamais revalidee ecran par ecran : un ecran corrompu ne doit pas priver
-    les tablettes du choix des autres. `nom` (donnee saisie) et `titre`
-    (`ConfigSubentry.title`, une propriete HA generique, renommable
-    independamment de `nom` par l'utilisateur depuis la page d'integration)
-    sont deux champs distincts, meme s'ils sont maintenus synchronises par
-    `config_flow.async_step_identite` -- rien n'empeche l'utilisateur de
-    renommer le TITRE seul par le geste generique de Home Assistant."""
+    """`home_desk/ecrans`: the list `[{"nom": ..., "titre": ...}, ...]` --
+    the first of the four degradations (see the module docstring), never
+    revalidated screen by screen: one corrupt screen must not deprive the
+    tablets of the choice of the others. `nom` (entered data) and `titre`
+    (`ConfigSubentry.title`, a generic HA property, renameable
+    independently of `nom` by the user from the integration page) are two
+    distinct fields, even though they are kept in sync by
+    `config_flow.async_step_identite` -- nothing stops the user from
+    renaming the TITLE alone through Home Assistant's generic action."""
     connection.send_result(
         msg["id"],
         [
-            {"nom": sous_entree.data.get("nom"), "titre": sous_entree.title}
-            for sous_entree in _sous_entrees(hass)
+            {"nom": subentry.data.get("nom"), "titre": subentry.title}
+            for subentry in _subentries(hass)
         ],
     )

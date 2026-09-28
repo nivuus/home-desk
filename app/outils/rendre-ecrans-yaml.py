@@ -1,16 +1,16 @@
-"""JETABLE -- supprime a l'etape 8 de la mise en production (plan 3c, tache 10).
+"""THROWAWAY -- deleted at step 8 of the production rollout (plan 3c, task 10).
 
-Rend le YAML d'import a partir du JSON produit par `exporter-ecrans.mjs`, PAR
-`yaml_ecrans.rendre()` et jamais par un rendeur maison : le lecteur
-(`yaml_ecrans.lire`, celui qu'utilise `home_desk.importer`) et l'ecrivain
-doivent etre les deux moities du MEME module, sinon ils divergent le jour ou
-l'un des deux apprend un cas que l'autre ignore.
+Renders the import YAML from the JSON produced by `exporter-ecrans.mjs`, THROUGH
+`yaml_ecrans.rendre()` and never through a homemade renderer: the reader
+(`yaml_ecrans.lire`, the one `home_desk.importer` uses) and the writer
+must be the two halves of the SAME module, otherwise they diverge the day
+one of them learns a case the other ignores.
 
-`yaml_ecrans.py` n'importe que `yaml` : il se charge PAR SON CHEMIN, sans
-passer par `custom_components/home_desk/__init__.py`, qui lui tire Home
-Assistant en entier. python3 + PyYAML suffisent -- meme regime que `make test`.
+`yaml_ecrans.py` imports only `yaml`: it is loaded BY ITS PATH, without
+going through `custom_components/home_desk/__init__.py`, which pulls in the
+whole of Home Assistant. python3 + PyYAML are enough -- same regime as `make test`.
 
-Usage : python3 outils/rendre-ecrans-yaml.py <entree.json> <sortie.yaml>
+Usage: python3 outils/rendre-ecrans-yaml.py <input.json> <output.yaml>
 """
 import importlib.util
 import json
@@ -29,45 +29,45 @@ def main(source: pathlib.Path, destination: pathlib.Path) -> int:
     ecrans = json.loads(source.read_text(encoding="utf-8"))
     texte = yaml_ecrans.rendre(ecrans)
 
-    # L'ALLER-RETOUR, AVANT D'ECRIRE. `rendre` aplatit une note multiligne
-    # (limitation documentee au plan 3a) et rien d'autre ne dit si un cas
-    # limite est passe a travers. Relire avec le lecteur REEL de
-    # `home_desk.importer` et comparer, c'est la seule verification qui a la
-    # meme portee que l'import lui-meme.
+    # THE ROUND TRIP, BEFORE WRITING. `rendre` flattens a multi-line note
+    # (limitation documented in plan 3a) and nothing else says whether an edge
+    # case slipped through. Reading back with the REAL reader of
+    # `home_desk.importer` and comparing is the only check that has the
+    # same reach as the import itself.
     relu = yaml_ecrans.lire(texte)
     if relu != ecrans:
-        # `zip` tronque en silence si les deux listes n'ont pas la meme longueur --
-        # exactement le cas ou le diagnostic compte le plus (un ecran entier avale ou
-        # duplique par l'aller-retour). Nommer d'abord ce qui manque d'un cote ou de
-        # l'autre, avant la comparaison champ par champ sur ce qui s'apparie encore.
+        # `zip` truncates silently if the two lists do not have the same length --
+        # exactly the case where the diagnostic matters most (a whole screen swallowed or
+        # duplicated by the round trip). First name what is missing on one side or the
+        # other, before the field-by-field comparison on what still pairs up.
         if len(ecrans) != len(relu):
             noms_ecrits = {e.get("nom", "?") for e in ecrans}
             noms_relus = {e.get("nom", "?") for e in relu}
             print(
-                f"ALLER-RETOUR ROMPU : {len(ecrans)} ecran(s) ecrit(s), "
-                f"{len(relu)} relu(s).",
+                f"ROUND TRIP BROKEN: {len(ecrans)} screen(s) written, "
+                f"{len(relu)} read back.",
                 file=sys.stderr,
             )
             absents_a_la_relecture = sorted(noms_ecrits - noms_relus)
             if absents_a_la_relecture:
-                print(f"  absents a la relecture : {absents_a_la_relecture}", file=sys.stderr)
+                print(f"  missing on read-back: {absents_a_la_relecture}", file=sys.stderr)
             en_trop_a_la_relecture = sorted(noms_relus - noms_ecrits)
             if en_trop_a_la_relecture:
-                print(f"  en trop a la relecture : {en_trop_a_la_relecture}", file=sys.stderr)
+                print(f"  extra on read-back: {en_trop_a_la_relecture}", file=sys.stderr)
         for attendu, obtenu in zip(ecrans, relu):
             for cle in sorted(set(attendu) | set(obtenu)):
                 if attendu.get(cle) != obtenu.get(cle):
                     print(
-                        f"ALLER-RETOUR ROMPU sur {attendu.get('nom', '?')}.{cle}\n"
-                        f"  ecrit : {attendu.get(cle)!r}\n"
-                        f"  relu  : {obtenu.get(cle)!r}",
+                        f"ROUND TRIP BROKEN on {attendu.get('nom', '?')}.{cle}\n"
+                        f"  written: {attendu.get(cle)!r}\n"
+                        f"  read:    {obtenu.get(cle)!r}",
                         file=sys.stderr,
                     )
-        print("RIEN N'A ETE ECRIT.", file=sys.stderr)
+        print("NOTHING WAS WRITTEN.", file=sys.stderr)
         return 1
 
     destination.write_text(texte, encoding="utf-8")
-    print(f"{len(ecrans)} ecrans rendus dans {destination} ({len(texte.splitlines())} lignes)")
+    print(f"{len(ecrans)} screens rendered into {destination} ({len(texte.splitlines())} lines)")
     return 0
 
 

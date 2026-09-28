@@ -1,15 +1,15 @@
-"""Les sections « objet » d'un ecran : `agencement` (« Blocs et modes ») et
-`voiture` — un OBJET UNIQUE par ecran, jamais une collection d'elements
-choisis/ajoutes un par un comme les sections « liste » de `listes.py`. Ce
-qui les distingue de `SectionsListeMixin` : pas de choisir/ajouter, pas de
-monter/descendre/supprimer, pas d'index — juste un formulaire qui rejoue
-`schema.AGENCEMENT`/`schema.VOITURE` sur l'objet ENTIER a chaque
-soumission.
+"""The "object" sections of a screen: `agencement` ("Blocks and modes") and
+`voiture` — a SINGLE OBJECT per screen, never a collection of items chosen/
+added one by one like the "list" sections of `list_sections.py`. What sets
+them apart from `ListSectionsMixin`: no choose/add, no move up/move down/
+delete, no index — just a form that replays
+`schema.AGENCEMENT`/`schema.VOITURE` on the WHOLE object on every
+submission.
 
-Extrait de `config_flow.py` a la tache 7 pour rester sous 500 lignes (meme
-couture que `listes.py`/`listes_champs.py` a la tache 6, decidee AVANT
-d'ecrire plutot qu'apres coup, comme le brief le demandait) : `EcranSubentryFlow`
-reutilise `SectionsObjetMixin` exactement comme `SectionsListeMixin`.
+Extracted from `config_flow.py` in task 7 to stay under 500 lines (same
+seam as `list_sections.py`/`list_fields.py` in task 6, decided BEFORE
+writing rather than after the fact, as the brief asked): `EcranSubentryFlow`
+reuses `SectionsObjetMixin` exactly like `ListSectionsMixin`.
 """
 from __future__ import annotations
 
@@ -21,74 +21,74 @@ from homeassistant.config_entries import SubentryFlowResult
 from homeassistant.helpers import selector
 
 from . import libelles, schema
-from .budget import BUDGET, verifier_budget
+from .budget import BUDGET, check_budget
 from .const import (
-    ERREUR_ALERTE_PAS_EN_TETE,
-    ERREUR_BUDGET_INTENABLE_MODE,
-    ERREUR_CHAMP_INVALIDE,
-    ERREUR_CHAMP_VIDE,
-    ERREUR_SERVICE_INCOMPLET,
+    ERROR_ALERT_NOT_FIRST,
+    ERROR_BUDGET_UNTENABLE_MODE,
+    ERROR_FIELD_INVALID,
+    ERROR_FIELD_EMPTY,
+    ERROR_SERVICE_INCOMPLETE,
 )
 from .fautes import _FauteAlertePremiere
 from .formulaire import reafficher
-from .listes_champs import (
+from .list_fields import (
     ChampVide,
     ServiceIncomplet,
-    _afficher_bouton,
-    _construire_donnee_bouton,
+    _display_button,
+    _build_button_data,
     _schema_bouton,
 )
-# Ronde 1 de relecture (Critique) : verifie l'ecran COMPLET avant tout
-# persist — voir garde_ecran.py. `async_step_agencement` et
-# `async_step_voiture` en avaient besoin au MEME titre que listes.py
-# (`blocDefaut: voiture` sans objet voiture, ou le retrait de la voiture
-# pendant que blocDefaut la reclame encore, persistaient en silence avant
-# ce correctif). Ronde 2 : importe comme MODULE — `garde_ecran.
-# persister_si_valide` est LE site d'ecriture unique du paquet, ce module
-# ne nomme plus `_async_update` lui-meme.
+# Review round 1 (Critical): checks the COMPLETE screen before any
+# persist — see garde_ecran.py. `async_step_agencement` and
+# `async_step_voiture` needed it JUST AS MUCH as list_sections.py
+# (`blocDefaut: voiture` without a car object, or removing the car while
+# blocDefaut still asks for it, were persisted silently before this fix).
+# Round 2: imported as a MODULE — `garde_ecran.persister_si_valide` is THE
+# single write site of the package, this module no longer names
+# `_async_update` itself.
 from . import garde_ecran
-# Meme mecanisme que `listes.py` (schema.* -> vol.Invalid -> fautes.localiser
-# -> code d'erreur dedie), rejoue ici sur un objet UNIQUE plutot que sur un
-# element de section « liste » : reutiliser CETTE table (et `_localiser_
-# champ`, meme raison) plutot qu'en ecrire une seconde copie, la meme regle
-# que ce chantier applique partout ailleurs (schema.py, budget.py).
+# Same mechanism as `list_sections.py` (schema.* -> vol.Invalid ->
+# fautes.localiser -> dedicated error code), replayed here on a SINGLE
+# object rather than on an item of a "list" section: reuse THIS table (and
+# `_localiser_champ`, same reason) rather than write a second copy of it,
+# the same rule this work applies everywhere else (schema.py, budget.py).
 #
-# Ronde 2 de relecture : `_localiser_champ` vivait ICI seule jusqu'a cette
-# ronde — la ronde 1 avait corrige la troncature de `fautes.localiser()`
-# pour agencement/voiture en la croyant limitee a ces deux formes, alors
-# que `listes.py` portait EXACTEMENT le meme defaut pour les sections
-# « liste » (voir sa propre docstring pour la mesure). Une seule
-# implementation partagee depuis lors -- extraite dans `listes_erreurs.py`
-# en ronde de correction 1 (defaut B), ce module en important deja les DEUX
-# noms ENSEMBLE etant la preuve que la couture etait deja separable.
-from .listes_erreurs import _ERREUR_PAR_MOT_CLE, _localiser_champ
-# Ronde de correction 3 : decision 7, cablee ICI pour "voiture" -- les sept
-# champs de $defs/voiture (en ligne, sans $defs propre) sont des entites
-# tout comme celles d'une section « liste » (voir registre.py). Relecture
-# finale de branche (C1) : `avertissement_entites_inconnues` remplace
-# l'appel direct a `entites_inconnues` -- voir sa docstring.
-from .registre import avertissement_entites_inconnues, entites_dans
+# Review round 2: `_localiser_champ` lived HERE alone until that round —
+# round 1 had fixed the truncation of `fautes.localiser()` for
+# agencement/voiture believing it limited to those two shapes, whereas
+# `list_sections.py` carried EXACTLY the same defect for the "list"
+# sections (see its own docstring for the measurement). A single shared
+# implementation since then -- extracted into `list_errors.py` in fix
+# round 1 (defect B), this module already importing BOTH names TOGETHER
+# being the proof that the seam was already separable.
+from .list_errors import _ERROR_BY_KEYWORD, _localiser_champ
+# Fix round 3: decision 7, wired HERE for "voiture" -- the seven fields
+# of $defs/voiture (inline, without its own $defs) are entities just like
+# those of a "list" section (see registre.py). Final branch review (C1):
+# `avertissement_entites_inconnues` replaces the direct call to
+# `entites_inconnues` -- see its docstring.
+from .registre import avertissement_entites_inconnues, entities_in
 
-# Tache 7 : « Blocs et modes » (agencement) n'est PAS une section « liste »
-# (listes.py) — un OBJET unique par ecran, jamais une collection d'elements
-# independants choisis/ajoutes un par un. `zones`/`modes`/`modulateurs`
-# restent des LISTES ORDONNEES du contrat (schema.ZONES/MODES/MODULATEURS,
-# deja des listes depuis la tache 6 precisement pour cet usage) : un
-# `SelectSelector(multiple=True)` les soumet dans l'ordre choisi par
-# l'utilisateur — HA ne les trie ni ne les reordonne lui-meme — ce qui
-# porte la MEME garantie d'ordre qu'un monter/descendre, sans le geste
-# dedie (voir le rapport de tache pour ce repli assume). `default=list` sur
-# les trois : un champ jamais touche doit quand meme soumettre une LISTE
-# VIDE, jamais une cle absente — `schema.AGENCEMENT` les exige toutes les
-# trois (`vol.Required`).
+# Task 7: "Blocks and modes" (agencement) is NOT a "list" section
+# (list_sections.py) — a single OBJECT per screen, never a collection of
+# independent items chosen/added one by one. `zones`/`modes`/`modulateurs`
+# remain ORDERED LISTS of the contract (schema.ZONES/MODES/MODULATEURS,
+# already lists since task 6 precisely for this use): a
+# `SelectSelector(multiple=True)` submits them in the order chosen by the
+# user — HA neither sorts nor reorders them itself — which carries the
+# SAME ordering guarantee as a move up/move down, without the dedicated
+# gesture (see the task report for this deliberate fallback). `default=list`
+# on all three: a field never touched must still submit an EMPTY LIST,
+# never a missing key — `schema.AGENCEMENT` requires all three of them
+# (`vol.Required`).
 SCHEMA_AGENCEMENT = vol.Schema(
     {
-        # Ronde 1 de relecture (Mineur) : les quatre `SelectSelector`
-        # ci-dessous portent desormais un `translation_key` — meme mecanique
-        # que "geste" (`listes_communs._selecteur_geste`). Avant cette
-        # ronde, aucun n'en avait : l'utilisateur lisait les identifiants
-        # BRUTS du contrat ("blocCentral", "aeration", "delorean",
-        # "extrasMaison" via zones/modes/modulateurs), jamais un libelle.
+        # Review round 1 (Minor): the four `SelectSelector`s below now
+        # carry a `translation_key` — same mechanics as "geste"
+        # (`list_common._selecteur_geste`). Before that round, none had
+        # one: the user read the RAW contract identifiers ("blocCentral",
+        # "aeration", "delorean", "extrasMaison" via zones/modes/
+        # modulateurs), never a label.
         vol.Optional("blocDefaut"): selector.SelectSelector(
             selector.SelectSelectorConfig(
                 options=list(schema.BLOC_DEFAUT),
@@ -124,9 +124,9 @@ SCHEMA_AGENCEMENT = vol.Schema(
     }
 )
 
-# Les sept entites de $defs/voiture, jamais retapees en dur ailleurs — la
-# case "sans_voiture" (brief, etape 2) N'EST PAS un champ du contrat : elle
-# ne quitte jamais ce formulaire, cf. SectionsObjetMixin.async_step_voiture.
+# The seven entities of $defs/voiture, never hardcoded again elsewhere — the
+# "sans_voiture" checkbox (brief, step 2) is NOT a contract field: it never
+# leaves this form, cf. SectionsObjetMixin.async_step_voiture.
 CHAMPS_VOITURE = (
     "batterie", "autonomie", "branchee", "enCharge", "clim", "demarrerClim", "arreterClim",
 )
@@ -142,51 +142,52 @@ SCHEMA_VOITURE = vol.Schema(
     }
 )
 
-# Le dernier des quatre champs racine du contrat a recevoir sa porte de
-# saisie (plan 3c, tache 1) : un `Bouton` UNIQUE ($ref: #/$defs/bouton),
-# qui REMPLACE la tuile generique « Aspirateur » de la vue « Toute la
-# maison » (`rendu/maison.ts`, ASPIRATEUR_GENERIQUE) quand il est declare.
-# Les dix champs du bouton ne sont pas retapes ici : `_schema_bouton`,
-# `_construire_donnee_bouton` et `_afficher_bouton` (listes_champs.py) sont
-# la SEULE adresse canonique de $defs/bouton, la meme regle que ce depot
-# applique partout ailleurs (schema.py, budget.py, listes_erreurs.py).
+# The last of the contract's four root fields to receive its input door
+# (plan 3c, task 1): a SINGLE `Bouton` ($ref: #/$defs/bouton), which
+# REPLACES the generic "Vacuum" tile of the "Whole house" view
+# (`rendu/maison.ts`, ASPIRATEUR_GENERIQUE) when it is declared. The ten
+# fields of the button are not retyped here: `_schema_bouton`,
+# `_build_button_data` and `_display_button` (list_fields.py) are the ONLY
+# canonical address of $defs/bouton, the same rule this repository applies
+# everywhere else (schema.py, budget.py, list_errors.py).
 #
-# La case qui RETIRE la section, jamais un champ du contrat : elle ne quitte
-# pas ce formulaire (meme doctrine que `sans_voiture`, cf. async_step_voiture).
+# The checkbox that REMOVES the section, never a contract field: it does
+# not leave this form (same doctrine as `sans_voiture`, cf.
+# async_step_voiture).
 SCHEMA_ASPIRATEUR_MAISON = _schema_bouton(editable=False).extend(
     {vol.Optional("sans_aspirateur_maison", default=False): selector.BooleanSelector()}
 )
 
 
 class SectionsObjetMixin:
-    """Le pendant de `listes.SectionsListeMixin` pour les DEUX sections
-    « objet ». `EcranSubentryFlow` (config_flow.py) le reutilise en mixin,
-    aux cotes de `SectionsListeMixin` — les deux ne partagent aucun nom de
-    methode, l'ordre des bases n'a donc pas d'effet observable ici."""
+    """The counterpart of `list_sections.ListSectionsMixin` for the TWO
+    "object" sections. `EcranSubentryFlow` (config_flow.py) reuses it as a
+    mixin, alongside `ListSectionsMixin` — the two share no method name, so
+    the order of the bases has no observable effect here."""
 
     async def async_step_agencement(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """« Blocs et modes » (agencement) : un OBJET unique, jamais une
-        section « liste » (voir SCHEMA_AGENCEMENT ci-dessus pour l'ordre des
+        """The "Blocks and modes" step (agencement): a single OBJECT, never a "list"
+        section (see SCHEMA_AGENCEMENT above for the order of the
         multi-selections).
 
-        Rejoue `schema.AGENCEMENT` (le miroir complet, y compris ses deux
-        `Contains` — zones doit contenir "commandes", modes doit contenir
-        "defaut") puis, seulement si l'objet est structurellement valide,
-        la DEUXIEME regle hors-schema de cette tache : le budget verifie
-        MODE PAR MODE, avec les zones SAISIES ICI et la hauteur/l'ambiance
-        REELLEMENT persistees. Le refus nomme le mode le PLUS COUTEUX, pas
-        seulement un chiffre — « le mode minuteur deborde de X px », jamais
-        « cet ecran deborde de X px »."""
+        Replays `schema.AGENCEMENT` (the complete mirror, including its two
+        `Contains` — zones must contain "commandes", modes must contain
+        "defaut") then, only if the object is structurally valid, the
+        SECOND out-of-schema rule of this task: the budget checked MODE BY
+        MODE, with the zones ENTERED HERE and the height/ambiance ACTUALLY
+        persisted. The refusal names the MOST COSTLY mode, not just a
+        number — "the timer mode overflows by X px", never "this screen
+        overflows by X px"."""
         entry = self._get_entry()
         subentry = self._get_reconfigure_subentry()
         errors: dict[str, str] = {}
         description_placeholders: dict[str, str] = {}
-        valeurs_affichees = dict(subentry.data.get("agencement") or {})
+        displayed_values = dict(subentry.data.get("agencement") or {})
 
         if user_input is not None:
-            valeurs_affichees = user_input
+            displayed_values = user_input
             candidat: dict[str, Any] = {
                 "zones": list(user_input.get("zones") or []),
                 "modes": list(user_input.get("modes") or []),
@@ -199,32 +200,32 @@ class SectionsObjetMixin:
             try:
                 valide = schema.AGENCEMENT(candidat)
             except vol.Invalid as err:
-                # Relecture finale de branche (deuxieme ronde) : `err` peut
-                # etre une `vol.MultipleInvalid` -- meme deballage que
-                # `_localiser_champ` (listes_erreurs.py) fait pour lire le mot-cle,
-                # necessaire ICI aussi pour l'isinstance ci-dessous.
+                # Final branch review (second round): `err` may be a
+                # `vol.MultipleInvalid` -- same unwrapping that
+                # `_localiser_champ` (list_errors.py) does to read the
+                # keyword, needed HERE too for the isinstance below.
                 premiere = err.errors[0] if isinstance(err, vol.MultipleInvalid) else err
                 if isinstance(premiere, _FauteAlertePremiere):
-                    # Cas special, PAS via `_ERREUR_PAR_MOT_CLE` : cette
-                    # faute herite du mot-cle "const" de `_FauteConst`
-                    # (pour que `contrat/cas-schema.json` partage le MEME
-                    # motif qu'ajv, voir schema._alerte_en_tete()) -- mais
-                    # "const" y est deja pris par un tout autre message
-                    # (ERREUR_CHAMP_VALEUR_FIGEE, un champ fige a une seule
-                    # valeur, jamais une histoire d'ORDRE). Distinguee par
-                    # TYPE, jamais par mot-cle : deux mot-cle identiques ne
-                    # peuvent pas porter deux messages differents dans un
-                    # dict a plat.
-                    errors["modes"] = ERREUR_ALERTE_PAS_EN_TETE
+                    # Special case, NOT via `_ERROR_BY_KEYWORD`: this
+                    # fault inherits the "const" keyword from `_FauteConst`
+                    # (so that `contrat/cas-schema.json` shares the SAME
+                    # pattern as ajv, see schema._alerte_en_tete()) -- but
+                    # "const" is already taken there by a completely
+                    # different message (ERROR_FIELD_VALUE_FIXED, a field
+                    # frozen to a single value, never a matter of ORDER).
+                    # Told apart by TYPE, never by keyword: two identical
+                    # keywords cannot carry two different messages in a
+                    # flat dict.
+                    errors["modes"] = ERROR_ALERT_NOT_FIRST
                 else:
                     champ, mot_cle = _localiser_champ(err)
-                    errors[champ] = _ERREUR_PAR_MOT_CLE.get(mot_cle, ERREUR_CHAMP_INVALIDE)
+                    errors[champ] = _ERROR_BY_KEYWORD.get(mot_cle, ERROR_FIELD_INVALID)
             else:
-                # rangee_ambiance : MEME formule que app/src/demarrage.ts
+                # rangee_ambiance: SAME formula as app/src/demarrage.ts
                 # (`piece.ambiances.length > 0 || (piece.minuteurs?.length
-                # ?? 0) > 0`) — la tache 5 ne pouvait que la SUPPOSER vraie
-                # (aucune section n'existait encore) ; ici, les deux listes
-                # sont deja persistees et disent la verite.
+                # ?? 0) > 0`) — task 5 could only ASSUME it true (no section
+                # existed yet); here, both lists are already persisted and
+                # tell the truth.
                 rangee_ambiance = (
                     len(subentry.data.get("ambiances", [])) > 0
                     or len(subentry.data.get("minuteurs", [])) > 0
@@ -235,87 +236,88 @@ class SectionsObjetMixin:
                 pire_mode: str | None = None
                 pire_debordement = 0
                 for mode in valide["modes"]:
-                    debordement = verifier_budget(
+                    debordement = check_budget(
                         mode, rangee_ambiance, hauteur_utile, valide["zones"]
                     )
                     if debordement > pire_debordement:
                         pire_debordement = debordement
                         pire_mode = mode
                 if pire_mode is not None:
-                    errors["base"] = ERREUR_BUDGET_INTENABLE_MODE
-                    # Ronde 2 de relecture (point 3) : {mode} interpolait
-                    # l'identifiant BRUT du contrat ("minuteur"), jamais
-                    # traduit — alors que le SelectSelector correspondant
-                    # (translation_key="mode", ronde 1) publie deja "Minuteur"
-                    # / "Timer". `libelles.mode` relit la MEME table.
+                    errors["base"] = ERROR_BUDGET_UNTENABLE_MODE
+                    # Review round 2 (point 3): {mode} interpolated the RAW
+                    # contract identifier ("minuteur"), never translated —
+                    # whereas the matching SelectSelector
+                    # (translation_key="mode", round 1) already publishes
+                    # "Minuteur" / "Timer". `libelles.mode` reads the SAME
+                    # table.
                     description_placeholders["mode"] = libelles.mode(self.hass, pire_mode)
                     description_placeholders["debordement"] = str(pire_debordement)
                 else:
-                    # Ronde 1 de relecture (Critique) : schema.AGENCEMENT
-                    # rejoue plus haut ne voit que L'AGENCEMENT lui-meme,
-                    # jamais les invariants CROISES avec le reste de
-                    # l'ecran (`blocDefaut: voiture` sans objet voiture,
-                    # `minuteur` dans les modes sans slot de minuteur) —
-                    # mesure : persistait en silence avant ce correctif.
-                    # Ronde 2 : delegue a `garde_ecran.persister_si_valide`,
-                    # LE site d'ecriture unique (voir sa docstring).
-                    donnees = {**subentry.data, "agencement": valide}
+                    # Review round 1 (Critical): schema.AGENCEMENT replayed
+                    # above only sees THE LAYOUT itself, never the CROSS
+                    # invariants with the rest of the screen
+                    # (`blocDefaut: voiture` without a car object,
+                    # `minuteur` in the modes without a timer slot) —
+                    # measured: persisted silently before this fix.
+                    # Round 2: delegates to `garde_ecran.persister_si_valide`,
+                    # THE single write site (see its docstring).
+                    screen_data = {**subentry.data, "agencement": valide}
                     if garde_ecran.persister_si_valide(
-                        self, entry, subentry, donnees, errors, description_placeholders,
+                        self, entry, subentry, screen_data, errors, description_placeholders,
                         section_courante="agencement",
                     ):
                         return await self.async_step_reconfigure()
 
         return reafficher(
-            self, "agencement", SCHEMA_AGENCEMENT, valeurs_affichees, errors,
+            self, "agencement", SCHEMA_AGENCEMENT, displayed_values, errors,
             description_placeholders,
         )
 
     async def async_step_voiture(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """« Voiture » : sept entites, ou la case « Pas de voiture ». La
-        DECOCHER (`sans_voiture=True`) RETIRE l'objet de la sous-entree —
-        jamais sept champs laisses vides : le contrat exige l'objet COMPLET
-        des qu'il existe (`$defs` racine, `voiture` -> `required` sur les
-        sept), et `blocDefaut: voiture` l'exige tout court
-        (schema._invariants_croises). Retirer la cle exige `data=` (pas
-        `data_updates=`, qui ne fait qu'une UNION — `subentry.data |
-        {"voiture": None}` garderait la cle avec une valeur `None`, pas
-        l'absence que le contrat demande).
+        """The "Car" step (voiture): seven entities, or the "No car" checkbox.
+        UNTICKING it (`sans_voiture=True`) REMOVES the object from the
+        subentry — never seven fields left empty: the contract requires the
+        COMPLETE object as soon as it exists (root `$defs`, `voiture` ->
+        `required` on all seven), and `blocDefaut: voiture` requires it
+        outright (schema._invariants_croises). Removing the key requires
+        `data=` (not `data_updates=`, which only does a UNION —
+        `subentry.data | {"voiture": None}` would keep the key with a `None`
+        value, not the absence the contract asks for).
 
-        Ronde 1 de relecture (Critique) : LE cas le plus grave mesure par le
-        relecteur vivait ICI — retirer la voiture pendant que `blocDefaut`
-        vaut encore "voiture" rendait un ecran DEJA VALIDE invalide, SANS UN
-        MOT (la docstring nommait deja `schema._invariants_croises`
-        juste au-dessus, sans jamais l'appeler). Les DEUX branches qui
-        persistent (retrait, ajout/edition) passent desormais par
-        `garde_ecran.persister_si_valide` avant d'ecrire.
+        Review round 1 (Critical): THE most serious case measured by the
+        reviewer lived HERE — removing the car while `blocDefaut` is still
+        "voiture" made an ALREADY VALID screen invalid, WITHOUT A WORD (the
+        docstring already named `schema._invariants_croises` just above,
+        without ever calling it). BOTH branches that persist (removal,
+        add/edit) now go through `garde_ecran.persister_si_valide` before
+        writing.
 
-        Ronde 2 de relecture (point 3) : le refus de la branche `sans_
-        voiture` nommait "voiture" — la section ou l'utilisateur se trouve
-        DEJA, ou il n'y a plus rien a corriger (il vient d'en sortir). Le
-        seul remede reel est dans « Blocs et modes » (retirer `blocDefaut:
-        voiture`). `section_courante="voiture"` permet a `garde_ecran.
-        verifier_ecran_complet` de rediriger vers "agencement" quand la
-        section fautive EST celle d'ou vient l'ecriture — jamais dans la
-        branche d'ajout/edition ci-dessous, ou "voiture" reste la bonne
-        reponse (l'utilisateur n'y est pas deja s'il vient de `blocDefaut:
-        voiture` choisi depuis l'agencement)."""
+        Review round 2 (point 3): the refusal of the `sans_voiture` branch
+        named "voiture" — the section the user is ALREADY in, where there
+        is nothing left to fix (they have just left it). The only real
+        remedy is in "Blocks and modes" (remove `blocDefaut: voiture`).
+        `section_courante="voiture"` lets
+        `garde_ecran.check_complete_screen` redirect to "agencement" when
+        the faulty section IS the one the write comes from — never in the
+        add/edit branch below, where "voiture" remains the right answer
+        (the user is not already there if they come from a
+        `blocDefaut: voiture` chosen from the layout)."""
         entry = self._get_entry()
         subentry = self._get_reconfigure_subentry()
         errors: dict[str, str] = {}
         description_placeholders: dict[str, str] = {}
         existant = subentry.data.get("voiture")
-        valeurs_affichees = dict(existant) if existant else {}
+        displayed_values = dict(existant) if existant else {}
 
         if user_input is not None:
-            valeurs_affichees = user_input
+            displayed_values = user_input
             if user_input.get("sans_voiture"):
-                donnees = dict(subentry.data)
-                donnees.pop("voiture", None)
+                screen_data = dict(subentry.data)
+                screen_data.pop("voiture", None)
                 if garde_ecran.persister_si_valide(
-                    self, entry, subentry, donnees, errors, description_placeholders,
+                    self, entry, subentry, screen_data, errors, description_placeholders,
                     section_courante="voiture",
                 ):
                     return await self.async_step_reconfigure()
@@ -331,22 +333,22 @@ class SectionsObjetMixin:
                     valide = schema.VOITURE(candidat)
                 except vol.Invalid as err:
                     champ, mot_cle = _localiser_champ(err)
-                    errors[champ] = _ERREUR_PAR_MOT_CLE.get(mot_cle, ERREUR_CHAMP_INVALIDE)
+                    errors[champ] = _ERROR_BY_KEYWORD.get(mot_cle, ERROR_FIELD_INVALID)
                 else:
-                    # Ronde de correction 3 : decision 7, restee non cablee
-                    # ICI -- les SEPT champs de `voiture` sont des entites au
-                    # contrat (`$ref: entite`), aussi exposees a la faute de
-                    # frappe que n'importe quel champ d'une section « liste ».
-                    # AVERTIT, ne refuse jamais -- meme regle que le squelette
-                    # des sections (`listes.py`). C1 (relecture finale) : le
-                    # placeholder est TOUJOURS pose, jamais seulement `if
-                    # inconnues` -- voir `avertissement_entites_inconnues`.
+                    # Fix round 3: decision 7, which had remained unwired
+                    # HERE -- the SEVEN fields of `voiture` are entities in
+                    # the contract (`$ref: entite`), as exposed to typos as
+                    # any field of a "list" section. WARNS, never refuses
+                    # -- same rule as the sections skeleton
+                    # (`list_sections.py`). C1 (final review): the
+                    # placeholder is ALWAYS set, never only `if inconnues`
+                    # -- see `avertissement_entites_inconnues`.
                     description_placeholders["entites_inconnues"] = (
-                        avertissement_entites_inconnues(self.hass, entites_dans(valide, "voiture"))
+                        avertissement_entites_inconnues(self.hass, entities_in(valide, "voiture"))
                     )
-                    donnees = {**subentry.data, "voiture": valide}
+                    screen_data = {**subentry.data, "voiture": valide}
                     if garde_ecran.persister_si_valide(
-                        self, entry, subentry, donnees, errors, description_placeholders,
+                        self, entry, subentry, screen_data, errors, description_placeholders,
                         section_courante="voiture",
                     ):
                         return await self.async_step_reconfigure(
@@ -354,66 +356,66 @@ class SectionsObjetMixin:
                         )
 
         return reafficher(
-            self, "voiture", SCHEMA_VOITURE, valeurs_affichees, errors, description_placeholders
+            self, "voiture", SCHEMA_VOITURE, displayed_values, errors, description_placeholders
         )
 
     async def async_step_aspirateur_maison(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """« Aspirateur de la piece » : un Bouton UNIQUE qui REMPLACE l'entree
-        generique « Aspirateur » de la vue « Toute la maison »
-        (`rendu/maison.ts`, ASPIRATEUR_GENERIQUE) — jamais une tuile de plus.
+        """The "Room vacuum" step (aspirateur de la piece): a SINGLE Bouton that
+        REPLACES the generic "Vacuum" entry of the "Whole house" view
+        (`rendu/maison.ts`, ASPIRATEUR_GENERIQUE) — never one more tile.
 
-        Le dernier des quatre champs racine a recevoir sa porte de saisie. Son
-        blocage n'etait pas ici mais dans l'application : tant que la
-        substitution se faisait par comparaison a un `entity_id` litteral,
-        ouvrir ce formulaire livrait un bouton a demi mort. Corrige a l'etape
-        precedente de cette meme tache, et dans cet ordre-la.
+        The last of the four root fields to receive its input door. What
+        blocked it was not here but in the application: as long as the
+        substitution was done by comparison with a literal `entity_id`,
+        opening this form delivered a half-dead button. Fixed in the
+        previous step of this same task, and in that order.
 
-        L'id du step est `aspirateur_maison` (snake_case, un nom de methode
-        Python) ; la cle du contrat reste `aspirateurMaison` (camelCase) —
-        `async_step_aspirateurMaison` n'aurait pas ete un nom Python valide
-        dans ce style. `translations/*.json` fait le pont entre les deux."""
+        The step id is `aspirateur_maison` (snake_case, a Python method
+        name); the contract key remains `aspirateurMaison` (camelCase) —
+        `async_step_aspirateurMaison` would not have been a valid Python
+        name in that style. `translations/*.json` bridges the two."""
         entry = self._get_entry()
         subentry = self._get_reconfigure_subentry()
         errors: dict[str, str] = {}
         description_placeholders: dict[str, str] = {}
         existant = subentry.data.get("aspirateurMaison")
-        valeurs_affichees = _afficher_bouton(existant)
+        displayed_values = _display_button(existant)
 
         if user_input is not None:
-            valeurs_affichees = user_input
+            displayed_values = user_input
             if user_input.get("sans_aspirateur_maison"):
-                donnees = dict(subentry.data)
-                donnees.pop("aspirateurMaison", None)
+                screen_data = dict(subentry.data)
+                screen_data.pop("aspirateurMaison", None)
                 if garde_ecran.persister_si_valide(
-                    self, entry, subentry, donnees, errors, description_placeholders,
+                    self, entry, subentry, screen_data, errors, description_placeholders,
                     section_courante="aspirateur_maison",
                 ):
                     return await self.async_step_reconfigure()
             else:
                 try:
-                    candidat = _construire_donnee_bouton(user_input, existant)
+                    candidat = _build_button_data(user_input, existant)
                     valide = schema.BOUTON(candidat)
                 except ServiceIncomplet as err:
-                    errors[err.champ_vide] = ERREUR_SERVICE_INCOMPLET
+                    errors[err.champ_vide] = ERROR_SERVICE_INCOMPLETE
                 except ChampVide as err:
-                    errors[err.champ] = ERREUR_CHAMP_VIDE
+                    errors[err.champ] = ERROR_FIELD_EMPTY
                 except vol.Invalid as err:
                     champ, mot_cle = _localiser_champ(err)
-                    errors[champ] = _ERREUR_PAR_MOT_CLE.get(mot_cle, ERREUR_CHAMP_INVALIDE)
+                    errors[champ] = _ERROR_BY_KEYWORD.get(mot_cle, ERROR_FIELD_INVALID)
                 else:
-                    # Decision 7 : AVERTIT, ne refuse jamais. Le placeholder est
-                    # TOUJOURS pose (C1 de la relecture finale du 3b) : un
-                    # `description_placeholders` sans la cle fait lever HA sur
-                    # une description qui la porte.
+                    # Decision 7: WARNS, never refuses. The placeholder is
+                    # ALWAYS set (C1 of the 3b final review): a
+                    # `description_placeholders` without the key makes HA
+                    # raise on a description that carries it.
                     description_placeholders["entites_inconnues"] = (
                         avertissement_entites_inconnues(
-                            self.hass, entites_dans(valide, "aspirateurMaison"))
+                            self.hass, entities_in(valide, "aspirateurMaison"))
                     )
-                    donnees = {**subentry.data, "aspirateurMaison": valide}
+                    screen_data = {**subentry.data, "aspirateurMaison": valide}
                     if garde_ecran.persister_si_valide(
-                        self, entry, subentry, donnees, errors, description_placeholders,
+                        self, entry, subentry, screen_data, errors, description_placeholders,
                         section_courante="aspirateur_maison",
                     ):
                         return await self.async_step_reconfigure(
@@ -422,5 +424,5 @@ class SectionsObjetMixin:
 
         return reafficher(
             self, "aspirateur_maison", SCHEMA_ASPIRATEUR_MAISON,
-            valeurs_affichees, errors, description_placeholders,
+            displayed_values, errors, description_placeholders,
         )
