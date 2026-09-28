@@ -81,11 +81,11 @@ function lancer(s: ScreenState, a: Animation): void {
   // two, so a video or a Lottie without `duree` that never ends still leaves the wall.
   s.minuteurAnimation = s.d.minuteurFn(() => terminerAnimation(s, jeton), dureeEffective(a));
   peindreCalque(s);
-  demarrerMedia(s, jeton);
+  startMedia(s, jeton);
 }
 
 /** Starts the medium that `peindreCalque` has just put on screen. */
-function demarrerMedia(s: ScreenState, jeton: number): void {
+function startMedia(s: ScreenState, jeton: number): void {
   const a = s.animation?.animation;
   if (!a) return;
   switch (a.type) {
@@ -148,7 +148,7 @@ export function terminerAnimation(s: ScreenState, jeton: number): void {
 
 /** Releases the Lottie player of the animation that is closing or being replaced, if it has one.
  *  Only ever the CURRENT animation's player: a player is stored only while its token is current
- *  (see `demarrerMedia`), and is released before that token changes. */
+ *  (see `startMedia`), and is released before that token changes. */
 function detruireLecteur(s: ScreenState): void {
   s.lecteurLottie?.destroy();
   s.lecteurLottie = null;

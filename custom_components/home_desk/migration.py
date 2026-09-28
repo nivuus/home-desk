@@ -17,7 +17,7 @@ shape of ONE screen). Bumping the entry version would duplicate that number
 in a second place that nothing else reads.
 
 This module holds the pure data transform only; the write goes through
-`garde_ecran.migrer_sous_entree`, the single module allowed to call a Home
+`garde_ecran.migrate_subentry`, the single module allowed to call a Home
 Assistant write gate (AST test
 `test_garde_ecran_est_le_seul_module_a_appeler_une_porte_d_ecriture`)."""
 from __future__ import annotations
@@ -29,12 +29,12 @@ from . import garde_ecran
 from .const import SUBENTRY_SCREEN
 
 # The only shape this module knows how to lift to the current one.
-_VERSION_SOURCE = 1
-_VERSION_CIBLE = 2
-_MODULATEUR_RETIRE = "delorean"
+_SOURCE_VERSION = 1
+_TARGET_VERSION = 2
+_REMOVED_MODULATOR = "delorean"
 
 
-def migrer_donnees(data: Mapping[str, Any]) -> dict[str, Any] | None:
+def migrate_data(data: Mapping[str, Any]) -> dict[str, Any] | None:
     """The version-2 form of a version-1 screen, or `None` when DATA is not
     at version 1 (already current, absent, unknown: none of those is this
     migration's business -- the transport names each of them on read).
@@ -43,38 +43,38 @@ def migrer_donnees(data: Mapping[str, Any]) -> dict[str, Any] | None:
     dropped, and inside `agencement` only `modulateurs` is filtered. A
     re-export of a migrated screen must not show a diff for a key the
     migration had no reason to touch."""
-    if data.get("version") != _VERSION_SOURCE:
+    if data.get("version") != _SOURCE_VERSION:
         return None
-    migre: dict[str, Any] = {}
-    for cle, valeur in data.items():
-        if cle == "delorean":
+    migrated: dict[str, Any] = {}
+    for key, value in data.items():
+        if key == "delorean":
             continue
-        if cle == "version":
-            valeur = _VERSION_CIBLE
-        elif cle == "agencement" and isinstance(valeur, Mapping):
-            valeur = {
-                sous_cle: (
-                    [m for m in sous_valeur if m != _MODULATEUR_RETIRE]
-                    if sous_cle == "modulateurs" and isinstance(sous_valeur, list)
-                    else sous_valeur
+        if key == "version":
+            value = _TARGET_VERSION
+        elif key == "agencement" and isinstance(value, Mapping):
+            value = {
+                sub_key: (
+                    [m for m in sub_value if m != _REMOVED_MODULATOR]
+                    if sub_key == "modulateurs" and isinstance(sub_value, list)
+                    else sub_value
                 )
-                for sous_cle, sous_valeur in valeur.items()
+                for sub_key, sub_value in value.items()
             }
-        migre[cle] = valeur
-    return migre
+        migrated[key] = value
+    return migrated
 
 
-def migrer_sous_entrees(hass: Any, entry: Any) -> int:
+def migrate_subentries(hass: Any, entry: Any) -> int:
     """Rewrites every version-1 "ecran" subentry of ENTRY to version 2.
     Returns how many were rewritten -- 0 once everything is current, which
     makes a second call (a reload, a restart) a no-op."""
-    reecrites = 0
+    rewritten = 0
     for subentry in list(entry.subentries.values()):
         if subentry.subentry_type != SUBENTRY_SCREEN:
             continue
-        migre = migrer_donnees(subentry.data)
-        if migre is None:
+        migrated = migrate_data(subentry.data)
+        if migrated is None:
             continue
-        garde_ecran.migrer_sous_entree(hass, entry, subentry, migre)
-        reecrites += 1
-    return reecrites
+        garde_ecran.migrate_subentry(hass, entry, subentry, migrated)
+        rewritten += 1
+    return rewritten

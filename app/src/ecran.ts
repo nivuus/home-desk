@@ -374,8 +374,8 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {   // poli
     listesTachesExtra: [],
     agencement: {
       zones: ['ambiances', 'commandes', 'blocCentral', 'synthese'],
-      // Ni minuteur, ni recette, ni voiture. `aeration` retiré aussi : `ouvrants`
-      // est vide, la condition ne peut pas se déclencher.
+      // No timer, no recipe, no car. `aeration` removed too: `ouvrants`
+      // is empty, the condition cannot fire.
       modes: ['alerte', 'menage', 'cinema', 'media', 'defaut'],
       modulateurs: ['invites', 'chaleur'],
       // Tâche 14 (2026-08-03, blocs par défaut) : le prochain rendez-vous du jour

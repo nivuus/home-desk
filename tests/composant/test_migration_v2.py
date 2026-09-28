@@ -107,7 +107,7 @@ async def test_la_migration_ne_touche_a_rien_d_autre(hass):
     `agencement.modulateurs` is byte-identical, key order included (a
     re-export must not produce a diff for an unrelated key)."""
     entry = _entree(hass)
-    migration.migrer_sous_entrees(hass, entry)
+    migration.migrate_subentries(hass, entry)
 
     ecrans = _par_nom(hass, entry.entry_id)
     assert list(ecrans["salon"]) == [k for k in _SALON_V1 if k != "delorean"]
@@ -124,9 +124,9 @@ async def test_la_migration_compte_ses_reecritures_et_ne_refait_rien(hass):
     its version moves). A second pass finds nothing left at version 1."""
     entry = _entree(hass)
 
-    assert migration.migrer_sous_entrees(hass, entry) == 2
+    assert migration.migrate_subentries(hass, entry) == 2
     avant = _par_nom(hass, entry.entry_id)
-    assert migration.migrer_sous_entrees(hass, entry) == 0
+    assert migration.migrate_subentries(hass, entry) == 0
     assert _par_nom(hass, entry.entry_id) == avant
 
 
@@ -142,7 +142,7 @@ async def test_un_second_chargement_ne_reecrit_rien(hass):
     await hass.async_block_till_done()
 
     assert _par_nom(hass, entry.entry_id) == apres_premier
-    assert migration.migrer_sous_entrees(hass, entry) == 0
+    assert migration.migrate_subentries(hass, entry) == 0
 
 
 async def test_une_sous_entree_sans_version_n_est_pas_migree(hass):
@@ -161,7 +161,7 @@ async def test_une_sous_entree_sans_version_n_est_pas_migree(hass):
     )
     entry.add_to_hass(hass)
 
-    assert migration.migrer_sous_entrees(hass, entry) == 1
+    assert migration.migrate_subentries(hass, entry) == 1
     ecrans = _par_nom(hass, entry.entry_id)
     assert ecrans["cuisine"] == sans_version
     assert ecrans["salon"] == _salon_v2_attendu()

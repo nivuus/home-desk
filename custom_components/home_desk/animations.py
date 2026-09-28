@@ -83,13 +83,13 @@ def type_lecteur(mime: str | None, media_content_id: str) -> str | None:
     return None
 
 
-def _est_un_fichier(chemin: Path) -> bool:
+def _is_file(path: Path) -> bool:
     """Blocking I/O: always called through `hass.async_add_executor_job`."""
-    return chemin.is_file()
+    return path.is_file()
 
 
 async def _async_resoudre(hass: HomeAssistant, media_id: str) -> media_source.PlayMedia:
-    """Resolves `media_id` or refuses with "média introuvable".
+    """Resolves `media_id` or refuses with the "media not found" error.
 
     Two ways for a media to be missing. The source cannot resolve the id at
     all (unknown source, unknown media directory, invalid path): that is
@@ -103,7 +103,7 @@ async def _async_resoudre(hass: HomeAssistant, media_id: str) -> media_source.Pl
     except media_source.Unresolvable as err:
         raise ServiceValidationError(f"média introuvable : {media_id}") from err
     if media.path is not None and not await hass.async_add_executor_job(
-            _est_un_fichier, media.path):
+            _is_file, media.path):
         raise ServiceValidationError(f"média introuvable : {media_id}")
     return media
 

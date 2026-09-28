@@ -97,7 +97,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     any version other than `VERSION_CONFIG`, and the snapshot below must
     be taken on the migrated data -- taken before, the first unrelated
     write would fire a change event for every migrated screen."""
-    migration.migrer_sous_entrees(hass, entry)
+    migration.migrate_subentries(hass, entry)
     websocket_api.async_register_command(hass, websocket.ws_ecran)
     websocket_api.async_register_command(hass, websocket.ws_ecrans)
     websocket_api.async_register_command(hass, websocket.ws_abonner)

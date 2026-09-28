@@ -162,7 +162,7 @@ suivantes par une convention de dépôt, sans filet automatique :
   table `_PORTES_ECRITURE`). `garde_ecran.persister_si_valide` (mise à
   jour d'une sous-entrée) et `garde_ecran.importer_ecrans` (tâche 9,
   création en masse) sont les deux seuls appelants légitimes — rejoints
-  le 2026-09-28 par `garde_ecran.migrer_sous_entree`, la réécriture au
+  le 2026-09-28 par `garde_ecran.migrate_subentry`, la réécriture au
   chargement des écrans de version 1 (`migration.py` calcule la donnée,
   `garde_ecran.py` l'écrit). Relevé en
   relecture finale de branche (deuxième ronde) : cette section (première

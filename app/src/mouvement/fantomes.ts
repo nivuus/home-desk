@@ -10,9 +10,9 @@ export type Calque = {
   vide: () => boolean;
 };
 
-/** Le calque ne reçoit aucun contact : un clone n'est pas un
- *  bouton. `position: absolute` sur chaque fantôme — la mise en page réelle, elle, s'est déjà
- *  refermée, et c'est ce qui garantit que la hauteur du cadre 343 × 585 ne bouge jamais. */
+/** The layer receives no touch: a clone is not a button. `position: absolute` on every
+ *  ghost — the real layout has already closed up, and that is what guarantees the height of the
+ *  343 × 585 frame never moves. */
 export function creerCalque(hote: HTMLElement): Calque {
   const vivants = new Set<HTMLElement>();
 

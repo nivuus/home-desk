@@ -303,7 +303,7 @@ def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]]) -> No
     hass.config_entries._async_update_entry(entry, subentries=new_subentries)
 
 
-def migrer_sous_entree(hass: Any, entry: Any, subentry: Any, data: dict) -> None:
+def migrate_subentry(hass: Any, entry: Any, subentry: Any, data: dict) -> None:
     """The THIRD legitimate write site of this module: the load-time shape
     migration (`migration.py`, which computes DATA and may not call a write
     gate itself).
