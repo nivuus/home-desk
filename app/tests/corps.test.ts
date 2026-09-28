@@ -500,8 +500,8 @@ describe('rendreAlerte / blocCentral (tâche 8 bis)', () => {
     expect(recette?.lien).toBeUndefined();
     // Masquée par le filtre générique si `home_stock` n'est pas chargé.
     expect(recette?.entite).toBe('sensor.home_stock_next_meal');
-    const courses = ECRANS.cuisine.commandes.find((c) => c.libelle === 'Courses');
-    expect(courses?.lien).toBeUndefined();   // Courses navigue en interne, ce n'est pas un lien
+    const pantry = ECRANS.cuisine.commandes.find((c) => c.libelle === 'Garde-manger');
+    expect(pantry?.lien).toBeUndefined();   // the pantry navigates internally, it is not a link
   });
 
   // Tâche 6 : `recetteOuvrable` (7e paramètre de `rendreCorps`) décide seul si la tuile

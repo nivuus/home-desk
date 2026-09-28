@@ -26,7 +26,7 @@ export function renderSheet(v: PantryView): TemplateResult {
     .filter((x) => x !== '').join(' · ');
   const inert = v.horsLigne || p.sending;
   const armedAny = REASONS.some((r) => v.armed(r));
-  const label = p.message ?? (armedAny ? 'Toucher pour confirmer — non réversible' : 'Sortir du stock');
+  const label = p.message ?? (armedAny ? 'Confirmer — non réversible' : 'Sortir du stock');
   const left = formatQuantity(b.remaining - p.quantity, b.unit);
   return pantryFrame(v, label, html`
     <div class="pantry-fiche">

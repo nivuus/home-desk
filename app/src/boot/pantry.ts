@@ -107,6 +107,20 @@ export async function loadPantry(s: PantryHost): Promise<void> {
   s.dessiner();
 }
 
+/** Replaces the answer of the three reads with the given one, for the render checker
+ *  (`boot/test-hooks.ts`, `?essai=1` only). `loadToken++` invalidates any real read still in
+ *  flight, which would otherwise land after the injection and overwrite it. */
+export function injectStock(s: PantryHost, batches: unknown, known: unknown, soonUids: string[]): void {
+  const p = s.pantry;
+  p.loadToken++;
+  p.batches = parseBatches(batches);
+  p.known = parseLocations(known);
+  p.soonIds = new Set(soonUids.map(Number).filter((n) => Number.isInteger(n)));
+  p.status = p.batches.length === 0 ? 'empty' : 'ready';
+  settleLevel(s);
+  s.dessiner();
+}
+
 /** The batches the `batches` level currently lists. */
 export function currentBatches(p: PantryState): Batch[] {
   if (p.soon) return batchesOf(p.batches, { ids: p.soonIds });
@@ -143,6 +157,23 @@ function leaveBatches(p: PantryState): void {
 function navigated(s: PantryHost): void {
   s.pantry.banner = undefined;
   s.dessiner();
+}
+
+/** Entering the view (its hash): always from the entry level, with nothing left over from the
+ *  previous visit, and a fresh read of the stock. */
+export function enterPantry(s: PantryHost): void {
+  const p = s.pantry;
+  p.level = 'entry';
+  p.pageIndex = 0;
+  p.locationId = undefined;
+  p.aisleId = undefined;
+  p.soon = undefined;
+  p.selected = undefined;
+  p.pendingKey = undefined;
+  p.message = undefined;
+  p.banner = undefined;
+  s.armementStock.desarmer();
+  void loadPantry(s);
 }
 
 export function openLocation(s: PantryHost, locationId: number): void {

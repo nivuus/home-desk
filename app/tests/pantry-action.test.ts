@@ -6,7 +6,7 @@ import { RefusHA } from '../src/connexion';
 import { createArming } from '../src/cochage';
 import {
   newPantryState, loadPantry, openLocation, openAisle, openSoon, openBatch, nextPage, back,
-  chooseFraction, stepQuantity, pressReason, SILENCE_MESSAGE, type PantryHost,
+  chooseFraction, stepQuantity, pressReason, injectStock, SILENCE_MESSAGE, type PantryHost,
 } from '../src/boot/pantry';
 
 const SOON = 'todo.stock_soon';
@@ -90,6 +90,15 @@ describe('loadPantry', () => {
     expect(h.s.pantry.status).toBe('ready');
     expect(h.s.pantry.known).toEqual([]);
     expect(h.s.pantry.soonIds.size).toBe(0);
+  });
+
+  it('an injected stock wins over a real read still in flight', async () => {
+    const h = makeHost();
+    const pending = loadPantry(h.s);
+    injectStock(h.s, [row({ id: 90, product_name: 'Injecté' })], LOCATIONS, ['90']);
+    await pending;
+    expect(h.s.pantry.batches.map((b) => b.id)).toEqual([90]);
+    expect([...h.s.pantry.soonIds]).toEqual([90]);
   });
 
   it('ignores soon-list entries that are not batch ids', async () => {

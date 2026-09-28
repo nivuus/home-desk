@@ -18,7 +18,8 @@ import { SEUIL_MUET_MS, PAS_PROGRESSION_MS, RETOUR_MS, RETOUR_RECETTE_MS } from 
 import { chargerTaches } from './loaders';
 import { ouvrirRecette, restaurerRecette, memoriserRecette } from './recipe';
 import { tictacProgression, tictacMinuteurs, reveiller, couperDelorean } from './timers';
-import { brancherMinuteurs, brancherClim, brancherVueRecette, type Agir } from './controls';
+import { brancherMinuteurs, brancherClim, brancherVueRecette, wirePantryView, type Agir } from './controls';
+import { enterPantry } from './pantry';
 import { poserPointsInjection } from './test-hooks';
 import type { Jetons } from '../connexion';
 import type { ScreenState } from './state';
@@ -146,6 +147,11 @@ export function wireScreen(s: ScreenState, jetons: Jetons): void {
   s.armementRepas = createArming(s.d.minuteurFn);
   brancherVueRecette(s, agir);
 
+  // The pantry view: same single-instance arming as `armementRepas` — taking a batch out of
+  // stock is not reversible from the wall either.
+  s.armementStock = createArming(s.d.minuteurFn);
+  wirePantryView(s);
+
   // Task 15 review (I1): the media progress rail moves second by second, counted here and not by
   // Home Assistant (which does not republish `media_position` continuously). Armed ONCE only,
   // under the `initialise` guard — unlike the `dessiner`/`chargerMeteo` intervals in `tenter()`,
@@ -197,7 +203,8 @@ export function wireScreen(s: ScreenState, jetons: Jetons): void {
  *  touch), but with ITS delay — see `RETOUR_RECETTE_MS` in `boot/constants.ts`. */
 function armerRetourAutomatique(s: ScreenState): void {
   const isSubView = (h: string) =>
-    h === '#maison' || h === '#taches' || h === '#minuteur' || h === '#recette';
+    h === '#maison' || h === '#taches' || h === '#minuteur' || h === '#recette'
+    || h === '#garde-manger';
   let retour: ReturnType<typeof setTimeout> | undefined;
   const armerRetour = () => {
     clearTimeout(retour);
@@ -222,6 +229,8 @@ function armerRetourAutomatique(s: ScreenState): void {
     // `ouvrirRecette` refuses to reset itself if a recipe is already in progress (see its
     // docstring): coming back to a collapsed recipe finds its step again.
     if (location.hash === '#recette') ouvrirRecette(s);
+    // The pantry reads the stock on every entry, never periodically (spec 2026-09-28).
+    if (location.hash === '#garde-manger') enterPantry(s);
     s.dessiner();
     if (isSubView(location.hash)) armerRetour();
     else { clearTimeout(retour); retour = undefined; }

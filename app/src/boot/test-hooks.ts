@@ -12,6 +12,7 @@ import type { NextMeal } from '../garde-manger';
 import type { LigneIngredient } from '../rendu/recette';
 import type { Evenement } from '../agenda';
 import { fermerRecette } from './recipe';
+import { injectStock } from './pantry';
 import type { ScreenState } from './state';
 
 export function poserPointsInjection(s: ScreenState): void {
@@ -97,4 +98,10 @@ export function poserPointsInjection(s: ScreenState): void {
   fenetre.__injecterTaches = (
     entite: string, items: { uid: string; texte: string }[],
   ) => { s.taches[entite] = items; s.dessiner(); };
+  // The pantry view reads the stock with websocket commands, out of reach of `__injecter` too:
+  // without this point, the checker would measure the house's REAL stock of the day — a height
+  // budget that changes from one run to the next without any code having changed.
+  fenetre.__injecterStock = (batches: unknown, locations: unknown, soonUids: string[] = []) => {
+    injectStock(s, batches, locations, soonUids);
+  };
 }

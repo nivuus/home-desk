@@ -290,7 +290,7 @@ describe('ordreCommandes — cuisine et bureau à quatre commandes (tâche 19)',
 
   it('cuisine, mode courant : les quatre déclarées, dans leur ordre', () => {
     expect(noms(ordreCommandes(ECRANS.cuisine.commandes, CALME)))
-      .toEqual(['Hotte', 'Rideau', 'Courses', 'Recette']);
+      .toEqual(['Hotte', 'Rideau', 'Garde-manger', 'Recette']);
   });
 
   it('bureau, mode courant : les quatre déclarées, dans leur ordre', () => {
@@ -333,7 +333,7 @@ describe('ordreCommandes — cuisine et bureau à quatre commandes (tâche 19)',
   // places.
   it('cuisine, chaleur : le rideau passe premier et devient la consigne « Fermer »', () => {
     expect(noms(ordreCommandes(ECRANS.cuisine.commandes, { ...CALME, temperatureExterieure: 35 })))
-      .toEqual(['Fermer', 'Hotte', 'Courses', 'Recette']);
+      .toEqual(['Fermer', 'Hotte', 'Garde-manger', 'Recette']);
   });
 
   it('cuisine : la serrure déverrouillée n\'y déloge rien, « Porte » n\'y est pas déclarée', () => {

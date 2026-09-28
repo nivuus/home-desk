@@ -45,6 +45,11 @@
 178	type
 183	type
 
+# Le marqueur de taille pose en fin de ligne sur `export const ECRANS` (2026-09-28) :
+# une consigne au controle de politique, pas un reglage de la maison. Il part avec le
+# litteral a l'etape 8.
+193	orpheline:marqueur de politique de taille du fichier, pas une note de la maison -- il part avec le litteral a l etape 8
+
 # SALON -- pourquoi la rangee d'ambiances est vide, ce que les cinq commandes
 # coutent, et ce que `perso` masque. Aucun `note` ne vit sur un tableau :
 # le raisonnement va a l'ecran.
@@ -183,7 +188,7 @@
 448	attachee:cuisine.commandes[1].note
 449	attachee:cuisine.commandes[1].note
 
-# CUISINE -- Courses, et sa navigation interne `vue`.
+# CUISINE -- Garde-manger (ex-Courses), et sa navigation interne `vue`.
 452	attachee:cuisine.commandes[2].note
 453	attachee:cuisine.commandes[2].note
 454	attachee:cuisine.commandes[2].note

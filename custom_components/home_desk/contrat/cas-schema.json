@@ -13,6 +13,11 @@
   },
   "cas": [
     {"nom": "l ecran minimal est valide", "valide": true, "ecran": "@minimal"},
+    {"nom": "une tuile ouvre la vue du garde-manger", "valide": true,
+     "modifie": {"commandes": [{"libelle": "Garde-manger", "icone": "jar", "entite": "todo.stock", "vue": "#garde-manger"}]}},
+    {"nom": "une vue sans diese est refusee", "valide": false,
+     "motif": "/commandes/0/vue: pattern",
+     "modifie": {"commandes": [{"libelle": "X", "icone": "bulb", "entite": "light.x", "vue": "garde-manger"}]}},
     {"nom": "un seuil chaine sous un operateur d ordre est refuse", "valide": false,
      "motif": "/synthese/0/valeur: type",
      "modifie": {"synthese": [{"entite": "sensor.x", "operateur": "<", "valeur": "35", "texte": "x"}]}},
