@@ -256,13 +256,13 @@ def test_unload_services_retire_les_deux_services(hass):
 # ---------------------------------------------------------------------------
 
 
-def test_services_yaml_nomme_les_deux_services():
+def test_services_yaml_nomme_les_trois_services():
     chemin = (
         pathlib.Path(__file__).resolve().parents[2]
         / "custom_components" / "home_desk" / "services.yaml"
     )
     contenu = yaml.safe_load(chemin.read_text(encoding="utf-8"))
-    assert set(contenu) == {"exporter", "importer"}
+    assert set(contenu) == {"exporter", "importer", "jouer_animation"}
 
 
 # ---------------------------------------------------------------------------

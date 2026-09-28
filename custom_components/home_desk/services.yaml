@@ -6,3 +6,33 @@
 # service. Aucun champ pour les deux : voir services.py pour pourquoi.
 exporter: {}
 importer: {}
+jouer_animation:
+  fields:
+    ecrans:
+      required: true
+      example: ["salon"]
+      selector:
+        text:
+          multiple: true
+    media:
+      required: true
+      selector:
+        media:
+          accept:
+            - "video/*"
+            - "image/*"
+    duree:
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 120
+          unit_of_measurement: s
+    fond:
+      required: false
+      default: noir
+      selector:
+        select:
+          options:
+            - noir
+            - transparent

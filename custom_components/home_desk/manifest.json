@@ -5,7 +5,7 @@
   "documentation": "https://github.com/nivuus/home-desk",
   "config_flow": true,
   "single_config_entry": true,
-  "dependencies": ["http", "websocket_api"],
+  "dependencies": ["http", "media_source", "websocket_api"],
   "codeowners": [],
   "requirements": [],
   "iot_class": "local_push"

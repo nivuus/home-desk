@@ -362,6 +362,28 @@
     "importer": {
       "name": "Import screens",
       "description": "Reads config/home_desk_ecrans.yaml back and replaces every configured screen with its content. Validates the whole file before writing anything: a single invalid screen or a duplicate name refuses the entire import, nothing is changed."
+    },
+    "jouer_animation": {
+      "name": "Play an animation",
+      "description": "Plays a video, an animated image or a Lottie animation over the screen of the named tablets, then hands the screen back. Refused without sending anything if a screen is unknown, the file is missing or its type cannot be played.",
+      "fields": {
+        "ecrans": {
+          "name": "Screens",
+          "description": "Names of the screens (the \"nom\" field of each screen) that play the animation."
+        },
+        "media": {
+          "name": "Media",
+          "description": "The video or image to play. Lottie files (.json, .lottie) are not listed by Home Assistant's media browser: put them in the media folder and name them in YAML by their media-source id."
+        },
+        "duree": {
+          "name": "Duration",
+          "description": "Playback duration in seconds, 120 at most. Without it, a video or a Lottie plays once to its end; an animated image requires a duration."
+        },
+        "fond": {
+          "name": "Background",
+          "description": "\"noir\" (black) hides the screen behind the animation, \"transparent\" leaves it visible."
+        }
+      }
     }
   }
 }
