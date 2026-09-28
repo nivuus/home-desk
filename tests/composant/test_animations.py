@@ -120,6 +120,8 @@ async def test_deux_ecrans_recoivent_la_meme_animation(hass, client_non_admin, e
     [
         pytest.param({"ecrans": ["salon", "grenier"], "media": _media("a.webm")},
                      ServiceValidationError, id="ecran-inconnu"),
+        pytest.param({"ecrans": ["Salon"], "media": _media("a.webm")},
+                     ServiceValidationError, id="nom-a-la-casse-pres"),
         pytest.param({"ecrans": ["salon"], "media": _media("absent.webm")},
                      ServiceValidationError, id="fichier-absent"),
         pytest.param({"ecrans": ["salon"],
@@ -144,6 +146,38 @@ async def test_un_appel_refuse_n_envoie_rien(hass, tablette, ecrans, donnees, er
         await _jouer(hass, **donnees)
 
     await _rien_recu(tablette)
+
+
+async def test_le_nom_d_ecran_est_exact_a_la_casse_pres(hass, client_non_admin, ecrans):
+    """A subscriber to "Salon" is not the "salon" screen: names match
+    exactly, on both the service side and the subscription side."""
+    tablette = await client_non_admin()
+    majuscule = await client_non_admin()
+    await _abonner(tablette, "salon")
+    await _abonner(majuscule, "Salon")
+
+    await _jouer(hass, ecrans=["salon"], media=_media("a.webm"))
+
+    assert (await tablette.receive_json())["event"]["type"] == "video"
+    await _rien_recu(majuscule)
+
+
+async def test_un_ecran_nomme_deux_fois_ne_joue_qu_une_fois(hass, tablette, ecrans):
+    await _abonner(tablette, "salon")
+
+    await _jouer(hass, ecrans=["salon", "salon"], media=_media("a.webm"))
+
+    assert (await tablette.receive_json())["type"] == "event"
+    await _rien_recu(tablette)
+
+
+async def test_le_media_introuvable_est_dit_en_francais_seulement(hass, tablette, ecrans):
+    """HA's own (English) reason stays in the exception chain for the logs,
+    never in the message shown to the user."""
+    media_id = "media-source://media_source/nulle_part/a.webm"
+    with pytest.raises(ServiceValidationError) as refus:
+        await _jouer(hass, ecrans=["salon"], media={"media_content_id": media_id})
+    assert str(refus.value) == f"média introuvable : {media_id}"
 
 
 async def test_le_refus_est_en_francais_et_nomme_l_ecran_inconnu(hass, tablette, ecrans):

@@ -121,8 +121,10 @@ def _subentries(hass: HomeAssistant) -> list[Any]:
     return list(entrees[0].subentries.values())
 
 
-def _trouver(hass: HomeAssistant, nom: str) -> Any | None:
-    """The subentry whose `data["nom"]` equals `nom`, or None."""
+def trouver_ecran(hass: HomeAssistant, nom: str) -> Any | None:
+    """The subentry whose `data["nom"]` equals `nom` (exact match), or None.
+    Shared with `animations.py`, so the service and the commands resolve a
+    screen name the same way."""
     for subentry in _subentries(hass):
         if subentry.data.get("nom") == nom:
             return subentry
@@ -173,7 +175,7 @@ def _resoudre(subentry: Any) -> dict:
 @callback
 def ws_ecran(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
     """`home_desk/ecran`: the RESOLVED AND VALID screen named `nom`."""
-    subentry = _trouver(hass, msg["nom"])
+    subentry = trouver_ecran(hass, msg["nom"])
     if subentry is None:
         connection.send_error(
             msg["id"],

@@ -29,6 +29,7 @@ from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
+from . import websocket
 from .const import DOMAIN, DUREE_MAX_S, SERVICE_JOUER_ANIMATION, SIGNAL_ANIMATION
 
 # dotLottie (`.lottie`) is unknown to Python's `mimetypes`, and Home
@@ -80,13 +81,6 @@ def type_lecteur(mime: str | None, media_content_id: str) -> str | None:
     return None
 
 
-def _entree(hass: HomeAssistant):
-    """The single "Tablettes murales" entry -- safe to index: this service is
-    registered by `async_setup_entry` and removed by `async_unload_entry`,
-    exactly like the two services of `services.py`."""
-    return hass.config_entries.async_entries(DOMAIN)[0]
-
-
 def _est_un_fichier(chemin: Path) -> bool:
     """Blocking I/O: always called through `hass.async_add_executor_job`."""
     return chemin.is_file()
@@ -105,7 +99,7 @@ async def _async_resoudre(hass: HomeAssistant, media_id: str) -> media_source.Pl
     try:
         media = await media_source.async_resolve_media(hass, media_id, None)
     except media_source.Unresolvable as err:
-        raise ServiceValidationError(f"média introuvable : {media_id} ({err})") from err
+        raise ServiceValidationError(f"média introuvable : {media_id}") from err
     if media.path is not None and not await hass.async_add_executor_job(
             _est_un_fichier, media.path):
         raise ServiceValidationError(f"média introuvable : {media_id}")
@@ -115,8 +109,12 @@ async def _async_resoudre(hass: HomeAssistant, media_id: str) -> media_source.Pl
 async def _async_jouer(call: ServiceCall) -> None:
     """`home_desk.jouer_animation`: validates everything, then sends."""
     hass = call.hass
-    noms_connus = {s.data.get("nom") for s in _entree(hass).subentries.values()}
-    inconnus = [nom for nom in call.data["ecrans"] if nom not in noms_connus]
+    # Duplicates would play twice on the same wall: kept once, in order.
+    ecrans = list(dict.fromkeys(call.data["ecrans"]))
+    # The same lookup `home_desk/ecran` uses: a name the service accepts is,
+    # by construction, a name a tablet can load and subscribe to -- exact
+    # and case-sensitive.
+    inconnus = [nom for nom in ecrans if websocket.trouver_ecran(hass, nom) is None]
     if inconnus:
         raise ServiceValidationError(f"écran inconnu : {', '.join(inconnus)}")
 
@@ -144,7 +142,7 @@ async def _async_jouer(call: ServiceCall) -> None:
         "duree": None if duree is None else round(duree * 1000),
         "fond": call.data["fond"],
     }
-    for nom in call.data["ecrans"]:
+    for nom in ecrans:
         async_dispatcher_send(hass, SIGNAL_ANIMATION, nom, charge)
 
 
