@@ -1,0 +1,56 @@
+/* The pantry view (`#garde-manger`, rendu/pantry-*.ts). Its own file: base.css is already past
+   the size of one concern. The lists reuse `.corps`, `.taches-liste`, `.ligne-tache` and `.xl`
+   from base.css, so their 64 px rows and the height budget of tests/taches.test.ts hold here too;
+   only what is specific to the pantry lives below. Sheet rows are 64 px as well: the budget of
+   tests/pantry-render.test.ts depends on it. */
+
+/* A location with nothing in it, or "À consommer vite (0)": greyed by colour, never by opacity
+   (project rule: no text under .75), and no touch feedback — it does nothing. */
+.ligne-tache.inactif { background: var(--md-surface-container-low); color: var(--md-on-surface-variant); }
+.ligne-tache.inactif::after { content: none; }
+
+/* "Suite › (N)": a navigation row, not an item. */
+.ligne-tache.suite { background: var(--md-secondary-container); color: var(--md-on-secondary-container); }
+
+/* Best-before dates: past in the error tone; soon (home-stock's own list) in the warm tertiary
+   tone — the palette has no orange, and tertiary is its warm accent. */
+.ligne-tache .perime { color: var(--md-error); font-weight: 700; }
+.ligne-tache .bientot { color: var(--md-tertiary); font-weight: 700; }
+
+.pantry-fiche { display: flex; flex-direction: column; gap: 8px; }
+.pantry-rangee { height: 64px; display: flex; gap: 8px; min-width: 0; }
+
+.pantry-entete { flex-direction: column; justify-content: center; padding: 0 15px;
+  border-radius: var(--sh-xl); background: var(--md-surface-container-low); color: var(--md-on-surface); }
+.pantry-entete .t { font-size: 16px; font-weight: 600; line-height: 1.2;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pantry-entete .s { font-size: 12px; font-weight: 500; color: var(--md-on-surface-variant);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.pantry-fraction, .pantry-moins, .pantry-plus, .pantry-reason {
+  position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; border-radius: var(--sh-xl);
+  background: var(--md-surface-container-high); color: var(--md-on-surface);
+  font-size: 18px; font-weight: 600; transition: background .3s, border-radius .2s var(--ressort); }
+.pantry-moins, .pantry-plus { flex: 0 0 64px; font-size: 26px; }
+.pantry-fraction.choisie { background: var(--md-primary); color: var(--md-on-primary); }
+
+.pantry-live { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center;
+  text-align: center; font-size: 14px; font-weight: 600; line-height: 1.2; }
+
+.pantry-reason .t { font-size: 16px; font-weight: 600; }
+.pantry-reason .s { font-size: 11px; font-weight: 500; }
+.pantry-reason.principal { flex: 2; background: var(--md-primary); color: var(--md-on-primary); }
+/* Armed: the error tone of an armed task or of "Terminer" — the same two-press gesture must look
+   the same in every view. */
+.pantry-reason.armee { background: var(--md-error-container); color: var(--md-on-error-container); }
+/* Offline or sending: the same greyed-out control as `.recette-actions > .inactif`. */
+.pantry-reason.inactif { opacity: 0.4; }
+
+/* Touch feedback, same overlay as the buttons of base.css. */
+.pantry-fraction::after, .pantry-moins::after, .pantry-plus::after, .pantry-reason::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: currentColor; opacity: 0; pointer-events: none; transition: opacity .2s var(--ressort); }
+.pantry-fraction:active::after, .pantry-moins:active::after, .pantry-plus:active::after,
+.pantry-reason:not(.inactif):active::after { opacity: .1; transition: none; }
+.pantry-reason.inactif::after { content: none; }
