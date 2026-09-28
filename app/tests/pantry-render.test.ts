@@ -53,7 +53,7 @@ function paint(v: PantryView): HTMLElement {
 }
 
 const titles = (div: HTMLElement) =>
-  [...div.querySelectorAll('.ligne-tache .t')].map((e) => e.textContent?.trim());
+  Array.from(div.querySelectorAll('.ligne-tache .t')).map((e) => e.textContent?.trim());
 
 const actions = {
   openSoon: vi.fn(), openLocation: vi.fn(), openAisle: vi.fn(), openBatch: vi.fn(),
@@ -71,7 +71,7 @@ describe('entry', () => {
 
   it('greys an empty location out and makes it inert', () => {
     const div = paint(view(ready()));
-    const rows = [...div.querySelectorAll('.ligne-tache')];
+    const rows = Array.from(div.querySelectorAll('.ligne-tache'));
     expect(rows[2].classList.contains('inactif')).toBe(true);
     rows[2].dispatchEvent(new Event('pointerdown'));
     expect(actions.openLocation).not.toHaveBeenCalled();
@@ -85,6 +85,19 @@ describe('entry', () => {
     const div = paint(view(ready()));
     div.querySelector('.xl')!.dispatchEvent(new Event('pointerdown'));
     expect(actions.back).toHaveBeenCalled();
+  });
+});
+
+describe('entry, soon list unreadable (review I4)', () => {
+  it('says the soon list is unavailable instead of showing zero', () => {
+    const div = paint(view(ready({ soonIds: null })));
+    expect(titles(div)[0]).toBe('À consommer vite — indisponible');
+    expect(div.querySelectorAll('.ligne-tache')[0].classList.contains('inactif')).toBe(true);
+  });
+
+  it('shows no soon colour when the list is unavailable', () => {
+    const div = paint(view(ready({ soonIds: null, level: 'batches', locationId: 1 })));
+    expect(div.querySelector('.bientot')).toBeNull();
   });
 });
 
@@ -102,7 +115,7 @@ describe('batches', () => {
   it('shows product, remaining quantity and date, by date', () => {
     const div = paint(view(ready({ level: 'batches', locationId: 1 })));
     expect(titles(div)).toEqual(['Abricots', 'Yaourt nature', 'Crème']);
-    const subs = [...div.querySelectorAll('.ligne-tache .s')].map((e) => e.textContent?.trim());
+    const subs = Array.from(div.querySelectorAll('.ligne-tache .s')).map((e) => e.textContent?.trim());
     expect(subs[0]).toContain('6 pièces');
     expect(subs[0]).toContain('20 sept.');
     expect(subs[2]).toBe('350 g');   // no date: nothing, never "Invalid Date"
@@ -155,7 +168,7 @@ describe('sheet', () => {
 
   it('offers Tout, ½ and ¼, then − and +', () => {
     const div = sheet();
-    const fr = [...div.querySelectorAll('.pantry-fraction')];
+    const fr = Array.from(div.querySelectorAll('.pantry-fraction'));
     expect(fr.map((e) => e.textContent?.trim())).toEqual(['Tout', '½', '¼']);
     expect(fr[1].classList.contains('choisie')).toBe(true);   // 175 is half of 350
     fr[2].dispatchEvent(new Event('pointerdown'));
@@ -168,7 +181,7 @@ describe('sheet', () => {
 
   it('offers Mangé first, then Jeté and Périmé', () => {
     const div = sheet();
-    const reasons = [...div.querySelectorAll('.pantry-reason')];
+    const reasons = Array.from(div.querySelectorAll('.pantry-reason'));
     expect(reasons.map((e) => e.textContent?.trim())).toEqual(['Mangé', 'Jeté', 'Périmé']);
     expect(reasons[0].classList.contains('principal')).toBe(true);
     reasons[1].dispatchEvent(new Event('pointerdown'));
@@ -182,9 +195,23 @@ describe('sheet', () => {
     expect(div.querySelectorAll('.pantry-reason.armee')).toHaveLength(1);
   });
 
+  it('locked to an unresolved send: only its reason, no quantity change (review I3)', () => {
+    const div = sheet({ retry: { key: 'k', quantity: 175, reason: 'discard' } });
+    const reasons = Array.from(div.querySelectorAll('.pantry-reason'));
+    expect(reasons.map((e) => e.classList.contains('inactif'))).toEqual([true, false, true]);
+    reasons[0].dispatchEvent(new Event('pointerdown'));
+    reasons[1].dispatchEvent(new Event('pointerdown'));
+    expect(actions.press.mock.calls).toEqual([['discard']]);
+    const controls = Array.from(div.querySelectorAll('.pantry-fraction, .pantry-moins, .pantry-plus'));
+    expect(controls.every((e) => e.classList.contains('inactif'))).toBe(true);
+    controls.forEach((e) => e.dispatchEvent(new Event('pointerdown')));
+    expect(actions.chooseFraction).not.toHaveBeenCalled();
+    expect(actions.step).not.toHaveBeenCalled();
+  });
+
   it('disables the three reasons offline', () => {
     const div = sheet({}, { horsLigne: true });
-    const reasons = [...div.querySelectorAll('.pantry-reason')];
+    const reasons = Array.from(div.querySelectorAll('.pantry-reason'));
     expect(reasons.every((e) => e.classList.contains('inactif'))).toBe(true);
     reasons[0].dispatchEvent(new Event('pointerdown'));
     expect(actions.press).not.toHaveBeenCalled();
@@ -205,7 +232,7 @@ describe('status screens', () => {
   it('says "Garde-manger indisponible" with a Réessayer button', () => {
     const div = paint(view({ ...newPantryState('todo.x'), status: 'error' }));
     expect(div.textContent).toContain('Garde-manger indisponible');
-    const retry = [...div.querySelectorAll('.ligne-tache')].find((e) => e.textContent?.includes('Réessayer'));
+    const retry = Array.from(div.querySelectorAll('.ligne-tache')).find((e) => e.textContent?.includes('Réessayer'));
     retry!.dispatchEvent(new Event('pointerdown'));
     expect(actions.retry).toHaveBeenCalled();
   });
@@ -257,6 +284,13 @@ describe('pantry stylesheet', () => {
     const rule = css().match(/\n\.pantry-rangee \{([^}]*)\}/);
     expect(rule, '.pantry-rangee missing from pantry.css').not.toBeNull();
     expect(rule![1]).toMatch(/height:\s*64px;/);
+  });
+
+  it('keeps the label on one line: a long banner must not push the Back button out', () => {
+    const rule = css().match(/\n\.garde-manger \.etiquette \{([^}]*)\}/);
+    expect(rule, '.garde-manger .etiquette missing from pantry.css').not.toBeNull();
+    expect(rule![1]).toMatch(/white-space:\s*nowrap;/);
+    expect(rule![1]).toMatch(/text-overflow:\s*ellipsis;/);
   });
 
   it('greys an inert row without lowering its text opacity', () => {

@@ -25,6 +25,10 @@ export function renderSheet(v: PantryView): TemplateResult {
                    b.bestBefore ? `DLC ${shortDate(b.bestBefore)}` : '', where]
     .filter((x) => x !== '').join(' · ');
   const inert = v.horsLigne || p.sending;
+  // Locked to a send whose outcome is unknown: only that reason can be confirmed again, with the
+  // same quantity — a replay home-stock recognises (see `unresolved`, boot/pantry.ts).
+  const locked = p.retry !== undefined || p.sending;
+  const reasonInert = (r: Reason) => inert || (p.retry !== undefined && r !== p.retry.reason);
   const armedAny = REASONS.some((r) => v.armed(r));
   const label = p.message ?? (armedAny ? 'Confirmer — non réversible' : 'Sortir du stock');
   const left = formatQuantity(b.remaining - p.quantity, b.unit);
@@ -35,20 +39,20 @@ export function renderSheet(v: PantryView): TemplateResult {
       </div>
       <div class="pantry-rangee pantry-fractions">
         ${FRACTIONS.map(([f, text]) => html`
-          <div class="pantry-fraction ${p.quantity === fromFraction(f, b.remaining) ? 'choisie' : ''}"
-               @pointerdown=${() => act.chooseFraction(f)}>${text}</div>`)}
+          <div class="pantry-fraction ${p.quantity === fromFraction(f, b.remaining) ? 'choisie' : ''} ${locked ? 'inactif' : ''}"
+               @pointerdown=${() => { if (!locked) act.chooseFraction(f); }}>${text}</div>`)}
       </div>
       <div class="pantry-rangee pantry-pas">
-        <div class="pantry-moins" @pointerdown=${() => act.step(-1)}>−</div>
+        <div class="pantry-moins ${locked ? 'inactif' : ''}" @pointerdown=${() => { if (!locked) act.step(-1); }}>−</div>
         <div class="pantry-live">Sortir ${formatQuantity(p.quantity, b.unit)} · il restera ${left}</div>
-        <div class="pantry-plus" @pointerdown=${() => act.step(1)}>+</div>
+        <div class="pantry-plus ${locked ? 'inactif' : ''}" @pointerdown=${() => { if (!locked) act.step(1); }}>+</div>
       </div>
       <div class="pantry-rangee pantry-motifs">
         ${REASONS.map((r) => {
           const armed = v.armed(r);
           return html`
-          <div class="pantry-reason ${r === 'consumption' ? 'principal' : ''} ${armed ? 'armee' : ''} ${inert ? 'inactif' : ''}"
-               @pointerdown=${() => { if (!inert) act.press(r); }}>
+          <div class="pantry-reason ${r === 'consumption' ? 'principal' : ''} ${armed ? 'armee' : ''} ${reasonInert(r) ? 'inactif' : ''}"
+               @pointerdown=${() => { if (!reasonInert(r)) act.press(r); }}>
             <div class="t">${REASON_LABELS[r]}</div>${armed ? html`<div class="s">Toucher pour confirmer</div>` : ''}
           </div>`;
         })}

@@ -11,7 +11,7 @@
 import { RefusHA } from '../connexion';
 import type { createArming } from '../cochage';
 import {
-  parseBatches, parseLocations, hasAisles, aislesOf, batchesOf, page,
+  parseBatches, parseLocations, hasAisles, aislesOf, batchesOf, locations, page,
   type Batch, type KnownLocation,
 } from '../pantry/model';
 import { fromFraction, increment, formatQuantity, type Fraction } from '../pantry/quantity';
@@ -28,7 +28,8 @@ export type PantryState = {
   status: 'idle' | 'loading' | 'ready' | 'error' | 'empty';
   batches: Batch[];
   known: KnownLocation[];
-  soonIds: Set<number>;
+  /** `null` when the list could not be read: the view says so rather than showing zero. */
+  soonIds: Set<number> | null;
   level: PantryLevel;
   locationId?: number;
   /** `undefined`: every aisle of the location; `null`: the products without aisle. */
@@ -41,13 +42,21 @@ export type PantryState = {
   message?: string;
   /** "Mangé : 175 g de Yaourt nature", shown briefly after a confirmed consumption. */
   banner?: string;
-  /** Drawn at the first arming of a sheet, kept until success or Back: a retry after a silence
-   *  reuses it, and home-stock then never counts the same consumption twice. */
+  /** Drawn at the first arming of a sheet. A send that went unanswered keeps it in `unresolved`. */
   pendingKey?: string;
+  /** Sends whose outcome is unknown (a silence), by batch id: home-stock may have applied them.
+   *  Reopening that batch restores the same key, quantity and reason and locks them, so a retry
+   *  is a replay home-stock recognises — never a second consumption, never a different one.
+   *  Kept across Back and re-entries; released by an answer (success or refusal). */
+  unresolved: Map<number, Unresolved>;
+  /** The unresolved send the open sheet is locked to, if any. */
+  retry?: Unresolved;
   sending: boolean;
   loadToken: number;
   bannerToken: number;
 };
+
+export type Unresolved = { key: string; quantity: number; reason: Reason };
 
 export type PantryHost = {
   cx: Pick<ConnexionLike, 'envoyerCommande' | 'listerTaches'>;
@@ -69,7 +78,7 @@ export const REASON_LABELS: Record<Reason, string> = {
 export function newPantryState(soonList?: string): PantryState {
   return {
     soonList, status: 'idle', batches: [], known: [], soonIds: new Set(), level: 'entry',
-    pageIndex: 0, quantity: 0, sending: false, loadToken: 0, bannerToken: 0,
+    pageIndex: 0, quantity: 0, sending: false, loadToken: 0, bannerToken: 0, unresolved: new Map(),
   };
 }
 
@@ -96,15 +105,19 @@ export async function loadPantry(s: PantryHost): Promise<void> {
   }
   const [known, soon] = await Promise.all([
     optional(() => s.cx.envoyerCommande({ type: 'home_stock/locations/list' }), undefined),
-    p.soonList ? optional(() => s.cx.listerTaches(p.soonList as string), []) : Promise.resolve([]),
+    p.soonList ? optional(() => s.cx.listerTaches(p.soonList as string), null) : Promise.resolve([]),
   ]);
   if (mine !== p.loadToken) return;
   p.batches = parseBatches(raw);
   p.known = parseLocations(known);
-  p.soonIds = new Set(soon.map((t) => Number(t.uid)).filter((n) => Number.isInteger(n)));
+  p.soonIds = soon === null ? null : toIds(soon.map((t) => t.uid));
   p.status = p.batches.length === 0 ? 'empty' : 'ready';
   settleLevel(s);
   s.dessiner();
+}
+
+function toIds(uids: string[]): Set<number> {
+  return new Set(uids.map(Number).filter((n) => Number.isInteger(n)));
 }
 
 /** Replaces the answer of the three reads with the given one, for the render checker
@@ -115,7 +128,7 @@ export function injectStock(s: PantryHost, batches: unknown, known: unknown, soo
   p.loadToken++;
   p.batches = parseBatches(batches);
   p.known = parseLocations(known);
-  p.soonIds = new Set(soonUids.map(Number).filter((n) => Number.isInteger(n)));
+  p.soonIds = toIds(soonUids);
   p.status = p.batches.length === 0 ? 'empty' : 'ready';
   settleLevel(s);
   s.dessiner();
@@ -123,7 +136,7 @@ export function injectStock(s: PantryHost, batches: unknown, known: unknown, soo
 
 /** The batches the `batches` level currently lists. */
 export function currentBatches(p: PantryState): Batch[] {
-  if (p.soon) return batchesOf(p.batches, { ids: p.soonIds });
+  if (p.soon) return batchesOf(p.batches, { ids: p.soonIds ?? new Set() });
   return batchesOf(p.batches, { locationId: p.locationId, aisleId: p.aisleId });
 }
 
@@ -169,6 +182,7 @@ export function enterPantry(s: PantryHost): void {
   p.aisleId = undefined;
   p.soon = undefined;
   p.selected = undefined;
+  p.retry = undefined;
   p.pendingKey = undefined;
   p.message = undefined;
   p.banner = undefined;
@@ -206,9 +220,16 @@ export function openSoon(s: PantryHost): void {
   navigated(s);
 }
 
+/** How many rows the current list level holds — what its pages are cut from. */
+function levelCount(p: PantryState): number {
+  if (p.level === 'batches') return currentBatches(p).length;
+  if (p.level === 'aisles') return aislesOf(p.batches, p.locationId ?? -1).length;
+  return 1 + locations(p.batches, p.known).length;   // the soon row, then the locations
+}
+
 export function nextPage(s: PantryHost): void {
   const p = s.pantry;
-  if (page(currentBatches(p), p.pageIndex).more === 0) return;
+  if (page(Array.from({ length: levelCount(p) }), p.pageIndex).more === 0) return;
   p.pageIndex++;
   navigated(s);
 }
@@ -216,9 +237,10 @@ export function nextPage(s: PantryHost): void {
 export function openBatch(s: PantryHost, batch: Batch): void {
   const p = s.pantry;
   p.selected = batch;
-  p.quantity = fromFraction('all', batch.remaining);
-  p.message = undefined;
-  p.pendingKey = undefined;
+  p.retry = p.unresolved.get(batch.id);
+  p.quantity = p.retry?.quantity ?? fromFraction('all', batch.remaining);
+  p.message = p.retry ? SILENCE_MESSAGE : undefined;
+  p.pendingKey = p.retry?.key;
   p.level = 'sheet';
   s.armementStock.desarmer();
   navigated(s);
@@ -229,34 +251,46 @@ export function back(s: PantryHost): void {
   const p = s.pantry;
   s.armementStock.desarmer();
   if (p.level === 'sheet') {
+    // A refusal or a silence says the list may be stale (the batch was consumed elsewhere, or
+    // this very send was applied): read it again rather than offer the same row as before.
+    const stale = p.message !== undefined;
     p.level = 'batches';
     p.selected = undefined;
+    p.retry = undefined;
     p.pendingKey = undefined;
     p.message = undefined;
+    if (stale) void loadPantry(s);
   } else if (p.level === 'batches') {
     if (p.pageIndex > 0) p.pageIndex--;
     else leaveBatches(p);
   } else if (p.level === 'aisles') {
-    p.level = 'entry';
-    p.locationId = undefined;
+    if (p.pageIndex > 0) p.pageIndex--;
+    else { p.level = 'entry'; p.locationId = undefined; }
+  } else if (p.pageIndex > 0) {
+    p.pageIndex--;
   } else {
     location.hash = '';
   }
   navigated(s);
 }
 
-export function chooseFraction(s: PantryHost, f: Fraction): void {
+/** The quantity cannot change while the sheet is locked to an unresolved send, nor while a send
+ *  is in flight; and any change disarms: a confirmation always confirms what was shown when
+ *  it was armed. */
+function setQuantity(s: PantryHost, q: (b: Batch) => number): void {
   const p = s.pantry;
-  if (!p.selected) return;
-  p.quantity = fromFraction(f, p.selected.remaining);
+  if (!p.selected || p.retry || p.sending) return;
+  p.quantity = q(p.selected);
+  s.armementStock.desarmer();
   s.dessiner();
 }
 
+export function chooseFraction(s: PantryHost, f: Fraction): void {
+  setQuantity(s, (b) => fromFraction(f, b.remaining));
+}
+
 export function stepQuantity(s: PantryHost, dir: 1 | -1): void {
-  const p = s.pantry;
-  if (!p.selected) return;
-  p.quantity = increment(p.quantity, p.selected.remaining, p.selected.unit, dir);
-  s.dessiner();
+  setQuantity(s, (b) => increment(s.pantry.quantity, b.remaining, b.unit, dir));
 }
 
 function newKey(): string {
@@ -296,6 +330,7 @@ function showBanner(s: PantryHost, text: string): void {
 export async function pressReason(s: PantryHost, reason: Reason): Promise<void> {
   const p = s.pantry;
   if (s.horsLigne || p.level !== 'sheet' || !p.selected || p.sending) return;
+  if (p.retry && reason !== p.retry.reason) return;   // locked to the unresolved send
   if (!s.armementStock.estArmee(reason)) {
     p.pendingKey ??= newKey();
     s.armementStock.armer(reason, s.dessiner);
@@ -304,26 +339,42 @@ export async function pressReason(s: PantryHost, reason: Reason): Promise<void> 
   }
   s.armementStock.desarmer();
   const batch = p.selected;
-  const quantity = p.quantity;
+  const sent: Unresolved = { key: p.pendingKey as string, quantity: p.quantity, reason };
   p.sending = true;
   p.message = undefined;
   s.dessiner();
+  // The user may press Back, or open another batch, while this send is in flight: its answer then
+  // only updates what is not on screen (the unresolved sends, the banner, the list), never the
+  // screen the user has moved to.
+  const stillHere = () => p.level === 'sheet' && p.selected === batch;
   try {
     await s.cx.envoyerCommande({
       type: 'home_stock/stock/consume', product_id: batch.productId, batch_id: batch.id,
-      quantity, reason, idempotency_key: p.pendingKey,
+      quantity: sent.quantity, reason, idempotency_key: sent.key,
     });
   } catch (e) {
     p.sending = false;
-    p.message = refusalMessage(e) ?? SILENCE_MESSAGE;
+    const refusal = refusalMessage(e);
+    // A refusal is an answer: nothing was applied under this key. A silence is not.
+    if (refusal === undefined) p.unresolved.set(batch.id, sent);
+    else p.unresolved.delete(batch.id);
+    if (stillHere()) {
+      p.retry = p.unresolved.get(batch.id);
+      p.pendingKey = p.retry?.key;
+      p.message = refusal ?? SILENCE_MESSAGE;
+    }
     s.dessiner();
     return;
   }
   p.sending = false;
-  p.selected = undefined;
-  p.pendingKey = undefined;
-  p.level = 'batches';
-  showBanner(s, `${REASON_LABELS[reason]} : ${formatQuantity(quantity, batch.unit)} ${ofProduct(batch.product)}`);
+  p.unresolved.delete(batch.id);
+  if (stillHere()) {
+    p.selected = undefined;
+    p.retry = undefined;
+    p.pendingKey = undefined;
+    p.level = 'batches';
+  }
+  showBanner(s, `${REASON_LABELS[reason]} : ${formatQuantity(sent.quantity, batch.unit)} ${ofProduct(batch.product)}`);
   s.dessiner();
   await loadPantry(s);
 }

@@ -24,7 +24,7 @@ const lots = (n: number) => (n === 0 ? 'Vide' : `${n} lot${n > 1 ? 's' : ''}`);
 function batchSub(b: Batch, v: PantryView): TemplateResult {
   const qty = formatQuantity(b.remaining, b.unit);
   if (b.bestBefore === null) return html`${qty}`;
-  const cls = b.bestBefore < v.today ? 'perime' : v.state.soonIds.has(b.id) ? 'bientot' : '';
+  const cls = b.bestBefore < v.today ? 'perime' : v.state.soonIds?.has(b.id) ? 'bientot' : '';
   return html`${qty} · <span class="${cls}">${shortDate(b.bestBefore)}</span>`;
 }
 
@@ -46,9 +46,11 @@ function rows(items: Row[], pageIndex: number): TemplateResult {
 
 function entry(v: PantryView): TemplateResult {
   const p = v.state;
-  const soon = currentBatches({ ...p, soon: true }).length;
+  // A soon list that could not be read is said, never shown as an empty list.
+  const soon = p.soonIds === null ? null : currentBatches({ ...p, soon: true }).length;
   const items: Row[] = [
-    { key: 'soon', title: `À consommer vite (${soon})`, inert: soon === 0, press: () => act.openSoon() },
+    { key: 'soon', title: soon === null ? 'À consommer vite — indisponible' : `À consommer vite (${soon})`,
+      inert: !soon, press: () => act.openSoon() },
     ...locations(p.batches, p.known).map((l) => ({
       key: `loc-${l.locationId}`, title: l.name, sub: lots(l.count), inert: l.count === 0,
       press: () => act.openLocation(l.locationId),

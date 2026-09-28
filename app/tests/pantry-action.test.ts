@@ -68,7 +68,7 @@ describe('loadPantry', () => {
     expect(h.s.pantry.status).toBe('ready');
     expect(h.s.pantry.batches.map((b) => b.id)).toEqual([11, 12, 21]);
     expect(h.s.pantry.known.map((l) => l.name)).toEqual(['Frigo', 'Placard']);
-    expect([...h.s.pantry.soonIds]).toEqual([12]);
+    expect([...h.s.pantry.soonIds!]).toEqual([12]);
     expect(h.listerTaches).toHaveBeenCalledWith(SOON);
   });
 
@@ -89,7 +89,7 @@ describe('loadPantry', () => {
     await loadPantry(h.s);
     expect(h.s.pantry.status).toBe('ready');
     expect(h.s.pantry.known).toEqual([]);
-    expect(h.s.pantry.soonIds.size).toBe(0);
+    expect(h.s.pantry.soonIds).toBeNull();
   });
 
   it('an injected stock wins over a real read still in flight', async () => {
@@ -98,13 +98,13 @@ describe('loadPantry', () => {
     injectStock(h.s, [row({ id: 90, product_name: 'Injecté' })], LOCATIONS, ['90']);
     await pending;
     expect(h.s.pantry.batches.map((b) => b.id)).toEqual([90]);
-    expect([...h.s.pantry.soonIds]).toEqual([90]);
+    expect([...h.s.pantry.soonIds!]).toEqual([90]);
   });
 
   it('ignores soon-list entries that are not batch ids', async () => {
     const h = makeHost({ soon: [{ uid: 'abc', texte: 'x' }, { uid: '21', texte: 'Pâtes' }] });
     await loadPantry(h.s);
-    expect([...h.s.pantry.soonIds]).toEqual([21]);
+    expect([...h.s.pantry.soonIds!]).toEqual([21]);
   });
 });
 
@@ -304,5 +304,153 @@ describe('pressReason', () => {
     expect(h.s.pantry.pendingKey).toBeUndefined();
     expect(h.s.pantry.message).toBeUndefined();
     expect(h.s.armementStock.estArmee('consumption')).toBe(false);
+  });
+});
+
+// Final review of the branch (2026-09-28): a consumption must never be counted twice, a late
+// answer must never rewrite the screen the user has moved to, and a failed read is said, not
+// shown as zero.
+describe('after a silence (review C1, I3)', () => {
+  async function silenced() {
+    const h = makeHost({ consume: new RefusHA('delai_depasse', 'x') });
+    await loadedSheet(h);
+    chooseFraction(h.s, 'half');
+    await pressReason(h.s, 'consumption');
+    await pressReason(h.s, 'consumption');
+    return h;
+  }
+
+  it('Back then reopening the same batch retries with the same key, quantity and reason', async () => {
+    const h = await silenced();
+    back(h.s);
+    openBatch(h.s, h.s.pantry.batches.find((b) => b.id === 11)!);
+    expect(h.s.pantry.quantity).toBe(175);
+    expect(h.s.pantry.message).toBe(SILENCE_MESSAGE);
+    await pressReason(h.s, 'consumption');
+    await pressReason(h.s, 'consumption');
+    const calls = h.consumeCalls();
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toEqual(calls[0]);
+  });
+
+  it('Back from a sheet with a message reloads the list', async () => {
+    const h = await silenced();
+    const before = h.listCalls();
+    back(h.s);
+    await vi.waitFor(() => expect(h.listCalls()).toBe(before + 1));
+  });
+
+  it('locks the quantity and the other reasons until the retry is answered', async () => {
+    const h = await silenced();
+    chooseFraction(h.s, 'quarter');
+    stepQuantity(h.s, 1);
+    expect(h.s.pantry.quantity).toBe(175);
+    await pressReason(h.s, 'discard');
+    await pressReason(h.s, 'discard');
+    expect(h.consumeCalls()).toHaveLength(1);
+    expect(h.s.armementStock.estArmee('discard')).toBe(false);
+  });
+
+  it('a success releases the lock for that batch', async () => {
+    const h = await silenced();
+    h.envoyerCommande.mockImplementation((p: Record<string, unknown>) => Promise.resolve(
+      p.type === 'home_stock/batches/list' ? { batches: ROWS }
+        : p.type === 'home_stock/locations/list' ? { locations: LOCATIONS } : { movement_ids: [7] }));
+    await pressReason(h.s, 'consumption');
+    await pressReason(h.s, 'consumption');
+    openBatch(h.s, h.s.pantry.batches.find((b) => b.id === 11)!);
+    expect(h.s.pantry.message).toBeUndefined();
+    expect(h.s.pantry.quantity).toBe(350);
+  });
+
+  it('a change of quantity disarms the armed reason', async () => {
+    const h = makeHost();
+    await loadedSheet(h);
+    await pressReason(h.s, 'consumption');
+    chooseFraction(h.s, 'half');
+    expect(h.s.armementStock.estArmee('consumption')).toBe(false);
+  });
+});
+
+describe('a late answer (review I1)', () => {
+  function deferred() {
+    let resolve!: (v: unknown) => void; let reject!: (e: unknown) => void;
+    const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+    return { promise, resolve, reject };
+  }
+
+  it('a success arriving after the user left the sheet does not move the screen', async () => {
+    const h = makeHost();
+    await loadedSheet(h);
+    const d = deferred();
+    const base = h.envoyerCommande.getMockImplementation()!;
+    h.envoyerCommande.mockImplementation((p: Record<string, unknown>) =>
+      p.type === 'home_stock/stock/consume' ? d.promise : base(p));
+    await pressReason(h.s, 'consumption');
+    const sending = pressReason(h.s, 'consumption');
+    back(h.s); back(h.s);   // sheet -> batches -> entry
+    expect(h.s.pantry.level).toBe('entry');
+    d.resolve({ movement_ids: [7] });
+    await sending;
+    expect(h.s.pantry.level).toBe('entry');
+    expect(h.s.pantry.banner).toBe('Mangé : 350 g de Yaourt nature');
+  });
+
+  it('a failure arriving on another batch’s sheet leaves that sheet alone', async () => {
+    const h = makeHost();
+    await loadedSheet(h);
+    const d = deferred();
+    const base = h.envoyerCommande.getMockImplementation()!;
+    h.envoyerCommande.mockImplementation((p: Record<string, unknown>) =>
+      p.type === 'home_stock/stock/consume' ? d.promise : base(p));
+    await pressReason(h.s, 'consumption');
+    const sending = pressReason(h.s, 'consumption');
+    back(h.s);
+    openBatch(h.s, h.s.pantry.batches.find((b) => b.id === 12)!);
+    d.reject(new RefusHA('insufficient_stock', 'Il ne reste que 100 g.'));
+    await sending;
+    expect(h.s.pantry.selected?.id).toBe(12);
+    expect(h.s.pantry.message).toBeUndefined();
+  });
+});
+
+describe('pages of the aisles (review I2)', () => {
+  it('Back from the second page of aisles returns to the first, then to the entry', async () => {
+    const many = Array.from({ length: 8 }, (_, i) => row({
+      id: 200 + i, product_id: 200 + i, product_name: `P${i}`,
+      aisle_id: 30 + i, aisle_name: `Rayon ${i}`, aisle_position: i,
+    }));
+    const h = makeHost({ batches: { batches: many } });
+    await loadPantry(h.s);
+    openLocation(h.s, 1);
+    expect(h.s.pantry.level).toBe('aisles');
+    nextPage(h.s);
+    expect(h.s.pantry.pageIndex).toBe(1);
+    back(h.s);
+    expect(h.s.pantry.level).toBe('aisles');
+    expect(h.s.pantry.pageIndex).toBe(0);
+    back(h.s);
+    expect(h.s.pantry.level).toBe('entry');
+    expect(h.s.pantry.pageIndex).toBe(0);
+  });
+
+  it('pages the aisles by their own count, not by the number of batches', async () => {
+    const rows = [...Array.from({ length: 7 }, (_, i) => row({
+      id: 300 + i, product_id: 300 + i, product_name: `A${i}`,
+      aisle_id: 5, aisle_name: 'Crémerie', aisle_position: 5,
+    })), row({ id: 399, product_id: 399, product_name: 'B', aisle_id: 1, aisle_name: 'Fruits', aisle_position: 1 })];
+    const h = makeHost({ batches: { batches: rows } });
+    await loadPantry(h.s);
+    openLocation(h.s, 1);
+    nextPage(h.s);   // two aisles: a single page
+    expect(h.s.pantry.pageIndex).toBe(0);
+  });
+});
+
+describe('the soon list (review I4)', () => {
+  it('a failed read of the soon list is known, never read as zero', async () => {
+    const h = makeHost({ soon: new Error('down') });
+    await loadPantry(h.s);
+    expect(h.s.pantry.soonIds).toBeNull();
   });
 });

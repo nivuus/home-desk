@@ -17,6 +17,11 @@
 .ligne-tache .perime { color: var(--md-error); font-weight: 700; }
 .ligne-tache .bientot { color: var(--md-tertiary); font-weight: 700; }
 
+/* The label line carries the banner of the last consumption, which names a product: one line,
+   always — a second one would push the Back button out of the 585 px (12 px of slack measured in
+   Chromium on 2026-09-28). */
+.garde-manger .etiquette { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 .pantry-fiche { display: flex; flex-direction: column; gap: 8px; }
 .pantry-rangee { height: 64px; display: flex; gap: 8px; min-width: 0; }
 
@@ -44,8 +49,9 @@
 /* Armed: the error tone of an armed task or of "Terminer" — the same two-press gesture must look
    the same in every view. */
 .pantry-reason.armee { background: var(--md-error-container); color: var(--md-on-error-container); }
-/* Offline or sending: the same greyed-out control as `.recette-actions > .inactif`. */
-.pantry-reason.inactif { opacity: 0.4; }
+/* Offline, sending, or locked to an unresolved send: the same greyed-out control as
+   `.recette-actions > .inactif`. */
+.pantry-reason.inactif, .pantry-fraction.inactif, .pantry-moins.inactif, .pantry-plus.inactif { opacity: 0.4; }
 
 /* Touch feedback, same overlay as the buttons of base.css. */
 .pantry-fraction::after, .pantry-moins::after, .pantry-plus::after, .pantry-reason::after {
@@ -53,4 +59,5 @@
   background: currentColor; opacity: 0; pointer-events: none; transition: opacity .2s var(--ressort); }
 .pantry-fraction:active::after, .pantry-moins:active::after, .pantry-plus:active::after,
 .pantry-reason:not(.inactif):active::after { opacity: .1; transition: none; }
-.pantry-reason.inactif::after { content: none; }
+.pantry-reason.inactif::after, .pantry-fraction.inactif::after, .pantry-moins.inactif::after,
+.pantry-plus.inactif::after { content: none; }
