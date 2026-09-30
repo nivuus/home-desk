@@ -19,6 +19,7 @@ import {
   lireAnimation, dureeEffective, jouerAnimation, fermerAnimation, type Animation,
 } from '../animation';
 import { rendreAnimation } from '../rendu/animation';
+import { EFFET_SORTIE, SORTIE_MS } from '../mouvement/grammaire';
 import type { AbonnableEvenements } from '../rechargement';
 import type { ScreenState } from './state';
 
@@ -54,7 +55,7 @@ export function armerAnimations(cx: AbonnableEvenements, nomEcran: string, s: Sc
     if (s.animation === null) return;
     ev.stopPropagation();
     ev.preventDefault();
-    terminerAnimation(s, s.animation.jeton);
+    terminerAnimation(s, s.animation.jeton, 'net');
   }, true);
 
   cx.abonner({ type: COMMANDE, nom: nomEcran }, (evenement) => {
@@ -131,19 +132,44 @@ function startMedia(s: ScreenState, jeton: number): void {
 
 /** A failure of the animation started under `jeton`. Silent when that token is stale: a replaced
  *  video's `play()` rejects with an `AbortError` once its element is removed, which is not a
- *  failure of anything still on screen. */
+ *  failure of anything still on screen. Closes at once: there is nothing worth a fade in a veil
+ *  that never showed its film. */
 function echouer(s: ScreenState, jeton: number, message: string, detail: unknown): void {
   if (s.animation?.jeton !== jeton) return;
   console.error(`home-desk: ${message}`, detail);
-  terminerAnimation(s, jeton);
+  terminerAnimation(s, jeton, 'net');
 }
 
+/** How an animation leaves the screen. `fondu` (the default: natural end, `duree`, cap) fades the
+ *  overlay out over `SORTIE_MS`; `net` removes it at once — the first touch, which must not wait
+ *  for a transition, and a failure. */
+type Sortie = 'fondu' | 'net';
+
 /** Closes the animation started under `jeton` — nothing when the token is stale. */
-export function terminerAnimation(s: ScreenState, jeton: number): void {
+export function terminerAnimation(s: ScreenState, jeton: number, sortie: Sortie = 'fondu'): void {
   if (!fermerAnimation(s, jeton)) return;
   arreterMinuteur(s);
-  detruireLecteur(s);
-  peindreCalque(s);
+  const calque = s.hoteAnimation.querySelector<HTMLElement>('.animation');
+  if (sortie === 'net' || calque === null) {
+    detruireLecteur(s);
+    peindreCalque(s);
+    return;
+  }
+  // The token is already closed: `s.animation` is `null`, so a touch during the fade reaches the
+  // control underneath (the layer is `pointer-events: none` anyway) and a new animation may
+  // replace this one. The player is kept until the fade ends, so a Lottie fades on its last frame
+  // rather than on a cleared canvas.
+  const fondu = calque.animate([{ opacity: 1 }, { opacity: 0 }],
+    { duration: SORTIE_MS, easing: EFFET_SORTIE, fill: 'forwards' });
+  const acheve = (): void => {
+    // Something replaced it during the fade: that animation owns the host and the player now.
+    if (s.animation !== null) return;
+    detruireLecteur(s);
+    peindreCalque(s);
+  };
+  // A cancelled fade (its element removed by the animation that replaced it) rejects: the same
+  // guard applies, and nothing else is left to do.
+  fondu.finished.then(acheve, acheve);
 }
 
 /** Releases the Lottie player of the animation that is closing or being replaced, if it has one.
