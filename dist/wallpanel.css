@@ -337,12 +337,11 @@ body {
      déborderait du cadre de 150,5 px de la tuile au lieu d'y rester tenu dedans. */
   overflow: hidden; }
 .commande.actif { background: var(--mvt-fond-actif); color: var(--md-on-tertiary-container); }
-/* `Bouton.haute` : la tuile couvre les deux rangées de sa colonne (64 + 10 + 64 px), sans rangée
-   de plus — `ordreCommandes` lui a déjà compté deux places. `grid-row: 1 / span 2` et non un
-   simple `span 2` : placée explicitement, elle passe avant les autres tuiles, qui se rangent dans
-   l'autre colonne ; en placement automatique, une haute arrivée en troisième position ouvrirait
-   une troisième rangée. Icône et libellé grandissent avec elle : c'est une cible qu'on vise de
-   loin. */
+/* `Bouton.haute`: the tile covers the two rows of its column (64 + 10 + 64 px), without an extra
+   row — `ordreCommandes` has already counted it two places. `grid-row: 1 / span 2` and not a
+   plain `span 2`: placed explicitly, it goes before the other tiles, which fill the other column;
+   auto-placed, a tall tile arriving third would open a third row. Icon and label grow with it:
+   it is a target aimed at from across the room. */
 .commande.haute { grid-row: 1 / span 2; height: auto; flex-direction: column;
   align-items: flex-start; justify-content: center; gap: 10px; padding: 0 18px; }
 .commande.haute > svg { width: 40px; height: 40px; }
@@ -851,10 +850,10 @@ body {
 .mn-bouton { height: 62px; min-width: 62px; border-radius: var(--sh-xl);
   background: var(--md-surface-container-high); display: flex; align-items: center;
   justify-content: center; font-size: 15px; font-weight: 600; }
-/* `.mn-pas` (`− 5 / − 1 / + 1 / + 5`) est la même rangée dans la forme solo et dans le réglage :
-   même règle, pas de duplication. Quatre cibles de 62 px et trois gouttières font 272 px, dans
-   une colonne de 311 px (343 − 2 × 16) : la rangée tient, et c'est pourquoi la durée du réglage
-   et les commandes de la forme solo (`.mn-actions`) vivent sur leur propre rangée. */
+/* `.mn-pas` (`− 5 / − 1 / + 1 / + 5`) is the same row in the solo form and in the setting screen:
+   one rule, no duplication. Four 62 px targets and three gutters make 272 px, in a 311 px column
+   (343 − 2 × 16): the row fits, which is why the duration of the setting screen and the controls
+   of the solo form (`.mn-actions`) live on rows of their own. */
 .mn-pas, .mn-solo .mn-actions { display: flex; gap: 8px; justify-content: center;
   align-items: center; }
 .mn-solo .mn-grand { text-align: center; }

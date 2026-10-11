@@ -52,11 +52,11 @@ function temps(v: VueMinuteur): TemplateResult {
   return html`<span class="mn-temps" data-minuteur=${v.slot}>${formaterRestant(v.restantS)}</span>`;
 }
 
-// Tâche 7 (mouvement) : `cle` reste optionnel. Les pas ± 5 et ± 1 (forme SOLO ET réglage) portent
-// chacun une marque ; `marche`/`annuler` (ligne comme solo) restent hors de la table de la
-// tâche 7, donc sans `data-mvt`. `cle` est le SLOT réel (`solo()`) quand il existe, sinon un
-// littéral fixe (`rendreReglageMinuteur`, avant qu'aucun minuteur n'existe) : un seul écran de
-// réglage possible à la fois, la clé fixe y est donc tout aussi stable/unique qu'un slot.
+// Task 7 (motion): `cle` stays optional. The ± 5 and ± 1 steps (SOLO form AND setting screen)
+// each carry a mark; `marche`/`annuler` (row and solo alike) stay outside the table of task 7,
+// hence without `data-mvt`. `cle` is the real SLOT (`solo()`) when there is one, otherwise a fixed
+// literal (`rendreReglageMinuteur`, before any timer exists): a single setting screen at a time,
+// so the fixed key is just as stable and unique there as a slot.
 function bouton(
   action: string, contenu: unknown, surAppui: () => void, cle?: string,
 ): TemplateResult {
@@ -90,19 +90,18 @@ function pas(
     </div>`;
 }
 
-/** Forme SOLO : un seul minuteur en cours, donc la place d'un gros temps et du réglage fin.
+/** SOLO form: a single running timer, hence room for a large time and fine steps.
  *
- *  Les pas n'existent QUE sur un minuteur en marche (tâche 1, découverte à l'exécution) :
- *  l'ajustement passe par un `timer.start` avec une durée recalculée (cf. `boot/controls.ts`),
- *  qui relancerait un minuteur mis en pause. Et un pas en moins disparaît dès qu'il ne reste
- *  plus de quoi le retirer en entier : il ne pourrait qu'annuler le minuteur, ce que fait déjà
- *  la croix à côté. Les pas (`.mn-pas`) et les commandes (`.mn-actions`) tiennent sur deux
- *  rangées : six cibles de 62 px ne rentrent pas dans une colonne de 311 px. */
-// Tâche 7 (mouvement) — les pas ci-dessous sont marqués par SLOT, jamais par index de
-// tableau : solo() ne reçoit qu'un seul VueMinuteur (vues.length === 1, cf. rendreMinuteurs), donc
-// unique dans l'écran trivialement — mais le slot les rend en plus STABLES dans le temps pour le
-// même minuteur physique, la même donnée que celle qui identifie déjà la ligne équivalente de la
-// forme liste (data-minuteur de temps()).
+ *  The steps exist ONLY on a running timer (task 1, found while running it): an adjustment goes
+ *  through a `timer.start` with a recomputed duration (see `boot/controls.ts`), which would
+ *  restart a paused timer. And a step down disappears as soon as there is not enough time left
+ *  to remove it whole: it could only cancel the timer, which the cross next to it already does.
+ *  The steps (`.mn-pas`) and the controls (`.mn-actions`) sit on two rows: six 62 px targets do
+ *  not fit in a 311 px column. */
+// Task 7 (motion) — the steps below are marked by SLOT, never by array index: solo() receives a
+// single VueMinuteur (vues.length === 1, see rendreMinuteurs), so they are trivially unique on
+// screen — but the slot also makes them STABLE over time for the same physical timer, the same
+// datum that already identifies the matching row of the list form (data-minuteur of temps()).
 function solo(v: VueMinuteur): TemplateResult {
   return html`
     <div class="minuteurs mn-solo" data-zone="blocCentral" data-mvt="bloc:minuteur-solo">
@@ -119,13 +118,13 @@ function solo(v: VueMinuteur): TemplateResult {
     </div>`;
 }
 
-/** L'écran de réglage — tâche 10 bis (arbitrage du propriétaire, 2026-08-03) : une sous-vue
- *  PLEIN ÉCRAN (`#minuteur`), exactement comme `rendu/maison.ts`/`rendu/taches.ts`, plutôt qu'un
- *  état du bloc central (mesuré à 718 px en tâche 10, 133 px au-delà du budget de 585 px). Le
- *  retour automatique après 45 s d'inactivité est désormais celui, générique, des sous-vues
- *  (`estSousVue`/`armerRetour`, `demarrage.ts`) — plus de jeton ni de minuteur propres à cet
- *  écran. Un pas n'est offert que s'il tombe EN ENTIER dans les bornes : « − 5 » à 3 min ne
- *  pourrait que redonner 1 min, ce que « − 1 » fait déjà honnêtement. */
+/** The setting screen — task 10 bis (owner's decision, 2026-08-03): a FULL-SCREEN sub-view
+ *  (`#minuteur`), exactly like `rendu/maison.ts`/`rendu/taches.ts`, rather than a state of the
+ *  central block (measured at 718 px in task 10, 133 px beyond the 585 px budget). The automatic
+ *  return after 45 s of inactivity is the generic one of the sub-views (`estSousVue`/
+ *  `armerRetour`, `demarrage.ts`) — no token or timer of its own. A step is offered only if it
+ *  lands WHOLE within the bounds: "− 5" at 3 min could only give back 1 min, which "− 1" already
+ *  does honestly. */
 export function rendreReglageMinuteur(
   dureeMinutes: number, etiquette: string | null, etiquettes: string[],
 ): TemplateResult {

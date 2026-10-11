@@ -687,8 +687,8 @@ describe('rangées de commandes selon le mode', () => {
   const places = (el: HTMLElement) =>
     el.querySelectorAll('.commande').length + el.querySelectorAll('.commande.haute').length;
 
-  // 2026-10-11 : la Porte est haute (`Bouton.haute`) — trois tuiles occupent les quatre places.
-  it('remplit les quatre places en mode courant, la porte haute en prenant deux', () => {
+  // 2026-10-11: the door is tall (`Bouton.haute`) — three tiles fill the four places.
+  it('fills the four places in the default mode, the tall door taking two', () => {
     const etat = etatSalonComplet();     // fabrique déjà présente dans ce fichier
     render(rendreCorps(etat, ECRANS.salon, undefined, CTX_SALON), hote);
     expect(places(hote)).toBe(4);
@@ -754,8 +754,8 @@ describe('rangées de commandes selon le mode', () => {
       expect(libelles, nom).toContain('Porte');
       // Sous chaleur, la même tuile s'appelle « Fermer » : c'est la consigne du jour, pas un objet.
       expect(libelles.includes('Rideau') || libelles.includes('Fermer'), nom).toBe(true);
-      // Quatre places dans TOUS les modes : le nombre ne bouge plus d'un mode à l'autre, c'est
-      // ce que la rangée « Ambiance » rendue au budget achète (la porte haute en prend deux).
+      // Four places in EVERY mode: the count no longer moves from one mode to the next, which is
+      // what the ambiance row given back to the budget buys (the tall door takes two).
       expect(places(hote), nom).toBe(4);
     }
   });

@@ -23,17 +23,19 @@ const CALME_VOITURE: ContexteModes = { ...CALME, blocDefaut: 'voiture' };
  *  `['minuteur', false, 2]`. Ce n'était pas une mesure mais une EXCEPTION : `combien` rendait 0
  *  pour tout mode de `modesSansCommande` avant tout calcul de coût, jamais parce qu'un budget de
  *  585 px avait été confronté au coût réel du mode. Une fois `minuteur` soumis au même calcul que
- *  les huit autres (`coutEcran` lui compte désormais `blocMinuteur`, 215 px depuis le 2026-10-11),
- *  sans rangée d'ambiance une rangée de commandes coûte 542 px au total : ça tient sous 585,
- *  donc 2. AVEC rangée d'ambiance, le bloc central coûte 567 px sans commande, et il ne reste que
- *  18 px —
+ *  les huit autres (`coutEcran` lui compte désormais `blocMinuteur`, 206 px), sans rangée
+ *  d'ambiance une rangée de commandes coûte 533 px au total : ça tient sous 585, donc 2. AVEC
+ *  rangée d'ambiance, le bloc central coûte 558 px sans commande, et il ne reste que 27 px —
  *  moins qu'une rangée : ça ne tient pas, donc 0, cette ligne-là ne bouge pas. Aucun écran de
  *  `ECRANS` ne peut aujourd'hui atteindre `['minuteur', false, …]` : la seule
  *  pièce à porter le mode `minuteur` (la cuisine) a aussi des ambiances déclarées, donc
  *  `rangeeAmbiance` y vaut toujours `true` en pratique (cf. `demarrage.ts`, et le test
  *  d'inatteignabilité plus bas). Cette ligne reste néanmoins dans la table : `combien` est une
  *  fonction pure, testée sur tout son domaine, pas seulement sur ce que la maison déclare
- *  aujourd'hui. */
+ *  aujourd'hui.
+ *
+ *  2026-10-11: `blocMinuteur` is 215 px since the solo timer gained its row of steps, hence
+ *  542 px, 567 px and 18 px instead of 533, 558 and 27 above. Both verdicts hold. */
 const ATTENDU: [string, boolean, number][] = [
   ['minuteur', true, 0], ['minuteur', false, 2],
   ['media', true, 2], ['cinema', true, 2], ['voiture', true, 2],

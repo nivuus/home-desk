@@ -361,9 +361,9 @@ describe('ordreCommandes — commande épinglée (salon, 2026-08-04)', () => {
    *  avec `CALME` (rangée présente) décrirait une pièce qui n'existe pas. */
   const SALON: ContexteModes = { ...CALME, rangeeAmbiance: false };
 
-  // 2026-10-11 : la Porte est HAUTE (deux places, `Bouton.haute`) — c'est le Chauffage, dernière
-  // non épinglée de la coupe, qui lui cède la sienne.
-  it('mode courant : Lumières, la porte haute et le rideau', () => {
+  // 2026-10-11: the door is TALL (two places, `Bouton.haute`) — the Heating, last unpinned tile
+  // of the cut, gives it its place.
+  it('default mode: Lights, the tall door and the curtain', () => {
     expect(noms(ordreCommandes(salon, SALON)))
       .toEqual(['Lumières', 'Porte', 'Rideau']);
   });
