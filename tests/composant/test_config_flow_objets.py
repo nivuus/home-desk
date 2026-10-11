@@ -121,7 +121,8 @@ async def test_le_budget_nomme_le_PIRE_mode_pas_le_premier_qui_deborde(hass, ent
     test-ci ne cherche donc PAS a faire varier rangee_ambiance (voir le
     test suivant pour cette preuve-la, avec un decor SANS minuteur). A
     rangee_ambiance=True : check_budget("cinema", True, 436, zones) =
-    29, check_budget("minuteur", True, 436, zones) = 82 (le pire) --
+    29, check_budget("minuteur", True, 436, zones) = 91 (le pire ; 82
+    avant que blocMinuteur passe de 206 a 215 px le 2026-10-11) --
     verifie par execution, PAS retape de memoire (le brief nomme "45" a cet
     endroit, et previent explicitement que cette valeur est fausse)."""
     subentry_id = await _creer_ecran(hass, entree, hauteurUtile=436)
@@ -144,12 +145,12 @@ async def test_le_budget_nomme_le_PIRE_mode_pas_le_premier_qui_deborde(hass, ent
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
     assert resultat["errors"]["base"] == ERROR_BUDGET_UNTENABLE_MODE
     # "cinema" est SOUMIS AVANT "minuteur" : un bug "premier qui deborde"
-    # nommerait cinema (29 px). Le PIRE est minuteur (82 px).
+    # nommerait cinema (29 px). Le PIRE est minuteur (91 px).
     # Ronde 2 de relecture (point 3) : {mode} est desormais TRADUIT
     # ("Timer", le libelle EN du selecteur "mode"), plus l'identifiant
     # brut du contrat ("minuteur").
     assert resultat["description_placeholders"]["mode"] == "Timer"
-    assert resultat["description_placeholders"]["debordement"] == "82"
+    assert resultat["description_placeholders"]["debordement"] == "91"
 
     entry = hass.config_entries.async_get_entry(entree.entry_id)
     assert entry.subentries[subentry_id].data.get("agencement") is None, (
