@@ -718,6 +718,20 @@ export const MODES = [
     marqueur: '.minuteurs', attendu: 'la liste des trois minuteurs',
   },
   {
+    // The SOLO form (a single running timer) carries the `− 5 / − 1 / + 1 / + 5` steps on a row of
+    // their own since 2026-10-11, above pause/cancel: taller than the list of three, so it is
+    // measured too — a budget holds at the worst case, and the worst case changed.
+    nom: 'minuteur-solo', mode: 'minuteur', pages: ['cuisine'],
+    etats: [
+      ['timer.cuisine', 'active',
+       { finishes_at: new Date(JOUR_COURT.getTime() + ECHEANCES_MINUTEURS_MS[0]).toISOString() }],
+      ['input_text.minuteur_cuisine_nom', 'Pâtes', {}],
+      ['timer.cuisine_2', 'idle', {}],
+      ['timer.cuisine_3', 'idle', {}],
+    ],
+    marqueur: '.mn-solo', attendu: 'le minuteur seul et ses pas',
+  },
+  {
     // REVUE FINALE (2026-08-17) : le mode `recette` était le SEUL `ModePrincipal` (`src/modes.ts`)
     // absent de ce tableau — donc le seul dont la hauteur n'était pas mesurée pour son propre
     // compte, alors que l'en-tête de ce fichier l'exige de « chaque mode ». La sous-vue `#recette`

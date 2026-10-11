@@ -167,6 +167,7 @@ BOUTON = vol.Schema(
         vol.Optional("lien"): _string(1),
         vol.Optional("vue"): _string_pattern(_VUE_PATTERN),
         vol.Optional("epingle"): _const(True),
+        vol.Optional("haute"): _const(True),
         vol.Optional("absenceNommee"): _string(),
         vol.Optional("note"): _string(),
     },

@@ -115,6 +115,7 @@
             "lien": "Lien",
             "vue": "Vue (#ancre)",
             "epingle": "Épinglée",
+            "haute": "Haute (deux rangées)",
             "absenceNommee": "Libellé affiché si l'entité est absente",
             "note": "Note",
             "geste": "Action"
@@ -140,6 +141,7 @@
             "lien": "Lien",
             "vue": "Vue (#ancre)",
             "epingle": "Épinglée",
+            "haute": "Haute (deux rangées)",
             "absenceNommee": "Libellé affiché si l'entité est absente",
             "note": "Note",
             "geste": "Action"
@@ -165,6 +167,7 @@
             "lien": "Lien",
             "vue": "Vue (#ancre)",
             "epingle": "Épinglée",
+            "haute": "Haute (deux rangées)",
             "absenceNommee": "Libellé affiché si l'entité est absente",
             "note": "Note",
             "geste": "Action"
@@ -312,7 +315,7 @@
             "sans_aspirateur_maison": "Pas d'aspirateur de pièce",
             "libelle": "Libellé", "icone": "Icône", "entite": "Entité", "cible": "Cible",
             "service_domaine": "Service — domaine", "service_action": "Service — action",
-            "lien": "Lien", "vue": "Vue", "epingle": "Épinglée",
+            "lien": "Lien", "vue": "Vue", "epingle": "Épinglée", "haute": "Haute (deux rangées)",
             "absenceNommee": "Texte quand l'entité est muette", "note": "Note"
           }
         }

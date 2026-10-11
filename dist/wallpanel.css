@@ -337,6 +337,17 @@ body {
      déborderait du cadre de 150,5 px de la tuile au lieu d'y rester tenu dedans. */
   overflow: hidden; }
 .commande.actif { background: var(--mvt-fond-actif); color: var(--md-on-tertiary-container); }
+/* `Bouton.haute` : la tuile couvre les deux rangées de sa colonne (64 + 10 + 64 px), sans rangée
+   de plus — `ordreCommandes` lui a déjà compté deux places. `grid-row: 1 / span 2` et non un
+   simple `span 2` : placée explicitement, elle passe avant les autres tuiles, qui se rangent dans
+   l'autre colonne ; en placement automatique, une haute arrivée en troisième position ouvrirait
+   une troisième rangée. Icône et libellé grandissent avec elle : c'est une cible qu'on vise de
+   loin. */
+.commande.haute { grid-row: 1 / span 2; height: auto; flex-direction: column;
+  align-items: flex-start; justify-content: center; gap: 10px; padding: 0 18px; }
+.commande.haute > svg { width: 40px; height: 40px; }
+.commande.haute .t { font-size: 20px; }
+.commande.haute .s { font-size: 14px; }
 /* L'`overflow: hidden` de `.commande` ci-dessus ne SUFFIT PAS : la boîte interne est un enfant de
    flex, donc `min-width: auto`, donc elle refuse de descendre sous la largeur min-content de son
    `.s` en `nowrap`. Le libellé le plus long réellement rendu ici — « Petit-déjeuner
@@ -840,9 +851,11 @@ body {
 .mn-bouton { height: 62px; min-width: 62px; border-radius: var(--sh-xl);
   background: var(--md-surface-container-high); display: flex; align-items: center;
   justify-content: center; font-size: 15px; font-weight: 600; }
-/* `.mn-reglage` partage la même rangée d'actions (`− 5 / durée / + 5`) que la forme solo :
-   même règle, pas de duplication. */
-.mn-solo .mn-actions, .mn-reglage .mn-actions { display: flex; gap: 8px; justify-content: center;
+/* `.mn-pas` (`− 5 / − 1 / + 1 / + 5`) est la même rangée dans la forme solo et dans le réglage :
+   même règle, pas de duplication. Quatre cibles de 62 px et trois gouttières font 272 px, dans
+   une colonne de 311 px (343 − 2 × 16) : la rangée tient, et c'est pourquoi la durée du réglage
+   et les commandes de la forme solo (`.mn-actions`) vivent sur leur propre rangée. */
+.mn-pas, .mn-solo .mn-actions { display: flex; gap: 8px; justify-content: center;
   align-items: center; }
 .mn-solo .mn-grand { text-align: center; }
 .mn-nouveau { height: 62px; display: flex; align-items: center; justify-content: center; gap: 6px;

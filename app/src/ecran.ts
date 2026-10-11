@@ -44,6 +44,12 @@ export type Bouton = {
    *  INERTE : `interaction.ts` ignore l'appui tant que l'entité est muette. */
   absenceNommee?: string;
   epingle?: true;
+  /** The tile spans the two rows of its column in the commands grid, for a command that must be
+   *  hit without aiming (the living-room door, by the entrance). It costs two places in the cut
+   *  of `ordreCommandes` (`modes.ts`), never a row: on a mode with a single row it renders at
+   *  normal height. Honoured by the commands grid only — an ambiance or "whole house" tile
+   *  ignores it, exactly like `epingle`. */
+  haute?: true;
   /** Cf. la docstring du même champ sur `Ecran`. */
   note?: string;
 };
@@ -212,7 +218,7 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {   // poli
       // qu'on règle ; les lumières restent à un appui dans « Toute la maison »).
       { libelle: 'Porte', icone: 'porte', entite: 'lock.aqara_smart_lock_u200_lite',
         service: ['script', 'turn_on'], cible: 'script.serrure_tap_ouvrir_ou_verrouiller',
-        epingle: true },
+        epingle: true, haute: true },
       // Épinglé depuis le 2026-08-29, à la demande du propriétaire (« il faudrait que rideau, et
       // ouverture/fermeture porte soient tout le temps affichés »). Avant cette date, la tuile
       // était DÉCLARÉE mais jamais rendue : le salon vivait en mode `voiture`, à deux places, et

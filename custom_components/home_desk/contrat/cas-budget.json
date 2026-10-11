@@ -17,9 +17,9 @@
     {"_note": "minuteur paie son cout depuis le plan 2 : 0 commande PARCE QUE rien ne tient, pas par court-circuit.",
      "mode": "minuteur",  "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 585, "commandes": 0, "debordement": 0},
     {"mode": "minuteur",  "rangeeAmbiance": false, "zones": null, "hauteurUtile": 585, "commandes": 2, "debordement": 0},
-    {"_note": "630 px = la mesure historique ecranModeMinuteur du 2026-08-03, que le modele reproduit au pixel sans avoir ete calibre dessus.",
+    {"_note": "639 px de seuil : la mesure historique ecranModeMinuteur du 2026-08-03 (630, liste de trois) plus les 9 px que la forme solo a gagnes le 2026-10-11 ; le modele la reproduisait au pixel sans avoir ete calibre dessus.",
      "mode": "minuteur",  "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 657, "commandes": 2, "debordement": 0},
-    {"mode": "minuteur",  "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 500, "commandes": 0, "debordement": 58},
+    {"mode": "minuteur",  "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 500, "commandes": 0, "debordement": 67},
 
     {"_note": "Le palier intermediaire : une rangee de moins.",
      "mode": "defaut",   "rangeeAmbiance": true,  "zones": null, "hauteurUtile": 521, "commandes": 2, "debordement": 0},

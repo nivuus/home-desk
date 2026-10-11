@@ -56,7 +56,7 @@ def cout_ecran(mode: str, rangee_ambiance: bool, rangees: int,
     if zones is None:
         zones = ZONES_DEFAUT
     h = BUDGET["hauteurs"]
-    # Three branches, never two: `minuteur` pays `blocMinuteur` (206 px), the tall-block modes
+    # Three branches, never two: `minuteur` pays `blocMinuteur` (215 px), the tall-block modes
     # (`media`, `cinema`, `voiture`) pay `blocHaut` (153 px), all the others pay
     # `blocDefaut` (84 px). A single central block per screen: it is a three-branch TERNARY,
     # never an "on top of".
