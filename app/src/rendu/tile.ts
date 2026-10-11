@@ -77,7 +77,7 @@ export const bouton = (etat: Etat, b: Bouton, actif: boolean, classe: string) =>
   const absente = !etat.isPresent(b.entite);
   const inerte = absente || (!b.service && !b.lien && !b.vue && !d);
   return html`
-  <div class="${classe} ${actif ? 'actif' : ''} ${d ? 'jauge' : ''} ${inerte ? 'inerte' : ''} ${absente ? 'absent' : ''}"
+  <div class="${classe} ${actif ? 'actif' : ''} ${d ? 'jauge' : ''} ${inerte ? 'inerte' : ''} ${absente ? 'absent' : ''} ${b.haute ? 'haute' : ''}"
        data-mvt="tuile:${b.entite}"
        style="--jauge:${fraction}"
        @pointerdown=${(ev: PointerEvent) => geste(ev, b.entite, () => appuyer(etat, b))}>

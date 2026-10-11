@@ -66,7 +66,7 @@ def test_composition_du_formulaire_bouton_est_complete():
     champs = {str(k) for k in list_fields._schema_bouton(True).schema}
     assert champs == {
         "libelle", "icone", "entite", "cible", "service_domaine", "service_action",
-        "lien", "vue", "epingle", "absenceNommee", "note", "geste",
+        "lien", "vue", "epingle", "haute", "absenceNommee", "note", "geste",
     }
 
 

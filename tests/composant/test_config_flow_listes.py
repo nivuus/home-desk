@@ -130,6 +130,7 @@ async def test_modifier_le_libelle_seul_preserve_tous_les_autres_champs(hass, en
         "lien": "https://exemple.local/portail",
         "vue": "#garage",
         "epingle": True,
+        "haute": True,
         "absenceNommee": "Portail indisponible",
         "note": "Ne pas ouvrir sous la pluie",
     }
@@ -156,6 +157,7 @@ async def test_modifier_le_libelle_seul_preserve_tous_les_autres_champs(hass, en
     assert apres[0]["service"] == ["cover", "open_cover"]
     assert apres[0]["vue"] == "#garage"
     assert apres[0]["epingle"] is True
+    assert apres[0]["haute"] is True
     assert apres[0]["absenceNommee"] == "Portail indisponible"
     assert apres[0]["lien"] == "https://exemple.local/portail"
     assert apres[0]["cible"] == "cover.portail"

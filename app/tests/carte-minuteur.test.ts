@@ -34,10 +34,10 @@ let a: ReturnType<typeof actions>;
 beforeEach(() => { a = actions(); brancherMinuteur(a); });
 
 describe('rendreMinuteurs — forme solo', () => {
-  it('affiche le temps, et propose −5 / +5 / pause / annuler', () => {
+  it('shows the time and offers −5 / −1 / +1 / +5 / pause / cancel', () => {
     const el = rendre(rendreMinuteurs([vue({ restantS: 754 })], true));
     expect(el.querySelector('.mn-temps')!.textContent).toBe('12:34');
-    expect(el.querySelectorAll('.mn-bouton')).toHaveLength(4);
+    expect(el.querySelectorAll('.mn-bouton')).toHaveLength(6);
   });
 
   it('appelle les actions du bon slot', () => {
@@ -45,6 +45,8 @@ describe('rendreMinuteurs — forme solo', () => {
     const boutons = el.querySelectorAll<HTMLElement>('.mn-bouton');
     for (const b of Array.from(boutons)) b.dispatchEvent(new Event('pointerdown'));
     expect(a.ajuster).toHaveBeenCalledWith(2, -300);
+    expect(a.ajuster).toHaveBeenCalledWith(2, -60);
+    expect(a.ajuster).toHaveBeenCalledWith(2, 60);
     expect(a.ajuster).toHaveBeenCalledWith(2, 300);
     expect(a.pause).toHaveBeenCalledWith(2);
     expect(a.annuler).toHaveBeenCalledWith(2);
@@ -53,7 +55,14 @@ describe('rendreMinuteurs — forme solo', () => {
   it('retire −5 quand il reste moins de cinq minutes — jamais un bouton mort', () => {
     const el = rendre(rendreMinuteurs([vue({ restantS: 299 })], true));
     expect(el.querySelector('[data-action="moins"]')).toBeNull();
+    expect(el.querySelector('[data-action="moins1"]')).not.toBeNull();
     expect(el.querySelector('[data-action="plus"]')).not.toBeNull();
+  });
+
+  it('removes −1 at one minute left or less — the cross already cancels', () => {
+    const el = rendre(rendreMinuteurs([vue({ restantS: 60 })], true));
+    expect(el.querySelector('[data-action="moins1"]')).toBeNull();
+    expect(el.querySelector('[data-action="plus1"]')).not.toBeNull();
   });
 
   it('propose Reprendre, et non Pause, sur un minuteur en pause', () => {
@@ -65,8 +74,9 @@ describe('rendreMinuteurs — forme solo', () => {
 
   it('retire ± 5 sur un minuteur en pause — l\'ajustement le relancerait', () => {
     const el = rendre(rendreMinuteurs([vue({ actif: false, restantS: 900 })], true));
-    expect(el.querySelector('[data-action="moins"]')).toBeNull();
-    expect(el.querySelector('[data-action="plus"]')).toBeNull();
+    for (const action of ['moins', 'moins1', 'plus1', 'plus']) {
+      expect(el.querySelector(`[data-action="${action}"]`)).toBeNull();
+    }
     expect(el.querySelector('[data-action="marche"]')).not.toBeNull();
   });
 
@@ -177,13 +187,14 @@ describe('tuileMinuteur', () => {
 describe('rendreReglageMinuteur', () => {
   const ETIQUETTES = ['Pâtes', 'Four', 'Riz', 'Œufs', 'Thé'];
 
-  it('affiche la durée en minutes et les deux pas', () => {
+  it('shows the duration in minutes and the four steps', () => {
     const el = rendre(rendreReglageMinuteur(7, null, ETIQUETTES));
     expect(el.querySelector('.mn-duree')!.textContent).toContain('7 min');
-    el.querySelector<HTMLElement>('[data-action="moins"]')!.dispatchEvent(new Event('pointerdown'));
-    el.querySelector<HTMLElement>('[data-action="plus"]')!.dispatchEvent(new Event('pointerdown'));
-    expect(a.changerDuree).toHaveBeenNthCalledWith(1, -5);
-    expect(a.changerDuree).toHaveBeenNthCalledWith(2, 5);
+    for (const action of ['moins', 'moins1', 'plus1', 'plus']) {
+      el.querySelector<HTMLElement>(`[data-action="${action}"]`)!
+        .dispatchEvent(new Event('pointerdown'));
+    }
+    expect(vi.mocked(a.changerDuree).mock.calls).toEqual([[-5], [-1], [1], [5]]);
   });
 
   it('rend une étiquette par entrée déclarée et signale celle qui est choisie', () => {
@@ -206,15 +217,19 @@ describe('rendreReglageMinuteur', () => {
     expect(a.start).toHaveBeenCalled();
   });
 
-  it('retire « − 5 » à la borne basse — jamais un bouton qui ne peut rien faire', () => {
+  it('removes − 5 and − 1 at the lower bound — never a button that can do nothing', () => {
     const el = rendre(rendreReglageMinuteur(1, null, ETIQUETTES));
     expect(el.querySelector('[data-action="moins"]')).toBeNull();
+    expect(el.querySelector('[data-action="moins1"]')).toBeNull();
+    expect(el.querySelector('[data-action="plus1"]')).not.toBeNull();
     expect(el.querySelector('[data-action="plus"]')).not.toBeNull();
   });
 
-  it('retire « + 5 » à la borne haute', () => {
+  it('removes + 1 and + 5 at the upper bound', () => {
     const el = rendre(rendreReglageMinuteur(120, null, ETIQUETTES));
     expect(el.querySelector('[data-action="plus"]')).toBeNull();
+    expect(el.querySelector('[data-action="plus1"]')).toBeNull();
+    expect(el.querySelector('[data-action="moins1"]')).not.toBeNull();
     expect(el.querySelector('[data-action="moins"]')).not.toBeNull();
   });
 

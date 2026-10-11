@@ -164,6 +164,7 @@
         "lien": { "type": "string", "minLength": 1 },
         "vue": { "type": "string", "pattern": "^#" },
         "epingle": { "const": true },
+        "haute": { "const": true },
         "absenceNommee": { "type": "string" },
         "note": { "type": "string" }
       }

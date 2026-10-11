@@ -64,8 +64,8 @@ def _selecteur_icone() -> selector.SelectSelector:
     )
 
 # --------------------------------------------------------------------------
-# $defs/bouton (commandes, ambiances, extrasMaison): TEN properties in the
-# contract, ten in this form — no field left that this form would
+# $defs/bouton (commandes, ambiances, extrasMaison): ELEVEN properties in the
+# contract, eleven in this form — no field left that this form would
 # ignore. `service` (a pair of two strings) has no two-value HA
 # equivalent: two separate text fields (`service_domaine`/
 # `service_action`), recombined into an array by `_build_button_data`
@@ -77,7 +77,7 @@ def _selecteur_icone() -> selector.SelectSelector:
 CHAMPS_BOUTON = frozenset(
     {
         "libelle", "icone", "entite", "cible", "service", "lien", "vue",
-        "epingle", "absenceNommee", "note",
+        "epingle", "haute", "absenceNommee", "note",
     }
 )
 
@@ -95,6 +95,7 @@ def _schema_bouton(editable: bool) -> vol.Schema:
         vol.Optional("lien"): str,
         vol.Optional("vue"): str,
         vol.Optional("epingle", default=False): selector.BooleanSelector(),
+        vol.Optional("haute", default=False): selector.BooleanSelector(),
         vol.Optional("absenceNommee"): str,
         vol.Optional("note"): str,
     }
@@ -117,8 +118,9 @@ def _build_button_data(user_input: dict[str, Any], existant: dict | None) -> dic
         value = user_input.get(champ)
         if value not in (None, ""):
             item_data[champ] = value
-    if user_input.get("epingle") is True:
-        item_data["epingle"] = True
+    for drapeau in ("epingle", "haute"):
+        if user_input.get(drapeau) is True:
+            item_data[drapeau] = True
     domaine = (user_input.get("service_domaine") or "").strip()
     action = (user_input.get("service_action") or "").strip()
     if domaine and not action:

@@ -683,10 +683,17 @@ describe('etiquette des commandes serrure et rideau — francais partout, jamais
 // `ContexteModes` reçu. Sans `ctx`, comportement d'avant (toutes les commandes utilisables, dans
 // leur ordre déclaré) : c'est ce qui laisse les tests ci-dessus verts sans y toucher.
 describe('rangées de commandes selon le mode', () => {
-  it('affiche quatre commandes en mode courant', () => {
+  /** Places taken in the grid: a tall tile (`.haute`) spans two. */
+  const places = (el: HTMLElement) =>
+    el.querySelectorAll('.commande').length + el.querySelectorAll('.commande.haute').length;
+
+  // 2026-10-11: the door is tall (`Bouton.haute`) — three tiles fill the four places.
+  it('fills the four places in the default mode, the tall door taking two', () => {
     const etat = etatSalonComplet();     // fabrique déjà présente dans ce fichier
     render(rendreCorps(etat, ECRANS.salon, undefined, CTX_SALON), hote);
-    expect(hote.querySelectorAll('.commande').length).toBe(4);
+    expect(places(hote)).toBe(4);
+    expect(Array.from(hote.querySelectorAll('.commande.haute .t')).map((e) => e.textContent))
+      .toEqual(['Porte']);
   });
 
   // 2026-08-29 : le salon garde ses quatre commandes MÊME en média — c'est précisément ce que la
@@ -697,7 +704,7 @@ describe('rangées de commandes selon le mode', () => {
     const etat = etatSalonComplet();
     render(rendreCorps(etat, ECRANS.salon, undefined,
                        { ...CTX_SALON, sourceJoue: true }), hote);
-    expect(hote.querySelectorAll('.commande').length).toBe(4);
+    expect(places(hote)).toBe(4);
   });
 
   it('une pièce qui garde sa rangée Ambiance retombe à deux commandes en mode média', () => {
@@ -725,7 +732,7 @@ describe('rangées de commandes selon le mode', () => {
     render(rendreCorps(etat, ECRANS.salon, undefined,
                        { ...CTX_SALON, ecranAllume: true }), hote);
     const libelles = Array.from(hote.querySelectorAll('.commande .t')).map((e) => e.textContent);
-    expect(libelles).toEqual(['Ambilight', 'Lumières', 'Porte', 'Rideau']);
+    expect(libelles).toEqual(['Ambilight', 'Porte', 'Rideau']);
   });
 
   // Épinglage de la porte (2026-08-04) vérifié sur le rendu réel, pas seulement sur l'ordre :
@@ -747,9 +754,9 @@ describe('rangées de commandes selon le mode', () => {
       expect(libelles, nom).toContain('Porte');
       // Sous chaleur, la même tuile s'appelle « Fermer » : c'est la consigne du jour, pas un objet.
       expect(libelles.includes('Rideau') || libelles.includes('Fermer'), nom).toBe(true);
-      // Quatre tuiles dans TOUS les modes : le nombre ne bouge plus d'un mode à l'autre, c'est
-      // ce que la rangée « Ambiance » rendue au budget achète.
-      expect(libelles.length, nom).toBe(4);
+      // Four places in EVERY mode: the count no longer moves from one mode to the next, which is
+      // what the ambiance row given back to the budget buys (the tall door takes two).
+      expect(places(hote), nom).toBe(4);
     }
   });
 

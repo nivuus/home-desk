@@ -115,6 +115,7 @@
             "lien": "Link",
             "vue": "View (#anchor)",
             "epingle": "Pinned",
+            "haute": "Tall (two rows)",
             "absenceNommee": "Label shown when the entity is absent",
             "note": "Note",
             "geste": "Action"
@@ -140,6 +141,7 @@
             "lien": "Link",
             "vue": "View (#anchor)",
             "epingle": "Pinned",
+            "haute": "Tall (two rows)",
             "absenceNommee": "Label shown when the entity is absent",
             "note": "Note",
             "geste": "Action"
@@ -165,6 +167,7 @@
             "lien": "Link",
             "vue": "View (#anchor)",
             "epingle": "Pinned",
+            "haute": "Tall (two rows)",
             "absenceNommee": "Label shown when the entity is absent",
             "note": "Note",
             "geste": "Action"
@@ -312,7 +315,7 @@
             "sans_aspirateur_maison": "No room vacuum",
             "libelle": "Label", "icone": "Icon", "entite": "Entity", "cible": "Target",
             "service_domaine": "Service — domain", "service_action": "Service — action",
-            "lien": "Link", "vue": "View", "epingle": "Pinned",
+            "lien": "Link", "vue": "View", "epingle": "Pinned", "haute": "Tall (two rows)",
             "absenceNommee": "Text when the entity is unavailable", "note": "Note"
           }
         }

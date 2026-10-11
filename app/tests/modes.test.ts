@@ -172,7 +172,7 @@ describe('rangeeAmbiance — le budget rendu par la rangée « Ambiance » suppr
     // cinquième.
     expect(ordreCommandes(QUATRE, { ...CALME, rangeeAmbiance: false })).toHaveLength(4);
     // 2026-09-12 (plan 2, tâche 5) : `minuteur` ne reste plus à zéro « quoi qu'il arrive ». Sans
-    // rangée Ambiance, son bloc (206 px) plus une rangée de commandes coûte 533 px — sous les
+    // rangée Ambiance, son bloc (215 px) plus une rangée de commandes coûte 542 px — sous les
     // 585 : ça tient, donc 2. La croyance d'un zéro inconditionnel venait du court-circuit que
     // cette tâche a retiré (`combien` rendait 0 pour `minuteur` avant tout calcul), jamais d'une
     // vraie mesure de ce cas — `mesures.ecranModeMinuteur` (`contrat/budget.json`, 630 px) mesure
@@ -361,9 +361,11 @@ describe('ordreCommandes — commande épinglée (salon, 2026-08-04)', () => {
    *  avec `CALME` (rangée présente) décrirait une pièce qui n'existe pas. */
   const SALON: ContexteModes = { ...CALME, rangeeAmbiance: false };
 
-  it('mode courant : les quatre premières déclarées, la porte comprise — inchangé', () => {
+  // 2026-10-11: the door is TALL (two places, `Bouton.haute`) — the Heating, last unpinned tile
+  // of the cut, gives it its place.
+  it('default mode: Lights, the tall door and the curtain', () => {
     expect(noms(ordreCommandes(salon, SALON)))
-      .toEqual(['Lumières', 'Chauffage', 'Porte', 'Rideau']);
+      .toEqual(['Lumières', 'Porte', 'Rideau']);
   });
 
   // 2026-08-29 : le salon n'a plus de rangée « Ambiance », donc plus de mode à deux commandes —
@@ -382,7 +384,7 @@ describe('ordreCommandes — commande épinglée (salon, 2026-08-04)', () => {
     ];
     for (const [mode, c] of modes) {
       const resultat = noms(ordreCommandes(salon, c));
-      expect(resultat, mode).toHaveLength(4);
+      expect(resultat, mode).toHaveLength(3);
       expect(resultat, mode).toContain('Porte');
       expect(resultat, mode).toContain('Rideau');
     }
@@ -392,14 +394,14 @@ describe('ordreCommandes — commande épinglée (salon, 2026-08-04)', () => {
   // réordonnancement du mode (l'Ambilight pendant un film), les deux dernières aux épingles.
   it('cinéma : Ambilight garde la première place, Porte et Rideau prennent les dernières', () => {
     expect(noms(ordreCommandes(salon, { ...SALON, ecranAllume: true })))
-      .toEqual(['Ambilight', 'Lumières', 'Porte', 'Rideau']);
+      .toEqual(['Ambilight', 'Porte', 'Rideau']);
   });
 
   it('média et voiture : l\'ordre déclaré suffit, aucune épingle n\'a à intervenir', () => {
     expect(noms(ordreCommandes(salon, { ...SALON, sourceJoue: true })))
-      .toEqual(['Lumières', 'Chauffage', 'Porte', 'Rideau']);
+      .toEqual(['Lumières', 'Porte', 'Rideau']);
     expect(noms(ordreCommandes(salon, { ...SALON, blocDefaut: 'voiture' })))
-      .toEqual(['Lumières', 'Chauffage', 'Porte', 'Rideau']);
+      .toEqual(['Lumières', 'Porte', 'Rideau']);
   });
 
   // Le cas que `DEUX_EPINGLES` couvre et que le salon ne rencontre plus : deux épingles pour deux

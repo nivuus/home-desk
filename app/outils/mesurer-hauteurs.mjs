@@ -168,13 +168,15 @@ function releverZones() {
   const sg = grille ? getComputedStyle(grille) : null;
   const colonnes = sg ? sg.gridTemplateColumns.split(' ').filter(Boolean).length : 0;
   const tuiles = grille ? grille.children.length : 0;
+  // A tall tile (`.haute`, `Bouton.haute`) spans two rows: it is neither a row's height nor one
+  // place. The row height is read on a NORMAL tile, and the rows on the grid itself.
+  const normale = grille ? grille.querySelector('.commande:not(.haute)') : null;
   const commandes = grille ? {
     total: d1(grille.getBoundingClientRect().height),
     tuiles,
     colonnes,
-    rangees: colonnes ? Math.ceil(tuiles / colonnes) : 0,
-    hauteurTuile: grille.firstElementChild
-      ? d1(grille.firstElementChild.getBoundingClientRect().height) : null,
+    rangees: sg.gridTemplateRows.split(' ').filter(Boolean).length,
+    hauteurTuile: normale ? d1(normale.getBoundingClientRect().height) : null,
     gouttiere: nombre(sg.rowGap),
   } : null;
 
@@ -211,6 +213,8 @@ function releverZones() {
 
 // --- 3. Mesure, mode par mode ---------------------------------------------------------------
 
+// `mode.mode` names the main mode a VARIANT exercises (`minuteur-solo` is the `minuteur` mode
+// with a single timer); without it, the entry's name is the mode.
 const familleDuBloc = (nom) => {
   if ((BUDGET.modesABlocMinuteur ?? []).includes(nom)) return 'blocMinuteur';
   if ((BUDGET.modesABlocHaut ?? []).includes(nom)) return 'blocHaut';
@@ -324,7 +328,7 @@ try {
       code = SORTIE.MODES;
       continue;
     }
-    releves.push({ mode: mode.nom, piece: pageDuMode(mode), famille: familleDuBloc(mode.nom), ...m });
+    releves.push({ mode: mode.nom, piece: pageDuMode(mode), famille: familleDuBloc(mode.mode ?? mode.nom), ...m });
     const z = (n) => (m.zones[n] ? String(m.zones[n].px).padStart(6) : '     —');
     console.error(`· ${mode.nom.padEnd(17)} ${m.piece ?? pageDuMode(mode)}`.padEnd(30)
       + `bandeau${z('bandeau')}  bloc${z('blocCentral')}  synthèse${z('synthese')}`

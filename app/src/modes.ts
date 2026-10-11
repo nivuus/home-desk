@@ -299,11 +299,11 @@ export function combien(
   // la donnée entre quand même par une autre porte, exactement comme le repli par champ de
   // `rendu/corps.ts`.
   if (!zones.includes('commandes')) return 0;
-  // Plus de court-circuit pour `minuteur` depuis 2026-09-12 (plan 2, tâche 5) : `coutEcran` lui
-  // fait déjà payer `blocMinuteur` (206 px, troisième branche ci-dessus), donc le mode traverse
-  // la même boucle que les huit autres. À 585 px avec rangée d'ambiance, il rend encore 0 — mais
-  // désormais PARCE QUE le calcul le dit (558 px consommés, 27 px de reste, moins que les 64 px
-  // d'une rangée), pas parce qu'une exception l'a décidé sans rien calculer.
+  // No short-circuit for `minuteur` since 2026-09-12 (plan 2, task 5): `coutEcran` already makes
+  // it pay `blocMinuteur` (215 px, third branch above), so the mode goes through the same loop as
+  // the eight others. At 585 px with an ambiance row it still gives 0 — but BECAUSE the
+  // computation says so (567 px used, 18 px left, less than the 64 px of a row), not because an
+  // exception decided it without computing anything.
   // Le plafond de DEUX rangées n'est pas un chiffre de plus : c'est ce que `commandesParDefaut`
   // (4 places) et `tuilesParRangee` (2 colonnes) disent déjà. Une troisième rangée n'existe dans
   // aucun écran de ce projet, et l'inventer ici sur un grand écran ferait rendre à `combien` un
@@ -319,34 +319,33 @@ export function combien(
   return 0;
 }
 
-/** De combien cette composition déborde, en pixels. 0 si elle tient. Écrite pour le formulaire de
- *  l'intégration Home Assistant (plan 3), qui doit pouvoir dire « cet écran déborde de 45 px »
- *  AU MOMENT DE LA SAISIE — pas devant la tablette.
+/** By how many pixels this composition overflows; 0 if it fits. Written for the form of the
+ *  Home Assistant integration (plan 3), which must be able to say "this screen overflows by
+ *  45 px" WHILE IT IS BEING FILLED IN — not in front of the tablet.
  *
- *  TOUS LES MODES SONT FACTURÉS depuis 2026-09-12 (plan 2, tâche 5), `minuteur` compris : il vit
- *  désormais dans `modesABlocMinuteur` et `coutEcran` lui compte son vrai `blocMinuteur` (206 px)
- *  AU LIEU DE `blocDefaut` (84 px). Au lieu de, jamais en plus : la sélection du bloc central est
- *  un TERNAIRE à trois branches, un écran n'a qu'un seul bloc central. (La relecture finale du
- *  plan 2 a trouvé ici le mot « plus », qui annonçait 290 px de bloc — 84 px de dette fantôme dans
- *  le modèle même sur lequel le plan 3 dira « cet écran déborde », et que la phrase suivante
- *  contredisait déjà. C'est la DEUXIÈME fois que cette docstring ment : la ronde 1 de la tâche 4
- *  l'avait déjà réécrite pour un exemple faux.)
+ *  EVERY MODE IS BILLED since 2026-09-12 (plan 2, task 5), `minuteur` included: it lives in
+ *  `modesABlocMinuteur` and `coutEcran` bills its real `blocMinuteur` (215 px) INSTEAD OF
+ *  `blocDefaut` (84 px). Instead of, never on top of: choosing the central block is a
+ *  three-branch TERNARY, a screen has a single central block. (The final review of plan 2 found
+ *  the word "plus" here, which announced a 290 px block — 84 px of phantom debt in the very model
+ *  on which plan 3 says "this screen overflows", and which the next sentence already
+ *  contradicted. It was the SECOND time this docstring lied: round 1 of task 4 had already
+ *  rewritten it for a wrong example.)
  *
- *  Les deux valeurs, recalculées depuis `contrat/budget.json` : `verifierBudget('minuteur', true,
- *  585)` rend 0 — à bon droit, cet écran ne déborde pas, 121 + 24 + (62 + 206 + 32 + 9 + 72) +
- *  8 x 4 = 558 px consommés sur 585 — et `verifierBudget('minuteur', true, 500)` rend 58, le vrai
- *  débordement. C'était la dette que `contrat/budget.json` nommait sous `_blocMinuteur` ; elle est
- *  refermée.
+ *  The two values, recomputed from `contrat/budget.json`: `verifierBudget('minuteur', true, 585)`
+ *  gives 0 — rightly, this screen does not overflow, 121 + 24 + (62 + 215 + 32 + 9 + 72) + 8 x 4
+ *  = 567 px used out of 585 — and `verifierBudget('minuteur', true, 500)` gives 67, the real
+ *  overflow. That was the debt `contrat/budget.json` named under `_blocMinuteur`; it is closed.
  *
- *  `zones` est FACULTATIF et vaut les quatre zones du défaut (relecture finale du plan 2, I4) :
- *  une zone que l'agencement n'affiche pas ne coûte pas sa hauteur, sans quoi cette fonction
- *  refuserait une saisie tenable en annonçant un débordement fantôme (jusqu'à 214 px pour un
- *  écran sans bloc central en mode minuteur). Elle compte toujours ZÉRO rangée de commandes :
- *  c'est la composition la plus petite que l'écran puisse rendre, donc la question « tient-elle,
- *  même à vide ? ».
+ *  `zones` is OPTIONAL and defaults to the four zones of the default layout (final review of
+ *  plan 2, I4): a zone the layout does not show does not cost its height, otherwise this function
+ *  would refuse a tenable entry by announcing a phantom overflow (up to 223 px for a screen
+ *  without a central block in timer mode). It always counts ZERO rows of commands: that is the
+ *  smallest composition the screen can render, hence the question "does it fit, even empty?".
  *
- *  Le rendu ne l'appelle jamais : c'est toute la différence avec la version d'avant, où le verdict
- *  (l'ex-`BudgetIntenable`) et le calcul vivaient dans la même fonction, `combien`. */
+ *  Rendering never calls it: that is the whole difference with the former version, where the
+ *  verdict (the former `BudgetIntenable`) and the computation lived in the same function,
+ *  `combien`. */
 export function verifierBudget(mode: ModePrincipal, rangeeAmbiance: boolean,
                                hauteurUtile: number,
                                zones: Zone[] = AGENCEMENT_DEFAUT.zones): number {
@@ -397,6 +396,32 @@ function epingler(ordre: Bouton[], n: number): Bouton[] {
   return [...coupe.filter((b) => b.epingle || conservees.includes(b)), ...manquantes];
 }
 
+/** The places a cut takes. A tall tile (`Bouton.haute`) spans the two rows of its column, so it
+ *  takes two places: its own and the one below it. */
+function places(coupe: Bouton[]): number {
+  return coupe.reduce((n, b) => n + (b.haute ? 2 : 1), 0);
+}
+
+/** `epingler`, with tall tiles paid for. On a grid of at least two rows, the cut is the longest
+ *  one `epingler` gives whose places still fit in `n` — the pins keep their guarantee, and it is
+ *  the last unpinned tiles that give way to a tall one. On a single row there is nothing to span:
+ *  the tile loses its `haute` and renders at normal height, one place like any other — a tall tile
+ *  never creates a row, the height budget of every mode (`combien`) is unchanged. */
+function couper(ordre: Bouton[], n: number): Bouton[] {
+  if (n < 2 * BUDGET.tuilesParRangee) {
+    return epingler(ordre, n).map((b) => {
+      if (!b.haute) return b;
+      const { haute: _haute, ...normale } = b;
+      return normale;
+    });
+  }
+  for (let k = n; k > 0; k--) {
+    const coupe = epingler(ordre, k);
+    if (places(coupe) <= n) return coupe;
+  }
+  return [];
+}
+
 export function ordreCommandes(commandes: Bouton[], c: ContexteModes): Bouton[] {
   const mode = modePrincipal(c);
   const chaleur = chaleurActive(c);
@@ -424,5 +449,5 @@ export function ordreCommandes(commandes: Bouton[], c: ContexteModes): Bouton[] 
   else if (c.serrureDeverrouillee) ordre = remonter(commandes, ['Porte']);
   // `Ambilight` n'a rien à faire sur l'accueil courant : déclaré au salon pour le mode cinéma
   // seulement, il ne remonte dans aucun autre ordre et se fait donc écarter par la coupe.
-  return epingler(ordre, combien(mode, c.rangeeAmbiance, c.hauteurUtile, c.zones));
+  return couper(ordre, combien(mode, c.rangeeAmbiance, c.hauteurUtile, c.zones));
 }

@@ -261,6 +261,16 @@ body {
      déborderait du cadre de 150,5 px de la tuile au lieu d'y rester tenu dedans. */
   overflow: hidden; }
 .commande.actif { background: var(--mvt-fond-actif); color: var(--md-on-tertiary-container); }
+/* `Bouton.haute`: the tile covers the two rows of its column (64 + 10 + 64 px), without an extra
+   row — `ordreCommandes` has already counted it two places. `grid-row: 1 / span 2` and not a
+   plain `span 2`: placed explicitly, it goes before the other tiles, which fill the other column;
+   auto-placed, a tall tile arriving third would open a third row. Icon and label grow with it:
+   it is a target aimed at from across the room. */
+.commande.haute { grid-row: 1 / span 2; height: auto; flex-direction: column;
+  align-items: flex-start; justify-content: center; gap: 10px; padding: 0 18px; }
+.commande.haute > svg { width: 40px; height: 40px; }
+.commande.haute .t { font-size: 20px; }
+.commande.haute .s { font-size: 14px; }
 /* L'`overflow: hidden` de `.commande` ci-dessus ne SUFFIT PAS : la boîte interne est un enfant de
    flex, donc `min-width: auto`, donc elle refuse de descendre sous la largeur min-content de son
    `.s` en `nowrap`. Le libellé le plus long réellement rendu ici — « Petit-déjeuner
@@ -764,9 +774,11 @@ body {
 .mn-bouton { height: 62px; min-width: 62px; border-radius: var(--sh-xl);
   background: var(--md-surface-container-high); display: flex; align-items: center;
   justify-content: center; font-size: 15px; font-weight: 600; }
-/* `.mn-reglage` partage la même rangée d'actions (`− 5 / durée / + 5`) que la forme solo :
-   même règle, pas de duplication. */
-.mn-solo .mn-actions, .mn-reglage .mn-actions { display: flex; gap: 8px; justify-content: center;
+/* `.mn-pas` (`− 5 / − 1 / + 1 / + 5`) is the same row in the solo form and in the setting screen:
+   one rule, no duplication. Four 62 px targets and three gutters make 272 px, in a 311 px column
+   (343 − 2 × 16): the row fits, which is why the duration of the setting screen and the controls
+   of the solo form (`.mn-actions`) live on rows of their own. */
+.mn-pas, .mn-solo .mn-actions { display: flex; gap: 8px; justify-content: center;
   align-items: center; }
 .mn-solo .mn-grand { text-align: center; }
 .mn-nouveau { height: 62px; display: flex; align-items: center; justify-content: center; gap: 6px;

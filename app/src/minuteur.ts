@@ -36,6 +36,8 @@ export type VueMinuteur = {
 export type AncreMinuteur = { restantS: number; ancreMs: number; fige: boolean };
 
 export const PAS_MINUTEUR_S = 300;
+/** The fine step, next to the coarse one: a timer is often set to the minute (7 min for an egg). */
+export const PAS_FIN_MINUTEUR_S = 60;
 export const MAX_MINUTEURS = 3;
 
 const MIN_MINUTES = 1;
@@ -47,6 +49,11 @@ export function lireDureeHms(hms: string): number {
   const parts = String(hms).split(':').map((p) => Number(p));
   if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return 0;
   return parts[0] * 3600 + parts[1] * 60 + parts[2];
+}
+
+/** Whether a setting in whole minutes lies within the bounds `bornerDuree` clamps to. */
+export function estDureeValide(minutes: number): boolean {
+  return minutes >= MIN_MINUTES && minutes <= MAX_MINUTES;
 }
 
 export function bornerDuree(minutes: number): number {
