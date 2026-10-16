@@ -353,8 +353,8 @@
                2026-08-29 : c'est aussi ce qui a motivé la descente de la Hotte et du Rideau de
                cuisine vers les commandes — cette rangée ne rend NI état NI fond actif, elle ne
                pouvait donc pas répondre à « on ne voit pas l'état de la lumière hotte ».
-               2026-10-16 : une seule exception, un aspirateur (pressTile, rendu/tile.ts) : son
-               geste n'est pas une jauge mais l'appui long qui ouvre le choix des pièces.
+               2026-10-16: one exception, a vacuum (pressTile, rendu/tile.ts): its gesture is
+               not a gauge but the long press that opens the room choice.
                (Pas de guillemet oblique dans ce commentaire : il vit DANS un template literal.) -->
           ${t.ambiances.map(t=>H`
             <div class="ambiance" data-mvt="tuile:amb-${t.entite}"
