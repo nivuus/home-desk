@@ -1,6 +1,7 @@
 import './styles/jetons.css';
 import './styles/base.css';
 import './styles/pantry.css';
+import './styles/vacuum.css';
 import './styles/animation.css';
 import { startPage } from './page';
 

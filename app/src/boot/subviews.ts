@@ -8,6 +8,7 @@ import { rendreReglageMinuteur } from '../rendu/minuteur';
 import { rendreVueRecette, reScinder, etendreIndexSource, type VueRecette } from '../rendu/recette';
 import { aplatirTaches, repartirTaches } from '../cochage';
 import { renderPantry } from '../rendu/pantry-lists';
+import { renderVacuumChoice } from '../rendu/vacuum-choice';
 import type { Frame } from './frame';
 import type { ScreenState } from './state';
 
@@ -94,6 +95,12 @@ export function paintSubView(s: ScreenState, f: Frame): boolean {
       state: s.pantry, horsLigne: s.horsLigne, today: localDay(s.d.maintenant()),
       armed: (reason) => s.armementStock.estArmee(reason),
     })}`);
+    return true;
+  }
+  // The vacuum choice: sixth sub-view. `status !== 'idle'` on top of the hash, like `#recette`: a
+  // leftover `#aspirer` (page reloaded on it) has nothing chosen to show and falls back home.
+  if (location.hash === '#aspirer' && s.vacuum.status !== 'idle') {
+    s.moteur.peindre(html`${renderVacuumChoice(s.vacuum, s.horsLigne)}`);
     return true;
   }
   return false;

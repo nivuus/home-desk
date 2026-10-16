@@ -263,10 +263,12 @@ export function rendreCorps(
                2026-08-29 : c'est aussi ce qui a motivé la descente de la Hotte et du Rideau de
                cuisine vers les commandes — cette rangée ne rend NI état NI fond actif, elle ne
                pouvait donc pas répondre à « on ne voit pas l'état de la lumière hotte ».
+               2026-10-16: one exception, a vacuum (pressTile, rendu/tile.ts): its gesture is
+               not a gauge but the long press that opens the room choice.
                (Pas de guillemet oblique dans ce commentaire : il vit DANS un template literal.) -->
           ${piece.ambiances.map((a) => html`
             <div class="ambiance" data-mvt="tuile:amb-${a.entite}"
-                 @pointerdown=${() => pressTile(etat, a)}>
+                 @pointerdown=${(ev: PointerEvent) => pressTile(ev, etat, a)}>
               ${icone(a.icone)}<span>${a.libelle}</span></div>`)}
           ${tuileMinuteur ?? ''}
         </div>`;

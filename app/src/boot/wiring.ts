@@ -12,6 +12,7 @@ import { brancherModes } from '../rendu/modes';
 import { ENTITE_ENTRETIEN } from '../rendu/defaut';
 import { createPress } from '../interaction';
 import { createGesture } from '../geste';
+import { createLongPress } from '../long-press';
 import { createTaskCheck, createArming } from '../cochage';
 import { CAPTEUR_REPAS } from '../garde-manger';
 import { SEUIL_MUET_MS, PAS_PROGRESSION_MS, RETOUR_MS, RETOUR_RECETTE_MS } from './constants';
@@ -20,6 +21,7 @@ import { ouvrirRecette, restaurerRecette, memoriserRecette } from './recipe';
 import { tictacProgression, tictacMinuteurs, reveiller } from './timers';
 import { brancherMinuteurs, brancherClim, brancherVueRecette, wirePantryView, type Agir } from './controls';
 import { enterPantry } from './pantry';
+import { offersVacuumChoice, openVacuumChoice, wireVacuumView } from './vacuum';
 import { poserPointsInjection } from './test-hooks';
 import type { Jetons } from '../connexion';
 import type { ScreenState } from './state';
@@ -114,8 +116,15 @@ export function wireScreen(s: ScreenState, jetons: Jetons): void {
   // `createPress`/`armerRetour`, so that the safety net of the per-tile lock (`geste.ts`,
   // `DELAI_SECOURS_MS`) stays testable without a real timer, like everything else in `boot/`.
   const geste = createGesture(s.etat, s.cx, () => s.horsLigne, undefined, s.d.minuteurFn);
-  brancherGeste(geste);
-  brancherGesteMaison(geste);
+  // A vacuum tile has no gauge but two actions: short press = what its configuration says, long
+  // press = the room choice (`boot/vacuum.ts`). Composed HERE, in front of the gauge dispatcher,
+  // so the three attachment points (commands, ambience row, whole-house view) share it.
+  const appuiLong = createLongPress(s.d.minuteurFn);
+  const gesteTuile: typeof geste = (ev, entite, surBascule) => (offersVacuumChoice(entite)
+    ? appuiLong(ev, surBascule, () => openVacuumChoice(s, entite))
+    : geste(ev, entite, surBascule));
+  brancherGeste(gesteTuile);
+  brancherGesteMaison(gesteTuile);
 
   // Task 12: the media card (`rendu/media.ts`) and the mode blocks (`rendu/modes.ts`) call
   // services directly — not through `createPress`, which is made for tiles with a STATE and an
@@ -151,6 +160,7 @@ export function wireScreen(s: ScreenState, jetons: Jetons): void {
   // stock is not reversible from the wall either.
   s.armementStock = createArming(s.d.minuteurFn);
   wirePantryView(s);
+  wireVacuumView(s);
 
   // Task 15 review (I1): the media progress rail moves second by second, counted here and not by
   // Home Assistant (which does not republish `media_position` continuously). Armed ONCE only,
@@ -200,7 +210,7 @@ export function wireScreen(s: ScreenState, jetons: Jetons): void {
 function armerRetourAutomatique(s: ScreenState): void {
   const isSubView = (h: string) =>
     h === '#maison' || h === '#taches' || h === '#minuteur' || h === '#recette'
-    || h === '#garde-manger';
+    || h === '#garde-manger' || h === '#aspirer';
   let retour: ReturnType<typeof setTimeout> | undefined;
   const armerRetour = () => {
     clearTimeout(retour);

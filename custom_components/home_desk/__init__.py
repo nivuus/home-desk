@@ -71,7 +71,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-from . import animations, migration, services, websocket
+from . import animations, aspirateurs, migration, services, websocket
 from .const import DOMAIN, EVENEMENT_CHANGEMENT
 from .page import async_register_page
 
@@ -102,6 +102,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     websocket_api.async_register_command(hass, websocket.ws_ecrans)
     websocket_api.async_register_command(hass, websocket.ws_abonner)
     websocket_api.async_register_command(hass, websocket.ws_animations)
+    websocket_api.async_register_command(hass, aspirateurs.ws_aspirateurs)
+    websocket_api.async_register_command(hass, aspirateurs.ws_aspirer)
     services.async_setup_services(hass)
     animations.async_setup_service(hass)
 
