@@ -33,12 +33,11 @@
       <div class="asp-info">${e.message}</div>
       <div class="mn-nouveau" @pointerdown=${()=>Rt.retry()}>Réessayer</div>`;if(!e.robots.length)return H`<div class="asp-info">Aucune pièce n’est associée à un aspirateur dans Home
       Assistant (réglages de l’aspirateur, « associer les segments aux pièces »).</div>`;const n=e.chosen.length>0&&!t&&"sending"!==e.status;return H`
-    ${function(e){const t=e.robots.length>1;return H`${e.robots.map(n=>H`
-    ${t?H`<div class="asp-titre">${n.nom}</div>`:V}
-    <div class="mn-etiquettes" data-mvt="detail:asp-${n.entite}">
-      ${n.pieces.map(t=>{const i=e.chosen.findIndex(e=>e.entite===n.entite&&e.zone===t.zone);return H`
-          <div class="mn-etiquette ${i>=0?"choisie":""}" data-zone-ha=${t.zone}
-               @pointerdown=${()=>Rt.toggle(n.entite,t.zone)}>${t.nom}${e.chosen.length>1&&i>=0?H`<span class="asp-rang">${i+1}</span>`:V}</div>`})}
+    ${function(e){return H`${e.robots.map(t=>H`
+    <div class="mn-etiquettes" data-robot=${t.entite} data-mvt="detail:asp-${t.entite}">
+      ${t.pieces.map(n=>{const i=e.chosen.findIndex(e=>e.entite===t.entite&&e.zone===n.zone);return H`
+          <div class="mn-etiquette ${i>=0?"choisie":""}" data-zone-ha=${n.zone}
+               @pointerdown=${()=>Rt.toggle(t.entite,n.zone)}>${n.nom}${e.chosen.length>1&&i>=0?H`<span class="asp-rang">${i+1}</span>`:V}</div>`})}
     </div>`)}`}(e)}
     ${jt(e)}
     ${e.message?H`<div class="asp-info asp-erreur">${e.message}</div>`:V}

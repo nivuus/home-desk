@@ -21,11 +21,12 @@ let act: VacuumActions = {
 };
 export function wireVacuum(actions: VacuumActions): void { act = actions; }
 
+/** One row of rooms per robot, untitled: the rooms are named by their Home Assistant areas, which
+ *  are unique in a house, while robots often share a name (measured 2026-10-16: two devices both
+ *  called "Aspirateur", so two "Aspirateur Robot" titles that told nothing apart). */
 function rooms(v: VacuumState): TemplateResult {
-  const titled = v.robots.length > 1;
   return html`${v.robots.map((r) => html`
-    ${titled ? html`<div class="asp-titre">${r.nom}</div>` : nothing}
-    <div class="mn-etiquettes" data-mvt="detail:asp-${r.entite}">
+    <div class="mn-etiquettes" data-robot=${r.entite} data-mvt="detail:asp-${r.entite}">
       ${r.pieces.map((p) => {
         const rang = v.chosen.findIndex((c) => c.entite === r.entite && c.zone === p.zone);
         return html`
