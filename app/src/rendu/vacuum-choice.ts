@@ -1,6 +1,9 @@
 /** The `#aspirer` sub-view: rooms as chips, then passes, then "Lancer". Same chips and same big
  *  buttons as the timer setting (`rendu/minuteur.ts`) — 62 px targets and the same touch layer
- *  (`base.css`), so the two choosing screens of the wall feel alike. */
+ *  (`base.css`), so the two choosing screens of the wall feel alike.
+ *
+ *  policy: allow-fr-file — this module is the tablet's user-facing French copy for this view,
+ *  like `rendu/repli.ts`: its sentences are what the household reads on the wall. */
 import { html, nothing, type TemplateResult } from 'lit';
 import { icone } from './icones';
 import { passRange, singlePassReason, type VacuumState } from '../boot/vacuum';
