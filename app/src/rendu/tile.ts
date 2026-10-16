@@ -9,6 +9,7 @@ import type { Etat } from '../etat';
 import type { Bouton } from '../ecran';
 import { icone } from './icones';
 import { descripteurJauge, fractionJauge } from '../jauge';
+import { offersVacuumChoice } from '../boot/vacuum';
 
 /** A command is coloured only when the device is active: the colour carries the information,
  *  never a code to remember. `climate.radiateur` (VersatileThermostat) NEVER has the state `on`
@@ -204,8 +205,13 @@ export function etiquette(etat: Etat, b: Bouton): string {
 /** Filled in by task 7: the optimistic feedback. */
 let appuyer: (etat: Etat, b: Bouton) => void = () => {};
 export function brancherAppui(fn: (etat: Etat, b: Bouton) => void) { appuyer = fn; }
-/** The wired press, for the other tiles of the body (the ambience row) that share it. */
-export function pressTile(etat: Etat, b: Bouton): void { appuyer(etat, b); }
+/** The wired press, for the other tiles of the body (the ambience row) that share it. That row
+ *  stays out of the gauge dispatcher (see `rendu/corps.ts`) — except a tile that offers a
+ *  long-press choice (a vacuum): its gesture is that choice, never a gauge. */
+export function pressTile(ev: PointerEvent, etat: Etat, b: Bouton): void {
+  if (offersVacuumChoice(b.entite)) geste(ev, b.entite, () => appuyer(etat, b));
+  else appuyer(etat, b);
+}
 
 // Task 13: the press/slide dispatcher (the gesture factory of `geste.ts`), wired by `boot/wiring.ts` like
 // `appuyer` above (same reason: `etat`/`cx` only exist in its closure). By default (not wired —

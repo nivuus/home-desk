@@ -21,6 +21,7 @@ import type { createTaskCheck, createArming } from '../cochage';
 import type { AnimationEnCours } from '../animation';
 import type { ConnexionLike, DependancesDemarrage } from './types';
 import { newPantryState, type PantryState } from './pantry';
+import { newVacuumState, type VacuumState } from './vacuum';
 
 export class ScreenState {
   // Correction round 2: a single instance of `Connexion` (and of `Etat`) for the whole lifetime
@@ -47,6 +48,11 @@ export class ScreenState {
   /** Two-press arming of "Mangé" / "Jeté" / "Périmé": taking a batch out of stock is not
    *  reversible from the wall. Same single-instance pattern as `armementRepas`. */
   armementStock!: ReturnType<typeof createArming>;
+
+  /** The vacuum choice (`#aspirer`, `boot/vacuum.ts`), opened by a long press on a vacuum tile;
+   *  `vacuumOrigin` is that tile's robot, listed first. */
+  vacuum: VacuumState = newVacuumState();
+  vacuumOrigin: string | null = null;
 
   // Raw cache of the active tasks per list, fed by `chargerTaches` (`boot/loaders.ts`) (a separate
   // websocket request, `todo/item/list` has no counterpart pushed by `subscribe_events` — no task

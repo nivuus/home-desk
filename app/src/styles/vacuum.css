@@ -1,0 +1,23 @@
+/* The vacuum choice (`#aspirer`, rendu/vacuum-choice.ts). Its own file, like pantry.css: base.css
+   is already past the size of one concern. Layout is `.corps`; chips and the big button are the
+   timer setting's `.mn-etiquette`/`.mn-nouveau`, with their 62 px targets and touch layer. Only
+   what is specific to this view lives below. */
+
+.asp-choix > .mn-nom { font-size: 20px; font-weight: 700; text-align: center; }
+.asp-titre { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--md-on-surface-variant); text-align: center; margin-top: 6px; }
+.asp-info { font-size: 15px; text-align: center; color: var(--md-on-surface-variant); }
+.asp-erreur { color: var(--md-error); font-weight: 600; }
+
+/* The order a room was tapped in is the order it is cleaned in: shown once there are two. */
+.asp-rang { margin-left: 8px; min-width: 22px; height: 22px; border-radius: var(--sh-full);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 13px;
+  background: var(--md-on-primary); color: var(--md-primary); }
+
+/* "Lancer" with nothing chosen does nothing: greyed by colour (no text under .75 opacity), and
+   no touch feedback — a tile that acknowledges an action that does not happen is a dead button. */
+.asp-choix .mn-nouveau.inactif { background: var(--md-surface-container-low);
+  color: var(--md-on-surface-variant); }
+.asp-choix .mn-nouveau.inactif::after { content: none; }
+.asp-choix [data-action="lancer"]:not(.inactif) { background: var(--md-primary);
+  color: var(--md-on-primary); }
