@@ -71,8 +71,10 @@ describe('vacuum tile', () => {
 
     expect(location.hash).toBe('#aspirer');
     expect(m.appelerService).not.toHaveBeenCalled();
-    const titres = [...m.racine.querySelectorAll('.asp-titre')].map((e) => e.textContent);
-    expect(titres.slice(0, 2)).toEqual(['Aspirateur RDC', 'Aspirateur étage']);
+    expect([...m.racine.querySelectorAll('[data-robot]')].map((e) => e.getAttribute('data-robot')))
+      .toEqual(['vacuum.robot_rdc', 'vacuum.robot_etage']);
+    // Robots often share a name in Home Assistant: the rooms alone tell them apart.
+    expect(m.racine.textContent).not.toContain('Aspirateur RDC');
     expect([...m.racine.querySelectorAll('[data-zone-ha]')].map((e) => e.textContent!.trim()))
       .toEqual(['Salon', 'Cuisine', 'Chambre']);
     expect(m.racine.querySelector('[data-action="lancer"]')!.classList.contains('inactif')).toBe(true);
