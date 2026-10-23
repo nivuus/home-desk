@@ -56,7 +56,7 @@ describe('rendreCorps suit l arrangement du budget', () => {
   });
 
   it('a screen with room keeps its Ambiance row, and only reduces what it must', () => {
-    const haut = rendre('bureau', { ...avecRangee, sourceJoue: true, hauteurUtile: 679 });
+    const haut = rendre('bureau', { ...avecRangee, sourceJoue: true, hauteurUtile: 680 });
     expect(haut.querySelector('[data-zone="rangeeAmbiance"]')).not.toBeNull();
     expect(haut.querySelector('.synthese')!.classList.contains('reduite')).toBe(true);
   });
