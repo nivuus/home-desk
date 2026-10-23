@@ -42,7 +42,7 @@ function coutEcran(mode: ModePrincipal, rangeeAmbiance: boolean, rangees: number
                    syntheseReduite = false): number {
   const h = BUDGET.hauteurs;
   // One central block per screen, chosen by a FOUR-branch ternary, never "on top of": the timer
-  // (215 px), the media card (263 px, since 2026-10-24), the other tall blocks (`voiture`,
+  // (215 px), the media card (264 px, since 2026-10-24), the other tall blocks (`voiture`,
   // 153 px), every other mode (84 px). Each `modesABloc*` list of the contract names its modes.
   const bloc = (BUDGET.modesABlocMinuteur as string[]).includes(mode) ? h.blocMinuteur
     : (BUDGET.modesABlocMedia as string[]).includes(mode) ? h.blocMedia

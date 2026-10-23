@@ -61,7 +61,7 @@ def cout_ecran(mode: str, rangee_ambiance: bool, rangees: int,
         zones = ZONES_DEFAUT
     h = BUDGET["hauteurs"]
     # Four branches: `minuteur` pays `blocMinuteur` (215 px), the media modes (`media`,
-    # `cinema`) pay `blocMedia` (263 px, since 2026-10-24), the other tall block (`voiture`)
+    # `cinema`) pay `blocMedia` (264 px, since 2026-10-24), the other tall block (`voiture`)
     # pays `blocHaut` (153 px), all the others pay `blocDefaut` (84 px). A single central block
     # per screen: never an "on top of".
     if mode in BUDGET["modesABlocMinuteur"]:

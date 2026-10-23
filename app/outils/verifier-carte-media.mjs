@@ -193,7 +193,9 @@ const ORIGIN = 'http://carte-media.test';
  *  progress, three transport discs, a volume level), measures it, computes its tones with the
  *  app's own sampler (`computeTones` + `browserSampler`, same origin as the page), and renders it
  *  again with them — the sequence `boot/media-tones.ts` runs on the tablet. `withoutPlate` drops
- *  the plate from the computed tones: the counter-proof. */
+ *  the plate from the computed tones; `css` overrides the stylesheets before the card is drawn;
+ *  `top` moves the card down so its bottom sits on the frame when it is `blocMedia` tall: the
+ *  counter-proofs. */
 async function bundleFixture() {
   const sheets = readFileSync(join(APP, 'src', 'index.ts'), 'utf8')
     .split('\n').filter((l) => /^import '\.\/styles\/[^']+\.css';$/.test(l)).join('\n');
@@ -205,17 +207,29 @@ import { rendreCarteMedia } from './rendu/media';
 import { measureCard } from './boot/media-tones';
 import { computeTones, browserSampler } from './rendu/poster-sampler';
 const P = 'media_player.verifier_carte';
-const DECL = { nom: 'Musique', piece: 'Chambre', titre: [P], sousTitre: [P], affiche: [P],
+const DECL = { nom: 'Musique', titre: [P], sousTitre: [P], affiche: [P],
   progression: [P], transport: [P], volume: [P] };
-window.__poser = async (poster, withoutPlate) => {
+const TEXTS = {
+  latin: { piece: 'Chambre',
+    title: 'Un titre de chanson assez long pour tenir sur deux lignes entieres de la carte',
+    artist: 'Un artiste au nom lui aussi passablement long' },
+  cjk: { piece: "Chambre d'amis du deuxieme etage, cote jardin, au fond du couloir",
+    title: '夜に駆ける — 二行に収まらないほど長い曲名をここに書いて、カードの高さを確かめる',
+    artist: '坂本龍一と東京フィルハーモニー交響楽団' },
+};
+window.__poser = async (poster, { withoutPlate = false, script = 'latin', top = 0, css = '' } = {}) => {
+  const t = TEXTS[script];
   const etat = new Etat();
   etat.appliquer({ entity_id: P, state: 'playing', attributes: {
-    media_title: 'Un titre de chanson assez long pour tenir sur deux lignes entieres de la carte',
-    media_artist: 'Un artiste au nom lui aussi passablement long', entity_picture: poster,
+    media_title: t.title, media_artist: t.artist, entity_picture: poster,
     media_position: 61, media_duration: 245, volume_level: 0.5,
     supported_features: CAP.PAUSE | CAP.PLAY | CAP.PRECEDENT | CAP.SUIVANT | CAP.VOLUME_SET } });
-  const s = resoudreSource(etat, DECL);
+  const s = resoudreSource(etat, { ...DECL, piece: t.piece });
+  const override = document.createElement('style');
+  override.textContent = css;
+  document.head.appendChild(override);
   const app = document.getElementById('app');
+  app.style.paddingTop = top + 'px';
   const now = Date.now();
   render(rendreCarteMedia(s, now, { status: 'pending' }, true), app);
   const spec = measureCard(app.querySelector('.media'));
@@ -237,17 +251,36 @@ window.__poser = async (poster, withoutPlate) => {
 }
 
 const pass = (j) => j.ok;
+/** `blocMedia` (`contrat/budget.json`): the height the budget promises for the card. Posed with
+ *  its top at `HEIGHT - blocMedia`, a card taller than its budget crosses the frame. */
+const BLOC_MEDIA = JSON.parse(readFileSync(join(APP, '..', 'contrat', 'budget.json'), 'utf8')).hauteurs.blocMedia;
+/** What the card looked like before the final review (2026-10-24): `line-height: normal` on the
+ *  label, subtitle and times, and a label that wraps. A fallback font grew it past its budget. */
+const LINE_HEIGHT_NORMAL = `.media .t, .media-sous, .media-temps { line-height: normal !important; }
+  .media .t { white-space: normal !important; }`;
 const CASES = [
   ...['claire', 'moyenne', 'sombre', 'pastel'].map((poster) => ({
-    poster, withoutPlate: false, expected: pass,
+    poster, options: {}, expected: pass,
     what: `poster "${poster}" with its computed tones: every rule holds`,
   })),
-  { poster: 'rayures', withoutPlate: false,
+  { poster: 'rayures', options: {},
     expected: (j, m) => j.ok && m.boxes.some((b) => b.plate),
     what: 'stripes with their computed tones: needs the plate, and passes on it' },
-  { poster: 'rayures', withoutPlate: true,
+  { poster: 'rayures', options: { withoutPlate: true },
     expected: (j) => !j.ok && /text contrast under/.test(j.reason),
     what: 'COUNTER-PROOF: stripes with the plate forced off must be flagged' },
+  { poster: 'moyenne', options: { script: 'cjk', top: HEIGHT - BLOC_MEDIA },
+    expected: pass,
+    what: `CJK title and subtitle, room name too long for the label: within its ${BLOC_MEDIA} px budget` },
+  { poster: 'moyenne', options: { script: 'cjk', top: HEIGHT - BLOC_MEDIA, css: LINE_HEIGHT_NORMAL },
+    expected: (j) => !j.ok && /below the 585 px frame/.test(j.reason),
+    what: 'COUNTER-PROOF: the same card with line-height normal and a wrapping label must overflow' },
+  { poster: 'moyenne', options: { css: '.media .media-bouton { background: rgba(20, 20, 20, .6) !important; }' },
+    expected: (j) => !j.ok && /disc not solid/.test(j.reason),
+    what: 'COUNTER-PROOF: a translucent disc must be flagged' },
+  { poster: 'moyenne', options: { css: '.media .media-bouton, .media .media-pas { color: var(--mc-secondary) !important; }' },
+    expected: (j) => !j.ok && /icon contrast under/.test(j.reason),
+    what: 'COUNTER-PROOF: an icon the colour of its disc must be flagged' },
 ];
 
 /** 0 when every case came out as expected, 1 otherwise. */
@@ -270,7 +303,7 @@ export async function autoTestCarteMedia(nav) {
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     await page.goto(`${ORIGIN}/`);
-    await page.evaluate(([p, w]) => window.__poser(p, w), [`/affiche-${c.poster}.png`, c.withoutPlate]);
+    await page.evaluate(([p, o]) => window.__poser(p, o), [`/affiche-${c.poster}.png`, c.options]);
     const tinted = await attendreCarteTeintee(page);
     const m = tinted ? await mesurerCarteMedia(page) : null;
     const j = tinted ? jugerCarte(m) : { ok: false, reason: 'the card never showed its poster' };
@@ -288,6 +321,7 @@ export async function autoTestCarteMedia(nav) {
     return 1;
   }
   console.log('Media card auto-test passed: the five posters pass on their computed tones, the '
-    + 'stripes only through their plate, and the same stripes without the plate are flagged.');
+    + 'stripes only through their plate, a CJK card fits its budget, and the plate-less stripes, '
+    + 'the line-height-normal card, the translucent disc and the low-contrast icon are flagged.');
   return 0;
 }

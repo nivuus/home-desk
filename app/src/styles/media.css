@@ -22,15 +22,24 @@
 .media-affiche { position: absolute; inset: 0; z-index: -1; background-size: cover;
   background-position: center; }
 
-.media .t { font-size: 11px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; }
-.media .v { font-size: 15px; font-weight: 600; line-height: 1.26; }
+/* LINE HEIGHTS. Every text line of the card has an explicit line-height, never `normal`: `normal`
+   takes the metrics of every font a line uses, so a title in a script Roboto lacks (CJK, Arabic…)
+   falls back on a font with a taller ascent and descent and grows the card past the 585 px frame
+   (final review, 2026-10-24: +28 px in CJK). With a fixed line-height the card is as tall in any
+   script, which is what `hauteurs.blocMedia` (`contrat/budget.json`) can promise.
+   The label is ONE line whatever the room's name: cut with an ellipsis, never wrapped. */
+.media .t { font-size: 11px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase;
+  line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* `overflow-wrap: anywhere`: a single word longer than the card (a URL, a file name) wraps
+   instead of being clipped at the right edge. */
+.media .v { font-size: 15px; font-weight: 600; line-height: 1.26; overflow-wrap: anywhere; }
 /* Two lines at most, never one: YouTube titles are long (71 characters seen) and a title cut at
    the first line says nothing any more. `-webkit-line-clamp` is understood by the Chromium
    WebView of these tablets. */
 .media .v.deux-lignes { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden; }
-.media-sous { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden;
-  text-overflow: ellipsis; }
+.media-sous { font-size: 12px; font-weight: 500; line-height: 1.2; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; }
 
 /* The text plate (spec, "Fond de texte conditionnel"): a solid, palette-tinted background fitted
    to the text, painted only when the text alone cannot reach 5:1 over the poster. Its padding is
@@ -49,7 +58,7 @@
 .media-barre-plein { height: 100%; width: calc(var(--progression, 0) * 100%); border-radius: 4px;
   background: var(--mc-primary, var(--md-primary)); }
 .media-temps { display: flex; justify-content: space-between; margin-top: 4px;
-  font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  font-size: 12px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
 
 /* Buttons: 62 px solid discs, the project's minimum touch target. The disc colour comes from the
    palette, so the icon's contrast never depends on the poster. Play/pause is the primary disc. */

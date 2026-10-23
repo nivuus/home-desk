@@ -39,7 +39,7 @@ const CALME_VOITURE: ContexteModes = { ...CALME, blocDefaut: 'voiture' };
  *  542 px, 567 px and 18 px instead of 533, 558 and 27 above. Both verdicts hold.
  *
  *  2026-10-24 (task 9 of the media card redesign): FOUR rows move, `media` and `cinema`, to 0.
- *  The redesigned card is `blocMedia` (263 px measured, `modesABlocMedia`), no longer `blocHaut`
+ *  The redesigned card is `blocMedia` (264 px measured, `modesABlocMedia`), no longer `blocHaut`
  *  (153 px): in the FULL composition — which is all `combien` prices — not one row of controls
  *  fits under it any more (687 px with the Ambiance row, 590 px without). What those screens
  *  actually show is `arrangement`'s answer, the owner's ladder (reduced synthèse, then no Ambiance
@@ -344,7 +344,7 @@ describe('minuteur et rangeeAmbiance : ce que la donnee garantit', () => {
 });
 
 /** 2026-10-24, spec 2026-10-23 "Place à l'écran": the owner's order, on the measured heights
- *  (`blocMedia` 263 px, `syntheseReduite` 24 px, `outils/mesurer-carte-media.mjs`). The BUDGET
+ *  (`blocMedia` 264 px, `syntheseReduite` 24 px, `outils/mesurer-carte-media.mjs`). The BUDGET
  *  decides through `combien`, never a list of rooms: these tests name screen SHAPES (with or
  *  without an Ambiance row), and the last one walks the three declared screens end to end. */
 describe('l echelle de la carte media', () => {
@@ -361,9 +361,9 @@ describe('l echelle de la carte media', () => {
   });
 
   it('un ecran qui a la place garde sa rangee Ambiance', () => {
-    expect(arrangement('media', true, 679))
+    expect(arrangement('media', true, 680))
       .toEqual({ rangeeAmbiance: true, syntheseReduite: true, commandes: 2 });
-    expect(arrangement('media', true, 687))
+    expect(arrangement('media', true, 688))
       .toEqual({ rangeeAmbiance: true, syntheseReduite: false, commandes: 2 });
   });
 
@@ -375,9 +375,9 @@ describe('l echelle de la carte media', () => {
   });
 
   it('verifierBudget chiffre le dernier echelon pour les modes de la carte media', () => {
-    // 121 + 24 + (62 + 263 + 24) + 8 x 2 = 510 px at zero rows, Ambiance row dropped.
-    expect(verifierBudget('media', true, 500)).toBe(10);
-    expect(verifierBudget('media', true, 510)).toBe(0);
+    // 121 + 24 + (62 + 264 + 24) + 8 x 2 = 511 px at zero rows, Ambiance row dropped.
+    expect(verifierBudget('media', true, 500)).toBe(11);
+    expect(verifierBudget('media', true, 511)).toBe(0);
   });
 
   it('ordreCommandes coupe selon l echelle, sur les trois ecrans declares', () => {

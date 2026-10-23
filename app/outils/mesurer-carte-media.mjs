@@ -11,7 +11,10 @@
  *  WHAT IT POSES. The worst media card the redesign can draw (spec 2026-10-23): a remote source
  *  (label `EN COURS · <room>`), a title clamped on two lines, a subtitle, progress, the three
  *  transport discs, and the volume row — measured with a level gauge AND with step buttons, the
- *  taller one wins. Each screen is rendered in `media` mode through `rendreCorps` with a real
+ *  taller one wins. Each card is posed in three scripts (`TEXTES`): Latin, CJK and Arabic, the
+ *  last two with a room name far too long for the label. A text in another script falls back on
+ *  another font, whose metrics must not grow the card (final review, 2026-10-24: `line-height:
+ *  normal` did, by the fallback font's ascent and descent). Each screen is rendered in `media` mode through `rendreCorps` with a real
  *  `ContexteModes`, so the arrangement the budget chooses (`arrangement`, `screen-budget.ts`) is
  *  the one laid out, and `reste` (the space `margin-top: auto` of "Toute la maison" absorbs) says
  *  whether the screen actually fits. The header is a placeholder of `hauteurs.bandeau` px: its
@@ -47,17 +50,30 @@ import { AGENCEMENT_DEFAUT } from './agencement';
 
 const LECTEUR = 'media_player.mesure_carte';
 window.__ecrans = Object.keys(ECRANS);
-const DECL = { nom: 'Musique', piece: 'Chambre', titre: [LECTEUR], sousTitre: [LECTEUR],
+const DECL = { nom: 'Musique', titre: [LECTEUR], sousTitre: [LECTEUR],
   affiche: [LECTEUR], progression: [LECTEUR], transport: [LECTEUR], volume: [LECTEUR] };
+const LONGUE_PIECE = "Chambre d'amis du deuxieme etage, cote jardin, au fond du couloir";
+const TEXTES = {
+  latin: { piece: 'Chambre',
+    titre: 'Un titre de chanson assez long pour tenir sur deux lignes entieres de la carte',
+    artiste: 'Un artiste au nom lui aussi passablement long' },
+  cjk: { piece: LONGUE_PIECE,
+    titre: '夜に駆ける — 二行に収まらないほど長い曲名をここに書いて、カードの高さを確かめる',
+    artiste: '坂本龍一と東京フィルハーモニー交響楽団' },
+  arabe: { piece: LONGUE_PIECE,
+    titre: 'أغنية بعنوان طويل جدا لا يتسع لسطرين كاملين في بطاقة الوسائط على الجهاز',
+    artiste: 'فيروز والأخوان رحباني' },
+};
+window.__textes = Object.keys(TEXTES);
 
-window.__poser = (cle, parPas, bandeau) => {
+window.__poser = (cle, parPas, bandeau, texte) => {
+  const t = TEXTES[texte];
   const piece = ECRANS[cle];
   const etat = new Etat();
   const ev = (id, state, attributes = {}) => etat.appliquer({ entity_id: id, state, attributes });
   const transport = CAP.PAUSE | CAP.PLAY | CAP.PRECEDENT | CAP.SUIVANT;
   ev(LECTEUR, 'playing', {
-    media_title: 'Un titre de chanson assez long pour tenir sur deux lignes entieres de la carte',
-    media_artist: 'Un artiste au nom lui aussi passablement long',
+    media_title: t.titre, media_artist: t.artiste,
     media_position: 61, media_duration: 245,
     supported_features: transport | (parPas ? CAP.VOLUME_PAS : CAP.VOLUME_SET),
     ...(parPas ? {} : { volume_level: 0.5 }),
@@ -69,7 +85,7 @@ window.__poser = (cle, parPas, bandeau) => {
     ev(e.entite, String(e.operateur === '<' ? v - 1 : e.operateur === '>' ? v + 1
       : e.operateur === '==' ? v : typeof v === 'number' ? v + 3 : 'ecart'));
   }
-  const source = resoudreSource(etat, DECL);
+  const source = resoudreSource(etat, { ...DECL, piece: t.piece });
   const ctx = {
     alerte: false, aspirateurEnMarche: false, ecranAllume: false, sourceJoue: true,
     ouvrantOuvertDepuisMs: 0, chauffageEnMarche: false, ilPleut: false,
@@ -139,14 +155,15 @@ try {
          here, so every zone keeps its natural height and an overflow shows as a negative reste. -->
     <style>.corps > * { flex-shrink: 0 !important; }</style></head><body><div id="app" class="m3"></div></body></html>`);
   await page.addScriptTag({ content: js });
+  const textes = await page.evaluate(() => window.__textes);
   for (const cle of await page.evaluate(() => window.__ecrans)) {
-    for (const parPas of [false, true]) {
-      await page.evaluate(([c, p, b]) => window.__poser(c, p, b), [cle, parPas, BUDGET.hauteurs.bandeau]);
+    for (const parPas of [false, true]) for (const texte of textes) {
+      await page.evaluate(([c, p, b, t]) => window.__poser(c, p, b, t), [cle, parPas, BUDGET.hauteurs.bandeau, texte]);
       await page.waitForTimeout(50);
       const m = await page.evaluate(relever);
       blocMedia = Math.max(blocMedia, m.zones.blocCentral);
       syntheseReduite = Math.max(syntheseReduite, m.reduite);
-      console.error(`· ${cle.padEnd(8)} volume ${parPas ? 'par pas' : 'niveau '}  carte ${m.zones.blocCentral}`
+      console.error(`· ${cle.padEnd(8)} volume ${parPas ? 'par pas' : 'niveau '} ${texte.padEnd(5)}  carte ${m.zones.blocCentral}`
         + `  synthese ${m.zones.synthese}${m.reduiteRendue ? ' (reduite)' : ''}  reduite ${m.reduite}`
         + `  ambiance ${m.ambiance ? 'oui' : 'non'}  commandes ${m.commandes}  reste ${m.reste}`
         + `  ${m.bas <= m.app ? 'tient' : `DEBORDE de ${Math.round((m.bas - m.app) * 10) / 10} px`}`);

@@ -54,7 +54,7 @@ export type ContexteModes = {
    *  mêmes 585 px. Une pièce qui a renoncé à cette rangée (le salon depuis cette date) rend ~100 px
    *  au budget : 72 px de tuiles, l'étiquette et la gouttière de 8 px, soit très exactement la
    *  deuxième rangée de commandes (64 + 10 px). Les modes à bloc central haut y retrouvent donc
-   *  leurs quatre places, cf. `combien`. Sauf la carte média depuis le 2026-10-24 (263 px, cf.
+   *  leurs quatre places, cf. `combien`. Sauf la carte média depuis le 2026-10-24 (264 px, cf.
    *  `arrangementEcran` plus bas) : sans rangée « Ambiance », le salon y réduit sa synthèse et
    *  garde deux commandes.
    *
@@ -168,7 +168,7 @@ export function modulateursActifs(c: ContexteModes): Modulateur[] {
  *  CORRECTED ON 2026-10-24. This file said, since August, that the room a tall media card needs
  *  "comes from the 3rd/4th control, never from the Ambiance row (changing the light scene during
  *  a film remains the common need)". The owner reversed it with the redesigned media card
- *  (spec 2026-10-23, "Place à l'écran"): measured at 263 px against 153, it leaves no row of
+ *  (spec 2026-10-23, "Place à l'écran"): measured at 264 px against 153, it leaves no row of
  *  controls on any of the three 585 px screens. His order: the synthèse is reduced first; if that
  *  is not enough, the Ambiance row goes while the media card is shown, and the controls stay. The
  *  BUDGET decides (`combien`), never a list of rooms: a screen with the room keeps its row. Still

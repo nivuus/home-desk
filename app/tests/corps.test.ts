@@ -697,7 +697,7 @@ describe('rangées de commandes selon le mode', () => {
   });
 
   // 2026-08-29: the living room kept its four controls in media mode, paid by the Ambiance row
-  // it gave up. 2026-10-24: the redesigned media card (263 px, `blocMedia`) costs more than that
+  // it gave up. 2026-10-24: the redesigned media card (264 px, `blocMedia`) costs more than that
   // row gave back — the budget's arrangement reduces the synthèse and keeps ONE row, two places,
   // which the two pins of the living room take (`epingler`, `modes.ts`).
   it('en mode média, le salon garde une rangée : ses deux épingles', () => {

@@ -121,8 +121,8 @@ async def test_le_budget_nomme_le_PIRE_mode_pas_le_premier_qui_deborde(hass, ent
     test-ci ne cherche donc PAS a faire varier rangee_ambiance (voir le
     test suivant pour cette preuve-la, avec un decor SANS minuteur). A
     rangee_ambiance=True : check_budget("cinema", True, 436, zones) =
-    42 (29 avant l'echelle de la carte media du 2026-10-24 : blocMedia,
-    263 px, sans rangee Ambiance), check_budget("minuteur", True, 436,
+    43 (29 avant l'echelle de la carte media du 2026-10-24 ; 42 a blocMedia
+    263 px, 43 a 264 px, sans rangee Ambiance), check_budget("minuteur", True, 436,
     zones) = 91 (le pire ; 82
     avant que blocMinuteur passe de 206 a 215 px le 2026-10-11) --
     verifie par execution, PAS retape de memoire (le brief nomme "45" a cet
@@ -147,7 +147,7 @@ async def test_le_budget_nomme_le_PIRE_mode_pas_le_premier_qui_deborde(hass, ent
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
     assert resultat["errors"]["base"] == ERROR_BUDGET_UNTENABLE_MODE
     # "cinema" est SOUMIS AVANT "minuteur" : un bug "premier qui deborde"
-    # nommerait cinema (42 px). Le PIRE est minuteur (91 px).
+    # nommerait cinema (43 px). Le PIRE est minuteur (91 px).
     # Ronde 2 de relecture (point 3) : {mode} est desormais TRADUIT
     # ("Timer", le libelle EN du selecteur "mode"), plus l'identifiant
     # brut du contrat ("minuteur").
@@ -218,8 +218,8 @@ async def test_le_budget_des_modes_media_suit_l_echelle(hass, entree):
     """2026-10-24 (spec 2026-10-23, "Place a l'ecran") : the screen draws
     the media card on the LAST rung of the ladder when nothing else fits
     (reduced synthesis, no Ambiance row), so the form prices that rung.
-    At 500 px with the four default zones: 121 + 24 + (62 + 263 + 24) +
-    8 x 2 = 510 px, an overflow of 10 px -- and not the 115 px of the full
+    At 500 px with the four default zones: 121 + 24 + (62 + 264 + 24) +
+    8 x 2 = 511 px, an overflow of 11 px -- and not the 115 px of the full
     composition (two-line synthesis and Ambiance row), which would refuse
     by a figure the tablet never shows."""
     subentry_id = await _creer_ecran(hass, entree, hauteurUtile=500)
@@ -241,7 +241,7 @@ async def test_le_budget_des_modes_media_suit_l_echelle(hass, entree):
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
     assert resultat["errors"]["base"] == ERROR_BUDGET_UNTENABLE_MODE
     assert resultat["description_placeholders"]["mode"] == "Media"
-    assert resultat["description_placeholders"]["debordement"] == "10"
+    assert resultat["description_placeholders"]["debordement"] == "11"
 
 
 # ---------------------------------------------------------------------------

@@ -155,7 +155,7 @@ describe('mode voiture', () => {
  *  existantes (et la cuisine, et le bureau, qui gardent leur rangée) décrivent le même
  *  comportement qu'avant sans une ligne à changer. */
 describe('rangeeAmbiance — le budget rendu par la rangée « Ambiance » supprimée', () => {
-  // 2026-10-24: `media` and `cinema` left this test. The redesigned media card (263 px,
+  // 2026-10-24: `media` and `cinema` left this test. The redesigned media card (264 px,
   // `blocMedia`) costs more than the Ambiance row gives back: their ladder (`arrangement`,
   // `screen-budget.ts`) ends on ONE row with or without the Ambiance row.
   it('sans rangée Ambiance, le bloc haut (voiture) retrouve quatre commandes', () => {
