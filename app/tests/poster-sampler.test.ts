@@ -1,15 +1,18 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  coverCrop, clampBox, isSameOrigin, cacheKey, computeTones, PosterLoadError, type PosterSample, type Sampler,
+  coverCrop, clampBox, isSameOrigin, cacheKey, computeTones, PosterLoadError, type PosterImage, type Sampler,
 } from '../src/rendu/poster-sampler';
 
 const ORIGIN = 'http://tablet.local';
 const CARD = { w: 311, h: 260, boxes: [{ x: 16, y: 12, w: 279, h: 50 }] };
 
-function flatSample(width: number, height: number): PosterSample {
-  const rgba = new Uint8ClampedArray(width * height * 4);
-  for (let i = 0; i < rgba.length; i += 4) { rgba[i] = 40; rgba[i + 1] = 60; rgba[i + 2] = 90; rgba[i + 3] = 255; }
-  return { quantPixels: new Array(64 * 64).fill(0xff283c5a), rgba, width };
+function flatSample(): PosterImage {
+  const draw = (width: number, height: number) => {
+    const rgba = new Uint8ClampedArray(width * height * 4);
+    for (let i = 0; i < rgba.length; i += 4) { rgba[i] = 40; rgba[i + 1] = 60; rgba[i + 2] = 90; rgba[i + 3] = 255; }
+    return { rgba, width };
+  };
+  return { quantPixels: new Array(64 * 64).fill(0xff283c5a), draw };
 }
 
 describe('coverCrop', () => {
@@ -67,7 +70,7 @@ describe('computeTones', () => {
     expect(sampler).not.toHaveBeenCalled();
   });
   it('yields ready tones for a readable sample', async () => {
-    const r = await computeTones('/api/vignette?x', CARD, async () => flatSample(311, 260), ORIGIN);
+    const r = await computeTones('/api/vignette?x', CARD, async () => flatSample(), ORIGIN);
     expect(r.status).toBe('ready');
   });
   it('treats a tainted canvas (SecurityError) as unreadable', async () => {
@@ -84,7 +87,7 @@ describe('computeTones', () => {
   });
   it('clamps boxes to the card before computing tones', async () => {
     const card = { w: 311, h: 260, boxes: [{ x: 250, y: 240, w: 400, h: 400 }] };
-    const r = await computeTones('/p', card, async () => flatSample(311, 260), ORIGIN);
+    const r = await computeTones('/p', card, async () => flatSample(), ORIGIN);
     expect(r.status).toBe('ready');
     if (r.status === 'ready') expect(Number.isFinite(r.tones.worstContrast)).toBe(true);
   });

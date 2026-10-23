@@ -3,10 +3,14 @@
  *  `tonesFor` (`rendu/poster-sampler.ts`) needs the card's size and the boxes of its texts, and
  *  those only exist once the card is laid out. So each paint uses what the PREVIOUS paint
  *  measured, and the card is measured again right after painting: when the measurement changed
- *  (first appearance, new poster, a title on one more line), the computation is requested with
- *  the new boxes and the card is repainted once it is known. The plate and the poster layer never
- *  change the layout (`media.css`), so the measurement after that repaint is the same and no
- *  further paint follows. */
+ *  (first appearance, new poster, a title on one more line, a wider time), the card is repainted
+ *  with the new boxes. The plate and the poster layer never change the layout (`media.css`), so
+ *  the measurement after that repaint is the same and no further paint follows.
+ *
+ *  The poster is read once per URL; the tones of any boxes on it are then synchronous. So only a
+ *  NEW poster paints the theme card while it is read; a box that changes on the same poster keeps
+ *  the poster, and its one intermediate paint uses the tones of the boxes measured a paint
+ *  earlier on that same poster, corrected by the repaint queued on the next task. */
 import type { SourceResolue } from '../media';
 import type { Box } from '../tones';
 import { cacheKey, tonesFor, type CardSpec, type ToneState } from '../rendu/poster-sampler';
@@ -64,7 +68,8 @@ export function afterMediaPaint(s: ScreenState, source: SourceResolue): void {
   const before = s.mediaCard;
   if (before !== null && cacheKey(before.url, before.spec) === cacheKey(url, spec)) return;
   s.mediaCard = { url, spec };
-  // A miss starts the computation and `onTonesReady` repaints; a hit is already known, so the
-  // repaint is asked for here — on the next task, never from inside the current paint.
+  // A poster still unknown starts its reading and `onTonesReady` repaints; a poster already read
+  // gives these boxes' tones at once, so the repaint is asked for here — on the next task, never
+  // from inside the current paint.
   if (tonesFor(url, spec).status !== 'pending') s.d.minuteurFn(s.dessiner, 0);
 }

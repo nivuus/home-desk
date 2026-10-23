@@ -129,6 +129,7 @@ describe('media card — poster tones', () => {
     expect(rendre(BASE, READY).querySelector('.media-affiche')).not.toBeNull();
     expect(rendre(BASE, PENDING).querySelector('.media-affiche')).toBeNull();
     expect(rendre(BASE, { status: 'unreadable' }).querySelector('.media-affiche')).toBeNull();
+    expect(rendre(BASE, { status: 'failed' }).querySelector('.media-affiche')).toBeNull();
     expect(rendre({ ...BASE, affiche: undefined }, READY).querySelector('.media-affiche')).toBeNull();
   });
 

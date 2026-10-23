@@ -61,22 +61,25 @@ function luminanceRange(rgba: Uint8ClampedArray, width: number, boxes: Box[]): [
   return lo > hi ? [0, 1] : [lo, hi];
 }
 
+/** The poster's tonal palette: the dominant colour's hue, chroma floored so a dull poster still
+ *  gets visible discs. Depends on the poster alone, never on the card's size or text boxes. */
+export function posterPalette(quantPixels: number[]): TonalPalette {
+  const source = Score.score(QuantizerCelebi.quantize(quantPixels, QUANT_COLORS))[0];
+  const hct = Hct.fromInt(source);
+  return TonalPalette.fromHueAndChroma(hct.hue, Math.max(hct.chroma, MIN_CHROMA));
+}
+
 /**
- * Derives the card colours from the poster: the dominant colour's hue (chroma floored so a dull
- * poster still gets visible discs) drives a tonal palette; the text tone is the one with the best
+ * Derives the card colours from the poster's palette: the text tone is the one with the best
  * worst-pixel contrast under the text boxes; buttons are solid discs whose icons are guaranteed
  * contrast whatever is behind them.
  */
-export function cardTones(
-  quantPixels: number[],
+export function tonesOver(
+  palette: TonalPalette,
   rgba: Uint8ClampedArray,
   width: number,
   textBoxes: Box[],
 ): CardTones {
-  const source = Score.score(QuantizerCelebi.quantize(quantPixels, QUANT_COLORS))[0];
-  const hct = Hct.fromInt(source);
-  const palette = TonalPalette.fromHueAndChroma(hct.hue, Math.max(hct.chroma, MIN_CHROMA));
-
   const [lo, hi] = luminanceRange(rgba, width, textBoxes);
   let bestTone = TEXT_TONES[0];
   let worstContrast = -1;
@@ -102,4 +105,14 @@ export function cardTones(
     onSecondary: hexAt(darkText ? 10 : 95),
     worstContrast,
   };
+}
+
+/** `posterPalette` then `tonesOver`, in one call. */
+export function cardTones(
+  quantPixels: number[],
+  rgba: Uint8ClampedArray,
+  width: number,
+  textBoxes: Box[],
+): CardTones {
+  return tonesOver(posterPalette(quantPixels), rgba, width, textBoxes);
 }
