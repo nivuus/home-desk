@@ -1157,7 +1157,7 @@ describe('creerMoteur — croisement d\'affiche média', () => {
  *  `affiche` optionnel — c'est la présence ou l'absence de ce champ qui décide si `rendu/media.ts`
  *  pose un `.media-affiche` (fond CSS `background-image`) dans le gabarit. */
 function sourceMedia(titre: string, affiche?: string): SourceResolue {
-  return { nom: 'Musique', joue: true, allumee: true, titre, sousTitre: '', affiche };
+  return { nom: 'Musique', joue: true, active: true, allumee: true, titre, sousTitre: '', affiche };
 }
 
 /** Monte un moteur qui rend par `lit` RÉEL (aucune option `rendre` injectée) — voir le commentaire

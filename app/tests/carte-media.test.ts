@@ -9,7 +9,7 @@ import type { SourceResolue } from '../src/media';
 const BASE: SourceResolue = {
   // `allumee` (revue tâche 12) : la carte ne s'en sert pas — c'est `demarrage.ts` qui arbitre
   // quelle source occupe le bloc — mais le champ fait partie du type résolu.
-  nom: 'Télévision', joue: true, allumee: true,
+  nom: 'Télévision', joue: true, active: true, allumee: true,
   titre: 'Les trois Mousquetaires', sousTitre: 'Ash vs Evil Dead',
   affiche: '/api/media_player_proxy/plex?token=abc',
   // Revue tâche 15 (I1) : sans `majLe`, aucun rattrapage — la carte se pose exactement sur la
