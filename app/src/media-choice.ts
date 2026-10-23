@@ -11,8 +11,14 @@ export function sourcesElsewhere(
   return house.filter((d) => ![...entitiesOf(d)].some((id) => taken.has(id)));
 }
 
+/** The identity a pin is stored under. `nom` alone is not unique across the house list (a "TV"
+ *  in two rooms), so the room is part of the key. */
+export function sourceKey(s: { nom: string; piece?: string }): string {
+  return JSON.stringify([s.piece ?? '', s.nom]);
+}
+
 /** First own source that plays; else the first remote one that is actively playing; else the
- *  pinned remote one while it is still `joue` (so a pause does not make it vanish); else none. */
+ *  pinned remote one (a `sourceKey`) while it is still `joue` (so a pause does not make it vanish); else none. */
 export function pickSource(
   own: SourceResolue[], elsewhere: SourceResolue[], pinned?: string,
 ): { source?: SourceResolue; remote: boolean } {
@@ -20,16 +26,18 @@ export function pickSource(
   if (mine !== undefined) return { source: mine, remote: false };
   const active = elsewhere.find((s) => s.active);
   if (active !== undefined) return { source: active, remote: true };
-  const kept = pinned === undefined ? undefined : elsewhere.find((s) => s.nom === pinned && s.joue);
+  const kept = pinned === undefined
+    ? undefined : elsewhere.find((s) => sourceKey(s) === pinned && s.joue);
   if (kept !== undefined) return { source: kept, remote: true };
   return { remote: false };
 }
 
-/** The pin that survives this frame: kept only while the pinned source is the remote one shown.
+/** The pin (a `sourceKey`) that survives this frame: kept only while the pinned source is the remote one shown.
  *  Once it stops (idle), an own source plays or another remote source takes over, the pin goes,
  *  so a later pause of that source elsewhere does not bring the card back. */
 export function settlePin(
   shown: { source?: SourceResolue; remote: boolean }, pinned?: string,
 ): string | undefined {
-  return pinned !== undefined && shown.remote && shown.source?.nom === pinned ? pinned : undefined;
+  return pinned !== undefined && shown.remote && shown.source !== undefined
+    && sourceKey(shown.source) === pinned ? pinned : undefined;
 }

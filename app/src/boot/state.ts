@@ -161,7 +161,7 @@ export class ScreenState {
   /** The media sources shared by the house (`home_desk/maison`), loaded with the screen; the
    *  page reloads when they change, so they are fixed for its lifetime. */
   house: DeclarationSource[] = [];
-  /** The `nom` of a remote source paused FROM this tablet: the card stays while it is paused
+  /** The `sourceKey` (`media-choice.ts`) of a remote source paused FROM this tablet: the card stays while it is paused
    *  (`pickSource`, `media-choice.ts`), and `settlePin` drops it on every frame once it no longer
    *  applies. */
   pinnedMedia: string | undefined;

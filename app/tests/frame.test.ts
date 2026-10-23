@@ -5,6 +5,7 @@ import { resoudreAgencement } from '../src/agencement';
 import { Etat } from '../src/etat';
 import type { Ecran } from '../src/ecran';
 import type { DeclarationSource } from '../src/media';
+import { sourceKey } from '../src/media-choice';
 import { ecranVide } from './aides';
 
 function decl(nom: string, entite: string, extra: Partial<DeclarationSource> = {}): DeclarationSource {
@@ -57,7 +58,7 @@ describe('computeFrame — what plays elsewhere', () => {
   });
 
   it('frame keeps media mode on the tablet that paused a remote source', () => {
-    const f = frameOf([['media_player.music_bedroom', 'paused']], { house: [music], pinned: 'Music' });
+    const f = frameOf([['media_player.music_bedroom', 'paused']], { house: [music], pinned: sourceKey(music) });
     expect(f.mode).toBe('media');
     expect(f.media).toMatchObject({ remote: true, source: { nom: 'Music' } });
   });
