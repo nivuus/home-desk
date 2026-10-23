@@ -43,6 +43,14 @@ const app = {
     format: 'iife', name: 'Wallpanel', sourcemap: false,
     banner: `/* ${BANNIERE} */`,
   },
+  // `@material/material-color-utilities` (0.4.0) ships one barrel `index.js` re-exporting every
+  // module, declares no `sideEffects`, and its `exports` map exposes only `.` — so a deep import
+  // of the four classes `tones.ts` uses is refused by the resolver. Its modules only declare
+  // classes and functions; telling rollup so lets it drop the schemes, dynamic colours and
+  // quantizers nobody imports (measured on 2026-10-24: see the task 8 report).
+  treeshake: {
+    moduleSideEffects: (id) => !id.includes('/node_modules/@material/material-color-utilities/'),
+  },
   plugins: [
     resolve(), typescript(), json(),
     css({ output: 'wallpanel.css' }),

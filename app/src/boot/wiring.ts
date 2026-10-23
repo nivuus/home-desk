@@ -8,6 +8,7 @@ import { brancherAppui, brancherGeste } from '../rendu/tile';
 import { brancherAppuiMaison, brancherGesteMaison } from '../rendu/maison';
 import { brancherCochageTaches } from '../rendu/taches';
 import { brancherMedia } from '../rendu/media';
+import { onTonesReady } from '../rendu/poster-sampler';
 import { brancherModes } from '../rendu/modes';
 import { ENTITE_ENTRETIEN } from '../rendu/defaut';
 import { createPress } from '../interaction';
@@ -137,7 +138,10 @@ export function wireScreen(s: ScreenState, jetons: Jetons): void {
     if (s.horsLigne) return;   // same refusal as `createPress`: never an action that lies
     s.cx.appelerService(domaine, service, { entity_id: entite, ...data });
   };
-  brancherMedia(agir);
+  // Pausing a remote source from here pins it (`media-choice.ts`); `settlePin` drops the pin on
+  // the next frame if it does not apply. The poster tones arrive asynchronously: repaint then.
+  brancherMedia(agir, (key) => { s.pinnedMedia = key; });
+  onTonesReady(s.dessiner);
   brancherModes(agir);
   brancherMinuteurs(s, agir);
   brancherClim(s, agir);

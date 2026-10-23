@@ -17,6 +17,15 @@
         "value": "roboto",
         "createdAt": "2026-09-14T12:37:55.683Z",
         "reason": "Claude: tablettes murales Android sous Fully Kiosk. La pile est 'Roboto, system-ui, sans-serif' : Roboto est la police SYSTEME de la plateforme cible, pas un choix d identite. S aligner sur le systeme est le comportement voulu ici."
+      },
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "app/tests/carte-media.test.ts"
+        ],
+        "createdAt": "2026-10-23T22:26:28.837Z",
+        "reason": "agent: the match is a test name string asserting the card never renders an <img>, no markup"
       }
     ]
   }

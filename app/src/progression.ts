@@ -80,8 +80,15 @@ export function ancrerProgression(
  *  publié la fin est un cas courant, pas une anomalie. */
 export function fractionAncree(a: Ancre | null, horlogeMs: number): number {
   if (a === null) return 0;
+  return secondesAncrees(a, horlogeMs) / a.duree;
+}
+
+/** Elapsed seconds at `horlogeMs` (MONOTONIC clock), bounded to [0, duree] for the same reason
+ *  as the fraction above. The card's elapsed/remaining times read it, on the same tick as the
+ *  rail, so the text and the bar can never disagree. */
+export function secondesAncrees(a: Ancre, horlogeMs: number): number {
   const ecoule = a.avance ? a.secondes + Math.max(0, (horlogeMs - a.ancreMs) / 1000) : a.secondes;
-  return Math.min(1, Math.max(0, ecoule / a.duree));
+  return Math.min(a.duree, Math.max(0, ecoule));
 }
 
 /** La fraction directement, sans passer par une ancre : le chemin du RENDU, où les deux horloges

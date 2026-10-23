@@ -226,16 +226,17 @@ describe('actions des blocs de mode', () => {
       'media_player', 'media_pause', { entity_id: 'media_player.musique_salon' });
   });
 
-  it('un appui sur le rail de volume envoie le niveau visé', async () => {
+  it('a press on volume + sets the level 5 % higher', async () => {
     const { racine, pousser, appelerService } = await monterDemarrage(ECRANS.salon);
     await pousser('media_player.musique_salon', 'playing',
             { media_title: 'Blinding Lights', supported_features: 1 | 4, volume_level: 0.5 });
 
-    racine.querySelector('.media-rail')!.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    const plus = racine.querySelector('[data-mvt="detail:volume-plus"]')!;
+    plus.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    plus.dispatchEvent(new Event('pointerup', { bubbles: true }));
 
-    const [domaine, service, donnees] = appelerService.mock.calls[0];
-    expect([domaine, service]).toEqual(['media_player', 'volume_set']);
-    expect(donnees).toHaveProperty('volume_level');
+    expect(appelerService).toHaveBeenCalledWith(
+      'media_player', 'volume_set', { entity_id: 'media_player.musique_salon', volume_level: 0.55 });
   });
 
   it('un appui sur « Ranger » renvoie l\'aspirateur à sa base', async () => {

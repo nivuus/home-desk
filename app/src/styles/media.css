@@ -1,0 +1,86 @@
+/* The media card (`rendu/media.ts`), redesigned on 2026-10-24 (spec 2026-10-23, "piste C").
+   Moved out of `base.css` with every `.media*` rule.
+
+   COLOURS. Each colour is a `--mc-*` custom property set on `.media` ONLY when the poster's tones
+   are ready (`tones.ts`, `rendu/poster-sampler.ts`); each `var()` below falls back on the theme,
+   which is the pending / unreadable / no-poster card. Never a gradient on any surface here: a
+   gradient bands on the 6-bit panels of the Fire 7 tablets. Every surface is solid — discs,
+   bars, text plates — and the poster itself is shown untouched: no veil, no reduced opacity. */
+.media { position: relative; overflow: hidden; isolation: isolate; box-sizing: border-box;
+  padding: 12px 16px; border-radius: var(--sh-xl);
+  background: var(--md-primary-container); color: var(--mc-text, var(--md-on-primary-container));
+  display: flex; flex-direction: column; gap: 8px; }
+/* The poster: a `cover` background layer UNDER the content (`z-index: -1` inside the stacking
+   context `isolation` opens), never an <img> in the flow. Its pixels are what
+   `poster-sampler.ts` measures under the text boxes: the layer must stay exactly the card's
+   border box, so no inset, no transform. */
+.media-affiche { position: absolute; inset: 0; z-index: -1; background-size: cover;
+  background-position: center; }
+
+.media .t { font-size: 11px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; }
+.media .v { font-size: 15px; font-weight: 600; line-height: 1.26; }
+/* Two lines at most, never one: YouTube titles are long (71 characters seen) and a title cut at
+   the first line says nothing any more. `-webkit-line-clamp` is understood by the Chromium
+   WebView of these tablets. */
+.media .v.deux-lignes { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; }
+.media-sous { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; }
+
+/* The text plate (spec, "Fond de texte conditionnel"): a solid, palette-tinted background fitted
+   to the text, painted only when the text alone cannot reach 5:1 over the poster. Its padding is
+   ALWAYS there — only its background changes — so the plate never moves the layout, and the
+   boxes `boot/media-tones.ts` measures are the same with and without it. The negative margin
+   keeps the text itself aligned with the discs below. */
+.media .plaque { display: block; width: fit-content; max-width: calc(100% + 12px);
+  box-sizing: border-box; padding: 1px 6px; margin-inline: -6px; border-radius: 6px;
+  background: var(--mc-plate, transparent); }
+
+/* Progress: an 8 px bar with a visible track, elapsed time left, remaining time right. The fill
+   is a child sized by `--progression` (set on `.media`, moved by the one-second tick), never a
+   gradient stop. */
+.media-barre { height: 8px; border-radius: 4px; overflow: hidden;
+  background: var(--mc-secondary, var(--md-surface-container-highest)); }
+.media-barre-plein { height: 100%; width: calc(var(--progression, 0) * 100%); border-radius: 4px;
+  background: var(--mc-primary, var(--md-primary)); }
+.media-temps { display: flex; justify-content: space-between; margin-top: 4px;
+  font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Buttons: 62 px solid discs, the project's minimum touch target. The disc colour comes from the
+   palette, so the icon's contrast never depends on the poster. Play/pause is the primary disc. */
+.media-bouton, .media-pas { position: relative; width: 62px; height: 62px; flex: none;
+  box-sizing: border-box; border-radius: var(--sh-full);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--mc-secondary, var(--md-surface-container-highest));
+  color: var(--mc-on-secondary, var(--md-on-surface)); }
+.media-bouton.principal { background: var(--mc-primary, var(--md-primary));
+  color: var(--mc-on-primary, var(--md-on-primary)); }
+.media-bouton svg { width: 28px; height: 28px; }
+/* Same touch feedback as `.ambiance`/`.commande`/`.xl`/`.tuile` (`base.css`): `currentColor` at
+   10 % on a pseudo-element, so the card itself never reacts (`:active` also matches ancestors). */
+.media-bouton::after, .media-pas::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: currentColor; opacity: 0; pointer-events: none;
+  transition: opacity .2s var(--ressort);
+}
+.media-bouton:active::after, .media-pas:active::after { opacity: .1; transition: none; }
+
+/* Transport: three fixed columns, so play/pause stays centred and previous/next keep their
+   edge whichever of them the player supports (no dead button is ever drawn in their place). */
+.media-transport, .media-volume { display: grid; grid-template-columns: 62px 1fr 62px;
+  align-items: center; column-gap: 8px; }
+.media-precedent { grid-column: 1; }
+.media-pause, .media-lecture { grid-column: 2; justify-self: center; }
+.media-suivant { grid-column: 3; }
+
+/* Volume: `−` and `+` discs, the level written large over a thin gauge. A press repeats while
+   held (`rendu/media-volume.ts`): `touch-action: none` keeps the browser from turning a held
+   finger into a scroll and cancelling the pointer. */
+.media-pas { font-size: 30px; font-weight: 600; touch-action: none; }
+.media-niveau { min-width: 0; }
+.media .media-niveau-texte { margin-inline: auto; font-size: 24px; font-weight: 700;
+  line-height: 1.2; font-variant-numeric: tabular-nums; }
+.media-jauge { height: 6px; border-radius: 3px; margin: 4px 12px 0; overflow: hidden;
+  background: var(--mc-secondary, var(--md-surface-container-highest)); }
+.media-jauge-plein { height: 100%; width: calc(var(--niveau, 0) * 100%); border-radius: 3px;
+  background: var(--mc-primary, var(--md-primary)); }

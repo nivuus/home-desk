@@ -2,34 +2,30 @@
  *  saying anything: the media progress rail, the timer countdowns and the waking of the night
  *  screen. Each works on the shared `ScreenState`; the intervals themselves are armed once only,
  *  by `wireScreen` (`boot/wiring.ts`). */
-import { fractionAncree } from '../progression';
+import { writeProgress } from '../rendu/media';
 import { restantAncre, formaterRestant } from '../minuteur';
 import { writeTime } from '../rendu/minuteur';
 import { horlogeMonotone, RETOUR_MS } from './constants';
 import type { ScreenState } from './state';
 
-/** Moves the media progress rail forward between two redraws. Three refusals, each taken from a
- *  lesson this project already paid for:
- *   - `niveauInitial === 'aucun'`: the owner (or `prefers-reduced-motion`) asked that no animation
- *     play. A running rail IS an animation — and a frozen rail says nothing false: the song moves
- *     on anyway, the next `dessiner()` will put it back in place. ⚠️ This refusal applies ONLY to
- *     the rail: `tictacMinuteurs` no longer shares it since the ruling of 2026-08-03 (a frozen
- *     countdown, for its part, LIES). Intended asymmetry, explained in detail on
- *     `tictacMinuteurs` just below;
- *   - `document.hidden`: the tablet's screen is off at night. Writing a CSS variable every second
- *     until morning on a machine with 130 MB free paints nothing — same lesson as `mesurer`
- *     (`mouvement.ts`) and, since this review, as `deplacer`;
- *   - no `.media` on screen, no anchor, or playback paused: nothing to move forward.
- *  Writes ONLY `--progression`, never a `lit` render: the next `dessiner()` will rewrite the whole
- *  `style` attribute anyway, with the right value — same mechanism, and same assumed coexistence,
- *  as the optimistic feedback of `--niveau` (`rendu/media.ts`). */
+/** Moves the media card's progress forward between two redraws: the elapsed and remaining
+ *  times, and the rail (`writeProgress`, `rendu/media.ts` — one anchor, one instant, so the text
+ *  and the bar never disagree). Refusals, each taken from a lesson this project already paid for:
+ *   - `document.hidden`: the tablet's screen is off at night. Writing every second until morning
+ *     on a machine with 130 MB free paints nothing — same lesson as `mesurer` (`mouvement.ts`);
+ *   - no `.media` on screen, no anchor, or playback paused: nothing to move forward;
+ *   - `niveauInitial === 'aucun'` (the owner or `prefers-reduced-motion` asked that no animation
+ *     play) stops the RAIL only. A running rail is an animation, and a frozen one says nothing
+ *     false. The times are not an animation but the information itself — a frozen `−1:47` lies,
+ *     the ruling of 2026-08-03 for the kitchen countdowns (`tictacMinuteurs` below) — so they
+ *     keep moving, written into their text nodes like the countdowns (2026-10-24).
+ *  Never a `lit` render: the next `dessiner()` rewrites the exact values anyway. */
 export function tictacProgression(s: ScreenState) {
-  if (s.niveauInitial === 'aucun') return;
   if (typeof document !== 'undefined' && document.hidden) return;
   if (s.ancreProgression === null || !s.ancreProgression.avance) return;
   const carte = s.racine.querySelector<HTMLElement>('.media');
   if (!carte) return;
-  carte.style.setProperty('--progression', String(fractionAncree(s.ancreProgression, horlogeMonotone())));
+  writeProgress(carte, s.ancreProgression, horlogeMonotone(), s.niveauInitial !== 'aucun');
 }
 
 /** Makes the countdowns GO DOWN between two redraws — Home Assistant does not republish a timer

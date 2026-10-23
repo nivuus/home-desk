@@ -309,102 +309,7 @@ body {
   border-radius: var(--sh-xl); padding: 11px 16px; display: flex; align-items: center; gap: 13px; }
 .alerte .t { font-size: 11px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; }
 .alerte .v { font-size: 15px; font-weight: 600; line-height: 1.3; margin-top: 2px; }
-/* Carte média (2026-08-02). Même rayon, même padding, même structure `.t`/`.v` que `.demain` et
-   `.alerte` — règle 1 de cohérence : seule la SURFACE change, jamais la forme. `position:
-   relative` porte la couche d'affiche et la bande de progression, toutes deux en fond, donc
-   toutes deux à coût de hauteur NUL. Hauteur totale visée : 153 px (padding 8 + étiquette 15 +
-   titre 2 lignes 38 + sous-titre 16 + gouttière 6 + rangée 62 + padding 8).
-   Correctif important (revue tâche 6) : ce total n'était qu'une intention, jamais imposé — sans
-   sous-titre (`sousTitre` vaut `''` pour toute source qui n'expose ni `media_series_title` ni
-   `media_artist`, cf. `media.ts`) et avec un titre d'une seule ligne, le bloc perdait le budget
-   qu'il est censé garantir, violant « la hauteur de la carte média ne dépend jamais de son
-   contenu ». `min-height` fixe un plancher à 153px, qui est aussi le PLAFOND réel (le titre est
-   borné à 2 lignes par `.v.deux-lignes`, le sous-titre à 1 par `white-space: nowrap`) : la
-   hauteur est donc constante, jamais seulement minorée.
-   Tâche 13 (2026-08-03), MESURÉ et non déduit : `box-sizing` vaut `content-box` par défaut dans
-   ce projet (aucune remise à zéro globale dans ce fichier), donc `min-height: 153px` s'appliquait
-   à la BOÎTE DE CONTENU et les 16px de padding s'ajoutaient par-dessus — 169px réels, alors que
-   le décompte du commentaire ci-dessus compte explicitement les deux paddings DANS ses 153px.
-   Ces 16px de trop faisaient déborder les modes `media` et `cinema` de 9px du cadre de 585px,
-   relevés par le contrôle de budget par mode de `outils/verifier-rendu.mjs`. `border-box` rend au
-   `min-height` le sens que son commentaire lui prête depuis le début, sans rien sacrifier de la
-   carte (le contenu réel — 132,8px — reste sous les 137px que le plancher laisse alors). */
-.media { position: relative; overflow: hidden; padding: 8px 16px; min-height: 153px;
-  box-sizing: border-box;
-  border-radius: var(--sh-xl); background: var(--md-primary-container);
-  color: var(--md-on-primary-container); display: flex; flex-direction: column; gap: 6px; }
-.media .t { font-size: 11px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; }
-.media .v { font-size: 15px; font-weight: 600; line-height: 1.26; }
-/* Deux lignes maximum, jamais une : les titres YouTube sont longs (71 caractères relevés) et un
-   titre coupé à la première ligne ne dit plus rien. `-webkit-line-clamp` est compris par le
-   WebView Chromium de ces tablettes. */
-.media .v.deux-lignes { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-  overflow: hidden; }
-.media-sous { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden;
-  text-overflow: ellipsis; }
-.media-texte, .media-rangee { position: relative; z-index: 1; }
-/* L'affiche : couche de fond en `cover`, SOUS un voile UNI (jamais un dégradé, jamais un flou —
-   c'est le dégradé sur grande surface qui fait du banding sur ces dalles 6 bits).
-   `.34` EST CALIBRÉE depuis la tâche 13 (le commentaire qui disait encore « valeur de départ, pas
-   encore calibrée » datait de la tâche 6, avant que la carte ne soit rendue nulle part).
-   `outils/verifier-rendu.mjs` échantillonne les pixels RÉELLEMENT peints sous chaque zone de
-   texte, sur trois affiches de luminosités différentes : le pire cas est l'affiche TRÈS CLAIRE en
-   mode cinéma (palette sombre forcée, donc texte blanc par-dessus), mesuré à 5,45:1 pour 5:1
-   exigés — 0,45 point de marge, soit ~9 %. Le voile relâché à `.60` tombe, lui, sous le seuil :
-   c'est la contre-épreuve permanente d'`autoTestPeint` (`--auto-test`), qui prouve que ce
-   contrôle sait rougir. Marge mince mais MESURÉE à chaque exécution : toute augmentation de cette
-   opacité doit être repassée sous l'outil, jamais estimée. */
-.media-affiche { position: absolute; inset: 0; z-index: 0; background-size: cover;
-  background-position: center; opacity: .34; }
-/* Correctif critique (revue tâche 6) : le fond change avec l'affiche mais la COULEUR DE TEXTE
-   de repos (`--md-on-primary-container`, blanc) ne suit pas — sur `--md-surface-container-highest`
-   (clair) ou `--md-surface-container-low` (sombre), ça tombe à ~1,5:1/~1,2:1, très sous le seuil
-   global de 5:1. `--md-on-surface` (le texte fait pour ces surfaces neutres, cf. `jetons.css`)
-   redonne 12,4:1 en clair et 16,8:1 en sombre — vérifié avant/après par calcul WCAG, cf. rapport. */
-.media.avec-affiche { background: var(--md-surface-container-highest); color: var(--md-on-surface); }
-.sombre .media.avec-affiche { background: var(--md-surface-container-low); color: var(--md-on-surface); }
-/* La progression : bande de 4 px sur le bord bas, en couche de fond — exactement le même
-   mécanisme que `.commande.jauge`, donc AUCUNE hauteur ajoutée. */
-.media::after {
-  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; z-index: 2;
-  background: linear-gradient(to right, var(--md-tertiary) calc(var(--progression, 0) * 100%), transparent 0);
-  pointer-events: none;
-}
-/* Correctif important (revue tâche 6) : largeur réellement disponible dans `.media-rangee` =
-   343 − 32 (padding `.corps`) − 32 (padding `.media`) = 279px. Le contenu déclaré (3 boutons de
-   62px + 2 gouttières de 8px + la gouttière de 10px + un rail de 90px) faisait 302px — 23px
-   d'excédent que le `flex-shrink` par défaut absorbait en écrasant TOUT (boutons compris, jusqu'à
-   ~57px, sous la cible tactile de 62px), et le rail rétrécissait sans que son dégradé (fixé à
-   90px) ne suive, désynchronisant le remplissage visible du calcul `ev.clientX / r.width`. Les
-   boutons de transport sont maintenant `flex: none` (jamais en dessous de 62px) ; `.media-volume`
-   absorbe tout le reste (`flex: 1`), et c'est en son sein le rail, seul enfant flexible, qui en
-   hérite — son dégradé suit `100%` de sa largeur RÉELLE au lieu d'un `90px` figé, donc le calcul
-   au doigt reste toujours exact quel que soit le nombre de boutons affichés à sa gauche. */
-.media-rangee { display: flex; align-items: center; gap: 10px; height: 62px; }
-.media-transport { display: flex; align-items: center; gap: 8px; flex: none; }
-/* 62 px : la cible minimale du projet, non négociable — un bouton de transport n'y échappe pas.
-   `flex: none` : jamais rétréci par le `flex-shrink` par défaut, cf. commentaire ci-dessus. */
-.media-bouton { width: 62px; height: 62px; flex: none; border-radius: var(--sh-full);
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(0, 0, 0, .18); color: inherit; position: relative; }
-.sombre .media-bouton { background: rgba(255, 255, 255, .16); }
-.media-volume { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
-  justify-content: flex-end; }
-/* Rail : occupe tout ce que `.media-volume` lui laisse (`flex: 1`, cf. commentaire de
-   `.media-rangee` ci-dessus), jamais une largeur fixe — c'est ce qui garde son dégradé
-   (`100% 6px`) synchronisé avec la largeur réellement rendue, donc avec le calcul du doigt.
-   `min-width` : plancher sous lequel la cible deviendrait trop étroite pour rester utilisable
-   (cas extrême, un seul bouton de transport affiché — rare, cf. `rendu/media.ts`). Zone de
-   contact étendue à 62 px de haut par le padding, alors que le trait visible n'en fait que 6 — la
-   cible respecte la règle sans que le dessin ne s'alourdisse. */
-.media-rail { flex: 1; min-width: 56px; height: 62px; display: flex; align-items: center;
-  background: linear-gradient(to right, currentColor calc(var(--niveau, 0) * 100%), transparent 0)
-              center / 100% 6px no-repeat;
-  touch-action: none; }
-.media-pas { width: 44px; height: 62px; flex: none; display: flex; align-items: center;
-  justify-content: center;
-  font-size: 22px; font-weight: 600; border-radius: var(--sh-l); background: rgba(0, 0, 0, .18); }
-.sombre .media-pas { background: rgba(255, 255, 255, .16); }
+/* The media card lives in `media.css` since 2026-10-24 (redesign, piste C). */
 /* Tâche 9 : même gabarit que .alerte/.media (padding, border-radius, structure .t/.v) — il les
    remplace, jamais en plus (cf. demarrage.ts), pour que la hauteur totale de l'écran ne bouge
    pas selon qu'il est affiché ou non. Couleur error-container comme .alerte : une connexion
@@ -468,29 +373,13 @@ body {
    parent, y compris pendant qu'il change lui-même au contact (bloc suivant) — aucune règle
    dupliquée. Coût : une opacité et un rayon sur une couche déjà composée séparément par le moteur
    de rendu ; ni l'un ni l'autre ne force de recalcul de mise en page (dalle/mémoire limitées). */
-/* Défaut relevé en revue (rapport de tâche 13) : la carte média (`.media`, réglable au glissement
-   depuis la tâche 13) n'avait jamais rejoint ce groupe — elle réagissait donc au glissement (la
-   jauge) sans jamais donner le moindre accusé de réception visuel au simple CONTACT, contrairement
-   à toutes les autres tuiles à jauge (`.commande.jauge`, `.tuile.jauge`). Rejoint le groupe ici,
-   tâche 18 : même traitement, aucune règle nouvelle.
-   Tâche 6 (2026-08-02) : `.media` en ressort — le bloc entier n'est plus tapable (la jauge de
-   volume plein cadre disparaît avec `descripteurMedia`, `jauge.ts`), seuls ses boutons le sont ;
-   un accusé de réception sur toute la carte mentirait sur ce qu'un contact y déclenche. Ce sont
-   `.media-bouton`/`.media-pas` qui rejoignent le groupe à sa place.
-   Correctif important (revue tâche 6) : `.media-rail` n'avait jamais rejoint ce groupe non plus —
-   au contact, rien ne bougeait à l'écran avant le retour d'état de Home Assistant (contrairement
-   aux boutons, qui ont eux cet overlay depuis le paragraphe ci-dessus). Le rétroactif optimiste
-   sur `--niveau` (cf. `rendu/media.ts`) déplace déjà le remplissage immédiatement ; cet overlay
-   ajoute l'accusé de réception au CONTACT lui-même, même principe que pour les boutons. */
-.ambiance, .commande, .xl, .tuile, .media-bouton, .media-pas, .media-rail { position: relative; }
-.ambiance::after, .commande::after, .xl::after, .tuile::after,
-.media-bouton::after, .media-pas::after, .media-rail::after {
+.ambiance, .commande, .xl, .tuile { position: relative; }
+.ambiance::after, .commande::after, .xl::after, .tuile::after {
   content: ''; position: absolute; inset: 0; border-radius: inherit;
   background: currentColor; opacity: 0; pointer-events: none;
   transition: opacity .2s var(--ressort);
 }
-.ambiance:active::after, .commande:active::after, .xl:active::after, .tuile:active::after,
-.media-bouton:active::after, .media-pas:active::after, .media-rail:active::after {
+.ambiance:active::after, .commande:active::after, .xl:active::after, .tuile:active::after {
   opacity: .1; transition: none;
 }
 

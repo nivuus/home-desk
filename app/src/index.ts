@@ -1,5 +1,6 @@
 import './styles/jetons.css';
 import './styles/base.css';
+import './styles/media.css';
 import './styles/pantry.css';
 import './styles/vacuum.css';
 import './styles/animation.css';
