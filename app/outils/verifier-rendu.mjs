@@ -37,9 +37,12 @@ import { chromium } from 'playwright-core';
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { deflateSync } from 'node:zlib';
 import { execFileSync } from 'node:child_process';
 import esbuild from 'esbuild';
+import { AFFICHES_PNG } from './affiches-essai.mjs';
+import {
+  attendreCarteTeintee, autoTestCarteMedia, jugerCarte, mesurerCarteMedia,
+} from './verifier-carte-media.mjs';
 
 /* `NIVUUS_HA_DATA` : le repertoire de donnees de l'instance Home Assistant a
  * mesurer — celui qui porte `.mcp.json`, d'ou ce script tire l'URL et le jeton.
@@ -155,28 +158,24 @@ export const RESUME_LONG = 'Meet-up Golf Innovation Auvergne 2026 | French Tech 
  *  défaut historique pour lequel il a été construit agissait EN LARGEUR. Les boutons de transport
  *  de la carte média (revue de la tâche 6) étaient tombés à ~57 px sous le `flex-shrink` par
  *  défaut : `flex-shrink` rétrécit un enfant flex sur l'axe PRINCIPAL, ici horizontal. Un
- *  `.media-bouton` à 57 × 62 ressortait donc vert. L'auto-test le montrait involontairement — il
- *  « attrape » `.media-pas` à 44 px en HAUTEUR, alors que `.media-pas` fait réellement 44 px de
- *  LARGE en production et passe très bien.
+ *  `.media-bouton` à 57 × 62 ressortait donc vert.
  *
- *  Le plancher de largeur ne peut PAS être uniforme à 62 px : la plupart de ces cibles n'ont
- *  aucune largeur déclarée (elles la tiennent d'une grille ou d'un `flex: 1`), et `.media-pas`
- *  fait 44 px par conception. On le pose donc UNIQUEMENT là où la largeur est fixée par une
- *  déclaration de `base.css`, avec la valeur de cette déclaration — un plancher qui vérifie ce
- *  que le CSS PROMET, jamais un chiffre inventé.
+ *  Le plancher de largeur ne peut PAS être uniforme : la plupart de ces cibles n'ont aucune
+ *  largeur déclarée (elles la tiennent d'une grille ou d'un `flex: 1`). On le pose donc
+ *  UNIQUEMENT là où la largeur est fixée par une déclaration CSS, avec la valeur de cette
+ *  déclaration — un plancher qui vérifie ce que le CSS PROMET, jamais un chiffre inventé.
  *
- *  COUVERT (largeur déclarée dans `base.css`) :
- *    `.media-bouton` 62 px — `width: 62px; height: 62px`, carré, `flex: none` ;
- *    `.media-pas`    44 px — `width: 44px`, `flex: none` ;
- *    `.media-rail`   56 px — `min-width: 56px` (plancher déclaré, largeur réelle variable).
+ *  COUVERT (largeur déclarée) :
+ *    `.media-bouton`, `.media-pas` 62 px — disques `width: 62px; height: 62px`, `flex: none`
+ *    (`media.css`, refonte du 2026-10-24 : `.media-pas` faisait 44 px et le rail de volume
+ *    `.media-rail` a disparu).
  *  NON COUVERT (aucune largeur déclarée, donc aucun plancher honnête à poser) :
  *    `.ambiance`/`.commande`/`.tuile` (pistes de grille `1fr`), `.xl` (pleine largeur),
  *    `.mode-action` (largeur dictée par son libellé et son `padding`). Pour celles-là, le seul
  *    garde-fou reste le débordement du cadre, déjà en place. */
 const PLANCHERS_LARGEUR = {
   '.media-bouton': CIBLE_MIN_PX,
-  '.media-pas': 44,
-  '.media-rail': 56,
+  '.media-pas': CIBLE_MIN_PX,
   // Tâche 10 — minuteurs et voiture. `.mn-bouton` (pause/lecture/annuler) et `.mn-etiquette`
   // (choix rapide d'un aliment) déclarent chacun `min-width: 62px` dans `base.css` : le CSS
   // PROMET 62, donc le plancher vaut 62, exactement le même principe que `.media-bouton`
@@ -509,7 +508,7 @@ export const MODES = [
         // ensuite que le rail AVANCE.
         media_position_updated_at: '2026-05-07T13:59:00+02:00',
         // PAUSE(1) + VOLUME_SET(4) + PRECEDENT(16) + SUIVANT(32) + PLAY(16384) : la carte la plus
-        // chargée que ce lecteur puisse produire — 3 boutons de transport ET un rail de volume.
+        // chargée que ce lecteur puisse produire — 3 boutons de transport ET la rangée de volume.
         supported_features: 450495, volume_level: 0.5,
       }],
     ],
@@ -875,19 +874,6 @@ const NEUTRE = [
   ['sensor.home_stock_next_meal', 'Repas neutre'],
 ];
 
-/** Les trois affiches d'essai, servies par interception de requête (`context.route`) plutôt que
- *  déposées dans `config/www/wallpanel/` : ce dossier est celui des trois tablettes réelles, un
- *  vérificateur n'y écrit rien. Trois luminosités, dont une TRÈS claire — le seul cas où le
- *  contraste peut réellement tomber, puisque le mode cinéma force la palette sombre (texte blanc)
- *  et que l'affiche est peinte par-dessus le fond sombre à `opacity: .34`. Chacune est bandée
- *  plutôt qu'unie : une affiche unie ne produirait qu'une seule luminance et masquerait tout
- *  l'intérêt de l'échantillonnage min/max. */
-const AFFICHES = [
-  { nom: 'claire', base: 232, amplitude: 23 },
-  { nom: 'moyenne', base: 112, amplitude: 40 },
-  { nom: 'sombre', base: 10, amplitude: 22 },
-];
-
 export function lireIdentifiants() {
   const mcp = JSON.parse(readFileSync(`${DATA}/.mcp.json`, 'utf8'));
   const env = mcp.mcpServers.homeassistant.env;
@@ -984,71 +970,6 @@ async function bundlerApplication() {
   return bundleApplicationCache;
 }
 
-// --- Affiches d'essai : un PNG minimal écrit à la main -------------------------------------
-//
-// Aucune dépendance d'encodage d'image dans ce projet, et pas question d'en ajouter une pour
-// trois aplats bandés. Un PNG est une signature, trois morceaux et un CRC32 : c'est court.
-
-const TABLE_CRC = (() => {
-  const t = new Int32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    t[n] = c;
-  }
-  return t;
-})();
-
-function crc32(buf) {
-  let c = 0xffffffff;
-  for (const octet of buf) c = TABLE_CRC[(c ^ octet) & 0xff] ^ (c >>> 8);
-  return (c ^ 0xffffffff) >>> 0;
-}
-
-function morceau(type, donnees) {
-  const corps = Buffer.concat([Buffer.from(type, 'ascii'), donnees]);
-  const taille = Buffer.alloc(4);
-  taille.writeUInt32BE(donnees.length);
-  const somme = Buffer.alloc(4);
-  somme.writeUInt32BE(crc32(corps));
-  return Buffer.concat([taille, corps, somme]);
-}
-
-/** Un PNG RVB 8 bits, `couleur(x, y) → [r, v, b]`. */
-function encoderPng(largeur, hauteur, couleur) {
-  const brut = Buffer.alloc((largeur * 3 + 1) * hauteur);
-  let i = 0;
-  for (let y = 0; y < hauteur; y++) {
-    brut[i++] = 0;   // filtre « aucun »
-    for (let x = 0; x < largeur; x++) {
-      const [r, v, b] = couleur(x, y);
-      brut[i++] = r; brut[i++] = v; brut[i++] = b;
-    }
-  }
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(largeur, 0);
-  ihdr.writeUInt32BE(hauteur, 4);
-  ihdr[8] = 8;    // profondeur
-  ihdr[9] = 2;    // type couleur : RVB
-  return Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    morceau('IHDR', ihdr),
-    morceau('IDAT', deflateSync(brut)),
-    morceau('IEND', Buffer.alloc(0)),
-  ]);
-}
-
-/** Bandes horizontales autour d'une luminosité de base : deux extrêmes réels à échantillonner,
- *  au lieu de l'unique valeur d'un aplat. */
-function affiche(base, amplitude) {
-  return encoderPng(96, 96, (x, y) => {
-    const v = Math.max(0, Math.min(255, base + (Math.floor(y / 12) % 2 ? amplitude : -amplitude)));
-    return [v, v, v];
-  });
-}
-
-export const AFFICHES_PNG = new Map(AFFICHES.map((a) => [a.nom, affiche(a.base, a.amplitude)]));
-
 /** Tâche 18 — REJOUE UNE FEUILLE DE STYLE COMME LA LIRAIT LE MOTEUR DE DEUX DES TROIS TABLETTES
  *  MURALES. Relevé en lecture seule sur l'API d'administration Fully (`?cmd=deviceInfo`) le
  *  2026-08-03 : deux des trois tablettes rendent en **Chrome 100.0.4896.127**, la troisième en
@@ -1072,8 +993,8 @@ export const AFFICHES_PNG = new Map(AFFICHES.map((a) => [a.nom, affiche(a.base, 
 const simulerMoteurSansDvh = (css) => css.replace(/(\d)(dvh|dvw|dvmin|dvmax|svh|lvh)\b/g, '$1zvh');
 
 /** Pose sur un contexte tout ce qui doit être servi par le vérificateur plutôt que par Home
- *  Assistant : le bundle construit depuis `src/` (sauf en `--deploye`) et les trois affiches
- *  d'essai. Les pages HTML, l'origine, la session et le websocket restent ceux de HA.
+ *  Assistant : le bundle construit depuis `src/` (sauf en `--deploye`) et les affiches d'essai
+ *  (`affiches-essai.mjs`). Les pages HTML, l'origine, la session et le websocket restent ceux de HA.
  *
  *  `sansDvh` (tâche 18) : la feuille de style servie est celle du bundle — ou celle que HA sert
  *  réellement en `--deploye`, récupérée puis réécrite — passée par `simulerMoteurSansDvh`. Le
@@ -1191,8 +1112,7 @@ export function analyserRendu(params) {
   // de `.media-rangee` dans `base.css`) n'a été trouvé qu'à la lecture du CSS, à la main : la
   // seule machine capable de le voir ne regardait pas ces éléments-là.
   //   `.media-bouton` — précédent / pause / lecture / suivant
-  //   `.media-pas`    — volume − / + quand le lecteur ne sait pas dire son niveau
-  //   `.media-rail`   — rail de volume (sa zone de contact fait 62 px, son trait 6)
+  //   `.media-pas`    — volume − / +
   //   `.mode-action`  — « Retour base » du mode ménage
   // Revue tâche 15 (I2) : la LARGEUR est relevée en même temps que la hauteur, et comparée au
   // plancher DÉCLARÉ de l'élément quand il en a un (`planchersLargeur`, cf. son commentaire en
@@ -1216,7 +1136,7 @@ export function analyserRendu(params) {
   //   `.ing-retirer`         — croix de retrait d'un ingrédient (icône seule, 62×62)
   //   `.ing-actions > *`     — Retirer tout / Fermer, dans le panneau
   const cibles = [...app.querySelectorAll(
-    '.ambiance,.commande,.tuile,.xl,.media-bouton,.media-pas,.media-rail,.mode-action,'
+    '.ambiance,.commande,.tuile,.xl,.media-bouton,.media-pas,.mode-action,'
     + '.mn-bouton,.mn-nouveau,.mn-ligne,.mn-etiquette,.vt-bouton,'
     + '.recette-nav > *,.recette-actions > *,.recette-minuteur,.ing-retirer,.ing-actions > *')]
     .map((e) => {
@@ -1563,110 +1483,6 @@ async function evaluerPage(page, params) {
   }
   dernieresSignaturesMouvement.set(page, { chemin, signatures });
   return { ...r, animationsEnCours: !posee };
-}
-
-// --- Tâche 13 : les pixels RÉELLEMENT peints ---------------------------------------------
-//
-// `analyserRendu` lit `getComputedStyle(el).backgroundColor` et compose les fonds de la racine
-// vers la feuille. C'est exact tant que le fond est une COULEUR — et totalement aveugle à une
-// `background-image`. La carte média en a une : l'affiche du film ou de l'album (`.media-affiche`,
-// `rendu/media.ts`), posée en couche de fond sous un voile d'opacité `.34` dont le commentaire de
-// `base.css` dit noir sur blanc qu'il s'agit d'« une valeur de DÉPART, pas encore calibrée ».
-// Sans échantillonnage des pixels peints, un titre blanc sur une affiche très claire passerait le
-// contrôle de contraste sans qu'aucun test ni ce vérificateur ne rougisse.
-
-/** ÉCART ASSUMÉ par rapport au brief de la tâche, qui capturait la boîte du texte telle quelle :
- *  cette capture contient les GLYPHES eux-mêmes, peints exactement à la couleur du texte. Le
- *  maximum (ou le minimum) de luminance échantillonné est alors la couleur du texte, le ratio
- *  calculé vaut 1,00:1 sur n'importe quelle affiche, et le contrôle échoue toujours — un
- *  vérificateur qui rougit tout le temps ne vaut pas mieux qu'un qui ne rougit jamais. On mesure
- *  donc les rectangles du texte APRÈS l'avoir rendu transparent (`color: transparent`, qui ne
- *  déplace rien : la mise en page, les fonds propres des éléments — le `rgba(0,0,0,.18)` de
- *  `.media-pas` par exemple — et l'affiche restent exactement où ils sont). Le style est retiré
- *  aussitôt après. */
-const SELECTEURS_PEINTS = '.media .t, .media .v, .media-sous, .media-pas';
-
-async function echantillonnerContrastePeint(page) {
-  // Tâche 15 : ce chemin-ci échantillonne des PIXELS, pas des couleurs calculées — il est donc
-  // encore plus exposé qu'`evaluerPage` à une transition en cours (le fond de la carte média
-  // change avec l'affiche). Même garde, même raison, cf. `attendreAnimationsFinies`.
-  await attendreAnimationsFinies(page);
-  const zones = await page.evaluate((sel) => {
-    const carte = document.querySelector('.media');
-    if (!carte) return null;
-    return [...carte.querySelectorAll(sel)].map((el) => {
-      const r = el.getBoundingClientRect();
-      return {
-        x: Math.round(r.left), y: Math.round(r.top),
-        w: Math.round(r.width), h: Math.round(r.height),
-        couleurTexte: getComputedStyle(el).color,
-        classe: el.className || el.tagName,
-        texte: (el.textContent || '').trim().slice(0, 30),
-      };
-    }).filter((z) => z.w > 0 && z.h > 0);
-  }, SELECTEURS_PEINTS);
-  if (!zones || zones.length === 0) return null;
-
-  await page.evaluate((sel) => {
-    const style = document.createElement('style');
-    style.id = '__masque-texte';
-    style.textContent = `${sel} { color: transparent !important; }`;
-    document.head.appendChild(style);
-  }, SELECTEURS_PEINTS);
-
-  const mesures = [];
-  try {
-    for (const z of zones) {
-      // Une capture par zone : on ne décode pas tout l'écran en mémoire sur une machine qui fait
-      // déjà tourner un navigateur. Transmise en base64 (et non en tableau d'octets comme le
-      // proposait le brief) — 100 000 nombres sérialisés un par un à travers la frontière
-      // Node/navigateur coûtent plusieurs secondes par zone, une chaîne coûte quelques
-      // millisecondes.
-      const tampon = await page.screenshot({ clip: { x: z.x, y: z.y, width: z.w, height: z.h } });
-      const stats = await page.evaluate(async (b64) => {
-        const image = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
-        const toile = new OffscreenCanvas(image.width, image.height);
-        const ctx = toile.getContext('2d');
-        ctx.drawImage(image, 0, 0);
-        const px = ctx.getImageData(0, 0, image.width, image.height).data;
-        const lum = (r, g, b) => {
-          const c = [r, g, b].map((v) => {
-            const s = v / 255;
-            return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-          });
-          return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-        };
-        // Les DEUX extrêmes, jamais la moyenne : une affiche claire par endroits suffit à rendre
-        // un titre blanc illisible sur ces endroits-là, même si sa moyenne est sombre.
-        let min = 1;
-        let max = 0;
-        for (let i = 0; i < px.length; i += 4) {
-          const l = lum(px[i], px[i + 1], px[i + 2]);
-          if (l < min) min = l;
-          if (l > max) max = l;
-        }
-        return { min, max };
-      }, tampon.toString('base64'));
-
-      const m = (z.couleurTexte.match(/[\d.]+/g) ?? ['0', '0', '0']).map(Number);
-      const lumTexte = (() => {
-        const c = m.slice(0, 3).map((v) => {
-          const s = v / 255;
-          return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-        });
-        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-      })();
-      const ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
-      const pire = Math.min(ratio(lumTexte, stats.min), ratio(lumTexte, stats.max));
-      mesures.push({ classe: z.classe, texte: z.texte, ratio: Math.round(pire * 100) / 100 });
-    }
-  } finally {
-    await page.evaluate(() => document.getElementById('__masque-texte')?.remove());
-  }
-  return {
-    pire: mesures.reduce((a, b) => (a.ratio < b.ratio ? a : b)),
-    toutes: mesures,
-  };
 }
 
 // --- Tâche 13 : les images par seconde ----------------------------------------------------
@@ -3082,7 +2898,6 @@ async function verifierModes(nav, HA_URL, jetons, bundle) {
 
   let fautes = 0;
   const budgets = [];
-  let echantillons = [];
   const cadences = [];
   let bandeau = null;
 
@@ -3095,7 +2910,7 @@ async function verifierModes(nav, HA_URL, jetons, bundle) {
       console.error('  ✗ `window.__injecter` absent : le bundle servi ne contient pas le point '
         + "d'injection de la tâche 13 (`?essai=1`, `demarrage.ts`). Aucun mode n'est mesurable.");
       await ctx.close();
-      return { fautes: 1, budgets, echantillons, cadences, bandeau };
+      return { fautes: 1, budgets, cadences, bandeau };
     }
 
     // --- Point de mesure 2 : `.date` peut-elle faire regonfler le bandeau ? ---
@@ -3281,28 +3096,23 @@ async function verifierModes(nav, HA_URL, jetons, bundle) {
     // `verifierPagesReelles`, plus haut), avec les mêmes contrôles génériques (débordement,
     // cibles tactiles, contraste) que les deux autres sous-vues.
 
-    // Contraste peint : le mode cinéma, sur les TROIS affiches. C'est le seul endroit du projet
-    // où un texte est peint sur une `background-image` — et la palette y est forcée en sombre
-    // (texte blanc), donc c'est l'affiche CLAIRE qui décide.
-    const cinema = MODES.find((m) => m.nom === 'cinema');
-    for (const a of AFFICHES) {
-      await poserMode(page, HA_URL, cinema);
-      await injecter(page, [['media_player.plex_plex_for_android_tv_uhd_google_tv_stick', 'playing', {
-        ...cinema.etats[1][2], entity_picture: `/local/wallpanel/essai-affiche-${a.nom}.png`,
-      }]]);
-      await page.waitForTimeout(ATTENTE_MODE_MS);
-      const peint = await echantillonnerContrastePeint(page);
-      if (!peint) {
-        console.log(`  ✗ contraste peint, affiche ${a.nom} — aucune carte média à l'écran`);
-        fautes++;
-        continue;
+    // Carte média sur affiche intacte (refonte du 2026-10-23, `verifier-carte-media.mjs`) : les
+    // deux modes qui la montrent, sur chacune des affiches d'essai. Les teintes se calculent
+    // APRÈS la première peinture : on attend la carte teintée, puis la fin de son repeint.
+    for (const mode of MODES.filter((m) => m.nom === 'media' || m.nom === 'cinema')) {
+      const [entite, etat, attributs] = mode.etats.find((e) => e[2]?.entity_picture);
+      for (const nom of AFFICHES_PNG.keys()) {
+        await poserMode(page, HA_URL, mode);
+        await injecter(page, [[entite, etat, {
+          ...attributs, entity_picture: `/local/wallpanel/essai-affiche-${nom}.png` }]]);
+        await page.waitForTimeout(ATTENTE_MODE_MS);
+        const teintee = await attendreCarteTeintee(page);
+        await attendreAnimationsFinies(page);
+        const j = teintee ? jugerCarte(await mesurerCarteMedia(page, HAUTEUR))
+          : { ok: false, reason: 'the card never showed its poster with ready tones' };
+        if (!j.ok) fautes++;
+        console.log(`  ${j.ok ? '✓' : '✗'} carte média, mode ${mode.nom}, affiche ${nom}${j.ok ? '' : ` — ${j.reason}`}`);
       }
-      echantillons.push({ affiche: a.nom, ...peint });
-      const ok = peint.pire.ratio >= CONTRASTE_MIN;
-      if (!ok) fautes++;
-      console.log(`  ${ok ? '✓' : '✗'} contraste peint, affiche ${a.nom} — pire `
-        + `${peint.pire.ratio}:1 sur « ${peint.pire.texte} » (${peint.pire.classe}) ; `
-        + `toutes : ${peint.toutes.map((m) => `${m.classe}=${m.ratio}`).join(', ')}`);
     }
 
     // --- Point de mesure 5 : images par seconde, transition par transition ---
@@ -3363,7 +3173,7 @@ async function verifierModes(nav, HA_URL, jetons, bundle) {
     await page.close();
     await ctx.close();
   }
-  return { fautes, budgets, echantillons, cadences, bandeau };
+  return { fautes, budgets, cadences, bandeau };
 }
 
 // --- Auto-test : preuve que le vérificateur sait détecter chaque défaut ------------------
@@ -3462,14 +3272,14 @@ const FIXTURES = [
     // Ronde de correction 1 : l'intitulé promettait « .media-bouton à 57 px » alors que la
     // fixture n'écrasait QUE le rail — la sortie le disait, pas le titre. Un intitulé qui promet
     // une preuve non faite est précisément le défaut que ce plan a rencontré le plus souvent.
-    // Les trois boutons sont maintenant réellement à 57 px, et le rail est laissé à 62.
+    // Les trois boutons sont réellement à 57 px ; le disque `.media-pas` reste à 62.
     nom: 'boutons de transport sous la cible tactile (.media-bouton à 57 px)',
     html: gabaritFixture(`
       <div style="width:279px;display:flex;align-items:center;gap:10px;background:${CONTENEUR};">
         <div class="media-bouton" style="width:62px;height:57px;background:${PRIMAIRE};"></div>
         <div class="media-bouton" style="width:62px;height:57px;background:${PRIMAIRE};"></div>
         <div class="media-bouton" style="width:62px;height:57px;background:${PRIMAIRE};"></div>
-        <div class="media-rail" style="width:90px;height:62px;background:${PRIMAIRE};"></div>
+        <div class="media-pas" style="width:62px;height:62px;background:${PRIMAIRE};"></div>
       </div>
     `),
     attendu: (j) => !j.ok && /cible trop petite \(57 px[^)]*media-bouton/.test(j.raison),
@@ -3494,34 +3304,14 @@ const FIXTURES = [
     description: 'un `.media-bouton` de 57 px de LARGE (62 px de haut) doit être signalé — il ne l\'était pas',
   },
   {
-    // Contre-épreuve indispensable : `.media-pas` fait 44 px de large PAR CONCEPTION
-    // (`base.css`). Un plancher de largeur uniforme à 62 px le déclarerait fautif à tort, tous
-    // les jours — c'est exactement pour ça que `PLANCHERS_LARGEUR` est une table par sélecteur et
-    // pas une constante. Ici, seule sa HAUTEUR est en faute.
-    nom: 'volume − / + à 44 px de large (conception) mais 44 px de haut — seule la hauteur est fautive',
+    // Le disque de volume est un `.media-pas` de 62 px depuis la refonte (`media.css`) : même
+    // défaut que le précédent, même plancher, et c'est la LARGEUR seule qui est en faute.
+    nom: 'volume − / + écrasé EN LARGEUR (.media-pas à 57 × 62)',
     html: gabaritFixture(`
-      <div class="media-pas" style="width:44px;height:44px;background:${PRIMAIRE};color:${SUR_PRIMAIRE};">−</div>
+      <div class="media-pas" style="width:57px;height:62px;background:${PRIMAIRE};color:${SUR_PRIMAIRE};">−</div>
     `),
-    attendu: (j) => !j.ok && /cible trop petite/.test(j.raison) && !/trop étroite/.test(j.raison),
-    description: '44 px de large est la largeur déclarée de `.media-pas` : jamais signalée comme trop étroite',
-  },
-  {
-    // Le rail, lui, tient sa largeur d'un `min-width: 56px` déclaré : le retirer (ou le réduire)
-    // désynchroniserait son dégradé du calcul au doigt, le défaut jumeau de celui des boutons.
-    nom: 'rail de volume plus étroit que son min-width déclaré (.media-rail à 40 px)',
-    html: gabaritFixture(`
-      <div class="media-rail" style="width:40px;height:62px;background:${PRIMAIRE};"></div>
-    `),
-    attendu: (j) => !j.ok && /cible trop étroite[^)]*media-rail/.test(j.raison),
-    description: 'un `.media-rail` de 40 px de large (min-width déclaré : 56 px) doit être signalé',
-  },
-  {
-    nom: 'rail de volume sous la cible tactile (.media-rail à 57 px)',
-    html: gabaritFixture(`
-      <div class="media-rail" style="width:90px;height:57px;background:${PRIMAIRE};"></div>
-    `),
-    attendu: (j) => !j.ok && /cible trop petite \(57 px[^)]*media-rail/.test(j.raison),
-    description: 'un `.media-rail` de 57 px doit être signalé',
+    attendu: (j) => !j.ok && /cible trop étroite[^)]*media-pas 57×62/.test(j.raison) && !/trop petite/.test(j.raison),
+    description: 'un `.media-pas` de 57 px de LARGE doit être signalé trop étroit, et seulement ça',
   },
   {
     // Ronde de correction 1 de la tâche 13, LE cas que son premier jet avait rendu muet :
@@ -3664,76 +3454,8 @@ async function autoTest(nav) {
   console.log('Auto-test réussi : le vérificateur rougit sur chacune des six classes de défaut couvertes '
     + '(débordement, cible trop petite EN HAUTEUR, cible trop étroite EN LARGEUR — ajoutée à la revue de la '
     + 'tâche 15, c\'est l\'axe sur lequel agissait le défaut historique de `flex-shrink` —, contraste '
-    + 'insuffisant, texte tronqué, écran de repli), et seulement sur elles : les fixtures « propre », '
-    + '« nuit » (légitimement sobre) et « .media-pas à 44 px de large » (largeur déclarée) restent acceptées '
-    + 'sur ce qu\'elles doivent l\'être.');
-  return 0;
-}
-
-// --- Tâche 13 : preuve que l'échantillonnage des pixels peints rougit vraiment -------------
-//
-// Le contrôle de contraste de `analyserRendu` compose des `backgroundColor`. Une affiche est une
-// `background-image` : il ne la voit pas, et il ne PEUT pas la voir. Ces deux fixtures le
-// démontrent — la même carte, le même texte blanc, la même affiche très claire, à deux opacités
-// de voile : l'analyse de style rend le MÊME verdict « aucun contraste fautif » dans les deux cas,
-// alors que les pixels réellement peints séparent nettement le voile calibré du voile relâché.
-
-function fixtureAffiche(opacite) {
-  const b64 = AFFICHES_PNG.get('claire').toString('base64');
-  return `<!doctype html><html><head><meta charset="utf-8"><style>
-    html,body{margin:0;padding:0;background:#191e20;}
-    #app{width:${LARGEUR}px;height:${HAUTEUR}px;overflow:hidden;background:#191e20;color:#ffffff;
-         display:flex;flex-direction:column;box-sizing:border-box;padding:12px 16px;}
-    .media{position:relative;overflow:hidden;padding:8px 16px;min-height:153px;border-radius:28px;
-           background:#191e20;color:#ffffff;display:flex;flex-direction:column;gap:6px;}
-    .media-affiche{position:absolute;inset:0;z-index:0;background-size:cover;
-      background-position:center;opacity:${opacite};
-      background-image:url('data:image/png;base64,${b64}');}
-    .media-texte{position:relative;z-index:1;}
-    .media .t{font-size:11px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;}
-    .media .v{font-size:15px;font-weight:600;line-height:1.26;}
-  </style></head><body><div id="app">
-    <div class="media"><div class="media-affiche"></div>
-      <div class="media-texte"><div class="t">EN COURS</div>
-        <div class="v">Les trois Mousquetaires : Milady</div></div></div>
-  </div></body></html>`;
-}
-
-async function autoTestPeint(nav) {
-  console.log('Auto-test des pixels peints — l\'analyse de style est aveugle à une affiche, '
-    + "l'échantillonnage ne l'est pas :");
-  const ctx = await nav.newContext({ viewport: { width: LARGEUR, height: HAUTEUR } });
-  let echecs = 0;
-  const cas = [
-    { nom: 'voile calibré (.34, la valeur réelle de base.css) sur affiche très claire',
-      opacite: '.34', attendu: (ratio) => ratio >= CONTRASTE_MIN,
-      description: `le texte blanc doit rester au-dessus de ${CONTRASTE_MIN}:1` },
-    { nom: 'voile relâché (.60) sur la MÊME affiche très claire',
-      opacite: '.60', attendu: (ratio) => ratio < CONTRASTE_MIN,
-      description: 'le contraste peint doit tomber, et être signalé' },
-  ];
-  for (const c of cas) {
-    const p = await ctx.newPage();
-    await p.setContent(fixtureAffiche(c.opacite));
-    const parStyle = jugerResultat(await evaluerPage(p, PARAMS_ANALYSE));
-    const peint = await echantillonnerContrastePeint(p);
-    await p.close();
-    // Les deux conditions comptent : le verdict peint attendu, ET la preuve que l'analyse de
-    // style n'y voit rien — c'est ce couple qui justifie l'existence de la fonction.
-    const reussi = peint !== null && c.attendu(peint.pire.ratio) && !/contraste insuffisant/.test(parStyle.raison);
-    console.log(`  ${reussi ? '✓' : '✗'} ${c.nom} — ${c.description}`);
-    console.log(`      peint : ${peint ? `${peint.pire.ratio}:1 sur « ${peint.pire.texte} »` : 'aucune carte'} ; `
-      + `par analyse de style : ${parStyle.ok ? 'aucun défaut' : parStyle.raison}`);
-    if (!reussi) echecs++;
-  }
-  await ctx.close();
-  console.log('');
-  if (echecs) {
-    console.error(`${echecs} cas d'auto-test des pixels peints non détecté(s) comme attendu.`);
-    return 1;
-  }
-  console.log("Auto-test des pixels peints réussi : le voile calibré passe, le voile relâché est "
-    + "signalé, et l'analyse de style ne voit ni l'un ni l'autre.");
+    + 'insuffisant, texte tronqué, écran de repli), et seulement sur elles : les fixtures « propre » '
+    + 'et « nuit » (légitimement sobre) restent acceptées.');
   return 0;
 }
 
@@ -4655,6 +4377,8 @@ async function autoTestGardeFouMarques(nav) {
   return 0;
 }
 
+export { AFFICHES_PNG };
+
 // --- Point d'entrée -----------------------------------------------------------------------
 
 async function main() {
@@ -4675,7 +4399,7 @@ async function main() {
       // `--auto-test` reste le point d'entrée unique « preuve que le vérificateur sait détecter
       // chaque défaut » (géométrie ET, depuis la tâche 15, fidélité du geste tactile).
       const codeGeometrie = await autoTest(nav);
-      const codePeint = await autoTestPeint(nav);
+      const codeCarteMedia = await autoTestCarteMedia(nav);
       const codeTactile = await autoTestTactile(nav);
       // Revue tâche 15 (I4) : la contrainte fondatrice du projet, vérifiée dans le moteur de
       // rendu plutôt que par l'ordre des règles dans un fichier texte.
@@ -4696,7 +4420,7 @@ async function main() {
       // confondait au premier coup d'œil avec `autoTestMouvement` ci-dessus, qui teste tout autre
       // chose (le moteur, pas la surveillance de ses marques).
       const codeGardeFouMarques = await autoTestGardeFouMarques(nav);
-      process.exitCode = codeGeometrie || codePeint || codeTactile || codeContact || codeCadre
+      process.exitCode = codeGeometrie || codeCarteMedia || codeTactile || codeContact || codeCadre
         || codeMouvement || codeGardeFouMarques;
     } else {
       process.exitCode = await verifierPagesReelles(nav, { deploye: process.argv.includes('--deploye') });
