@@ -25,7 +25,10 @@ import {
 } from './rendu/repli';
 import { armerRechargement } from './rechargement';
 import { roomTodoLists } from './cochage';
-import { chargerEcran as chargerEcranHA, listerEcrans as listerEcransHA } from './configuration';
+import {
+  chargerEcran as chargerEcranHA, listerEcrans as listerEcransHA, loadHouse as loadHouseHA,
+} from './configuration';
+import type { DeclarationSource } from './media';
 import { niveauDemande, type Niveau } from './mouvement';
 import { chargerLottie } from './lottie';
 // The next two lines carry an English-check exception: the engine factory is named by `mouvement/moteur.ts`, a
@@ -60,6 +63,7 @@ export type { ConnexionLike, DependancesDemarrage } from './boot/types';
  *  from, and that is what allowed introducing it without touching the screen body. */
 export async function startWithScreen(
   racine: HTMLElement, piece: Ecran, deps: Partial<DependancesDemarrage> = {},
+  house: DeclarationSource[] = [],
 ): Promise<void> {
   // Task 20: the colour tokens (`--md-*`, `jetons.css`) and the day/night mode (class `.sombre`)
   // are scoped to `.m3`, set statically on `racine` (`#app`) by the HTML of each tablet.
@@ -85,11 +89,12 @@ export async function startWithScreen(
     intervalFn: deps.intervalFn ?? intervalFnParDefaut,
     minuteurFn: deps.minuteurFn ?? minuteurFnParDefaut,
     maintenant: deps.maintenant ?? (() => new Date()),
-    // `startWithScreen` never calls them (it receives an already resolved screen): these two
-    // fields only exist here so that `d` satisfies `DependancesDemarrage` in full, the same bag of
-    // dependencies that `startScreen()` below passes on to it as is.
+    // `startWithScreen` never calls them (it receives an already resolved screen and house):
+    // these three fields only exist here so that `d` satisfies `DependancesDemarrage` in full, the
+    // same bag of dependencies that `startScreen()` below passes on to it as is.
     chargerEcran: deps.chargerEcran ?? chargerEcranHA,
     listerEcrans: deps.listerEcrans ?? listerEcransHA,
+    loadHouse: deps.loadHouse ?? loadHouseHA,
     chargerLottie: deps.chargerLottie ?? (() => chargerLottie()),
   };
 
@@ -145,6 +150,7 @@ export async function startWithScreen(
     racine, piece, d, resoudreAgencement(piece), roomTodoLists(piece), niveauInitial,
     creerMoteur(racine, { niveauInitial }), dessiner,   // policy: allow-fr — see the import
   );
+  s.house = house;
 
   async function tenter(): Promise<void> {
     try {
@@ -262,6 +268,7 @@ export async function startScreen(
   const minuteurFn = deps.minuteurFn ?? minuteurFnParDefaut;
   const chargerEcranFn = deps.chargerEcran ?? chargerEcranHA;
   const listerEcransFn = deps.listerEcrans ?? listerEcransHA;
+  const loadHouseFn = deps.loadHouse ?? loadHouseHA;
 
   const jetons = lireJetons(stockage);
   if (!jetons) {
@@ -343,13 +350,22 @@ export async function startScreen(
       if (nomEcran === '') { await offerScreenList(); return; }
 
       const result = await chargerEcranFn(cx, nomEcran);
-      if (result.ok) {
-        await startWithScreen(racine, result.value, depsDuCorps);
+      if (!result.ok) {
+        if (result.panne === 'introuvable') { await offerScreenList(); return; }
+        if (result.panne === 'reseau') throw new Error('reseau');
+        render(ecranDeLaPanne(result.panne, nomEcran), racine);
         return;
       }
-      if (result.panne === 'introuvable') { await offerScreenList(); return; }
-      if (result.panne === 'reseau') throw new Error('reseau');
-      render(ecranDeLaPanne(result.panne, nomEcran), racine);
+      // The house sources come with the screen, through the same failure vocabulary. A change of
+      // the house fires the change event for every screen name, so `armerRechargement` above
+      // reloads the page and this load runs again.
+      const house = await loadHouseFn(cx);
+      if (!house.ok) {
+        if (house.panne === 'reseau') throw new Error('reseau');
+        render(ecranDeLaPanne(house.panne, nomEcran), racine);
+        return;
+      }
+      await startWithScreen(racine, result.value, depsDuCorps, house.value);
     } catch {
       render(startupError(), racine);
       // Without `void`: the same convention as `d.minuteurFn(() => tenter(), ...)` in

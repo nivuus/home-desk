@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pickSource, sourcesElsewhere } from '../src/media-choice';
+import { pickSource, settlePin, sourcesElsewhere } from '../src/media-choice';
 import type { DeclarationSource, SourceResolue } from '../src/media';
 
 function decl(nom: string, ...entites: string[]): DeclarationSource {
@@ -48,5 +48,23 @@ describe('sourcesElsewhere', () => {
     const own = [decl('tv', 'media_player.tv')];
     const house = [decl('tv again', 'media_player.x', 'media_player.tv'), decl('kitchen', 'media_player.k')];
     expect(sourcesElsewhere(house, own).map((d) => d.nom)).toEqual(['kitchen']);
+  });
+});
+
+describe('settlePin', () => {
+  it('keeps the pin while the pinned remote source is the one shown', () => {
+    expect(settlePin({ source: src('far', true, false), remote: true }, 'far')).toBe('far');
+  });
+
+  it('drops the pin once nothing is shown', () => {
+    expect(settlePin({ remote: false }, 'far')).toBeUndefined();
+  });
+
+  it('drops the pin once an own source plays', () => {
+    expect(settlePin({ source: src('mine', true, true), remote: false }, 'far')).toBeUndefined();
+  });
+
+  it('drops the pin once another remote source is shown', () => {
+    expect(settlePin({ source: src('other', true, true), remote: true }, 'far')).toBeUndefined();
   });
 });

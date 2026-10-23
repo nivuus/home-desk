@@ -24,3 +24,12 @@ export function pickSource(
   if (kept !== undefined) return { source: kept, remote: true };
   return { remote: false };
 }
+
+/** The pin that survives this frame: kept only while the pinned source is the remote one shown.
+ *  Once it stops (idle), an own source plays or another remote source takes over, the pin goes,
+ *  so a later pause of that source elsewhere does not bring the card back. */
+export function settlePin(
+  shown: { source?: SourceResolue; remote: boolean }, pinned?: string,
+): string | undefined {
+  return pinned !== undefined && shown.remote && shown.source?.nom === pinned ? pinned : undefined;
+}

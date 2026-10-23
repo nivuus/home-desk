@@ -9,6 +9,7 @@ import { ancrerMinuteur } from '../minuteur';
 import { rendreNuit } from '../rendu/nuit';
 import { horlogeMonotone } from './constants';
 import { computeFrame } from './frame';
+import { settlePin } from '../media-choice';
 import { reveiller } from './timers';
 import { paintSubView } from './subviews';
 import { paintHome } from './home';
@@ -16,7 +17,9 @@ import type { ScreenState } from './state';
 
 export function dessiner(s: ScreenState): void {
   const f = computeFrame(s);
-  const { maintenant, moment, mode, sources, vuesMinuteurs } = f;
+  const { maintenant, moment, mode, sources, media, vuesMinuteurs } = f;
+  // `computeFrame` is pure: the pin is settled here, once per frame, on what it chose.
+  s.pinnedMedia = settlePin(media, s.pinnedMedia);
 
   // Correction round 1 (coordinator's review): set HERE, before the early returns (night, whole
   // house, tasks, and since task 10 bis `#minuteur` — see below), NOT after `blocCentral`. An
@@ -68,9 +71,10 @@ export function dessiner(s: ScreenState): void {
   // the card during a film — dark screen, cinema controls, and the last track listened to as the
   // title. In cinema mode, it is the source whose SCREEN is on that is right; everywhere else, the
   // first one that actually plays, in the declared order of exclusivity (in the living room: the
-  // music before the TV, as surveyed on the old setup).
-  const source = (mode === 'cinema' ? sources.find((x) => x.allumee) : sources.find((x) => x.joue))
-    ?? null;
+  // music before the TV, as surveyed on the old setup). 2026-10-23: that first playing one is
+  // `media.source`, the very choice that set `sourceJoue` — own first, else a source playing in
+  // another room — so the mode and the card cannot disagree.
+  const source = (mode === 'cinema' ? sources.find((x) => x.allumee) : media.source) ?? null;
 
   // Task 7 (palette fade): `basculerPalette` replaces the two original `classList.toggle('sombre',
   // …)` (on `racine` AND on `<html>`, see task 20 in `startWithScreen`) — it is what sets

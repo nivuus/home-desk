@@ -3,6 +3,7 @@
  *  NAMED FAILURE. It renders nothing and does not touch the DOM: it is `rendu/repli.ts` that
  *  knows what to show for each failure, and `demarrage.ts` that wires the two. */
 import type { Ecran } from './ecran';
+import type { DeclarationSource } from './media';
 import { RefusHA } from './connexion';
 
 /** The five ways loading a screen can fail. Five, not four: the original spec named only four
@@ -74,6 +75,23 @@ export async function listerEcrans(cx: TransportConfig): Promise<Result<ListEntr
     if (!Array.isArray(brut)) return { ok: false, panne: 'corrompu' };
     return { ok: true, value: brut as ListEntry[] };
   } catch (error) {
+    return { ok: false, panne: panneDe(error) };
+  }
+}
+
+/** Asks for the media sources shared by the whole house (`home_desk/maison`), validated by the
+ *  component. `{"sources": []}` when no house is configured — a success, like an empty screen
+ *  list. `unknown_command` is also a success with no source: an integration older than this list
+ *  still serves screens, the tablet just has nothing to follow in other rooms. Every other
+ *  refusal maps exactly as for `chargerEcran`. */
+export async function loadHouse(cx: TransportConfig): Promise<Result<DeclarationSource[]>> {
+  try {
+    const brut = await cx.envoyerCommande({ type: 'home_desk/maison' });
+    const sources = (brut as { sources?: unknown } | null | undefined)?.sources;
+    if (!Array.isArray(sources)) return { ok: false, panne: 'corrompu' };
+    return { ok: true, value: sources as DeclarationSource[] };
+  } catch (error) {
+    if (error instanceof RefusHA && error.code === 'unknown_command') return { ok: true, value: [] };
     return { ok: false, panne: panneDe(error) };
   }
 }

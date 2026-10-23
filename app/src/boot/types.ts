@@ -6,6 +6,7 @@ import type { ConnexionAppelable } from '../interaction';
 import type { Ecran } from '../ecran';
 import type { ListEntry, Result, TransportConfig } from '../configuration';
 import type { chargerLottie } from '../lottie';
+import type { DeclarationSource } from '../media';
 
 /** What `startWithScreen` expects from a connection: just enough not to depend on the concrete
  *  `Connexion` class, so that it can be replaced by a double in the tests (revoked refresh token,
@@ -55,6 +56,8 @@ export type DependancesDemarrage = {
    *  path (`index.ts`, `data-piece`) serves the literal through the same door. */
   chargerEcran: (cx: TransportConfig, nom: string) => Promise<Result<Ecran>>;
   listerEcrans: (cx: TransportConfig) => Promise<Result<ListEntry[]>>;
+  /** The media sources shared by the house (`home_desk/maison`), loaded with the screen. */
+  loadHouse: (cx: TransportConfig) => Promise<Result<DeclarationSource[]>>;
   /** Resolves the Lottie player, loading its bundle on first use (`lottie.ts`). Injectable so
    *  that the tests never inject a real `<script>`. */
   chargerLottie: () => ReturnType<typeof chargerLottie>;

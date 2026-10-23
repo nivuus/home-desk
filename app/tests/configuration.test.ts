@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { chargerEcran, listerEcrans } from '../src/configuration';
+import { chargerEcran, listerEcrans, loadHouse } from '../src/configuration';
 import { RefusHA } from '../src/connexion';
 
 /** Un transport doublé : rend ce qu'on lui dit, ou lève le refus qu'on lui donne. */
@@ -86,5 +86,35 @@ describe('listerEcrans', () => {
   it('ignore une réponse qui n est pas un tableau plutôt que de la propager', async () => {
     const cx = transport(() => ({ pas: 'un tableau' }));
     expect(await listerEcrans(cx)).toEqual({ ok: false, panne: 'corrompu' });
+  });
+});
+
+describe('loadHouse', () => {
+  const tv = { nom: 'TV', piece: 'Chambre', titre: ['media_player.tv'], sousTitre: [], affiche: [],
+               progression: [], transport: [], volume: [] };
+
+  it('sends home_desk/maison and returns the source list', async () => {
+    const cx = transport(() => ({ sources: [tv] }));
+    expect(await loadHouse(cx)).toEqual({ ok: true, value: [tv] });
+    expect(cx.envoyerCommande).toHaveBeenCalledWith({ type: 'home_desk/maison' });
+  });
+
+  it('loadHouse maps unknown_command to an empty list', async () => {
+    // An integration older than the shared house list: the tablet still works, it just has
+    // nothing to follow elsewhere.
+    const cx = transport(() => { throw new RefusHA('unknown_command', 'Unknown command.'); });
+    expect(await loadHouse(cx)).toEqual({ ok: true, value: [] });
+  });
+
+  it('maps any other refusal like chargerEcran does', async () => {
+    const cx = transport(() => { throw new RefusHA('ecran_corrompu', 'x'); });
+    expect(await loadHouse(cx)).toEqual({ ok: false, panne: 'corrompu' });
+    const lost = transport(() => { throw new Error('websocket closed'); });
+    expect(await loadHouse(lost)).toEqual({ ok: false, panne: 'reseau' });
+  });
+
+  it('reports an answer without a sources array as corrupt', async () => {
+    expect(await loadHouse(transport(() => ({ sources: 'no' })))).toEqual({ ok: false, panne: 'corrompu' });
+    expect(await loadHouse(transport(() => undefined))).toEqual({ ok: false, panne: 'corrompu' });
   });
 });

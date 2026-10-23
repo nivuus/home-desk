@@ -3,7 +3,8 @@
  *  PURE with respect to the screen state: reads `Etat`, the clock and the room, writes nothing. */
 import { momentDuJour, alerteActive, type Moment } from '../contexte';
 import { collecterAlertes, lastMotion } from '../alertes';
-import { resoudreSource, type SourceResolue } from '../media';
+import { resoudreSource, type DeclarationSource, type SourceResolue } from '../media';
+import { pickSource, sourcesElsewhere } from '../media-choice';
 import { modePrincipal, modulateursActifs, type ContexteModes } from '../modes';
 import { listerMinuteurs, premierSlotLibre } from '../minuteur';
 import type { ScreenState } from './state';
@@ -13,7 +14,10 @@ export type Frame = {
   maintenantMs: number;
   moment: Moment;
   alerte: ReturnType<typeof alerteActive>;
+  /** The screen's OWN sources, resolved. */
   sources: SourceResolue[];
+  /** The source the card follows: own first, else what plays elsewhere (`pickSource`). */
+  media: { source?: SourceResolue; remote: boolean };
   vuesMinuteurs: ReturnType<typeof listerMinuteurs>;
   slotLibre: boolean;
   /** The most urgent timer that is actually RUNNING, or `undefined`. `listerMinuteurs` sorts the
@@ -51,10 +55,13 @@ export function computeFrame(s: ScreenState): Frame {
   // are two distinct notions (see `media.ts`) and live on different sources — music can play
   // while the TV is on. `resoudreSource` returns `null` for a source neither on nor playing: what
   // remains always has something to show.
-  const sources = piece.sources
+  const resolve = (decls: DeclarationSource[]) => decls
     .map((decl) => resoudreSource(etat, decl))
     .filter((x): x is SourceResolue => x !== null);
+  const sources = resolve(piece.sources);
+  // Own sources only: a TV merely on in another room never turns this one into `cinema`.
   const ecranAllume = sources.some((x) => x.allumee);
+  const media = pickSource(sources, resolve(sourcesElsewhere(s.house, piece.sources)), s.pinnedMedia);
 
   const ouvertDepuis = piece.ouvrants
     .filter((id) => etat.estUtilisable(id) && etat.lire(id)!.etat === 'on')
@@ -80,7 +87,9 @@ export function computeFrame(s: ScreenState): Frame {
       && etat.estUtilisable(piece.aspirateur)
       && ['cleaning', 'returning', 'error'].includes(etat.lire(piece.aspirateur)!.etat),
     ecranAllume,
-    sourceJoue: sources.some((x) => x.joue),
+    // What the card follows, own or remote (spec 2026-10-23): music in the bedroom puts the
+    // living-room tablet in `media` mode too.
+    sourceJoue: media.source !== undefined,
     ouvrantOuvertDepuisMs: ouvertDepuis.length ? Math.max(...ouvertDepuis) : 0,
     chauffageEnMarche: etat.lire('climate.radiateur')?.etat === 'heat',
     ilPleut: ['rainy', 'pouring', 'lightning-rainy', 'snowy'].includes(meteoEtat?.etat ?? ''),
@@ -130,7 +139,7 @@ export function computeFrame(s: ScreenState): Frame {
     hauteurUtile: piece.hauteurUtile,
   };
   return {
-    maintenant, maintenantMs, moment, alerte, sources, vuesMinuteurs, slotLibre, minuteurActif,
+    maintenant, maintenantMs, moment, alerte, sources, media, vuesMinuteurs, slotLibre, minuteurActif,
     ctx, mode: modePrincipal(ctx), modulateurs: modulateursActifs(ctx),
   };
 }

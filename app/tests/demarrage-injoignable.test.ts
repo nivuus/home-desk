@@ -48,6 +48,8 @@ function mount() {
   const storage = { getItem: () => JSON.stringify(tokens), setItem: vi.fn() } as unknown as Storage;
   const racine = document.createElement('div');
   const chargerEcran = vi.fn(async () => ({ ok: true as const, value: { ...ecranVide, nom: 'Cuisine' } }));
+  // Doubled like `chargerEcran`: the fake socket answers no command, it only authenticates.
+  const loadHouse = vi.fn(async () => ({ ok: true as const, value: [] }));
   const recharger = vi.fn();
   const createConnection = vi.fn((j: Jetons) => new Connexion(j, {
     WebSocketImpl: FakeSocket as unknown as new (url: string) => WebSocket,
@@ -59,7 +61,7 @@ function mount() {
     fetchFn: vi.fn() as unknown as typeof fetch,
   }));
   void startScreen(racine, 'Cuisine', {
-    stockage: storage, createConnection, chargerEcran, recharger,
+    stockage: storage, createConnection, chargerEcran, loadHouse, recharger,
     intervalFn: vi.fn() as unknown as typeof setInterval,
     minuteurFn: vi.fn() as unknown as typeof setTimeout,
     maintenant: () => new Date(2026, 7, 1, 14, 0),

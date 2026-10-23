@@ -19,6 +19,7 @@ import type { Prevision } from '../meteo';
 import type { Evenement } from '../agenda';
 import type { createTaskCheck, createArming } from '../cochage';
 import type { AnimationEnCours } from '../animation';
+import type { DeclarationSource } from '../media';
 import type { ConnexionLike, DependancesDemarrage } from './types';
 import { newPantryState, type PantryState } from './pantry';
 import { newVacuumState, type VacuumState } from './vacuum';
@@ -156,6 +157,14 @@ export class ScreenState {
   // below): one token per call to `reveiller()`, a single winner, see its docstring.
   reveilNuit = false;
   jetonReveil = 0;
+
+  /** The media sources shared by the house (`home_desk/maison`), loaded with the screen; the
+   *  page reloads when they change, so they are fixed for its lifetime. */
+  house: DeclarationSource[] = [];
+  /** The `nom` of a remote source paused FROM this tablet: the card stays while it is paused
+   *  (`pickSource`, `media-choice.ts`), and `settlePin` drops it on every frame once it no longer
+   *  applies. */
+  pinnedMedia: string | undefined;
 
   // Task 15 review (I1): the starting point of the media progress rail, recomputed on every
   // `dessiner()` and consumed by the one-second tick armed in `wireScreen`. `null` = nothing to
