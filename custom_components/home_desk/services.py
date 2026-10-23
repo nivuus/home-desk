@@ -78,7 +78,8 @@ def _entree(hass: HomeAssistant):
 
 
 async def _async_exporter(call: ServiceCall) -> None:
-    """`home_desk.exporter`: writes ALL the entry's current screens to
+    """`home_desk.exporter`: writes ALL the entry's current screens, then the
+    shared house source list when there is one (`maison:`), to
     `config/home_desk_ecrans.yaml`, `note` as comments (see
     `yaml_ecrans.rendre`). `titre` (`ConfigSubentry.title`) is included
     alongside the contract fields -- renaming the title alone (websocket.py
@@ -87,16 +88,19 @@ async def _async_exporter(call: ServiceCall) -> None:
     hass = call.hass
     entry = _entree(hass)
     ecrans = [{"titre": subentry.title, **subentry.data} for subentry in garde_ecran.screen_subentries(entry)]
-    texte = yaml_ecrans.rendre(ecrans)
+    house = garde_ecran.house_subentry(entry)
+    maison = None if house is None else {"sources": house.data["sources"]}
+    texte = yaml_ecrans.rendre(ecrans, maison)
     chemin = pathlib.Path(hass.config.path(SCREENS_EXPORT_FILE))
     await hass.async_add_executor_job(_write_file, chemin, texte)
 
 
 async def _async_importer(call: ServiceCall) -> None:
     """`home_desk.importer`: reads `config/home_desk_ecrans.yaml` back and
-    REPLACES all of the entry's subentries with its content -- see
-    `garde_ecran.importer_ecrans` for the ATOMIC guarantee (all or
-    nothing) and why it is a replacement, never a merge.
+    REPLACES the entry's screens AND its house source list with its content:
+    the file is the whole truth, so a file without `maison:` leaves no house
+    subentry behind. See `garde_ecran.importer_ecrans` for the ATOMIC
+    guarantee (all or nothing) and why it is a replacement, never a merge.
 
     Three distinct faults, never conflated under a generic message: the
     file is unreadable (`OSError` -- missing, permissions...), it is not
@@ -115,7 +119,7 @@ async def _async_importer(call: ServiceCall) -> None:
     except OSError as err:
         raise HomeAssistantError(f"impossible de lire {chemin} : {err}") from err
     try:
-        ecrans_bruts = yaml_ecrans.lire(texte)
+        ecrans_bruts, maison = yaml_ecrans.lire(texte)
     except (yaml.YAMLError, ValueError) as err:
         raise HomeAssistantError(f"{chemin} n'est pas exploitable : {err}") from err
 
@@ -131,7 +135,7 @@ async def _async_importer(call: ServiceCall) -> None:
         ecrans.append((titre, screen_data))
 
     try:
-        garde_ecran.importer_ecrans(hass, entry, ecrans)
+        garde_ecran.importer_ecrans(hass, entry, ecrans, maison)
     except vol.Invalid as err:
         raise HomeAssistantError(f"import refuse, rien n'a ete ecrit : {err}") from err
 

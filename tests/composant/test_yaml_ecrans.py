@@ -62,13 +62,13 @@ def test_lire_quand_un_element_d_ecrans_n_est_pas_un_mapping_LEVE():
 
 def test_un_commentaire_au_dessus_d_ecrans_est_ignore():
     texte = "# En-tete orpheline\n" + _ECRAN_MINIMAL_TEXTE
-    assert yaml_ecrans.lire(texte)[0].get("note") is None
+    assert yaml_ecrans.lire(texte)[0][0].get("note") is None
 
 
 def test_un_commentaire_au_milieu_des_champs_est_ignore():
     texte = _ECRAN_MINIMAL_TEXTE.replace(
         "  temperature: sensor.t\n", "  # milieu orpheline\n  temperature: sensor.t\n")
-    assert yaml_ecrans.lire(texte)[0].get("note") is None
+    assert yaml_ecrans.lire(texte)[0][0].get("note") is None
 
 
 def test_un_commentaire_entre_ecrans_et_le_premier_tiret_est_ignore():
@@ -77,7 +77,7 @@ def test_un_commentaire_entre_ecrans_et_le_premier_tiret_est_ignore():
     bonne colonne » (la regle actuelle) -- sans cette seconde regle, il
     devenait une note RACINE INVENTEE sur le premier ecran."""
     texte = "ecrans:\n# entre les deux\n" + _ECRAN_MINIMAL_TEXTE[len("ecrans:\n"):]
-    assert yaml_ecrans.lire(texte)[0].get("note") is None
+    assert yaml_ecrans.lire(texte)[0][0].get("note") is None
 
 
 # ---------------------------------------------------------------------------
@@ -104,7 +104,7 @@ def test_une_note_avec_espaces_de_tete_ou_de_queue_survit_a_l_aller_retour():
     d'une note editee a la main ou saisie ainsi."""
     ecran = _ecran_avec_note_de_commande("  espaces de tete et de queue  ")
     texte = yaml_ecrans.rendre([ecran])
-    assert yaml_ecrans.lire(texte) == [ecran]
+    assert yaml_ecrans.lire(texte)[0] == [ecran]
 
 
 def test_une_note_multiligne_est_aplatie_pas_perdue_ni_cassee():
@@ -117,7 +117,7 @@ def test_une_note_multiligne_est_aplatie_pas_perdue_ni_cassee():
     ecran reel de ce depot ne porte de note multiligne aujourd'hui."""
     ecran = _ecran_avec_note_de_commande("premiere ligne\nseconde ligne")
     texte = yaml_ecrans.rendre([ecran])
-    resultat = yaml_ecrans.lire(texte)
+    resultat = yaml_ecrans.lire(texte)[0]
     assert resultat[0]["commandes"][0]["note"] == "premiere ligne seconde ligne"
 
 
@@ -147,4 +147,27 @@ def test_une_note_multiligne_jointe_survit_a_l_aller_retour():
         "ambiances": [], "commandes": [], "synthese": [],
         "extrasMaison": [], "sources": [], "ouvrants": [],
     }
-    assert yaml_ecrans.lire(yaml_ecrans.rendre([ecran])) == [ecran]
+    assert yaml_ecrans.lire(yaml_ecrans.rendre([ecran]))[0] == [ecran]
+
+
+# ---------------------------------------------------------------------------
+# The shared house source list: an optional `maison:` key after `ecrans:`.
+# ---------------------------------------------------------------------------
+
+
+def test_lire_without_maison_returns_no_house():
+    assert yaml_ecrans.lire(_ECRAN_MINIMAL_TEXTE)[1] is None
+
+
+def test_maison_round_trips_with_source_notes_as_comments():
+    maison = {"sources": [{"note": "Why this one", "nom": "TV", "piece": "Salon"}]}
+    texte = yaml_ecrans.rendre([], maison)
+    assert texte.startswith("ecrans: []\nmaison:\n")
+    assert "# Why this one" in texte
+    assert "note:" not in texte
+    assert yaml_ecrans.lire(texte) == ([], maison)
+
+
+def test_lire_refuses_a_maison_that_is_not_a_mapping():
+    with pytest.raises(ValueError):
+        yaml_ecrans.lire("ecrans: []\nmaison: 3\n")

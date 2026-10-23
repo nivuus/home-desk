@@ -185,27 +185,83 @@ async def test_screen_source_offers_the_optional_room(hass, entree):
     assert entry.subentries[subentry_id].data["sources"][0]["piece"] == "Salon"
 
 
-async def test_screen_export_and_import_leave_the_house_alone(hass, entree):
-    """The YAML round trip carries screens only (until Task 3 extends it):
-    export must not write the house as a screen, and import, which replaces
-    the screens, must keep the house subentry."""
+def _export_path(hass):
     import pathlib
+    return pathlib.Path(hass.config.path("home_desk_ecrans.yaml"))
 
+
+async def test_export_import_round_trip_keeps_house_sources(hass, entree):
+    """The file carries the house list after `ecrans:`; a `note` on a house
+    source travels as a comment, like a screen note, and survives import."""
     from custom_components.home_desk import yaml_ecrans
 
-    chemin = pathlib.Path(hass.config.path("home_desk_ecrans.yaml"))
+    chemin = _export_path(hass)
     chemin.unlink(missing_ok=True)
     try:
         await _creer_ecran(hass, entree, nom="salon")
         await _create_house(hass, entree)
         await _add_source_through_flow(hass, entree, SOURCE_BEDROOM)
+        _entry, house = _house(hass, entree)
+        noted = {**SOURCE_BEDROOM, "note": "Only the bedroom TV"}
+        garde_ecran.persist_house_if_valid(
+            hass, _entry, house, {"version": 1, "sources": [noted]})
 
         await hass.services.async_call(DOMAIN, "exporter", blocking=True)
-        exported = yaml_ecrans.lire(chemin.read_text(encoding="utf-8"))
-        assert [e["nom"] for e in exported] == ["salon"]
+        texte = chemin.read_text(encoding="utf-8")
+        assert texte.index("ecrans:") < texte.index("maison:")
+        assert "# Only the bedroom TV" in texte
+        assert "note:" not in texte
+        ecrans, maison = yaml_ecrans.lire(texte)
+        assert [e["nom"] for e in ecrans] == ["salon"]
+        assert maison == {"sources": [noted]}
 
         await hass.services.async_call(DOMAIN, "importer", blocking=True)
-        _entry, house = _house(hass, entree)
-        assert house.data["sources"] == [SOURCE_BEDROOM]
+        entry, house = _house(hass, entree)
+        assert house.data == {"version": 1, "sources": [noted]}
+        assert [s.title for s in entry.subentries.values() if s.subentry_type == "ecran"] == ["salon"]
+    finally:
+        chemin.unlink(missing_ok=True)
+
+
+async def test_import_without_maison_removes_house_subentry(hass, entree):
+    """The file is the whole truth: no `maison:` key, no house afterwards."""
+    chemin = _export_path(hass)
+    chemin.unlink(missing_ok=True)
+    try:
+        await _creer_ecran(hass, entree, nom="salon")
+        await hass.services.async_call(DOMAIN, "exporter", blocking=True)
+        assert "maison:" not in chemin.read_text(encoding="utf-8")
+        await _create_house(hass, entree)
+        await _add_source_through_flow(hass, entree, SOURCE_BEDROOM)
+
+        await hass.services.async_call(DOMAIN, "importer", blocking=True)
+        entry = hass.config_entries.async_get_entry(entree.entry_id)
+        assert [s for s in entry.subentries.values() if s.subentry_type == HOUSE] == []
+        assert len(entry.subentries) == 1
+    finally:
+        chemin.unlink(missing_ok=True)
+
+
+async def test_import_with_invalid_house_writes_nothing(hass, entree):
+    """An invalid house refuses the whole import: screens and house stay as
+    they were."""
+    from homeassistant.exceptions import HomeAssistantError
+
+    chemin = _export_path(hass)
+    chemin.unlink(missing_ok=True)
+    try:
+        await _creer_ecran(hass, entree, nom="salon")
+        await _create_house(hass, entree)
+        await _add_source_through_flow(hass, entree, SOURCE_BEDROOM)
+        await hass.services.async_call(DOMAIN, "exporter", blocking=True)
+        texte = chemin.read_text(encoding="utf-8")
+        chemin.write_text(texte.replace("piece: Chambre", "piece: ''"), encoding="utf-8")
+        entry = hass.config_entries.async_get_entry(entree.entry_id)
+        avant = {k: (s.title, dict(s.data)) for k, s in entry.subentries.items()}
+
+        with pytest.raises(HomeAssistantError):
+            await hass.services.async_call(DOMAIN, "importer", blocking=True)
+        apres = {k: (s.title, dict(s.data)) for k, s in entry.subentries.items()}
+        assert apres == avant
     finally:
         chemin.unlink(missing_ok=True)

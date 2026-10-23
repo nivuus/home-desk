@@ -204,7 +204,7 @@ async def test_exporter_sans_aucun_ecran_ecrit_une_liste_vide(hass, entree):
 
     texte = _chemin_export(hass).read_text(encoding="utf-8")
 
-    assert yaml_ecrans.lire(texte) == []
+    assert yaml_ecrans.lire(texte) == ([], None)
 
 
 # ---------------------------------------------------------------------------

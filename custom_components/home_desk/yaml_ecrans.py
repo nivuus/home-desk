@@ -81,6 +81,7 @@ from typing import Any
 import yaml
 
 CLE_RACINE = "ecrans"
+CLE_MAISON = "maison"
 
 
 def _scalaire(value: Any) -> str:
@@ -176,19 +177,24 @@ def _normaliser_note(note: str) -> str:
     return note.replace("\n", " ")
 
 
-def rendre(ecrans: list[dict]) -> str:
+def rendre(ecrans: list[dict], maison: dict | None = None) -> str:
     """The complete YAML text of the export file. `ecrans`: a sequence of
     dicts, each the union of "titre" (`ConfigSubentry.title`, an HA field
     that does not belong to the contract but that the round-trip must
     preserve -- see `websocket.ws_ecrans`) and of every `schema.ECRAN` key
     the subentry carries, "note" included wherever the contract allows it:
     this function takes care of it, the caller has NOTHING to remove before
-    calling `rendre`."""
-    if not ecrans:
-        return f"{CLE_RACINE}: []\n"
-    lignes = [f"{CLE_RACINE}:"]
+    calling `rendre`.
+
+    `maison`: the shared house source list (`{"sources": [...]}`, the
+    `version` is the importer's business, not the file's), written after
+    `ecrans:` with the same note-to-comment mechanism; `None` writes no
+    `maison:` key at all -- which `lire` reads back as "no house"."""
+    lignes = [f"{CLE_RACINE}: []"] if not ecrans else [f"{CLE_RACINE}:"]
     for ecran in ecrans:
         lignes.extend(_rendre_element(ecran, 2))
+    if maison is not None:
+        lignes.extend(_rendre_champ(CLE_MAISON, maison, 0))
     return "\n".join(lignes) + "\n"
 
 
@@ -249,13 +255,15 @@ def _construire(loader: yaml.SafeLoader, noeud: yaml.Node, commentaires: dict[in
     return loader.construct_object(noeud, deep=True)
 
 
-def lire(texte: str) -> list[dict]:
-    """The inverse of `rendre`: returns the sequence of dicts (title +
-    screen fields, note rebuilt from the comments) that a text produced by
-    `rendre` encodes. Raises `yaml.YAMLError` if TEXTE is not syntactically
-    valid YAML; `ValueError` if it is but does not carry the expected shape
-    (no "ecrans" key, or a value that is not a sequence of mappings) -- two
-    distinct faults, never conflated under a single generic message."""
+def lire(texte: str) -> tuple[list[dict], dict | None]:
+    """The inverse of `rendre`: returns (screens, house). The screens are the
+    sequence of dicts (title + screen fields, note rebuilt from the
+    comments); the house is the `maison:` mapping (notes rebuilt the same
+    way) or `None` when the key is absent. Raises `yaml.YAMLError` if TEXTE
+    is not syntactically valid YAML; `ValueError` if it is but does not
+    carry the expected shape (no "ecrans" key, a value that is not a
+    sequence of mappings, a `maison` that is not a mapping) -- distinct
+    faults, never conflated under a single generic message."""
     commentaires = _lignes_commentaires(texte)
     loader = yaml.SafeLoader(texte)
     try:
@@ -270,4 +278,7 @@ def lire(texte: str) -> list[dict]:
     ecrans = document[CLE_RACINE]
     if not isinstance(ecrans, list) or not all(isinstance(e, dict) for e in ecrans):
         raise ValueError(f"{CLE_RACINE!r} doit etre une liste d'ecrans (un mapping chacun)")
-    return ecrans
+    maison = document.get(CLE_MAISON)
+    if CLE_MAISON in document and not isinstance(maison, dict):
+        raise ValueError(f"{CLE_MAISON!r} doit etre un mapping portant la liste 'sources'")
+    return ecrans, maison

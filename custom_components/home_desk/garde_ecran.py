@@ -65,7 +65,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigSubentry
 
 from . import libelles, schema
-from .const import ERROR_SCREEN_WOULD_BECOME_INVALID, SUBENTRY_SCREEN, VERSION_CONFIG
+from .const import ERROR_SCREEN_WOULD_BECOME_INVALID, SUBENTRY_HOUSE, SUBENTRY_SCREEN, VERSION_CONFIG
 
 
 def screen_subentries(entry: Any) -> list[Any]:
@@ -73,6 +73,11 @@ def screen_subentries(entry: Any) -> list[Any]:
     that means "the screens" goes through here (websocket listing and
     resolution, name uniqueness, export, the change listener)."""
     return [s for s in entry.subentries.values() if s.subentry_type == SUBENTRY_SCREEN]
+
+
+def house_subentry(entry: Any) -> Any | None:
+    """The house subentry of ENTRY (at most one), or `None`."""
+    return next((s for s in entry.subentries.values() if s.subentry_type == SUBENTRY_HOUSE), None)
 
 
 def noms_utilises(entry: Any, *, exclure: str | None = None) -> frozenset[str]:
@@ -179,7 +184,7 @@ def persister_si_valide(
     return True
 
 
-def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]]) -> None:
+def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]], maison: dict | None) -> None:
     """Task 9: the SECOND legitimate write site of this module -- the BULK
     CREATION path this guard protects, for `home_desk.importer`
     (services.py). `ecrans`: a list of (title, screen data), each
@@ -196,9 +201,14 @@ def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]]) -> No
     refusal (brief docstring). The second builds the `ConfigSubentry`
     objects and writes only once the first has passed in full.
 
-    ENTIRELY REPLACES the current SCREEN subentries of `entry` -- never a
-    merge. The house subentry (`SUBENTRY_HOUSE`) is not a screen and is
-    kept as it is: this file carries screens only.
+    `maison`: the house source list read from the file (`{"sources": [...]}`)
+    or `None`. It is validated with `schema.validate_house` in the SAME first
+    pass as the screens (its `version` is set when absent, like a screen's)
+    and written in the SAME single write.
+
+    ENTIRELY REPLACES the current subentries of `entry` -- screens AND house,
+    never a merge: `maison` present creates or replaces the house subentry,
+    `maison` absent leaves NO house subentry afterwards.
     It is the most honest reading of an "import" symmetrical to an "export"
     which, for its part, enumerates ALL the current screens (see
     services.py): the file is the whole truth, not a delta. It is also the
@@ -300,10 +310,22 @@ def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]]) -> No
         (titre, schema.valider(screen_data)) for titre, screen_data in ecrans_normalises
     ]
 
+    house_valide = None
+    if maison is not None:
+        house_valide = schema.validate_house({"version": schema.VERSION_MAISON, **maison})
+
     new_subentries: dict[str, ConfigSubentry] = {
         subentry_id: subentry for subentry_id, subentry in entry.subentries.items()
-        if subentry.subentry_type != SUBENTRY_SCREEN
+        if subentry.subentry_type not in (SUBENTRY_SCREEN, SUBENTRY_HOUSE)
     }
+    if house_valide is not None:
+        house = ConfigSubentry(
+            data=MappingProxyType(house_valide),
+            subentry_type=SUBENTRY_HOUSE,
+            title=libelles.house_title(hass),
+            unique_id=None,
+        )
+        new_subentries[house.subentry_id] = house
     for titre, screen_data in ecrans_valides:
         subentry = ConfigSubentry(
             data=MappingProxyType(screen_data),
