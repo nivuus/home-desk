@@ -140,7 +140,7 @@ export function wireScreen(s: ScreenState, jetons: Jetons): void {
   };
   // Pausing a remote source from here pins it (`media-choice.ts`); `settlePin` drops the pin on
   // the next frame if it does not apply. The poster tones arrive asynchronously: repaint then.
-  brancherMedia(agir, (key) => { s.pinnedMedia = key; });
+  brancherMedia(agir, (key) => { s.pinnedMedia = key; }, s.dessiner);
   onTonesReady(s.dessiner);
   brancherModes(agir);
   brancherMinuteurs(s, agir);

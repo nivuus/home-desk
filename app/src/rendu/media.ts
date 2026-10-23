@@ -26,9 +26,13 @@ let agir: (domaine: string, service: string, entite: string, donnees?: Record<st
 /** Pins a remote source (by `sourceKey`) so that pausing it from here keeps the card on screen
  *  (`pickSource`, `media-choice.ts`). */
 let epingler: (key: string) => void = () => {};
-export function brancherMedia(fn: typeof agir, pin: (key: string) => void) {
+/** Repaints the screen (`dessiner`): the volume row shows a pressed level through a render,
+ *  never by writing outside lit (`rendu/media-volume.ts`). */
+let repeindre: () => void = () => {};
+export function brancherMedia(fn: typeof agir, pin: (key: string) => void, repaint: () => void = () => {}) {
   agir = fn;
   epingler = pin;
+  repeindre = repaint;
 }
 
 /** Hardens a poster URL before it lands in `style="background-image:url('…')"`: `lit` escapes
@@ -57,7 +61,8 @@ const remaining = (a: Ancre, elapsed: number): string =>
 
 /** The per-second tick (`tictacProgression`, `boot/timers.ts`): rewrites the elapsed and
  *  remaining times and, when `moveRail`, the bar — from the SAME anchor at the SAME instant, so
- *  the text and the bar never disagree. No `lit` render: the times are written into their
+ *  the text and the bar never disagree. The one exception is `?mouvement=aucun` (`moveRail`
+ *  false): the times keep moving and the bar waits for the next `dessiner()`. No `lit` render: the times are written into their
  *  existing text nodes (`writeTime`) and the bar through `--progression`; the next `dessiner()`
  *  rewrites the exact values anyway. */
 export function writeProgress(card: HTMLElement, a: Ancre, horlogeMs: number, moveRail: boolean): void {
@@ -157,6 +162,6 @@ export function rendreCarteMedia(
       </div>
       ${progressRow(ancre)}
       ${transportRow(s, remote)}
-      ${volumeRow(s.volume, agir)}
+      ${volumeRow(s.volume, agir, () => repeindre())}
     </div>`;
 }

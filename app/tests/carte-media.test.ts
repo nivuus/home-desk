@@ -9,6 +9,7 @@ import { sourceKey } from '../src/media-choice';
 import type { SourceResolue } from '../src/media';
 import type { ToneState } from '../src/rendu/poster-sampler';
 import type { CardTones } from '../src/tones';
+import { PENDING_MS } from '../src/rendu/media-volume';
 
 const BASE: SourceResolue = {
   nom: 'Télévision', piece: 'Chambre', joue: true, active: true, allumee: true,
@@ -240,8 +241,9 @@ describe('media card — actions', () => {
   });
 
   it('+ sets the volume 5 % higher and shows it at once', () => {
+    vi.useFakeTimers();
     const act = vi.fn();
-    brancherMedia(act, vi.fn());
+    brancherMedia(act, vi.fn(), () => rendre(BASE));
     const c = rendre(BASE);
     const plus = c.querySelector('[data-mvt="detail:volume-plus"]')!;
     plus.dispatchEvent(new Event('pointerdown'));
@@ -255,6 +257,8 @@ describe('media card — actions', () => {
     plus.dispatchEvent(new Event('pointerup'));
     expect(act).toHaveBeenLastCalledWith('media_player', 'volume_set', 'media_player.philips',
       { volume_level: 0.5 });
+    vi.advanceTimersByTime(PENDING_MS);   // let the optimistic level expire for the other tests
+    vi.useRealTimers();
   });
 
   it('step-only volume calls volume_up / volume_down', () => {
