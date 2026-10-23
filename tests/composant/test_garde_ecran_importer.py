@@ -15,7 +15,13 @@ l'ancien fichier."""
 import voluptuous as vol
 import pytest
 
+from types import SimpleNamespace
+
 from custom_components.home_desk import garde_ecran
+
+# An entry with no subentry yet: `importer_ecrans` keeps the non-screen
+# subentries (the house) it finds there, so the fake must carry the field.
+_ENTREE_VIDE = SimpleNamespace(subentries={})
 
 
 def test_importer_ecrans_valide_tout_avant_d_ecrire_quoi_que_ce_soit():
@@ -43,7 +49,7 @@ def test_importer_ecrans_valide_tout_avant_d_ecrire_quoi_que_ce_soit():
     ]
 
     with pytest.raises(vol.Invalid):
-        garde_ecran.importer_ecrans(hass=_HassFactice(), entry=object(), ecrans=ecrans)
+        garde_ecran.importer_ecrans(hass=_HassFactice(), entry=_ENTREE_VIDE, ecrans=ecrans)
 
 
 def test_importer_ecrans_ecrit_en_UNE_SEULE_FOIS():
@@ -88,7 +94,7 @@ def test_importer_ecrans_ecrit_en_UNE_SEULE_FOIS():
         }),
     ]
 
-    garde_ecran.importer_ecrans(hass=_HassFactice(), entry=object(), ecrans=ecrans)
+    garde_ecran.importer_ecrans(hass=_HassFactice(), entry=_ENTREE_VIDE, ecrans=ecrans)
 
     appels = _HassFactice.config_entries.appels
     assert len(appels) == 1, f"attendu UNE seule ecriture, obtenu {len(appels)}"
@@ -132,7 +138,7 @@ def test_importer_ecrans_persiste_la_valeur_VALIDEE_pas_le_brut_normalise():
         }),
     ]
 
-    garde_ecran.importer_ecrans(hass=_HassFactice(), entry=object(), ecrans=ecrans)
+    garde_ecran.importer_ecrans(hass=_HassFactice(), entry=_ENTREE_VIDE, ecrans=ecrans)
 
     appels = _HassFactice.config_entries.appels
     (sous_entree,) = appels[0][2]["subentries"].values()
@@ -172,7 +178,7 @@ def test_importer_ecrans_persiste_le_nom_STRIPPE_pas_le_brut():
         }),
     ]
 
-    garde_ecran.importer_ecrans(hass=_HassFactice(), entry=object(), ecrans=ecrans)
+    garde_ecran.importer_ecrans(hass=_HassFactice(), entry=_ENTREE_VIDE, ecrans=ecrans)
 
     appels = _HassFactice.config_entries.appels
     (sous_entree,) = appels[0][2]["subentries"].values()

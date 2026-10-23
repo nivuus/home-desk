@@ -238,6 +238,7 @@
           "description": "Fill in only the entities this source uses; leave the other fields empty.",
           "data": {
             "nom": "Name",
+            "piece": "Room",
             "titre": "Title entities",
             "sousTitre": "Subtitle entities",
             "affiche": "Cover art entities",
@@ -348,6 +349,64 @@
       },
       "create_entry": {
         "default": "The screen has been created.{entites_inconnues}"
+      }
+    },
+    "maison": {
+      "entry_type": "House",
+      "initiate_flow": {
+        "user": "House media sources"
+      },
+      "step": {
+        "sources": {
+          "title": "House media sources",
+          "description": "The sources shared by every tablet. Choose an existing source to edit, move or delete it, or tick \"Add\" for a new one.{entites_inconnues}",
+          "data": {
+            "choix": "Existing source",
+            "nouveau": "Add a new source"
+          }
+        },
+        "sources_element": {
+          "title": "House media source",
+          "description": "The room this source plays in is required. Fill in only the entities this source uses; leave the other fields empty.",
+          "data": {
+            "nom": "Name",
+            "piece": "Room",
+            "titre": "Title entities",
+            "sousTitre": "Subtitle entities",
+            "affiche": "Cover art entities",
+            "progression": "Progress entities",
+            "transport": "Transport entities",
+            "volume": "Volume entities",
+            "allumee_entite": "\"On\" entity (optional)",
+            "allumee_etats": "\"On\" states, comma-separated",
+            "note": "Note",
+            "geste": "Action"
+          }
+        }
+      },
+      "error": {
+        "champ_vide": "This field cannot be empty.",
+        "champ_invalide": "This field is not valid.",
+        "champ_requis": "This field must be filled in.",
+        "champ_format_invalide": "This field does not match the expected format.",
+        "champ_type_invalide": "This field does not have the expected type.",
+        "champ_trop_court": "This field is too short.",
+        "champ_valeur_non_autorisee": "This value is not allowed for this field.",
+        "champ_inconnu": "This field is not recognized.",
+        "champ_valeur_figee": "This field can only take a single value.",
+        "champ_trop_peu_d_elements": "This field does not have enough items.",
+        "champ_trop_d_elements": "This field has too many items.",
+        "champ_doublon": "This field contains a duplicate.",
+        "champ_element_requis": "This list must contain a value the screen requires (\"Commands\" for zones, \"Default\" for modes).",
+        "selection_manquante": "Check \"Add\" for a new item; if the list isn't empty, you can also pick an existing one.",
+        "allumee_incomplet": "Fill in both the \"on\" entity and its states, or clear them both.",
+        "maison_deviendrait_invalide": "This change would make the house source list invalid: it was not saved."
+      },
+      "abort": {
+        "already_configured": "The house is already configured: edit its sources from the existing subentry."
+      },
+      "create_entry": {
+        "default": "The house media sources were created. Reconfigure this subentry to add some."
       }
     }
   },

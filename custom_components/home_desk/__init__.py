@@ -71,8 +71,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-from . import animations, aspirateurs, migration, services, websocket
-from .const import DOMAIN, EVENEMENT_CHANGEMENT
+from . import animations, aspirateurs, garde_ecran, migration, services, websocket
+from .const import DOMAIN, EVENEMENT_CHANGEMENT, SUBENTRY_HOUSE
 from .page import async_register_page
 
 __all__ = ["DOMAIN", "async_setup", "async_setup_entry", "async_unload_entry"]
@@ -100,6 +100,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     migration.migrate_subentries(hass, entry)
     websocket_api.async_register_command(hass, websocket.ws_ecran)
     websocket_api.async_register_command(hass, websocket.ws_ecrans)
+    websocket_api.async_register_command(hass, websocket.ws_maison)
     websocket_api.async_register_command(hass, websocket.ws_abonner)
     websocket_api.async_register_command(hass, websocket.ws_animations)
     websocket_api.async_register_command(hass, aspirateurs.ws_aspirateurs)
@@ -115,9 +116,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     #
     # Review round 2 (Minor): the `(data, titre)` tuple, not only `data` --
     # see the module docstring.
+    #
+    # `house_ids` remembers which snapshot is the house subentry
+    # (`maison.py`): it has no `nom`, and once deleted its type can no longer
+    # be read from `entry.subentries` -- its change concerns EVERY screen.
     last_state: dict[str, tuple[Any, str]] = {
         subentry.subentry_id: (subentry.data, subentry.title)
         for subentry in entry.subentries.values()
+    }
+    house_ids: set[str] = {
+        subentry.subentry_id for subentry in entry.subentries.values()
+        if subentry.subentry_type == SUBENTRY_HOUSE
     }
 
     async def _async_sur_mise_a_jour(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -138,13 +147,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         the old name would otherwise never learn it (it only listens for
         that name). Comparing the WHOLE state, not `nom` alone, remains
         necessary besides: a change that leaves the name unchanged (adding
-        a tile, renaming only the title) must notify too."""
+        a tile, renaming only the title) must notify too.
+
+        The HOUSE subentry (`SUBENTRY_HOUSE`) carries no `nom`: its sources
+        are shown by every tablet, so its creation, change or deletion
+        fires the name of EVERY current screen, once each, after the
+        screen names above (never twice for the same name in one pass)."""
+        noms: list[Any] = []
+
+        def _signaler(nom: Any) -> None:
+            if nom is not None and nom not in noms:
+                noms.append(nom)
+
+        house_changed = False
         ids_actuels = set(entry.subentries)
         for subentry_id in [i for i in last_state if i not in ids_actuels]:
             vanished_data, _titre_disparu = last_state.pop(subentry_id)
-            nom_disparu = vanished_data.get("nom")
-            if nom_disparu is not None:
-                hass.bus.async_fire(EVENEMENT_CHANGEMENT, {"nom": nom_disparu})
+            if subentry_id in house_ids:
+                house_ids.discard(subentry_id)
+                house_changed = True
+            else:
+                _signaler(vanished_data.get("nom"))
 
         for subentry in entry.subentries.values():
             previous_state = last_state.get(subentry.subentry_id)
@@ -152,11 +175,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             if previous_state == etat_apres:
                 continue
             last_state[subentry.subentry_id] = etat_apres
+            if subentry.subentry_type == SUBENTRY_HOUSE:
+                house_ids.add(subentry.subentry_id)
+                house_changed = True
+                continue
             nom_apres = subentry.data.get("nom")
             previous_name = previous_state[0].get("nom") if previous_state is not None else None
             if previous_name is not None and previous_name != nom_apres:
-                hass.bus.async_fire(EVENEMENT_CHANGEMENT, {"nom": previous_name})
-            hass.bus.async_fire(EVENEMENT_CHANGEMENT, {"nom": nom_apres})
+                _signaler(previous_name)
+            _signaler(nom_apres)
+
+        if house_changed:
+            for ecran in garde_ecran.screen_subentries(entry):
+                _signaler(ecran.data.get("nom"))
+        for nom in noms:
+            hass.bus.async_fire(EVENEMENT_CHANGEMENT, {"nom": nom})
 
     entry.async_on_unload(entry.add_update_listener(_async_sur_mise_a_jour))
     return True

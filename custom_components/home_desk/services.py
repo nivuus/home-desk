@@ -86,7 +86,7 @@ async def _async_exporter(call: ServiceCall) -> None:
     trip, not only the fields of `schema.ECRAN`."""
     hass = call.hass
     entry = _entree(hass)
-    ecrans = [{"titre": subentry.title, **subentry.data} for subentry in entry.subentries.values()]
+    ecrans = [{"titre": subentry.title, **subentry.data} for subentry in garde_ecran.screen_subentries(entry)]
     texte = yaml_ecrans.rendre(ecrans)
     chemin = pathlib.Path(hass.config.path(SCREENS_EXPORT_FILE))
     await hass.async_add_executor_job(_write_file, chemin, texte)

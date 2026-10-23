@@ -23,6 +23,7 @@ that task 6 had already corrected for `SECTIONS`.
 """
 from __future__ import annotations
 
+from functools import partial
 from typing import Any
 
 import voluptuous as vol
@@ -34,7 +35,8 @@ from .const import ACTION_SAVE
 from .list_common import ChampVide, Section, _fusionner, _selecteur_entite, _selecteur_geste
 
 CHAMPS_SOURCE = frozenset(
-    {"nom", "titre", "sousTitre", "affiche", "progression", "transport", "volume", "allumee", "note"}
+    {"nom", "piece", "titre", "sousTitre", "affiche", "progression", "transport", "volume", "allumee",
+     "note"}
 )
 
 _CHAMPS_MULTI_ENTITES = ("titre", "sousTitre", "affiche", "progression", "transport", "volume")
@@ -64,7 +66,7 @@ class AllumeeIncomplete(Exception):
         super().__init__(champ_vide)
 
 
-def _schema_source(editable: bool) -> vol.Schema:
+def _schema_source(editable: bool, *, piece_requise: bool = False) -> vol.Schema:
     """Review round 1 (Important I5): the six multi-entity fields were
     `vol.Required(...)` WITHOUT a `default` — the SAME fault that the
     `objets.py` docstring spells out for `zones`/`modes`/`modulateurs`
@@ -77,9 +79,14 @@ def _schema_source(editable: bool) -> vol.Schema:
     source with a single entity set filled in (the rest left empty) is
     already VALID in the contract's sense — `default=list` only assumes
     what the contract already allows, never one more invented
-    constraint."""
+    constraint.
+
+    `piece` (the room the source plays in) is optional on a screen source
+    and REQUIRED on a house source (`piece_requise`, contrat/maison.schema.json).
+    """
     champs: dict[Any, Any] = {
         vol.Required("nom"): str,
+        (vol.Required if piece_requise else vol.Optional)("piece"): str,
         vol.Optional("titre", default=list): _selecteur_entite_multiple(),
         vol.Optional("sousTitre", default=list): _selecteur_entite_multiple(),
         vol.Optional("affiche", default=list): _selecteur_entite_multiple(),
@@ -95,7 +102,9 @@ def _schema_source(editable: bool) -> vol.Schema:
     return vol.Schema(champs)
 
 
-def _build_source_data(user_input: dict[str, Any], existant: dict | None) -> dict:
+def _build_source_data(
+    user_input: dict[str, Any], existant: dict | None, *, piece_requise: bool = False
+) -> dict:
     """`allumee_etats` is entered as a comma-separated list: the contract
     has no HA equivalent with a variable number of inputs for a short
     `list[str]`. Review round 1 (Minor): this splitting has TWO real
@@ -104,10 +113,18 @@ def _build_source_data(user_input: dict[str, Any], existant: dict | None) -> dic
     require a non-empty state) — a state that itself contains a comma
     cannot be entered (no real HA state carries one, to date); an EMPTY
     segment between two commas (double comma, leading/trailing comma) is
-    silently DROPPED rather than refused."""
+    silently DROPPED rather than refused.
+
+    `piece` follows the same rule as `nom`: a value made only of spaces is
+    empty. Left empty, it is dropped on a screen source and refused on a
+    house source (`piece_requise`)."""
     if not (user_input.get("nom") or "").strip():
         raise ChampVide("nom")
     item_data: dict[str, Any] = {"nom": user_input["nom"]}
+    if (user_input.get("piece") or "").strip():
+        item_data["piece"] = user_input["piece"]
+    elif piece_requise:
+        raise ChampVide("piece")
     for champ in _CHAMPS_MULTI_ENTITES:
         item_data[champ] = list(user_input.get(champ) or [])
     entite = (user_input.get("allumee_entite") or "").strip()
@@ -139,5 +156,16 @@ SECTIONS: dict[str, Section] = {
     "sources": Section(
         "sources", lambda el: el["nom"], schema.SOURCE, _schema_source,
         _build_source_data, _display_source,
+    ),
+}
+
+# The house list (maison.py): the same fields, `piece` required, each item
+# validated against `schema.SOURCE_MAISON`. Same key, so the item step ids
+# (`sources`, `sources_element`) and their field labels match the screen's.
+HOUSE_SECTIONS: dict[str, Section] = {
+    "sources": Section(
+        "sources", lambda el: f"{el['nom']} ({el['piece']})", schema.SOURCE_MAISON,
+        partial(_schema_source, piece_requise=True),
+        partial(_build_source_data, piece_requise=True), _display_source,
     ),
 }

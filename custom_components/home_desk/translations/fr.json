@@ -238,6 +238,7 @@
           "description": "Renseignez uniquement les entités que cette source utilise ; laissez les autres champs vides.",
           "data": {
             "nom": "Nom",
+            "piece": "Pièce",
             "titre": "Entités de titre",
             "sousTitre": "Entités de sous-titre",
             "affiche": "Entités d'affiche",
@@ -348,6 +349,64 @@
       },
       "create_entry": {
         "default": "L'écran a été créé.{entites_inconnues}"
+      }
+    },
+    "maison": {
+      "entry_type": "Maison",
+      "initiate_flow": {
+        "user": "Sources média de la maison"
+      },
+      "step": {
+        "sources": {
+          "title": "Sources média de la maison",
+          "description": "Les sources partagées par toutes les tablettes. Choisissez une source existante pour la modifier, la déplacer ou la supprimer, ou cochez « Ajouter » pour une nouvelle.{entites_inconnues}",
+          "data": {
+            "nouveau": "Ajouter une nouvelle source",
+            "choix": "Source existante"
+          }
+        },
+        "sources_element": {
+          "title": "Source média de la maison",
+          "description": "La pièce où joue cette source est obligatoire. Renseignez uniquement les entités que cette source utilise ; laissez les autres champs vides.",
+          "data": {
+            "nom": "Nom",
+            "piece": "Pièce",
+            "titre": "Entités de titre",
+            "sousTitre": "Entités de sous-titre",
+            "affiche": "Entités d'affiche",
+            "progression": "Entités de progression",
+            "transport": "Entités de transport",
+            "volume": "Entités de volume",
+            "allumee_entite": "Entité « allumée » (facultatif)",
+            "allumee_etats": "États « allumée », séparés par des virgules",
+            "note": "Note",
+            "geste": "Action"
+          }
+        }
+      },
+      "error": {
+        "champ_vide": "Ce champ ne peut pas être vide.",
+        "champ_invalide": "Ce champ n'est pas valide.",
+        "champ_requis": "Ce champ doit être rempli.",
+        "champ_format_invalide": "Ce champ ne respecte pas le format attendu.",
+        "champ_type_invalide": "Ce champ n'a pas le type attendu.",
+        "champ_trop_court": "Ce champ est trop court.",
+        "champ_valeur_non_autorisee": "Cette valeur n'est pas autorisée pour ce champ.",
+        "champ_inconnu": "Ce champ n'est pas reconnu.",
+        "champ_valeur_figee": "Ce champ ne peut prendre qu'une seule valeur.",
+        "champ_trop_peu_d_elements": "Ce champ n'a pas assez d'éléments.",
+        "champ_trop_d_elements": "Ce champ a trop d'éléments.",
+        "champ_doublon": "Ce champ contient un doublon.",
+        "champ_element_requis": "Cette liste doit contenir un élément que l'écran exige (« Commandes » pour les zones, « Défaut » pour les modes).",
+        "selection_manquante": "Cochez « Ajouter » pour un nouvel élément ; si la liste n'est pas vide, vous pouvez aussi en choisir un existant.",
+        "allumee_incomplet": "Renseignez l'entité et les états « allumée », ou videz les deux champs.",
+        "maison_deviendrait_invalide": "Cette modification rendrait la liste des sources de la maison invalide : elle n'a pas été enregistrée."
+      },
+      "abort": {
+        "already_configured": "La maison est déjà configurée : modifiez ses sources depuis la sous-entrée existante."
+      },
+      "create_entry": {
+        "default": "Les sources média de la maison ont été créées. Reconfigurez cette sous-entrée pour en ajouter."
       }
     }
   },

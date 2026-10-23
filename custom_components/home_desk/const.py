@@ -34,9 +34,17 @@ VERSION_CONFIG = 2
 # The subentry type. One "Tablettes murales" entry, N "ecran" subentries
 # — adding a fourth tablet is the same operation as for the first three.
 SUBENTRY_SCREEN = "ecran"
+# The house subentry: at most ONE, holding the media sources shared by every
+# tablet (contrat/maison.schema.json). Every loop over `entry.subentries`
+# that means "the screens" filters on SUBENTRY_SCREEN, never on the absence
+# of this one.
+SUBENTRY_HOUSE = "maison"
 
 WS_ECRAN = f"{DOMAIN}/ecran"
 WS_ECRANS = f"{DOMAIN}/ecrans"
+# `home_desk/maison` -> {"sources": [...]}: the shared house sources,
+# `{"sources": []}` when no house subentry exists.
+WS_MAISON = f"{DOMAIN}/maison"
 # Subscription to EVENEMENT_CHANGEMENT for ONE screen. Home Assistant only
 # lets a non-admin user `subscribe_events` to a fixed allowlist
 # (websocket_api SUBSCRIBE_ALLOWLIST), and the tablets log in as a
@@ -230,6 +238,9 @@ ERROR_ALERT_NOT_FIRST = "alerte_pas_en_tete"
 # the contract - "minuteurs", "voiture", "agencement"...) rather than
 # letting a screen that became invalid persist silently.
 ERROR_SCREEN_WOULD_BECOME_INVALID = "ecran_deviendrait_invalide"
+# The house counterpart: `garde_ecran.persist_house_if_valid` refused the
+# complete house list, so nothing was written.
+ERROR_HOUSE_WOULD_BECOME_INVALID = "maison_deviendrait_invalide"
 
 # Task 8: the error codes of the websocket TRANSPORT (websocket.py), never
 # those of an input form -- ERROR_SCREEN_NOT_FOUND is the refusal of

@@ -1,4 +1,4 @@
-"""The transport: four websocket commands, and nothing else.
+"""The transport: five websocket commands, and nothing else.
 
 This module is what finally lets a tablet receive its configuration --
 tasks 1 to 7 only delivered the INPUT side (the integration, its sections,
@@ -46,7 +46,14 @@ message `{url, type, duree, fond}` each time `home_desk.jouer_animation`
 names that screen (see `animations.py`). Same door and same bookkeeping as
 `home_desk/abonner`, fed by a dispatcher signal rather than a bus event.
 
-All four commands are registered by `__init__.async_setup_entry`; the
+`home_desk/maison` -> {"sources": [...]}: the media sources shared by
+the whole house (the house subentry, `maison.py`), validated on read by
+`schema.validate_house` like a screen; `{"sources": []}` when no house
+subentry exists (a house without shared sources is a normal state, not an
+error); `ERROR_SCREEN_CORRUPT` when the stored list no longer honours the
+contract. Open to non-admin users, like every command here.
+
+All five commands are registered by `__init__.async_setup_entry`; the
 `EVENEMENT_CHANGEMENT` event is fired by an ENTRY UPDATE LISTENER, not by
 a call from this module -- see `__init__.py`.
 """
@@ -60,7 +67,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
-from . import schema
+from . import garde_ecran, schema
 from .const import (
     DOMAIN,
     ERROR_SCREEN_CORRUPT,
@@ -68,11 +75,13 @@ from .const import (
     ERROR_VERSION_UNKNOWN,
     EVENEMENT_CHANGEMENT,
     SIGNAL_ANIMATION,
+    SUBENTRY_HOUSE,
     VERSION_CONFIG,
     WS_ABONNER,
     WS_ANIMATIONS,
     WS_ECRAN,
     WS_ECRANS,
+    WS_MAISON,
 )
 
 
@@ -115,10 +124,14 @@ def _subentries(hass: HomeAssistant) -> list[Any]:
     `IndexError` crashed the command there (`unknown_error` on the client
     side, full traceback on the server side) exactly in the case the
     SECOND degradation (spec) must cover."""
+    entree = _entree(hass)
+    return [] if entree is None else garde_ecran.screen_subentries(entree)
+
+
+def _entree(hass: HomeAssistant) -> Any | None:
+    """The single "Tablettes murales" entry, or None once removed."""
     entrees = hass.config_entries.async_entries(DOMAIN)
-    if not entrees:
-        return []
-    return list(entrees[0].subentries.values())
+    return entrees[0] if entrees else None
 
 
 def trouver_ecran(hass: HomeAssistant, nom: str) -> Any | None:
@@ -287,3 +300,27 @@ def ws_animations(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
     connection.subscriptions[msg["id"]] = async_dispatcher_connect(
         hass, SIGNAL_ANIMATION, _relayer)
     connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command({vol.Required("type"): WS_MAISON})
+@callback
+def ws_maison(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """`home_desk/maison`: the shared house sources, validated on read."""
+    entree = _entree(hass)
+    maison = None if entree is None else next(
+        (s for s in entree.subentries.values() if s.subentry_type == SUBENTRY_HOUSE), None)
+    if maison is None:
+        connection.send_result(msg["id"], {"sources": []})
+        return
+    try:
+        valide = schema.validate_house(dict(maison.data))
+    except vol.Invalid as err:
+        connection.send_error(
+            msg["id"],
+            ERROR_SCREEN_CORRUPT,
+            f"the stored house source list no longer honours the contract "
+            f"({err}) -- fix it from Settings > Devices & services > the "
+            "home_desk integration, or restore an earlier backup",
+        )
+        return
+    connection.send_result(msg["id"], {"sources": valide["sources"]})

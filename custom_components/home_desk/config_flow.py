@@ -99,6 +99,7 @@ from .const import (
     ERROR_HEIGHT_OUT_OF_BOUNDS,
     ERROR_NAME_ALREADY_USED,
     ERROR_NAME_EMPTY,
+    SUBENTRY_HOUSE,
     SUBENTRY_SCREEN,
     VERSION_CONFIG,
 )
@@ -110,6 +111,7 @@ from .formulaire import reafficher
 # of the package, this module no longer names `_async_update` itself.
 from . import garde_ecran
 from .list_sections import ListSectionsMixin
+from .maison import HouseSubentryFlow
 from .list_fields import SECTIONS
 # Task 7: the two "object" sections (Blocks and modes, Car) live
 # in their OWN mixin, `objets.py` — extracted from this module to stay
@@ -262,8 +264,8 @@ class HomeDeskConfigFlow(ConfigFlow, domain=DOMAIN):
         cls, config_entry: ConfigEntry
     ) -> dict[str, type[ConfigSubentryFlow]]:
         """The subentry types the "Tablettes murales" (wall tablets) entry can
-        carry. Only one for now: a tablet screen."""
-        return {SUBENTRY_SCREEN: EcranSubentryFlow}
+        carry: a tablet screen, and the house (its shared media sources)."""
+        return {SUBENTRY_SCREEN: EcranSubentryFlow, SUBENTRY_HOUSE: HouseSubentryFlow}
 
 
 class EcranSubentryFlow(ListSectionsMixin, SectionsObjetMixin, ConfigSubentryFlow):

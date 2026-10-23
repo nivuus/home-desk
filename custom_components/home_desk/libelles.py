@@ -55,3 +55,10 @@ def mode(hass, cle: str) -> str:
     than retyped)."""
     options = _traductions(_langue(hass))["selector"]["mode"]["options"]
     return options.get(cle, cle)
+
+
+def house_title(hass) -> str:
+    """The title of the house subentry, in the instance's language: the
+    subentry type's own name (`config_subentries.maison.entry_type`), so
+    the integration page lists it under the word it was added with."""
+    return _traductions(_langue(hass))["config_subentries"]["maison"]["entry_type"]

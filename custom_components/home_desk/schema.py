@@ -363,10 +363,14 @@ def _piece_requise(source: dict) -> dict:
     return source
 
 
+# One item of the house list: a screen source whose `piece` is required.
+# Public because the house flow (maison.py) validates one item at a time.
+SOURCE_MAISON = vol.All(SOURCE, _piece_requise)
+
 MAISON = vol.Schema(
     {
         vol.Required("version"): _const(VERSION_MAISON),
-        vol.Required("sources"): [vol.All(SOURCE, _piece_requise)],
+        vol.Required("sources"): [SOURCE_MAISON],
     },
     extra=vol.PREVENT_EXTRA,
 )

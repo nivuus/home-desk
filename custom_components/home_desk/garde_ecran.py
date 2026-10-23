@@ -68,6 +68,13 @@ from . import libelles, schema
 from .const import ERROR_SCREEN_WOULD_BECOME_INVALID, SUBENTRY_SCREEN, VERSION_CONFIG
 
 
+def screen_subentries(entry: Any) -> list[Any]:
+    """The "ecran" subentries of ENTRY, never the house one: every place
+    that means "the screens" goes through here (websocket listing and
+    resolution, name uniqueness, export, the change listener)."""
+    return [s for s in entry.subentries.values() if s.subentry_type == SUBENTRY_SCREEN]
+
+
 def noms_utilises(entry: Any, *, exclure: str | None = None) -> frozenset[str]:
     """The `nom` of the "ecran" subentries of `entry`, excluding `exclure`.
 
@@ -80,8 +87,8 @@ def noms_utilises(entry: Any, *, exclure: str | None = None) -> frozenset[str]:
     of a single subentry."""
     return frozenset(
         subentry.data["nom"]
-        for subentry_id, subentry in entry.subentries.items()
-        if subentry_id != exclure and "nom" in subentry.data
+        for subentry in screen_subentries(entry)
+        if subentry.subentry_id != exclure and "nom" in subentry.data
     )
 
 
@@ -189,7 +196,9 @@ def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]]) -> No
     refusal (brief docstring). The second builds the `ConfigSubentry`
     objects and writes only once the first has passed in full.
 
-    ENTIRELY REPLACES the current subentries of `entry` -- never a merge.
+    ENTIRELY REPLACES the current SCREEN subentries of `entry` -- never a
+    merge. The house subentry (`SUBENTRY_HOUSE`) is not a screen and is
+    kept as it is: this file carries screens only.
     It is the most honest reading of an "import" symmetrical to an "export"
     which, for its part, enumerates ALL the current screens (see
     services.py): the file is the whole truth, not a delta. It is also the
@@ -291,7 +300,10 @@ def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]]) -> No
         (titre, schema.valider(screen_data)) for titre, screen_data in ecrans_normalises
     ]
 
-    new_subentries: dict[str, ConfigSubentry] = {}
+    new_subentries: dict[str, ConfigSubentry] = {
+        subentry_id: subentry for subentry_id, subentry in entry.subentries.items()
+        if subentry.subentry_type != SUBENTRY_SCREEN
+    }
     for titre, screen_data in ecrans_valides:
         subentry = ConfigSubentry(
             data=MappingProxyType(screen_data),
@@ -316,3 +328,13 @@ def migrate_subentry(hass: Any, entry: Any, subentry: Any, data: dict) -> None:
     1, where the tablet would be told to update an integration that is
     already current (`version_inconnue`), the wrong gesture."""
     hass.config_entries.async_update_subentry(entry, subentry, data=data)
+
+
+def persist_house_if_valid(hass: Any, entry: Any, subentry: Any, data: dict) -> None:
+    """The FOURTH legitimate write site: the house subentry
+    (`SUBENTRY_HOUSE`, maison.py). Validates the COMPLETE house list with
+    `schema.validate_house` and writes the validated value; raises
+    `vol.Invalid` and writes NOTHING otherwise. The caller turns the
+    refusal into a form error -- this module does not know which form."""
+    valide = schema.validate_house(data)
+    hass.config_entries.async_update_subentry(entry, subentry, data=valide)

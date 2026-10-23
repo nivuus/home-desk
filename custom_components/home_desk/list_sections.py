@@ -176,6 +176,11 @@ class ListSectionsMixin:
     two methods below, never diverging from each other."""
 
     _current_index: int | None = None
+    # The sections this flow edits. A screen flow edits every "list"
+    # section; the house flow (maison.py) overrides it with
+    # `list_fields_sources.HOUSE_SECTIONS` and `_persister_si_valide`
+    # with the house gate -- the skeleton itself is shared.
+    _sections: dict[str, Section] = SECTIONS
 
     def _elements(self, subentry: ConfigSubentry, cle: str) -> list:
         return list(subentry.data.get(cle, []))
@@ -223,7 +228,7 @@ class ListSectionsMixin:
         user_input: dict[str, Any] | None = None,
         description_placeholders: dict[str, str] | None = None,
     ):
-        section = SECTIONS[cle]
+        section = self._sections[cle]
         subentry = self._get_reconfigure_subentry()
         elements = self._elements(subentry, cle)
         errors: dict[str, str] = {}
@@ -265,7 +270,7 @@ class ListSectionsMixin:
         report, mutation of step 5 of the brief). A refusal on save
         REDISPLAYS THE INPUT (`displayed_values`), never the previously
         stored values (round 1, Important 2)."""
-        section = SECTIONS[cle]
+        section = self._sections[cle]
         entry = self._get_entry()
         subentry = self._get_reconfigure_subentry()
         elements = self._elements(subentry, cle)
