@@ -4,8 +4,11 @@
 
 - `SUBENTRY_HOUSE = "maison"` (`custom_components/home_desk/const.py`). Une
   seule par installation : elle liste les sources média de la maison, chacune
-  avec un champ optionnel `piece`. Les écrans affichent une source qui joue
-  ailleurs dans la maison.
+  avec un champ `piece` **obligatoire** (`contrat/maison.schema.json`, miroir
+  `schema._piece_requise`) : une source de la maison sans pièce ne dirait pas
+  où elle joue. Sur les `sources` propres d'un écran, `piece` reste
+  facultatif. Les écrans affichent une source qui joue ailleurs dans la
+  maison.
 - Flux de configuration : `HouseSubentryFlow` dans `maison.py`. Il passe par
   `formulaire.py` pour le formulaire et par `garde_ecran.persist_house_if_valid`
   pour l'écriture, jamais directement.
@@ -15,8 +18,9 @@
   `make contrat`, puis committer la copie embarquée.
 - Export/import YAML : le bloc `maison:` porte la maison. Un `maison:` absent
   à l'import SUPPRIME la maison.
-- `garde_ecran.persist_house_if_valid` est le TROISIÈME appelant légitime des
-  portes d'écriture (voir « Invariants du composant » dans `CLAUDE.md`).
+- `garde_ecran.persist_house_if_valid` est le QUATRIÈME appelant légitime des
+  portes d'écriture, après `persister_si_valide`, `importer_ecrans` et
+  `migrate_subentry` (voir « Invariants du composant » dans `CLAUDE.md`).
 - Le nom de la pièce vient de la configuration, jamais du code.
 
 ## L'échelle de budget des modes à bloc média

@@ -154,10 +154,12 @@ export function rendreCarteMedia(
         ? html`<div class="media-affiche" style="background-image:url('${urlSure(poster)}')"></div>`
         : ''}
       <div class="media-texte">
-        <div class="t plaque" data-tone-box>${label}</div>
-        <div class="v deux-lignes plaque" data-tone-box>${s.titre}</div>
+        <!-- dir="auto": each text takes its direction from its own first strong character, so a
+             right-to-left title reads right to left whatever the page's language. -->
+        <div class="t plaque" dir="auto" data-tone-box>${label}</div>
+        <div class="v deux-lignes plaque" dir="auto" data-tone-box>${s.titre}</div>
         ${s.sousTitre
-          ? html`<div class="media-sous plaque" data-tone-box data-mvt="detail:media-sous">${s.sousTitre}</div>`
+          ? html`<div class="media-sous plaque" dir="auto" data-tone-box data-mvt="detail:media-sous">${s.sousTitre}</div>`
           : ''}
       </div>
       ${progressRow(ancre)}

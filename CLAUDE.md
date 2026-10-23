@@ -166,8 +166,10 @@ suivantes par une convention de dépôt, sans filet automatique :
   chargement des écrans de version 1 (`migration.py` calcule la donnée,
   `garde_ecran.py` l'écrit), puis par `garde_ecran.persist_house_if_valid`
   (écriture de la sous-entrée maison). **Corrigé le 2026-10-24** — cette
-  section disait « les deux seuls appelants légitimes » ; la sous-entrée
-  maison en a ajouté un troisième, toujours dans `garde_ecran.py`. Relevé en
+  section disait « les deux seuls appelants légitimes » ; ils sont quatre
+  (`persister_si_valide`, `importer_ecrans`, `migrate_subentry`,
+  `persist_house_if_valid`), la sous-entrée maison ayant ajouté le
+  quatrième, toujours dans `garde_ecran.py`. Relevé en
   relecture finale de branche (deuxième ronde) : cette section (première
   ronde) omettait purement et simplement `async_remove_subentry` de son
   compte (« Six » portes listées, aucune n'étant celle-ci) — un appel
@@ -204,7 +206,8 @@ suivantes par une convention de dépôt, sans filet automatique :
 - **Sous-entrée maison** (`SUBENTRY_HOUSE = "maison"`, `maison.py`
   `HouseSubentryFlow`, commande WS `home_desk/maison`, contrat
   `contrat/maison.schema.json` + `cas-maison.json`, `schema.validate_house`) :
-  sources média de la maison, champ `piece` optionnel. Bloc `maison:` du YAML ;
+  sources média de la maison, champ `piece` obligatoire (facultatif sur les
+  sources propres d'un écran). Bloc `maison:` du YAML ;
   absent à l'import, il supprime la maison.
 - **Échelle de budget** des modes de `budget.json` -> `modesABlocMedia`
   (media, cinema) : composition complète, synthèse réduite, synthèse réduite

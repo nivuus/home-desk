@@ -124,6 +124,17 @@ describe('media card — layout', () => {
   });
 });
 
+describe('media card — any script', () => {
+  it('label, title and subtitle take their direction from their own text', () => {
+    // An Arabic or Hebrew title must read right to left, a Latin one left to right, whatever the
+    // page's language: `dir="auto"` on each text, never a direction set in code.
+    const card = rendre({ ...BASE, titre: 'أغنية', sousTitre: 'فيروز', piece: 'غرفة' });
+    for (const sel of ['.t', '.v', '.media-sous']) {
+      expect(card.querySelector(sel)?.getAttribute('dir'), sel).toBe('auto');
+    }
+  });
+});
+
 describe('media card — poster tones', () => {
   it('poster layer only when tones are ready', () => {
     expect(rendre(BASE, READY).querySelector('.media-affiche')).not.toBeNull();

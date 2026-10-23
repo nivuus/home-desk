@@ -201,9 +201,9 @@ function remonter(commandes: Bouton[], libelles: string[]): Bouton[] {
  *  Garde-fou, même que `remonter` : une commande absente du tableau reçu n'est jamais inventée
  *  (serrure muette → `estUtilisable` faux → filtrée en amont par `rendu/corps.ts`, et la coupe
  *  reste pleine avec les commandes suivantes). Les épingles, elles, sont bornées à `n` : sur un
- *  mode à deux places, deux épingles prennent les deux — c'est le cas limite que le salon ne
- *  rencontre plus (il a quatre places dans tous ses modes) mais qui reste défini plutôt que
- *  laissé au hasard d'un `slice` négatif. */
+ *  mode à deux places, deux épingles prennent les deux. Le salon y est depuis le 2026-10-24 : la
+ *  carte média ne lui laisse que deux places en `media`/`cinema`, et Porte et Rideau les prennent
+ *  toutes les deux (jamais un `slice` négatif). */
 function epingler(ordre: Bouton[], n: number): Bouton[] {
   const coupe = ordre.slice(0, n);
   // Plus d'une épingle depuis le 2026-08-29 (le salon en porte deux : Porte et Rideau). Bornées à

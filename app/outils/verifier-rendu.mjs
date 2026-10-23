@@ -167,7 +167,7 @@ export const RESUME_LONG = 'Meet-up Golf Innovation Auvergne 2026 | French Tech 
  *
  *  COUVERT (largeur déclarée) :
  *    `.media-bouton`, `.media-pas` 62 px — disques `width: 62px; height: 62px`, `flex: none`
- *    (`media.css`, refonte du 2026-10-24 : `.media-pas` faisait 44 px et le rail de volume
+ *    (`media.css`, refonte livrée le 2026-10-24 sur la spec du 2026-10-23 : `.media-pas` faisait 44 px et le rail de volume
  *    `.media-rail` a disparu).
  *  NON COUVERT (aucune largeur déclarée, donc aucun plancher honnête à poser) :
  *    `.ambiance`/`.commande`/`.tuile` (pistes de grille `1fr`), `.xl` (pleine largeur),
