@@ -6,6 +6,9 @@ import { defineConfig } from 'vitest/config';
 // verdict played. See the setup file's docstring for the full mechanism.
 export default defineConfig({
   test: {
+    // The library's published ESM uses extensionless internal imports, which Node cannot resolve
+    // when vitest leaves it external; inlining makes vite resolve them, as rollup does at build.
+    server: { deps: { inline: ['@material/material-color-utilities'] } },
     setupFiles: ['./tests/setup-animate.ts'],
   },
 });
