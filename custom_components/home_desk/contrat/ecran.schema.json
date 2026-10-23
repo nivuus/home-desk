@@ -200,6 +200,7 @@
       "additionalProperties": false,
       "properties": {
         "nom": { "type": "string", "minLength": 1 },
+        "piece": { "type": "string", "minLength": 1 },
         "titre": { "type": "array", "items": { "$ref": "#/$defs/entite" } },
         "sousTitre": { "type": "array", "items": { "$ref": "#/$defs/entite" } },
         "affiche": { "type": "array", "items": { "$ref": "#/$defs/entite" } },

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "La liste des sources media de la maison",
+  "description": "Les sources media qui servent TOUTES les tablettes, declarees une seule fois au niveau de la maison. Chaque source est une source d'ecran ($defs/source de ecran.schema.json) dont la piece est OBLIGATOIRE : une source de la maison sans piece ne dirait pas a la tablette ou elle joue. Le nom de la piece vient de la configuration, jamais du code.",
+  "type": "object",
+  "required": ["version", "sources"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "sources": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          { "$ref": "ecran.schema.json#/$defs/source" },
+          { "required": ["piece"] }
+        ]
+      }
+    }
+  }
+}

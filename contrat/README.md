@@ -12,6 +12,7 @@ ci-dessous n'en nomme que trois — `budget.json`, `icones.json`,
 | `budget.json` | à la main, sauf la clé `hauteurs` — mesurée par `app/outils/mesurer-hauteurs.mjs` dans un vrai navigateur, puis recopiée depuis sa sortie | La règle de `combien()` et ses mesures. L'intégration doit pouvoir dire « cet écran déborde » AU MOMENT DE LA SAISIE, donc elle doit rejouer la même règle. |
 | `icones.json` | `app/scripts/generer-contrats.mjs` | Le formulaire doit proposer les icônes RÉELLES de l'application, pas une liste recopiée qui dérive. |
 | `ecran.schema.json` | à la main, sauf l'`enum` de `$defs/bouton/properties/icone` — injecté par ce même générateur depuis `icones.json`, pour que le schéma ne puisse plus accepter une icône que l'application ne sait pas dessiner | Le schéma d'un écran. Deux implémentations (TypeScript, `voluptuous`), une seule vérité. |
+| `maison.schema.json` | à la main | La liste des sources média de la maison (partagée par toutes les tablettes) : des sources d'écran dont `piece` est obligatoire. Son corpus partagé est `cas-maison.json`, rejoué par `app/tests/cas-maison.test.ts` et `tests/composant/test_schema_maison.py`. Le nom de pièce vient de la configuration, jamais du code. |
 
 **Rien de cette maison n'entre ici.** Pas d'`entity_id`, pas de nom de pièce :
 ces fichiers partent chez toutes les maisons.

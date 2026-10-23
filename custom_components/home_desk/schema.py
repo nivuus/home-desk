@@ -52,6 +52,7 @@ from .fautes import (
 # Task 3 decision: never "../../contrat", always relative to the module.
 # Pinned by test_schema_lit_le_contrat_embarque (tests/composant/test_schema.py).
 CHEMIN_SCHEMA = pathlib.Path(__file__).parent / "contrat" / "ecran.schema.json"
+CHEMIN_MAISON = pathlib.Path(__file__).parent / "contrat" / "maison.schema.json"
 
 # Public (fix round 2, task 7): this module remains the ONLY one that READS
 # the embedded contract (see the module docstring) -- `registre.py` had
@@ -218,6 +219,7 @@ _ALLUMEE = vol.Schema(
 SOURCE = vol.Schema(
     {
         vol.Required("nom"): _string(1),
+        vol.Optional("piece"): _string(1),
         vol.Required("titre"): [ENTITE],
         vol.Required("sousTitre"): [ENTITE],
         vol.Required("affiche"): [ENTITE],
@@ -338,3 +340,40 @@ def valider(brut: dict) -> dict:
     conform."""
     return ECRAN(brut)
 
+
+
+# --------------------------------------------------------------------------
+# The house source list (contrat/maison.schema.json): the media sources that
+# serve EVERY tablet, declared once. Each item is a screen source whose
+# `piece` is REQUIRED -- the `allOf: [{$ref source}, {required: [piece]}]`
+# of the contract. Read from the embedded contract, like everything above.
+# --------------------------------------------------------------------------
+
+VERSION_MAISON: int = json.loads(
+    CHEMIN_MAISON.read_text(encoding="utf-8"))["properties"]["version"]["const"]
+
+
+def _piece_requise(source: dict) -> dict:
+    """The `{required: [piece]}` branch of the house source item. Same
+    mechanism as `_invariants_croises`: a RequiredFieldInvalid whose last
+    path segment is the missing field, which `motif()` strips (ajv designates
+    the object, not the field)."""
+    if "piece" not in source:
+        raise vol.RequiredFieldInvalid("piece est requis pour une source de la maison", path=["piece"])
+    return source
+
+
+MAISON = vol.Schema(
+    {
+        vol.Required("version"): _const(VERSION_MAISON),
+        vol.Required("sources"): [vol.All(SOURCE, _piece_requise)],
+    },
+    extra=vol.PREVENT_EXTRA,
+)
+
+
+def validate_house(raw: dict) -> dict:
+    """Validates the house source list. Raises vol.Invalid (in practice a
+    vol.MultipleInvalid) if `raw` does not conform, with the same
+    `path: keyword` motif as `valider`."""
+    return MAISON(raw)

@@ -1,0 +1,22 @@
+{
+  "_source": "Corpus de conformite de la liste de sources de la maison, lu par DEUX suites : app/tests/cas-maison.test.ts (ajv) et tests/composant/test_schema_maison.py (voluptuous). Meme principe que cas-schema.json : un seul fichier, donc aucun cas present d'un seul cote. Les sources y sont INVENTEES — ce repertoire ne porte aucune donnee d'une maison reelle.",
+  "_motif": "Identique a cas-schema.json : `chemin: mot-cle`, le chemin de l'objet porteur de la faute puis le mot-cle viole. Les deux validateurs doivent nommer LE MEME endroit.",
+  "minimal": {
+    "version": 1,
+    "sources": []
+  },
+  "cas": [
+    {"nom": "une liste vide est valide", "valide": true, "ecran": "@minimal"},
+    {"nom": "une source avec sa piece est valide", "valide": true,
+     "modifie": {"sources": [{"nom": "Enceinte", "titre": ["sensor.enceinte_titre"], "sousTitre": [], "affiche": [], "progression": [], "transport": ["media_player.enceinte"], "volume": ["media_player.enceinte"], "piece": "Salon"}]}},
+    {"nom": "une source sans piece est refusee", "valide": false,
+     "motif": "/sources/0: required",
+     "modifie": {"sources": [{"nom": "Enceinte", "titre": ["sensor.enceinte_titre"], "sousTitre": [], "affiche": [], "progression": [], "transport": ["media_player.enceinte"], "volume": ["media_player.enceinte"]}]}},
+    {"nom": "une cle inconnue sur une source est refusee", "valide": false,
+     "motif": "/sources/0: additionalProperties",
+     "modifie": {"sources": [{"nom": "Enceinte", "titre": ["sensor.enceinte_titre"], "sousTitre": [], "affiche": [], "progression": [], "transport": ["media_player.enceinte"], "volume": ["media_player.enceinte"], "piece": "Salon", "inconnue": 1}]}},
+    {"nom": "une version differente est refusee", "valide": false,
+     "motif": "/version: const",
+     "modifie": {"version": 2}}
+  ]
+}
