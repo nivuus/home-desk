@@ -20,6 +20,7 @@ import type { Evenement } from '../agenda';
 import type { createTaskCheck, createArming } from '../cochage';
 import type { AnimationEnCours } from '../animation';
 import type { DeclarationSource } from '../media';
+import type { MediaPin } from '../media-choice';
 import type { MeasuredCard } from './media-tones';
 import type { ConnexionLike, DependancesDemarrage } from './types';
 import { newPantryState, type PantryState } from './pantry';
@@ -162,10 +163,10 @@ export class ScreenState {
   /** The media sources shared by the house (`home_desk/maison`), loaded with the screen; the
    *  page reloads when they change, so they are fixed for its lifetime. */
   house: DeclarationSource[] = [];
-  /** The `sourceKey` (`media-choice.ts`) of a remote source paused FROM this tablet: the card stays while it is paused
-   *  (`pickSource`, `media-choice.ts`), and `settlePin` drops it on every frame once it no longer
+  /** A remote source paused FROM this tablet (`MediaPin`, `media-choice.ts`): the card stays while
+   *  it is paused (`pickSource`), and `settlePin` drops it on every frame once it no longer
    *  applies. */
-  pinnedMedia: string | undefined;
+  pinnedMedia: MediaPin | undefined;
   /** The media card as the last paint measured it, for the poster tones (`boot/media-tones.ts`). */
   mediaCard: MeasuredCard | null = null;
 

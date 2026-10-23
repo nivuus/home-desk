@@ -37,6 +37,23 @@ describe('pickSource', () => {
     expect(pickSource([], [src('far', false, false)], sourceKey(src('far', false, false))).source).toBeUndefined();
   });
 
+  it('a pinned paused remote source beats another remote source that plays', () => {
+    // Pausing the bedroom from here while the bathroom plays: the play button must stay under
+    // the finger, so the pin outranks the first active remote source.
+    const bathroom = { ...src('Musique', true, true), piece: 'Salle de bain' };
+    const bedroom = { ...src('Musique', true, false), piece: 'Chambre' };
+    const r = pickSource([], [bathroom, bedroom], sourceKey(bedroom));
+    expect(r.source?.piece).toBe('Chambre');
+    expect(r.remote).toBe(true);
+  });
+
+  it('an own paused source beats a remote playing one and a pinned one', () => {
+    const far = src('far', true, false);
+    const r = pickSource([src('own', true, false)], [src('loud', true, true), far], sourceKey(far));
+    expect(r.source?.nom).toBe('own');
+    expect(r.remote).toBe(false);
+  });
+
   it('declared house order breaks ties between remote sources', () => {
     const r = pickSource([], [src('a', true, true), src('b', true, true)]);
     expect(r.source?.nom).toBe('a');
@@ -52,21 +69,37 @@ describe('sourcesElsewhere', () => {
 });
 
 describe('settlePin', () => {
-  it('keeps the pin while the pinned remote source is the one shown', () => {
-    const pin = sourceKey(src('far', true, false));
-    expect(settlePin({ source: src('far', true, false), remote: true }, pin)).toBe(pin);
+  const far = (active: boolean) => src('far', true, active);
+  const key = sourceKey(far(false));
+
+  it('keeps the pin, marked paused, while the pinned remote source is shown paused', () => {
+    expect(settlePin({ source: far(false), remote: true }, { key, paused: false }))
+      .toEqual({ key, paused: true });
+  });
+
+  it('keeps the pin while the pause has not landed yet (the source still plays)', () => {
+    // A frame painted between the tap and Home Assistant's `paused` must not drop the pin.
+    expect(settlePin({ source: far(true), remote: true }, { key, paused: false }))
+      .toEqual({ key, paused: false });
+  });
+
+  it('drops the pin once the pinned source plays again after its pause', () => {
+    // The pin was set for one pause; once that source is active again it needs none.
+    expect(settlePin({ source: far(true), remote: true }, { key, paused: true })).toBeUndefined();
   });
 
   it('drops the pin once nothing is shown', () => {
-    expect(settlePin({ remote: false }, 'far')).toBeUndefined();
+    expect(settlePin({ remote: false }, { key, paused: true })).toBeUndefined();
   });
 
   it('drops the pin once an own source plays', () => {
-    expect(settlePin({ source: src('mine', true, true), remote: false }, 'far')).toBeUndefined();
+    expect(settlePin({ source: src('mine', true, true), remote: false }, { key, paused: true }))
+      .toBeUndefined();
   });
 
   it('drops the pin once another remote source is shown', () => {
-    expect(settlePin({ source: src('other', true, true), remote: true }, 'far')).toBeUndefined();
+    expect(settlePin({ source: src('other', true, true), remote: true }, { key, paused: true }))
+      .toBeUndefined();
   });
 });
 
@@ -77,8 +110,8 @@ describe('sourceKey — a pin names a source in its room, not just by name', () 
     const pin = sourceKey(bedroom);
     const shown = pickSource([], [office, bedroom], pin);
     expect(shown.source?.piece).toBe('Chambre');
-    expect(settlePin(shown, pin)).toBe(pin);
+    expect(settlePin(shown, { key: pin, paused: true })).toEqual({ key: pin, paused: true });
     // The office TV shown instead would drop the bedroom pin.
-    expect(settlePin({ source: office, remote: true }, pin)).toBeUndefined();
+    expect(settlePin({ source: office, remote: true }, { key: pin, paused: true })).toBeUndefined();
   });
 });

@@ -28,7 +28,8 @@ function frameOf(states: [string, string][], opts: {
   const s = {
     etat, piece, agencement: resoudreAgencement(piece), recetteUid: null,
     d: { maintenant: () => new Date(2026, 7, 1, 14, 0) },
-    house: opts.house ?? [], pinnedMedia: opts.pinned,
+    house: opts.house ?? [],
+    pinnedMedia: opts.pinned === undefined ? undefined : { key: opts.pinned, paused: true },
   } as unknown as ScreenState;
   return computeFrame(s);
 }
@@ -61,6 +62,16 @@ describe('computeFrame — what plays elsewhere', () => {
     const f = frameOf([['media_player.music_bedroom', 'paused']], { house: [music], pinned: sourceKey(music) });
     expect(f.mode).toBe('media');
     expect(f.media).toMatchObject({ remote: true, source: { nom: 'Music' } });
+  });
+
+  it('the pinned paused source stays shown while another room plays', () => {
+    // Bathroom listed first in the house and playing; the bedroom was paused from here.
+    const bathroom = decl('Music', 'media_player.music_bathroom', { piece: 'Salle de bain' });
+    const f = frameOf(
+      [['media_player.music_bathroom', 'playing'], ['media_player.music_bedroom', 'paused']],
+      { house: [bathroom, music], pinned: sourceKey(music) },
+    );
+    expect(f.media).toMatchObject({ remote: true, source: { piece: 'Chambre' } });
   });
 
   it('an own playing source wins over a remote one, and is not remote', () => {

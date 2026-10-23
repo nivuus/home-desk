@@ -17,27 +17,37 @@ export function sourceKey(s: { nom: string; piece?: string }): string {
   return JSON.stringify([s.piece ?? '', s.nom]);
 }
 
-/** First own source that plays; else the first remote one that is actively playing; else the
- *  pinned remote one (a `sourceKey`) while it is still `joue` (so a pause does not make it vanish); else none. */
+/** Spec order ("Ce qui est suivi"): the first own source that plays (paused included); else the
+ *  pinned remote source (a `sourceKey`) while it is still `joue`, so the play button of a source
+ *  paused from here never vanishes under the finger, even while another room plays; else the
+ *  first remote source that is actively playing (house order); else none. */
 export function pickSource(
   own: SourceResolue[], elsewhere: SourceResolue[], pinned?: string,
 ): { source?: SourceResolue; remote: boolean } {
   const mine = own.find((s) => s.joue);
   if (mine !== undefined) return { source: mine, remote: false };
-  const active = elsewhere.find((s) => s.active);
-  if (active !== undefined) return { source: active, remote: true };
   const kept = pinned === undefined
     ? undefined : elsewhere.find((s) => sourceKey(s) === pinned && s.joue);
   if (kept !== undefined) return { source: kept, remote: true };
+  const active = elsewhere.find((s) => s.active);
+  if (active !== undefined) return { source: active, remote: true };
   return { remote: false };
 }
 
-/** The pin (a `sourceKey`) that survives this frame: kept only while the pinned source is the remote one shown.
- *  Once it stops (idle), an own source plays or another remote source takes over, the pin goes,
- *  so a later pause of that source elsewhere does not bring the card back. */
+/** A remote source paused FROM this tablet (`rendu/media.ts`). `paused` turns true on the first
+ *  frame that shows it paused: until then the pause has not reached Home Assistant yet, and the
+ *  source still playing is no reason to drop the pin. */
+export type MediaPin = { key: string; paused: boolean };
+
+/** The pin that survives this frame: kept only while the pinned source is the remote one shown.
+ *  It is for the pause it was set for: once that source plays again AFTER being seen paused,
+ *  stops (idle), an own source plays or another remote source takes over, the pin goes, so a
+ *  later pause of that source elsewhere does not bring the card back. */
 export function settlePin(
-  shown: { source?: SourceResolue; remote: boolean }, pinned?: string,
-): string | undefined {
-  return pinned !== undefined && shown.remote && shown.source !== undefined
-    && sourceKey(shown.source) === pinned ? pinned : undefined;
+  shown: { source?: SourceResolue; remote: boolean }, pin?: MediaPin,
+): MediaPin | undefined {
+  if (pin === undefined || !shown.remote || shown.source === undefined
+    || sourceKey(shown.source) !== pin.key) return undefined;
+  if (!shown.source.active) return { key: pin.key, paused: true };
+  return pin.paused ? undefined : pin;
 }

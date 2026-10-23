@@ -61,7 +61,7 @@ export function computeFrame(s: ScreenState): Frame {
   const sources = resolve(piece.sources);
   // Own sources only: a TV merely on in another room never turns this one into `cinema`.
   const ecranAllume = sources.some((x) => x.allumee);
-  const media = pickSource(sources, resolve(sourcesElsewhere(s.house, piece.sources)), s.pinnedMedia);
+  const media = pickSource(sources, resolve(sourcesElsewhere(s.house, piece.sources)), s.pinnedMedia?.key);
 
   const ouvertDepuis = piece.ouvrants
     .filter((id) => etat.estUtilisable(id) && etat.lire(id)!.etat === 'on')
