@@ -121,7 +121,9 @@ async def test_le_budget_nomme_le_PIRE_mode_pas_le_premier_qui_deborde(hass, ent
     test-ci ne cherche donc PAS a faire varier rangee_ambiance (voir le
     test suivant pour cette preuve-la, avec un decor SANS minuteur). A
     rangee_ambiance=True : check_budget("cinema", True, 436, zones) =
-    29, check_budget("minuteur", True, 436, zones) = 91 (le pire ; 82
+    42 (29 avant l'echelle de la carte media du 2026-10-24 : blocMedia,
+    263 px, sans rangee Ambiance), check_budget("minuteur", True, 436,
+    zones) = 91 (le pire ; 82
     avant que blocMinuteur passe de 206 a 215 px le 2026-10-11) --
     verifie par execution, PAS retape de memoire (le brief nomme "45" a cet
     endroit, et previent explicitement que cette valeur est fausse)."""
@@ -145,7 +147,7 @@ async def test_le_budget_nomme_le_PIRE_mode_pas_le_premier_qui_deborde(hass, ent
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
     assert resultat["errors"]["base"] == ERROR_BUDGET_UNTENABLE_MODE
     # "cinema" est SOUMIS AVANT "minuteur" : un bug "premier qui deborde"
-    # nommerait cinema (29 px). Le PIRE est minuteur (91 px).
+    # nommerait cinema (42 px). Le PIRE est minuteur (91 px).
     # Ronde 2 de relecture (point 3) : {mode} est desormais TRADUIT
     # ("Timer", le libelle EN du selecteur "mode"), plus l'identifiant
     # brut du contrat ("minuteur").
@@ -164,18 +166,25 @@ async def test_le_budget_suit_rangee_ambiance_REELLEMENT_persistee(hass, entree)
     Decor SANS mode "minuteur" (dont la seule presence dans `minuteurs`
     forcerait `rangee_ambiance` a vrai en permanence, cf. le test
     ci-dessus -- ce test-ci veut l'isoler de la seule contribution des
-    AMBIANCES) : `modes=["defaut", "cinema"]`, memes zones que ci-dessus.
+    AMBIANCES) : `modes=["defaut", "voiture"]`, memes zones que ci-dessus.
+
+    2026-10-24 : "voiture", plus "cinema". Les modes de la carte media
+    passent par l'echelle (`arrangement`), dont le dernier echelon n'a
+    plus de rangee Ambiance : leur verdict ne depend donc plus de
+    `rangee_ambiance`, et ne pouvait plus rien prouver ici. "voiture"
+    garde blocHaut (153 px) et sa rangee, avec exactement les memes
+    chiffres qu'avait "cinema".
 
     Sans aucune tuile d'ambiance persistee, rangee_ambiance=False et
-    check_budget("cinema", False, 436, zones) = 0 : l'agencement TIENT.
+    check_budget("voiture", False, 436, zones) = 0 : l'agencement TIENT.
     Une fois une VRAIE tuile d'ambiance ajoutee, rangee_ambiance=True et
-    check_budget("cinema", True, 436, zones) = 29 : LE MEME agencement,
+    check_budget("voiture", True, 436, zones) = 29 : LE MEME agencement,
     resoumis a l'identique, est desormais REFUSE. Un code qui ignorerait
     `rangee_ambiance` (fige a True, ou a False) rendrait les deux
     soumissions indiscernables."""
     subentry_id = await _creer_ecran(hass, entree, hauteurUtile=436)
     zones = ["ambiances", "commandes", "blocCentral"]
-    modes = ["defaut", "cinema"]
+    modes = ["defaut", "voiture"]
 
     flow = await _init_reconfigure(hass, entree, subentry_id)
     await hass.config_entries.subentries.async_configure(
@@ -199,10 +208,40 @@ async def test_le_budget_suit_rangee_ambiance_REELLEMENT_persistee(hass, entree)
         flow["flow_id"], {"zones": zones, "modes": modes})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
     assert resultat["errors"]["base"] == ERROR_BUDGET_UNTENABLE_MODE
-    # Ronde 2 de relecture (point 3) : libelle traduit ("Cinema"), pas
-    # l'identifiant brut ("cinema").
-    assert resultat["description_placeholders"]["mode"] == "Cinema"
+    # Ronde 2 de relecture (point 3) : libelle traduit ("Car"), pas
+    # l'identifiant brut ("voiture").
+    assert resultat["description_placeholders"]["mode"] == "Car"
     assert resultat["description_placeholders"]["debordement"] == "29"
+
+
+async def test_le_budget_des_modes_media_suit_l_echelle(hass, entree):
+    """2026-10-24 (spec 2026-10-23, "Place a l'ecran") : the screen draws
+    the media card on the LAST rung of the ladder when nothing else fits
+    (reduced synthesis, no Ambiance row), so the form prices that rung.
+    At 500 px with the four default zones: 121 + 24 + (62 + 263 + 24) +
+    8 x 2 = 510 px, an overflow of 10 px -- and not the 115 px of the full
+    composition (two-line synthesis and Ambiance row), which would refuse
+    by a figure the tablet never shows."""
+    subentry_id = await _creer_ecran(hass, entree, hauteurUtile=500)
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "ambiances"})
+    await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], ELEMENTS_VALIDES["ambiances"])
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "agencement"})
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"],
+        {"zones": ["ambiances", "commandes", "blocCentral", "synthese"],
+         "modes": ["defaut", "media"]})
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+    assert resultat["errors"]["base"] == ERROR_BUDGET_UNTENABLE_MODE
+    assert resultat["description_placeholders"]["mode"] == "Media"
+    assert resultat["description_placeholders"]["debordement"] == "10"
 
 
 # ---------------------------------------------------------------------------

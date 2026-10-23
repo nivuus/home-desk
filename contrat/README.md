@@ -82,14 +82,16 @@ n'atteint pas le formulaire qui s'en sert pour refuser une saisie.
 
 `cas-budget.json` (tâche 4) est un corpus de vérité pour le budget de hauteur : chaque cas donne
 un mode, une rangée d'ambiance, des zones (`null` = les quatre du défaut) et une hauteur utile, et
-attend un nombre de commandes et un débordement en pixels. Il est lu par deux suites :
+attend un nombre de commandes et un débordement en pixels — et, depuis le 2026-10-24, pour
+certains cas, l'`arrangement` que l'échelle de la carte média choisit (synthèse réduite, puis plus
+de rangée « Ambiance »). Il est lu par deux suites :
 
-- `app/tests/cas-budget.test.ts`, qui rejoue chaque cas avec `combien()` et `verifierBudget()`
-  (`app/src/modes.ts`) ;
-- `tests/composant/test_budget.py`, qui rejoue le même cas avec le miroir Python `combien()` et
-  `verifier_budget()` (`custom_components/home_desk/budget.py`).
+- `app/tests/cas-budget.test.ts`, qui rejoue chaque cas avec `combien()`, `arrangement()` et
+  `verifierBudget()` (`app/src/screen-budget.ts`) ;
+- `tests/composant/test_budget.py`, qui rejoue le même cas avec le miroir Python `combien()`,
+  `arrangement()` et `check_budget()` (`custom_components/home_desk/budget.py`).
 
-Les vingt-deux cas sont sur-déterminés : onze restes mesurés dans un vrai navigateur, prédits
+Les vingt-deux premiers cas sont sur-déterminés : onze restes mesurés dans un vrai navigateur, prédits
 exactement, une corroboration à 630 px sur une mesure du 2026-08-03 antérieure au modèle, et
 quatre cas à zones omises qu'aucun des trois écrans réels de la maison n'exerce aujourd'hui — les
 premiers que le formulaire de l'intégration rencontrera quand quelqu'un réordonnera ses zones

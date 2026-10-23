@@ -696,15 +696,17 @@ describe('rangées de commandes selon le mode', () => {
       .toEqual(['Porte']);
   });
 
-  // 2026-08-29 : le salon garde ses quatre commandes MÊME en média — c'est précisément ce que la
-  // rangée « Ambiance » supprimée finance (cf. `rangeeAmbiance`, `modes.ts`). Une pièce qui garde
-  // sa rangée, elle, retombe bien à deux : vérifié juste en dessous sur la cuisine, pour que la
-  // règle reste couverte des deux côtés.
-  it('garde quatre commandes en mode média, la rangée Ambiance ayant payé la seconde', () => {
+  // 2026-08-29: the living room kept its four controls in media mode, paid by the Ambiance row
+  // it gave up. 2026-10-24: the redesigned media card (263 px, `blocMedia`) costs more than that
+  // row gave back — the budget's arrangement reduces the synthèse and keeps ONE row, two places,
+  // which the two pins of the living room take (`epingler`, `modes.ts`).
+  it('en mode média, le salon garde une rangée : ses deux épingles', () => {
     const etat = etatSalonComplet();
     render(rendreCorps(etat, ECRANS.salon, undefined,
                        { ...CTX_SALON, sourceJoue: true }), hote);
-    expect(places(hote)).toBe(4);
+    expect(places(hote)).toBe(2);
+    expect(Array.from(hote.querySelectorAll('.commande .t')).map((e) => e.textContent))
+      .toEqual(['Porte', 'Rideau']);
   });
 
   it('une pièce qui garde sa rangée Ambiance retombe à deux commandes en mode média', () => {
@@ -727,12 +729,15 @@ describe('rangées de commandes selon le mode', () => {
     expect(libelles).not.toContain('Ambilight');
   });
 
-  it('affiche Ambilight en mode cinéma, sans déloger la Porte ni le Rideau', () => {
+  // 2026-10-24: on two places (the media card's budget, see above) the two pins win and
+  // Ambilight gives way — `epingler` lets pinned tiles take the LAST places, and there are only
+  // two.
+  it('en mode cinéma au salon, les deux épingles prennent les deux places', () => {
     const etat = etatSalonComplet();
     render(rendreCorps(etat, ECRANS.salon, undefined,
                        { ...CTX_SALON, ecranAllume: true }), hote);
     const libelles = Array.from(hote.querySelectorAll('.commande .t')).map((e) => e.textContent);
-    expect(libelles).toEqual(['Ambilight', 'Porte', 'Rideau']);
+    expect(libelles).toEqual(['Porte', 'Rideau']);
   });
 
   // Épinglage de la porte (2026-08-04) vérifié sur le rendu réel, pas seulement sur l'ordre :
@@ -754,9 +759,11 @@ describe('rangées de commandes selon le mode', () => {
       expect(libelles, nom).toContain('Porte');
       // Sous chaleur, la même tuile s'appelle « Fermer » : c'est la consigne du jour, pas un objet.
       expect(libelles.includes('Rideau') || libelles.includes('Fermer'), nom).toBe(true);
-      // Four places in EVERY mode: the count no longer moves from one mode to the next, which is
-      // what the ambiance row given back to the budget buys (the tall door takes two).
-      expect(places(hote), nom).toBe(4);
+      // Four places in every mode but the two that show the media card: the ambiance row given
+      // back to the budget buys them (the tall door takes two). Since 2026-10-24 the media card
+      // leaves one row (`arrangement`, `screen-budget.ts`), where the door is a normal tile.
+      const media = nom === 'média' || nom === 'cinéma';
+      expect(places(hote), nom).toBe(media ? 2 : 4);
     }
   });
 

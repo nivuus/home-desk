@@ -3,7 +3,8 @@
   "hauteurUtileParDefaut": 585,
   "viewportReference": { "largeur": 343, "hauteur": 585 },
   "modesABlocMinuteur": ["minuteur"],
-  "modesABlocHaut": ["media", "cinema", "voiture"],
+  "modesABlocHaut": ["voiture"],
+  "modesABlocMedia": ["media", "cinema"],
   "commandesParDefaut": 4,
   "commandesSousBlocHaut": 2,
   "tuilesParRangee": 2,
@@ -11,6 +12,7 @@
     "_source": "app/outils/mesurer-hauteurs.mjs, viewport 343x585, mesure du 2026-10-11 sur 12 modes et 3 ecrans. Chaque valeur est le COUT NET de la zone dans la colonne .corps (sa boite plus ses marges), au PIRE CAS des modes mesures. combien() les additionne, gouttiere comprise, au lieu d'appliquer une table.",
     "_bandeau": "121 px, INVARIANT sur les 8 etats balayes : la date du jour et la date la plus longue de 28 ans de calendrier, croisees avec une pastille a une ligne, a deux lignes (le plafond de son clamp) et celle rendue par la maison, phrase interieure presente (sans elle la colonne gauche retrecit, donc le bandeau ne peut que baisser).",
     "_blocMinuteur": "215 px, le bloc du mode minuteur, au pire cas de ses deux formes : le minuteur SEUL depuis le 2026-10-11 (ses pas - 5 / - 1 / + 1 / + 5 ont leur propre rangee), la liste de trois avant (206 px). Consomme par combien() comme tout autre bloc central depuis le plan 2 : le mode minuteur rend 0 commande PARCE QUE 18 px restent apres son cout (585 - 567), pas par court-circuit. La cle modesSansCommande a disparu avec ce court-circuit ; modesABlocMinuteur la remplace, dans le meme role que modesABlocHaut, et sert aussi de proxy a app/outils/mesurer-hauteurs.mjs pour choisir la famille de bloc a publier.",
+    "_blocMedia": "263 px (262,8 mesures), la carte media refaite le 2026-10-24 (spec 2026-10-23) au pire cas : source d'une autre piece, titre sur deux lignes, sous-titre, progression, transport, volume a niveau ou par pas (meme hauteur), padding vertical ramene de 12 a 8 px. syntheseReduite : 24 px, la synthese sur une ligne (l'icone fixe la hauteur). Mesure HORS Home Assistant par app/outils/mesurer-carte-media.mjs (src/ bundle par esbuild, feuilles de style de src/index.ts, viewport 343x585, police de repli DejaVu Sans, plus large que Roboto). Les modes de modesABlocMedia passent par arrangement() : synthese reduite d'abord, puis plus de rangee Ambiance, jusqu'a commandesSousBlocHaut commandes.",
     "gouttiere": 8,
     "paddingCorps": 24,
     "bandeau": 121,
@@ -21,7 +23,9 @@
     "blocDefaut": 84,
     "blocHaut": 153,
     "blocMinuteur": 215,
+    "blocMedia": 263,
     "synthese": 32,
+    "syntheseReduite": 24,
     "touteLaMaison": 62
   },
   "mesures": {

@@ -5,9 +5,14 @@
    are ready (`tones.ts`, `rendu/poster-sampler.ts`); each `var()` below falls back on the theme,
    which is the pending / unreadable / no-poster card. Never a gradient on any surface here: a
    gradient bands on the 6-bit panels of the Fire 7 tablets. Every surface is solid — discs,
-   bars, text plates — and the poster itself is shown untouched: no veil, no reduced opacity. */
+   bars, text plates — and the poster itself is shown untouched: no veil, no reduced opacity.
+
+   HEIGHT. 8 px of vertical padding, not 12 (task 9, 2026-10-24): at 12 the card measured
+   270.8 px, and the office and kitchen screens (Ambiance row dropped, synthèse reduced) needed
+   590 px for two controls — 5 px over the 585 px frame. The spec lets the padding give way
+   first; `hauteurs.blocMedia` (`contrat/budget.json`) is the height measured after it. */
 .media { position: relative; overflow: hidden; isolation: isolate; box-sizing: border-box;
-  padding: 12px 16px; border-radius: var(--sh-xl);
+  padding: 8px 16px; border-radius: var(--sh-xl);
   background: var(--md-primary-container); color: var(--mc-text, var(--md-on-primary-container));
   display: flex; flex-direction: column; gap: 8px; }
 /* The poster: a `cover` background layer UNDER the content (`z-index: -1` inside the stacking

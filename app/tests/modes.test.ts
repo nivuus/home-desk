@@ -149,15 +149,20 @@ describe('mode voiture', () => {
  *  très exactement la deuxième rangée de commandes (64 + 10 px). Les modes à bloc central haut
  *  (media/cinema/voiture), seuls à descendre à deux, retrouvent donc leurs quatre places chez
  *  elle — et c'est ce qui permet d'y afficher Lumières, Porte, Rideau et Chauffage en même temps.
+ *  2026-10-24: no longer media/cinema, whose redesigned card outgrows that row (see below).
  *
  *  `rangeeAmbiance` est FACULTATIF et vaut « oui » quand il est absent : toutes les suites
  *  existantes (et la cuisine, et le bureau, qui gardent leur rangée) décrivent le même
  *  comportement qu'avant sans une ligne à changer. */
 describe('rangeeAmbiance — le budget rendu par la rangée « Ambiance » supprimée', () => {
-  it('sans rangée Ambiance, les modes à bloc haut retrouvent quatre commandes', () => {
-    for (const mode of [ctx({ blocDefaut: 'voiture' }), ctx({ sourceJoue: true }),
-                        ctx({ ecranAllume: true })]) {
-      expect(ordreCommandes(QUATRE, { ...mode, rangeeAmbiance: false })).toHaveLength(4);
+  // 2026-10-24: `media` and `cinema` left this test. The redesigned media card (263 px,
+  // `blocMedia`) costs more than the Ambiance row gives back: their ladder (`arrangement`,
+  // `screen-budget.ts`) ends on ONE row with or without the Ambiance row.
+  it('sans rangée Ambiance, le bloc haut (voiture) retrouve quatre commandes', () => {
+    expect(ordreCommandes(QUATRE, { ...ctx({ blocDefaut: 'voiture' }), rangeeAmbiance: false }))
+      .toHaveLength(4);
+    for (const mode of [ctx({ sourceJoue: true }), ctx({ ecranAllume: true })]) {
+      expect(ordreCommandes(QUATRE, { ...mode, rangeeAmbiance: false })).toHaveLength(2);
     }
   });
 
@@ -188,7 +193,7 @@ describe('rangeeAmbiance — le budget rendu par la rangée « Ambiance » suppr
 describe('mode defaut (repas/agenda)', () => {
   // Tâche 14 (2026-08-03) : `'repas'` (cuisine) et `'agenda'` (bureau) partagent le mode
   // `defaut` — seule `'voiture'` a un gabarit assez haut pour mériter son propre mode (cf.
-  // `combien`, `modes.ts`). C'est `demarrage.ts`, pas `modePrincipal`, qui choisit ensuite le
+  // `combien`, `screen-budget.ts`). C'est `demarrage.ts`, pas `modePrincipal`, qui choisit ensuite le
   // contenu (repas/agenda/rien) affiché dans ce bloc.
   it('repas et agenda partagent le mode defaut, pas un mode dédié', () => {
     expect(modePrincipal(ctx({ blocDefaut: 'repas' }))).toBe('defaut');
@@ -384,22 +389,24 @@ describe('ordreCommandes — commande épinglée (salon, 2026-08-04)', () => {
     ];
     for (const [mode, c] of modes) {
       const resultat = noms(ordreCommandes(salon, c));
-      expect(resultat, mode).toHaveLength(3);
+      // 2026-10-24: one row under the media card (`arrangement`), the two pins fill it.
+      expect(resultat, mode).toHaveLength(mode === 'cinema' || mode === 'media' ? 2 : 3);
       expect(resultat, mode).toContain('Porte');
       expect(resultat, mode).toContain('Rideau');
     }
   });
 
-  // C'est le CHAUFFAGE qui cède, jamais une des deux épinglées : la première place reste au
-  // réordonnancement du mode (l'Ambilight pendant un film), les deux dernières aux épingles.
-  it('cinéma : Ambilight garde la première place, Porte et Rideau prennent les dernières', () => {
+  // 2026-10-24: under the redesigned media card the living room has two places (`arrangement`,
+  // `screen-budget.ts`), and the two pins take them: Ambilight in cinema and Lights in media give
+  // way. Until then (four places) Ambilight kept the first place and the Heating gave way.
+  it('cinéma et média : deux places, les deux épingles les prennent', () => {
     expect(noms(ordreCommandes(salon, { ...SALON, ecranAllume: true })))
-      .toEqual(['Ambilight', 'Porte', 'Rideau']);
+      .toEqual(['Porte', 'Rideau']);
+    expect(noms(ordreCommandes(salon, { ...SALON, sourceJoue: true })))
+      .toEqual(['Porte', 'Rideau']);
   });
 
-  it('média et voiture : l\'ordre déclaré suffit, aucune épingle n\'a à intervenir', () => {
-    expect(noms(ordreCommandes(salon, { ...SALON, sourceJoue: true })))
-      .toEqual(['Lumières', 'Porte', 'Rideau']);
+  it('voiture : l\'ordre déclaré suffit, aucune épingle n\'a à intervenir', () => {
     expect(noms(ordreCommandes(salon, { ...SALON, blocDefaut: 'voiture' })))
       .toEqual(['Lumières', 'Porte', 'Rideau']);
   });
@@ -443,10 +450,11 @@ describe('ordreCommandes — commande épinglée (salon, 2026-08-04)', () => {
   it('serrure indisponible : rien n\'est inventé, la coupe reste pleine', () => {
     const sansPorte = salon.filter((b) => b.libelle !== 'Porte');
     // Le rideau reste épinglé : c'est lui, et lui seul, qui occupe alors la dernière place.
+    // Two places under the media card (2026-10-24): the mode's first tile, then the curtain.
     expect(noms(ordreCommandes(sansPorte, { ...SALON, ecranAllume: true })))
-      .toEqual(['Ambilight', 'Lumières', 'Chauffage', 'Rideau']);
+      .toEqual(['Ambilight', 'Rideau']);
     expect(noms(ordreCommandes(sansPorte, { ...SALON, sourceJoue: true })))
-      .toEqual(['Lumières', 'Chauffage', 'Rideau', 'Ambilight']);
+      .toEqual(['Lumières', 'Rideau']);
     expect(noms(ordreCommandes(sansPorte, SALON)))
       .toEqual(['Lumières', 'Chauffage', 'Rideau', 'Ambilight']);
   });

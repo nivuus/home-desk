@@ -64,7 +64,7 @@ export function renderNextMeal(r: NextMeal | undefined): TemplateResult | undefi
  *
  *  Le décompte du minuteur le plus urgent vit dans `.t`, à côté de l'étape, JAMAIS sur une ligne à
  *  lui : une ligne de plus ferait grandir le bloc, donc coûterait une commande de la grille
- *  (`combien`, `modes.ts`). Aucun doublon avec la tuile « Minuteur », qui n'affiche que son libellé
+ *  (`combien`, `screen-budget.ts`). Aucun doublon avec la tuile « Minuteur », qui n'affiche que son libellé
  *  (`tuileMinuteur`, `rendu/minuteur.ts`). */
 export function rendreRecetteReduite(
   v: { etape: number; total: number; plat: string; restantS?: number },
@@ -126,7 +126,7 @@ export const ENTITE_ENTRETIEN = 'todo.maintenance';
  *
  *  Libellés joints par « · » et bornés à 2 lignes (`.v.deux-lignes`), comme les blocs ci-dessus — jamais
  *  empilés sur des lignes supplémentaires, qui feraient grandir le bloc sans plafond avec le
- *  nombre de tâches (et coûteraient une commande de la grille, cf. `combien`, `modes.ts`). C'est
+ *  nombre de tâches (et coûteraient une commande de la grille, cf. `combien`, `screen-budget.ts`). C'est
  *  la SEULE façon de garantir que ce repli tienne exactement la même hauteur que les deux blocs
  *  qu'il remplace, quel que soit le contenu de la liste.
  *

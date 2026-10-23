@@ -6,7 +6,7 @@ import type { Alerte } from '../contexte';
 import { icone } from './icones';
 import { ENTITE_ENTRETIEN } from './defaut';
 import { bouton, commandeActive, pressTile } from './tile';
-import { ordreCommandes, type ContexteModes } from '../modes';
+import { arrangementEcran, ordreCommandes, type ContexteModes } from '../modes';
 import { AGENCEMENT_DEFAUT, type Agencement, type Zone } from '../agencement';
 
 /** Tâche 8 bis : `alerteActive` (`contexte.ts`) existe et est testée depuis la tâche 2, mais rien
@@ -122,7 +122,7 @@ export function ligneSynthese(etat: Etat, entites: EntreeSynthese[]): { texte: s
 
 /** `data-zone` — INERTE POUR LE RENDU, et lu par une seule machine : `outils/mesurer-hauteurs.mjs`,
  *  qui relève dans un vrai navigateur ce que chaque zone de l'écran coûte en pixels. Ces hauteurs
- *  vivent ensuite dans `contrat/budget.json` (clé `hauteurs`), d'où `combien()` (`src/modes.ts`)
+ *  vivent ensuite dans `contrat/budget.json` (clé `hauteurs`), d'où `combien()` (`src/screen-budget.ts`)
  *  les relit pour CALCULER le nombre de commandes au lieu d'appliquer une table calibrée sur les
  *  585 px des Fire 7 — c'est ce qui permet à l'intégration Home Assistant de répondre « cet écran
  *  déborde de tant » pour une tablette quelconque.
@@ -227,6 +227,13 @@ export function rendreCorps(
     ? utilisables
     : utilisables.filter((c) => c.vue !== '#recette' || !etat.isPresent(c.entite));
   const commandes = ctx ? ordreCommandes(affichables, ctx) : affichables;
+  // 2026-10-24: the budget's arrangement (`arrangementEcran`, `modes.ts`), the same answer that
+  // just cut the grid. While the media card is shown it may reduce the synthèse to one line and,
+  // if that is not enough, drop the Ambiance row — the owner's order (spec 2026-10-23). Without a
+  // context, the full composition, as before.
+  const arrangement = ctx ? arrangementEcran(ctx) : undefined;
+  const rangeeAmbiance = arrangement?.rangeeAmbiance ?? true;
+  const syntheseReduite = arrangement?.syntheseReduite ?? false;
 
   // Les quatre zones mobiles, extraites du gabarit unique qu'elles formaient avant cette tâche —
   // chacune rend EXACTEMENT ce que ce gabarit rendait pour elle, commentaires HTML compris (ils
@@ -329,7 +336,8 @@ export function rendreCorps(
              page cuisine, en comptant les enfants de .synthese). Marquer .synthese couvre
              .synthese-texte et .ecart, qui sont ses descendants : la règle d'imbrication veut
              un ancêtre STRICT qui bouge dans la même différence, pas une marque sur chaque nœud. -->
-        <div class="synthese" data-zone="synthese" data-mvt="ligne:synthese"
+        <div class="synthese ${syntheseReduite ? 'reduite' : ''}" data-zone="synthese"
+             data-mvt="ligne:synthese"
              @pointerdown=${() => (location.hash = '#taches')}>${icone('lock')}
           <div class="synthese-texte">${s.texte} <span class="ecart">${s.ecarts.join(', ')}</span></div>
         </div>`;
@@ -338,7 +346,9 @@ export function rendreCorps(
   // tuileMinuteur, commandes, blocCentral, RENDU_*). L'ORDRE d'itération vient de l'agencement,
   // jamais de l'ordre des clés de cet objet.
   const ZONES: Record<Zone, () => RenduZone> = {
-    ambiances: () => (piece.ambiances.length || tuileMinuteur ? RENDU_AMBIANCES : undefined),
+    // Dropped whole (label included) when the arrangement drops it, same rule as an empty row.
+    ambiances: () => (rangeeAmbiance && (piece.ambiances.length || tuileMinuteur)
+      ? RENDU_AMBIANCES : undefined),
     // blocCentral n'a jamais eu de gabarit à LUI dans ce fichier : ce paramètre porte déjà son
     // propre data-zone="blocCentral" (media.ts, modes.ts, defaut.ts, minuteur.ts, voiture.ts, ce
     // fichier pour alerte/hors-ligne) depuis la tâche 14. Placé TEL QUEL, jamais enveloppé ni

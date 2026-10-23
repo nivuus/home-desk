@@ -974,11 +974,14 @@ describe('minuteurs de cuisine', () => {
  *  tenu par `corps.test.ts > une tuile minuteur seule suffit à garder la rangée`).
  *
  *  Comment il est observable, puisque `rangeeAmbiance` n'est jamais exporté : par le nombre de
- *  commandes. En mode `media`, `combien('media', true)` rend 2 et `combien('media', false)` rend 4
- *  (table de vérité gelée, `tests/budget.test.ts`). Une cuisine privée de ses ambiances mais qui
- *  garde ses trois `minuteurs` doit donc rendre DEUX commandes — le nombre d'une pièce qui paie sa
- *  rangée. Sans le correctif, elle en rendrait davantage : elle dépenserait une place que la
- *  rangée occupe déjà à l'écran. */
+ *  commandes. In `minuteur` mode, `combien('minuteur', true)` gives 0 and
+ *  `combien('minuteur', false)` gives 2 (`tests/budget.test.ts`). A kitchen without ambiances but
+ *  with its three `minuteurs` must therefore render NO control — the count of a room that pays
+ *  for its row. Without the fix it would render two, spending a place the row already takes.
+ *
+ *  2026-10-24: this test used the `media` mode (2 against 4) until the media card's ladder
+ *  (`arrangement`, `screen-budget.ts`): both values of `rangeeAmbiance` now end on two controls
+ *  there, so the mode no longer tells them apart. `minuteur` does, and never climbs the ladder. */
 describe('minuteurs sans ambiance : le contexte budgète la rangée que le gabarit rend', () => {
   const cuisineSansAmbiance: Ecran = { ...ECRANS.cuisine, ambiances: [] };
 
@@ -989,8 +992,7 @@ describe('minuteurs sans ambiance : le contexte budgète la rangée que le gabar
         ['cover.rideau_cuisine', 'closed', { current_position: 0 }],
         ['todo.home_stock_shopping', '5'],
         ['sensor.home_stock_next_meal', '2'],
-        ['media_player.musique_cuisine', 'playing',
-         { media_title: 'Blinding Lights', supported_features: 1 }],
+        ['timer.cuisine', 'paused', { remaining: '0:05:00', duration: '0:10:00' }],
       ],
     });
     // Le gabarit rend bien la rangée, sur la seule tuile minuteur (aucune ambiance déclarée).
@@ -998,9 +1000,10 @@ describe('minuteurs sans ambiance : le contexte budgète la rangée que le gabar
     expect(groupe, 'la rangée Ambiance doit exister pour la tuile minuteur seule').not.toBeNull();
     expect(groupe!.style.getPropertyValue('--ambiances')).toBe('1');
     expect(m.racine.querySelector('[data-minuteur-entree]')).not.toBeNull();
-    // Et le contexte l'a budgétée : mode média sous rangée d'ambiance, donc DEUX commandes.
-    expect(m.racine.querySelector('.media'), 'le mode media doit être atteint').not.toBeNull();
-    expect(m.racine.querySelectorAll('.commande')).toHaveLength(2);
+    // And the context budgeted it: timer mode under an Ambiance row, hence NO control.
+    expect(m.racine.querySelector('[data-zone="blocCentral"].minuteurs, .minuteurs'),
+           'le mode minuteur doit être atteint').not.toBeNull();
+    expect(m.racine.querySelectorAll('.commande')).toHaveLength(0);
   });
 });
 

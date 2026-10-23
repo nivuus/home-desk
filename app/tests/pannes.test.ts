@@ -394,7 +394,7 @@ describe('reconnexion interne cassee (jeton de rafraichissement revoque apres un
 });
 
 // Revue tâche 15, mineur M4 : le mode média ampute la grille de commandes (2 au lieu de 4,
-// `ordreCommandes`/`combien`, `modes.ts`) parce que la carte média est deux fois plus haute que
+// `ordreCommandes`/`combien`, `screen-budget.ts`) parce que la carte média est deux fois plus haute que
 // les prévisions qu'elle remplace. Mais sous `horsLigne`, ce n'est PAS la carte média qui occupe
 // le bloc central — c'est `rendreHorsLigne()`, du gabarit d'une alerte, moitié moins haut. La
 // grille restait pourtant amputée : l'écran perdait Porte et Rideau et gagnait ~90 px de blanc,

@@ -137,7 +137,7 @@ describe('rendreEntretien', () => {
   // `white-space: nowrap` (`base.css`) et trois résumés de 46 caractères seraient coupés à la
   // première ligne. Avec, la hauteur du bloc est identique à celle de `renderNextMeal`/
   // `rendreProchainRdv` quel que soit le nombre de tâches — c'est ce qui garantit que le repli ne
-  // coûte pas une commande de plus que les blocs qu'il remplace (`combien`, `modes.ts`).
+  // coûte pas une commande de plus que les blocs qu'il remplace (`combien`, `screen-budget.ts`).
   it('borne la valeur à deux lignes, quel que soit le nombre de tâches', () => {
     const div = document.createElement('div');
     render(rendreEntretien(TACHES)!, div);

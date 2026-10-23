@@ -322,7 +322,7 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {   // poli
       { libelle: 'Éteindre', icone: 'film', entite: 'light.bureau', service: ['light', 'turn_off'] },
     ],
     // Tâche 19 (2026-08-03, choix du propriétaire) : QUATRE commandes, contre deux jusqu'ici.
-    // `combien()` (`modes.ts`) en affiche quatre en mode `defaut` : avec deux déclarées, le bureau
+    // `combien()` (`screen-budget.ts`) en affiche quatre en mode `defaut` : avec deux déclarées, le bureau
     // ne rendait qu'une seule rangée là où le salon en rend deux, d'où ~93 px de vide au milieu de
     // l'écran (mesuré tâche 18 — 74 px de rangée plus la gouttière de 10 px, moins ce que la
     // colonne se resserre). La rangée manquante est le remède retenu ; ni `combien()` ni le clamp

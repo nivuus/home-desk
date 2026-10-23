@@ -110,7 +110,7 @@ export function computeFrame(s: ScreenState): Frame {
     blocDefaut: agencement.blocDefaut,
     // 2026-08-29: deduced from the declaration, never from the name of the room — the living room
     // gave up its "Ambiance" row, and it is that fact, not its identity, that gives it back the
-    // ~100 px of the second row of controls (see `combien`, `modes.ts`). A room that took up
+    // ~100 px of the second row of controls (see `combien`, `screen-budget.ts`). A room that took up
     // ambiances again tomorrow would get its former budget back without anyone having to think
     // about it.
     //
@@ -126,7 +126,7 @@ export function computeFrame(s: ScreenState): Frame {
     // itself, exactly as for `blocDefaut` and `rangeeAmbiance`.
     modes: agencement.modes,
     modulateurs: agencement.modulateurs,
-    // Final review of plan 2 (I4): `coutEcran` (`modes.ts`) charged for the four zones
+    // Final review of plan 2 (I4): `coutEcran` (`screen-budget.ts`) charged for the four zones
     // unconditionally. A zone a screen does not display does not cost its height — same origin
     // and same pattern as `modes`/`modulateurs` above. Same result on the three screens, which all
     // declare the four zones of the default (see `tests/agencement.test.ts`).

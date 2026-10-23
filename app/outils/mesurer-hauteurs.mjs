@@ -217,6 +217,7 @@ function releverZones() {
 // with a single timer); without it, the entry's name is the mode.
 const familleDuBloc = (nom) => {
   if ((BUDGET.modesABlocMinuteur ?? []).includes(nom)) return 'blocMinuteur';
+  if ((BUDGET.modesABlocMedia ?? []).includes(nom)) return 'blocMedia';
   if ((BUDGET.modesABlocHaut ?? []).includes(nom)) return 'blocHaut';
   return 'blocDefaut';
 };
@@ -408,6 +409,10 @@ const hauteurs = {
   blocDefaut: maxBloc('blocDefaut'),
   blocHaut: maxBloc('blocHaut'),
   blocMinuteur: maxBloc('blocMinuteur'),
+  // The media card (2026-10-24). `syntheseReduite`, the one-line synthèse the media modes may
+  // use, is NOT measured here: `outils/mesurer-carte-media.mjs` measures it with the card, and
+  // its value must be carried over by hand when this block is copied into `contrat/budget.json`.
+  blocMedia: maxBloc('blocMedia'),
   synthese: maxZone('synthese'),
   touteLaMaison: maxZone('touteLaMaison'),
 };

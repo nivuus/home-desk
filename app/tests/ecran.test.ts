@@ -127,7 +127,7 @@ describe('déclarations des pièces', () => {
 });
 
 /** Tâche 19 (2026-08-03, choix du propriétaire) : la cuisine et le bureau ne déclaraient que DEUX
- *  commandes là où `combien()` (`modes.ts`) en affiche quatre en mode `defaut` — une seule rangée
+ *  commandes là où `combien()` (`screen-budget.ts`) en affiche quatre en mode `defaut` — une seule rangée
  *  rendue au lieu des deux du salon, soit les ~93 px de jeu mesurés au milieu de ces deux écrans à
  *  la tâche 18 (74 px de rangée + la gouttière). Deux tuiles de plus par pièce comblent EXACTEMENT
  *  cette rangée manquante : la hauteur de leurs modes `defaut`/`entretien`/`agenda` passe de 500 à

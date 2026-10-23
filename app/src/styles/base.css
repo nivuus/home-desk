@@ -338,6 +338,10 @@ body {
   min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden; }
 .synthese .ecart { color: var(--md-error); font-weight: 700; }
+/* The reduced synthèse (2026-10-24, spec 2026-10-23 "Place à l'écran"): one line, same clamp, when
+   the budget needs the room for the media card (`arrangement`, `screen-budget.ts`). Its height is
+   `hauteurs.syntheseReduite`, measured by `outils/mesurer-carte-media.mjs`. */
+.synthese.reduite .synthese-texte { -webkit-line-clamp: 1; }
 .xl { margin-top: auto; height: 62px; border-radius: var(--sh-full); background: var(--md-primary);
   color: var(--md-on-primary); display: flex; align-items: center; justify-content: center;
   gap: 10px; font-size: 16px; font-weight: 600; transition: border-radius .2s var(--ressort); }

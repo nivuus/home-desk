@@ -46,7 +46,8 @@ de libre.
 | Fichier | Contenu |
 |---------|---------|
 | `src/ecran.ts` | tuiles, commandes, entités et lignes de synthèse **par pièce** |
-| `src/modes.ts` | mode principal exclusif (`alerte`, `minuteur`, `menage`, `cinema`, `media`, `aeration`, `voiture`, `defaut`), modulateurs cumulables (`invites`, `chaleur`), nombre de commandes visibles |
+| `src/modes.ts` | mode principal exclusif (`alerte`, `minuteur`, `menage`, `cinema`, `media`, `aeration`, `voiture`, `defaut`), modulateurs cumulables (`invites`, `chaleur`), ordre et coupe des commandes visibles |
+| `src/screen-budget.ts` | budget de hauteur : coût de la colonne, nombre de commandes (`combien`), échelle de la carte média (`arrangement`), débordement pour le formulaire (`verifierBudget`) |
 | `src/rendu/*.ts` | blocs centraux (`media`, `voiture`, `taches`, `minuteur`, `nuit`, `maison`, `defaut`, `recette`…) et `icones.ts` |
 | `src/garde-manger.ts` | le repas suivant et le compte de DLC, **lus dans les attributs** de `sensor.home_stock_next_meal` et `todo.home_stock_expirations` |
 | `src/contexte.ts` | moment du jour (nuit 23 h–5 h), alertes |
@@ -65,6 +66,7 @@ node outils/verifier-rendu.mjs --deploye   # idem, sur le bundle réellement en 
 node outils/mesurer-salve.mjs salon        # coût des 12 premières secondes (salve de connexion)
 node outils/mesurer-salve.mjs salon --src  # idem, sur le bundle construit depuis src/
 node outils/mesurer-rendus.mjs salon 300   # régime établi : styles/layouts par seconde, nœuds DOM
+node outils/mesurer-carte-media.mjs        # hauteur de la carte média et de la synthèse réduite, sans Home Assistant
 npm run build                     # ⚠️ DÉPLOIE EN PRODUCTION (écrit config/www/wallpanel/)
 npm run jetons                    # régénère src/styles/jetons.css
 ```
