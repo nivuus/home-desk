@@ -161,10 +161,13 @@ suivantes par une convention de dépôt, sans filet automatique :
   test_garde_ecran_est_le_seul_module_a_appeler_une_porte_d_ecriture`,
   table `_PORTES_ECRITURE`). `garde_ecran.persister_si_valide` (mise à
   jour d'une sous-entrée) et `garde_ecran.importer_ecrans` (tâche 9,
-  création en masse) sont les deux seuls appelants légitimes — rejoints
+  création en masse) sont deux appelants légitimes — rejoints
   le 2026-09-28 par `garde_ecran.migrate_subentry`, la réécriture au
   chargement des écrans de version 1 (`migration.py` calcule la donnée,
-  `garde_ecran.py` l'écrit). Relevé en
+  `garde_ecran.py` l'écrit), puis par `garde_ecran.persist_house_if_valid`
+  (écriture de la sous-entrée maison). **Corrigé le 2026-10-24** — cette
+  section disait « les deux seuls appelants légitimes » ; la sous-entrée
+  maison en a ajouté un troisième, toujours dans `garde_ecran.py`. Relevé en
   relecture finale de branche (deuxième ronde) : cette section (première
   ronde) omettait purement et simplement `async_remove_subentry` de son
   compte (« Six » portes listées, aucune n'étant celle-ci) — un appel
@@ -195,6 +198,21 @@ suivantes par une convention de dépôt, sans filet automatique :
   `validateurs.py` ne contient aucun `pathlib.Path`, aucun JSON, ce qui
   évite la dépendance circulaire. La prochaine extraction suit la même
   ligne ; ne coupez pas à un nombre de lignes.
+
+## Index — maison et carte média (détail : `docs/claude/maison-et-budget-media.md`)
+
+- **Sous-entrée maison** (`SUBENTRY_HOUSE = "maison"`, `maison.py`
+  `HouseSubentryFlow`, commande WS `home_desk/maison`, contrat
+  `contrat/maison.schema.json` + `cas-maison.json`, `schema.validate_house`) :
+  sources média de la maison, champ `piece` optionnel. Bloc `maison:` du YAML ;
+  absent à l'import, il supprime la maison.
+- **Échelle de budget** des modes de `budget.json` -> `modesABlocMedia`
+  (media, cinema) : composition complète, synthèse réduite, synthèse réduite
+  sans rangée Ambiance (`app/src/screen-budget.ts`, jumeau `budget.py`, corpus
+  `contrat/cas-budget.json`).
+- **Teintes de la carte média** : `app/src/tones.ts`,
+  `app/src/rendu/poster-sampler.ts`, `app/src/boot/media-tones.ts`; contrôle de
+  rendu `app/outils/verifier-carte-media.mjs`.
 
 ## Dettes connues du composant, reportées au 3b/3c
 
