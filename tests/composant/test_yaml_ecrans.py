@@ -180,7 +180,7 @@ def test_yaml_round_trip_keeps_appliances():
         {"type": "imprimante", "piece": "書斎", "entites": {
             "etat": "sensor.printer_state", "progression": "sensor.printer_progress",
             "ams": ["sensor.tray_1", "sensor.tray_2"]}},
-        {"type": "encre", "piece": "maison", "seuil": 12.5,
+        {"type": "encre", "piece": "書斎", "seuil": 12.5,
          "entites": {"niveaux": ["sensor.ink_black"]}},
         {"type": "alarme", "piece": "غرفة الجلوس", "entites": {"zones": []}},
     ]}

@@ -31,7 +31,7 @@ import voluptuous as vol
 import yaml
 
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
 from . import garde_ecran, yaml_ecrans
 from .const import DOMAIN, SCREENS_EXPORT_FILE, SERVICE_EXPORTER, SERVICE_IMPORTER
@@ -137,6 +137,12 @@ async def _async_importer(call: ServiceCall) -> None:
 
     try:
         garde_ecran.importer_ecrans(hass, entry, ecrans, maison)
+    except garde_ecran.ImportRefused as err:
+        # Translated by Home Assistant (`exceptions` in translations/*.json): the frontend
+        # shows it in the user's language.
+        raise ServiceValidationError(
+            translation_domain=DOMAIN, translation_key=err.translation_key,
+            translation_placeholders=err.placeholders) from err
     except vol.Invalid as err:
         raise HomeAssistantError(f"import refuse, rien n'a ete ecrit : {err}") from err
 

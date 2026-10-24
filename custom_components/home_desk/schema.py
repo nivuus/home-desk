@@ -68,6 +68,7 @@ _ICONES = frozenset(_DEFS["bouton"]["properties"]["icone"]["enum"])
 _OPERATEURS = frozenset(_DEFS["synthese"]["properties"]["operateur"]["enum"])
 
 _ENTITE_PATTERN = re.compile(_DEFS["entite"]["pattern"])
+_BOUTON_PATTERN = re.compile(_DEFS["entiteBouton"]["pattern"])
 _VUE_PATTERN = re.compile(_DEFS["bouton"]["properties"]["vue"]["pattern"])
 
 # Public (no _ prefix): config_flow.py reuses them to refuse an
@@ -152,6 +153,8 @@ from .validateurs import (  # noqa: E402
 hauteur_utile = _hauteur_utile(HAUTEUR_MIN, HAUTEUR_MAX)
 
 ENTITE = _string_pattern(_ENTITE_PATTERN)
+# The car actions the card presses with `button.press` (`$defs/entiteBouton`).
+ENTITE_BOUTON = _string_pattern(_BOUTON_PATTERN)
 
 
 # --------------------------------------------------------------------------
@@ -252,9 +255,9 @@ VOITURE = vol.Schema(
         vol.Required("arreterClim"): ENTITE,
         vol.Optional("limite"): ENTITE,
         vol.Optional("finCharge"): ENTITE,
-        vol.Optional("demarrerCharge"): ENTITE,
-        vol.Optional("arreterCharge"): ENTITE,
-        vol.Optional("boutonLimite"): ENTITE,
+        vol.Optional("demarrerCharge"): ENTITE_BOUTON,
+        vol.Optional("arreterCharge"): ENTITE_BOUTON,
+        vol.Optional("boutonLimite"): ENTITE_BOUTON,
         vol.Optional("note"): _string(),
     },
     extra=vol.PREVENT_EXTRA,
@@ -360,6 +363,9 @@ from .appliances import appliance_validator  # noqa: E402
 
 MAISON_JSON = json.loads(CHEMIN_MAISON.read_text(encoding="utf-8"))
 VERSION_MAISON: int = MAISON_JSON["properties"]["version"]["const"]
+# The `piece` of an appliance shown on every tablet: the one value `$defs/pieceDeTablette`
+# refuses (the tablet's `WHOLE_HOUSE`, `app/src/stack/appliances.ts`).
+WHOLE_HOUSE: str = MAISON_JSON["$defs"]["pieceDeTablette"]["not"]["const"]
 
 
 def _piece_requise(source: dict) -> dict:

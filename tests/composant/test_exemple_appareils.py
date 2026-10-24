@@ -32,8 +32,25 @@ def test_the_example_is_valid_for_the_contract():
 def test_the_example_shows_every_appliance_type_of_the_contract():
     contrat = json.loads((RACINE / "contrat" / "maison.schema.json").read_text(encoding="utf-8"))
     declares = set(contrat["$defs"]["appareil"]["properties"]["type"]["enum"])
-    shown = [a["type"] for a in _maison()["appareils"]]
-    assert sorted(shown) == sorted(declares), "one entry per appliance type, no duplicate"
+    shown = {a["type"] for a in _maison()["appareils"]}
+    assert shown == declares, "every appliance type of the contract, and no other"
+
+
+def test_a_type_shown_twice_is_the_room_plus_house_pattern():
+    """The only reason to declare a type twice: the appliance in its room, and the same
+    appliance once more in `maison` so its rank-2 states reach every tablet. The `maison`
+    entry restates roles of the room entry (same entity ids), so both merge into one card
+    (`cardEntities`, merge by key); it never names another appliance."""
+    by_type: dict[str, list[dict]] = {}
+    for a in _maison()["appareils"]:
+        by_type.setdefault(a["type"], []).append(a)
+    pairs = {t: entries for t, entries in by_type.items() if len(entries) > 1}
+    assert pairs, "the example shows the pattern at least once"
+    for type_name, entries in pairs.items():
+        rooms = [e for e in entries if e["piece"] != "maison"]
+        house = [e for e in entries if e["piece"] == "maison"]
+        assert len(rooms) == 1 and len(house) == 1, type_name
+        assert house[0]["entites"].items() <= rooms[0]["entites"].items(), type_name
 
 
 def test_the_example_uses_placeholder_entities_only():

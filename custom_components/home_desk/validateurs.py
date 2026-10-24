@@ -170,6 +170,19 @@ def _const(attendu):
     return valider
 
 
+def _not_const(interdit):
+    """The counterpart of `"not": {"const": ...}`: any value but that one
+    (same type-and-value comparison as `_const`). The fault names the value
+    itself, like ajv's `not`."""
+
+    def valider(value):
+        if type(value) is type(interdit) and value == interdit:
+            raise _FauteNot(f"{interdit!r} n'est pas admis ici")
+        return value
+
+    return valider
+
+
 def _hauteur_utile(minimum: int, maximum: int):
     """Factory of `schema.hauteur_utile` -- the bounds come from the
     contract (`HAUTEUR_MIN`/`HAUTEUR_MAX`, schema.py), never retyped here.

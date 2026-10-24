@@ -418,6 +418,11 @@
   "avertissements": {
     "entites_inconnues": "Entités saisies mais absentes du registre de Home Assistant, à vérifier (une entité peut arriver plus tard) : {liste}"
   },
+  "exceptions": {
+    "appliance_room_unknown": {
+      "message": "Import refusé, rien n'a été écrit : l'appareil {position} ({type}) est dans la pièce « {piece} », et aucun écran du fichier ne porte ce nom : sa carte ne s'afficherait nulle part. Donnez-lui le nom exact d'un écran ({pieces}), ou « maison » s'il attend un geste."
+    }
+  },
   "services": {
     "exporter": {
       "name": "Exporter les écrans",

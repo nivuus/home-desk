@@ -4,10 +4,16 @@
 # `tests/composant/test_exemple_appareils.py` validates this file against the contract
 # (`contrat/maison.schema.json`) and fails if a type is missing or a role is wrong.
 #
-# `piece`: a room name, or "maison" for an appliance shown on every tablet. A "maison"
-# appliance only shows while its card waits for a gesture (rank 2): that is useful for the
-# printer, vacuum, car and pets, and pointless for air, alarme, encre, plantes and tapis
-# (their cards are never rank 2), so those are given a room here.
+# `piece`: the `nom` of a screen, exactly as typed there, or "maison". The import refuses a
+# room no screen of the file is named after. An appliance of a room shows on that room's
+# tablet at any rank. A "maison" appliance shows on every tablet, but only while its card
+# waits for a gesture (rank 2): a robot stuck, a car to plug in, a fountain empty. The
+# contract refuses "maison" for air, alarme, encre, plantes and tapis, whose cards never
+# reach rank 2.
+# To have both, declare the appliance in its room AND once more in "maison" with the same
+# main entity (the vacuum and the car below): its room sees every state, the other tablets
+# only the ones waiting for a gesture, and the two entries merge into one card. The "maison"
+# entry carries what its rank is read from on the other tablets (the car's `limite`).
 # Roles marked (required) must be present; any role the contract does not list for the type
 # is refused. `seuil` is required for `air` and `encre`, optional for `plantes`, forbidden
 # for every other type.
@@ -15,7 +21,7 @@ maison:
   sources: []
   appareils:
     - type: imprimante
-      piece: maison
+      piece: Office
       entites:
         etat: sensor.example_printer_status          # (required)
         progression: sensor.example_printer_progress # (required)
@@ -31,13 +37,17 @@ maison:
         erreur: binary_sensor.example_printer_error
         ams: [sensor.example_printer_slot_1, sensor.example_printer_slot_2]  # at most 4
     - type: aspirateur
-      piece: maison
+      piece: Kitchen
       entites:
         aspirateur: vacuum.example_robot             # (required)
         plan: image.example_robot_map
-        erreur: sensor.example_robot_error
-    - type: voiture
+        erreur: sensor.example_robot_error           # sensor.* only: its text while stuck
+    - type: aspirateur                               # the same robot, stuck: every tablet
       piece: maison
+      entites:
+        aspirateur: vacuum.example_robot
+    - type: voiture
+      piece: Hall
       entites:
         batterie: sensor.example_car_battery         # (required)
         branchee: binary_sensor.example_car_plugged  # (required)
@@ -45,8 +55,14 @@ maison:
         autonomie: sensor.example_car_range
         limite: number.example_car_charge_limit
         finCharge: sensor.example_car_charge_end
-        demarrerCharge: switch.example_car_charge_start
-        arreterCharge: switch.example_car_charge_stop
+        demarrerCharge: button.example_car_charge_start  # button.* only
+        arreterCharge: button.example_car_charge_stop
+    - type: voiture                                  # the same car, to plug in: every tablet
+      piece: maison
+      entites:
+        batterie: sensor.example_car_battery
+        branchee: binary_sensor.example_car_plugged
+        limite: number.example_car_charge_limit
     - type: animaux
       piece: Kitchen
       entites:                                       # at least one of the four problems
@@ -61,7 +77,7 @@ maison:
       seuil: 30                                      # optional: moisture below which to water
       entites:
         sondes: [sensor.example_plant_a_moisture, sensor.example_plant_b_moisture]  # (required)
-        habitude: input_boolean.example_plants_watered
+        habitude: input_boolean.example_plants_watered  # input_boolean.* only
     - type: tapis
       piece: Office
       entites:

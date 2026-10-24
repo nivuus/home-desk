@@ -26,6 +26,7 @@ from .validateurs import (
     _any_required,
     _array,
     _enum,
+    _not_const,
     _number,
     _object,
     _present,
@@ -36,6 +37,7 @@ from .validateurs import (
 _ENTITY_REF = "ecran.schema.json#/$defs/entite"
 _LIST_REF = "#/$defs/listeEntites"
 _THRESHOLD = "seuil"
+_ROOM = "piece"
 
 
 def _unsupported(where: str, what: Any) -> ValueError:
@@ -71,6 +73,21 @@ def _patterned_lists(defs: dict, patterned: dict[str, Callable]) -> dict[str, Ca
                 or set(schema["items"]) != {"$ref"} or item not in patterned:
             raise _unsupported(f"$defs/{name}", schema)
         refs[f"#/$defs/{name}"] = patterned[item]
+    return refs
+
+
+def _room_rules(defs: dict) -> dict[str, Callable]:
+    """Every `$defs/piece*`: a room name that may be anything but one value
+    (`not: {const}`) -- `maison`, for the types whose card never reaches the
+    rank a whole-house appliance is shown at. Keyed by the `$ref` a branch's
+    `piece` uses."""
+    refs = {}
+    for name, schema in defs.items():
+        if not name.startswith(_ROOM):
+            continue
+        if set(schema) - {"description"} != {"not"} or set(schema["not"]) != {"const"}:
+            raise _unsupported(f"$defs/{name}", schema)
+        refs[f"#/$defs/{name}"] = _not_const(schema["not"]["const"])
     return refs
 
 
@@ -118,13 +135,18 @@ def _entities(type_name: str, schema: dict, entity: Callable, patterned: dict[st
 
 
 def _branch(branch: dict, entity: Callable, patterned: dict[str, Callable],
-            lists: dict[str, Callable]) -> tuple[str, Callable]:
+            lists: dict[str, Callable], rooms: dict[str, Callable]) -> tuple[str, Callable]:
     """One `{if: {type: const}, then: {...}}`: the type it names and the
     validator of an item of that type."""
     type_name = branch["if"]["properties"]["type"]["const"]
     then = branch["then"]
-    if not set(then) <= {"properties", "required", "not"} or not set(then["properties"]) <= {"entites", _THRESHOLD}:
+    if not set(then) <= {"properties", "required", "not"} \
+            or not set(then["properties"]) <= {"entites", _THRESHOLD, _ROOM}:
         raise _unsupported(f"branch {type_name!r}", sorted(then))
+    room_schema = then["properties"].get(_ROOM)
+    if room_schema is not None and (set(room_schema) != {"$ref"} or room_schema["$ref"] not in rooms):
+        raise _unsupported(f"piece of {type_name!r}", room_schema)
+    room = object if room_schema is None else rooms[room_schema["$ref"]]
     if then.get("required", [_THRESHOLD]) != [_THRESHOLD] or then.get(
             "not", {"required": [_THRESHOLD]}) != {"required": [_THRESHOLD]}:
         raise _unsupported(f"branch {type_name!r}", then)
@@ -141,7 +163,7 @@ def _branch(branch: dict, entity: Callable, patterned: dict[str, Callable],
     item = vol.Schema(
         {
             vol.Required("type"): object,
-            vol.Required("piece"): object,
+            vol.Required("piece"): room,
             vol.Required("entites"): entities,
             vol.Optional(_THRESHOLD): object,
         },
@@ -158,7 +180,8 @@ def appliance_validator(defs: dict, entity: Callable) -> Callable:
     types = props["type"]["enum"]
     patterned = _patterned_entities(defs)
     lists = _patterned_lists(defs, patterned)
-    branches = dict(_branch(b, entity, patterned, lists) for b in appareil["allOf"])
+    rooms = _room_rules(defs)
+    branches = dict(_branch(b, entity, patterned, lists, rooms) for b in appareil["allOf"])
     if sorted(branches) != sorted(types):
         raise _unsupported("the type branches", sorted(set(branches) ^ set(types)))
     shared = vol.Schema(

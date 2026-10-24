@@ -73,7 +73,7 @@ async def test_the_migrated_house_is_served(hass, hass_ws_client):
 
 async def test_a_current_house_is_not_rewritten(hass):
     current = {"version": 2, "sources": [], "appareils": [
-        {"type": "tapis", "piece": "maison", "entites": {"vitesse": "sensor.treadmill_speed"}}]}
+        {"type": "tapis", "piece": "Bureau", "entites": {"vitesse": "sensor.treadmill_speed"}}]}
     entry = _entry_with(hass, current)
 
     assert migration.migrate_subentries(hass, entry) == 0

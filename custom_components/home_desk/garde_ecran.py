@@ -68,6 +68,34 @@ from . import libelles, schema
 from .const import ERROR_SCREEN_WOULD_BECOME_INVALID, SUBENTRY_HOUSE, SUBENTRY_SCREEN, VERSION_CONFIG
 
 
+class ImportRefused(Exception):
+    """An import refusal that no single subentry's contract can see, told by a
+    translation key (`translations/*.json`, `exceptions`) and its placeholders:
+    `services.py` hands both to Home Assistant's `ServiceValidationError`, which
+    the frontend shows in the user's language. Not a `vol.Invalid`: Home
+    Assistant's voluptuous backend (probatio) gives that class a
+    `translation_key` of its own, for its own message catalog."""
+
+    def __init__(self, translation_key: str, placeholders: dict[str, str]) -> None:
+        super().__init__(translation_key, placeholders)
+        self.translation_key = translation_key
+        self.placeholders = placeholders
+
+
+def _check_appliance_rooms(house: dict, screen_names: list[str]) -> None:
+    """Every appliance's `piece` is `maison` or the `nom` of a screen of the
+    same import, compared exactly like the tablet does (`appliancesFor`): any
+    other value -- a typo, a trailing space, a room without a tablet -- is a
+    card that would show nowhere. Spans the house and the screens, like the
+    `nom` uniqueness above, so it lives in this pass and not in the contract."""
+    known = set(screen_names)
+    for position, appliance in enumerate(house["appareils"], start=1):
+        if appliance["piece"] != schema.WHOLE_HOUSE and appliance["piece"] not in known:
+            raise ImportRefused("appliance_room_unknown", {
+                "type": appliance["type"], "position": str(position),
+                "piece": appliance["piece"], "pieces": ", ".join(screen_names)})
+
+
 def screen_subentries(entry: Any) -> list[Any]:
     """The "ecran" subentries of ENTRY, never the house one: every place
     that means "the screens" goes through here (websocket listing and
@@ -207,7 +235,9 @@ def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]], maiso
     `version` is set when absent, like a screen's) and written in the SAME
     single write. A `maison:` exported before house version 2 has no
     `appareils` and is refused by name (`required key ... 'appareils'`):
-    re-export, or add `appareils: []` to the file.
+    re-export, or add `appareils: []` to the file. An appliance whose `piece`
+    is neither `maison` nor the `nom` of a screen of the file is refused too
+    (`_check_appliance_rooms`, an `ImportRefused`): its card would show nowhere.
 
     ENTIRELY REPLACES the current subentries of `entry` -- screens AND house,
     never a merge: `maison` present creates or replaces the house subentry,
@@ -316,6 +346,7 @@ def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]], maiso
     house_valide = None
     if maison is not None:
         house_valide = schema.validate_house({"version": schema.VERSION_MAISON, **maison})
+        _check_appliance_rooms(house_valide, [data["nom"] for _titre, data in ecrans_valides])
 
     new_subentries: dict[str, ConfigSubentry] = {
         subentry_id: subentry for subentry_id, subentry in entry.subentries.items()

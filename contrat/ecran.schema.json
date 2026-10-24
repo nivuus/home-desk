@@ -50,9 +50,9 @@
         "arreterClim": { "$ref": "#/$defs/entite" },
         "limite": { "$ref": "#/$defs/entite" },
         "finCharge": { "$ref": "#/$defs/entite" },
-        "demarrerCharge": { "$ref": "#/$defs/entite" },
-        "arreterCharge": { "$ref": "#/$defs/entite" },
-        "boutonLimite": { "$ref": "#/$defs/entite" },
+        "demarrerCharge": { "$ref": "#/$defs/entiteBouton" },
+        "arreterCharge": { "$ref": "#/$defs/entiteBouton" },
+        "boutonLimite": { "$ref": "#/$defs/entiteBouton" },
         "note": { "type": "string" }
       }
     },
@@ -112,6 +112,11 @@
       "type": "string",
       "pattern": "^[a-z_]+\\.[a-z0-9_]+$",
       "description": "Un entity_id Home Assistant : domaine.objet, minuscules."
+    },
+    "entiteBouton": {
+      "type": "string",
+      "pattern": "^button\\.[a-z0-9_]+$",
+      "description": "Un entity_id du domaine button : la carte de la voiture le presse par button.press. Un script ou un interrupteur serait un bouton mort."
     },
     "bouton": {
       "type": "object",

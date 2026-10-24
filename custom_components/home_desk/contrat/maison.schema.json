@@ -33,7 +33,16 @@
     "entiteReglage": {
       "type": "string",
       "pattern": "^(number|input_number)\\.[a-z0-9_]+$",
-      "description": "Un entity_id du domaine number ou input_number : la carte l'ecrit par `<domaine>.set_value`, avec l'attribut `min` de l'entite pour valeur."
+      "description": "Un entity_id du domaine number ou input_number : la carte l'ecrit par `<domaine>.set_value`, avec pour valeur l'attribut `min` de l'entite s'il est positif, sinon son `step` s'il l'est ; sans l'un ni l'autre, pas de bouton."
+    },
+    "entiteHabitude": {
+      "type": "string",
+      "pattern": "^input_boolean\\.[a-z0-9_]+$",
+      "description": "Un entity_id du domaine input_boolean : la carte le passe a `on` par `input_boolean.turn_on` pour noter l'arrosage fait. Un script ou un input_button ne garderait rien, et la carte partirait comme si l'habitude etait notee."
+    },
+    "pieceDeTablette": {
+      "not": {"const": "maison"},
+      "description": "La piece d'un appareil dont la carte n'attend jamais de geste (rang 2) : une carte de \"maison\" ne se montre qu'a ce rang, celle-ci ne se montrerait donc nulle part. Donnez a cet appareil la piece dont la tablette doit la montrer."
     },
     "entiteAlarme": {
       "type": "string",
@@ -116,7 +125,7 @@
                 "properties": {
                   "aspirateur": {"$ref": "ecran.schema.json#/$defs/entite"},
                   "plan": {"$ref": "ecran.schema.json#/$defs/entite"},
-                  "erreur": {"$ref": "ecran.schema.json#/$defs/entite"}
+                  "erreur": {"$ref": "#/$defs/entiteCapteur"}
                 }
               }
             },
@@ -137,8 +146,8 @@
                   "autonomie": {"$ref": "ecran.schema.json#/$defs/entite"},
                   "limite": {"$ref": "ecran.schema.json#/$defs/entite"},
                   "finCharge": {"$ref": "ecran.schema.json#/$defs/entite"},
-                  "demarrerCharge": {"$ref": "ecran.schema.json#/$defs/entite"},
-                  "arreterCharge": {"$ref": "ecran.schema.json#/$defs/entite"}
+                  "demarrerCharge": {"$ref": "#/$defs/entiteBouton"},
+                  "arreterCharge": {"$ref": "#/$defs/entiteBouton"}
                 }
               }
             },
@@ -174,12 +183,13 @@
           "if": {"properties": {"type": {"const": "plantes"}}, "required": ["type"]},
           "then": {
             "properties": {
+              "piece": {"$ref": "#/$defs/pieceDeTablette"},
               "entites": {
                 "required": ["sondes"],
                 "additionalProperties": false,
                 "properties": {
                   "sondes": {"$ref": "#/$defs/listeEntites", "minItems": 1},
-                  "habitude": {"$ref": "ecran.schema.json#/$defs/entite"}
+                  "habitude": {"$ref": "#/$defs/entiteHabitude"}
                 }
               },
               "seuil": true
@@ -190,6 +200,7 @@
           "if": {"properties": {"type": {"const": "tapis"}}, "required": ["type"]},
           "then": {
             "properties": {
+              "piece": {"$ref": "#/$defs/pieceDeTablette"},
               "entites": {
                 "required": ["vitesse"],
                 "additionalProperties": false,
@@ -209,6 +220,7 @@
           "if": {"properties": {"type": {"const": "air"}}, "required": ["type"]},
           "then": {
             "properties": {
+              "piece": {"$ref": "#/$defs/pieceDeTablette"},
               "entites": {
                 "required": ["pm25", "purificateur"],
                 "additionalProperties": false,
@@ -225,6 +237,7 @@
           "if": {"properties": {"type": {"const": "alarme"}}, "required": ["type"]},
           "then": {
             "properties": {
+              "piece": {"$ref": "#/$defs/pieceDeTablette"},
               "entites": {
                 "required": ["zones"],
                 "additionalProperties": false,
@@ -238,6 +251,7 @@
           "if": {"properties": {"type": {"const": "encre"}}, "required": ["type"]},
           "then": {
             "properties": {
+              "piece": {"$ref": "#/$defs/pieceDeTablette"},
               "entites": {
                 "required": ["niveaux"],
                 "additionalProperties": false,

@@ -275,7 +275,7 @@ PRINTER = {
     "entites": {"etat": "sensor.printer_state", "progression": "sensor.printer_progress",
                 "ams": ["sensor.tray_1", "sensor.tray_2"]},
 }
-AIR = {"type": "air", "piece": "maison", "seuil": 25,
+AIR = {"type": "air", "piece": "Bureau", "seuil": 25,
        "entites": {"pm25": "sensor.air_pm25", "purificateur": "fan.air_purifier"}}
 
 
@@ -312,7 +312,7 @@ async def test_export_import_round_trip_keeps_appliances(hass, entree):
     chemin = _export_path(hass)
     chemin.unlink(missing_ok=True)
     try:
-        await _creer_ecran(hass, entree, nom="salon")
+        await _creer_ecran(hass, entree, nom="Bureau")
         _store_house(hass, entree, {"version": 2, "sources": [SOURCE_BEDROOM], "appareils": [PRINTER, AIR]})
         await hass.services.async_call(DOMAIN, "exporter", blocking=True)
         _ecrans, maison = yaml_ecrans.lire(chemin.read_text(encoding="utf-8"))
@@ -341,6 +341,37 @@ async def test_import_refuses_an_invalid_appliance_and_writes_nothing(hass, entr
 
         with pytest.raises(HomeAssistantError):
             await hass.services.async_call(DOMAIN, "importer", blocking=True)
+        assert {k: (s.title, dict(s.data)) for k, s in entry.subentries.items()} == avant
+    finally:
+        chemin.unlink(missing_ok=True)
+
+
+async def test_import_refuses_an_appliance_whose_room_has_no_screen(hass, entree):
+    """An appliance's `piece` is matched EXACTLY against the screens' `nom`: one that is
+    neither `maison` nor the name of a screen of the file would never show its card. The
+    import refuses it by a translated key, names the appliance and the known rooms, and
+    writes nothing. `maison` and a real room pass in the same file."""
+    from homeassistant.exceptions import ServiceValidationError
+
+    chemin = _export_path(hass)
+    chemin.unlink(missing_ok=True)
+    pets = {"type": "animaux", "piece": "maison", "entites": {"panneDistributeur": "binary_sensor.f"}}
+    try:
+        await _creer_ecran(hass, entree, nom="Bureau")
+        await _creer_ecran(hass, entree, nom="書斎")
+        _store_house(hass, entree, {"version": 2, "sources": [], "appareils": [
+            PRINTER, pets, {**AIR, "piece": "Bureau "}]})
+        await hass.services.async_call(DOMAIN, "exporter", blocking=True)
+        entry = hass.config_entries.async_get_entry(entree.entry_id)
+        avant = {k: (s.title, dict(s.data)) for k, s in entry.subentries.items()}
+
+        with pytest.raises(ServiceValidationError) as excinfo:
+            await hass.services.async_call(DOMAIN, "importer", blocking=True)
+
+        assert excinfo.value.translation_domain == DOMAIN
+        assert excinfo.value.translation_key == "appliance_room_unknown"
+        assert excinfo.value.translation_placeholders == {
+            "type": "air", "position": "3", "piece": "Bureau ", "pieces": "Bureau, 書斎"}
         assert {k: (s.title, dict(s.data)) for k, s in entry.subentries.items()} == avant
     finally:
         chemin.unlink(missing_ok=True)
