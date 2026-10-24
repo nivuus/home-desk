@@ -209,10 +209,10 @@ suivantes par une convention de dépôt, sans filet automatique :
   sources média de la maison, champ `piece` obligatoire (facultatif sur les
   sources propres d'un écran). Bloc `maison:` du YAML ;
   absent à l'import, il supprime la maison.
-- **Échelle de budget** du bloc `carte` (le budget reçoit un genre de bloc,
-  `carte` | `haut` | `defaut`, jamais un mode) : composition complète, synthèse réduite, synthèse réduite
-  sans rangée Ambiance (`app/src/screen-budget.ts`, jumeau `budget.py`, corpus
-  `contrat/cas-budget.json`).
+- **Pile de cartes** (détail : `docs/claude/pile-de-cartes.md`) : rangs, prise
+  de place, retour à 60 s, budget par genre de bloc, cadre et jetons, glissement,
+  « plus tard », ajout d'un type de carte ; contrôle de rendu
+  `app/outils/verifier-pile.mjs`.
 - **Teintes de la carte média** : `app/src/tones.ts`,
   `app/src/rendu/poster-sampler.ts`, `app/src/boot/card-tones.ts`; contrôle de
   rendu `app/outils/verifier-carte-media.mjs`.
