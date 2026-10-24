@@ -38,21 +38,27 @@ Ranks: 0 recipe open, 1 timer, 2 waits for a gesture, 3 music or film, 4 runs on
 Copied from `contrat/maison.schema.json` (`$defs/appareil`, one `if/then` branch per type); the
 contract is the only place the table lives, `appliances.py` builds its mirror from it. A role not
 listed for its type is refused. List roles are arrays of entity ids, all others one entity id.
-`piece` is a room name or `maison`.
+`piece` is the `nom` of a screen or `maison`; `air`, `alarme`, `encre`, `plantes` and `tapis`
+refuse `maison` (`$defs/pieceDeTablette`, see "House-wide appliances").
 
 | Type | Required | Optional | `seuil` |
 |---|---|---|---|
 | `imprimante` | `etat`, `progression` | `finTache`, `couche`, `couchesTotal`, `tache`, `couverture`, `camera`, `pause`\*, `reprise`\*, `arret`\*, `erreur`, `ams` (list, at most 4) | forbidden |
-| `aspirateur` | `aspirateur` | `plan`, `erreur` | forbidden |
-| `voiture` | `batterie`, `branchee` | `enCharge`, `autonomie`, `limite`, `finCharge`, `demarrerCharge`, `arreterCharge` | forbidden |
+| `aspirateur` | `aspirateur` | `plan`, `erreur` (`sensor`: Valetudo's `Error`, the subtitle while stuck) | forbidden |
+| `voiture` | `batterie`, `branchee` | `enCharge`, `autonomie`, `limite`, `finCharge`, `demarrerCharge`\*, `arreterCharge`\* | forbidden |
 | `animaux` | at least one of `fontaineVide`, `filtre`, `panneFontaine`, `panneDistributeur` (all `binary_sensor`) | `joursFiltre` (`sensor`), `nourrir` (`number`/`input_number`) | forbidden |
-| `plantes` | `sondes` (list) | `habitude` | optional |
+| `plantes` | `sondes` (list) | `habitude` (`input_boolean`: turned on when watered) | optional |
 | `tapis` | `vitesse` (`sensor`) | `pas`, `distance` (`sensor`), `reglageVitesse` (`number`/`input_number`), `arret`\* | forbidden |
 | `air` | `pm25` (`sensor`), `purificateur` (`fan`) | none | **required** |
 | `alarme` | `zones` (list of `alarm_control_panel`) | none | forbidden |
 | `encre` | `niveaux` (list of `sensor`) | none | **required** |
 
-\* `button.*` only (`$defs/entiteBouton`): the card presses it with `button.press`.
+\* `button.*` only (`$defs/entiteBouton`): the card presses it with `button.press`. The screen's
+own car (`contrat/ecran.schema.json`) restricts `demarrerCharge`, `arreterCharge` and
+`boutonLimite` the same way, like its Home Assistant form.
+
+`nourrir` gives one portion: its `min` when positive, else its `step` when positive, else no
+button.
 
 `recette`, `minuteur`, `media`, `cinema`, `aeration`, `repas` and `garde-manger` have no appliance:
 they read the screen. `aspirateur` and `voiture` read both.
@@ -76,8 +82,31 @@ cannot find throws (`requiredRole`): a corrupt house, never a silent card.
 An appliance with `piece: maison` shows on every tablet, but **only while its merged card is
 rank 2** (`appliancesFor`). So it fits cards that wait for a gesture: a finished or failed
 print, a stuck or paused robot, a car to plug in, an empty fountain. A house-wide `tapis`
-(rank 4) or `plantes`, `air`, `alarme`, `encre` (rank 5) never shows; give those a room. An
-appliance of the screen's own room shows at any rank.
+(rank 4) or `plantes`, `air`, `alarme`, `encre` (rank 5) would never show, so the contract
+refuses `maison` for those five types. An appliance of the screen's own room shows at any rank.
+
+No appliance may show nowhere. Besides the contract's refusal above, the YAML import
+(`garde_ecran.importer_ecrans`) refuses an appliance whose `piece` is neither `maison` nor the
+`nom` of a screen of the same file, compared exactly (a typo, a trailing space, a room without
+a tablet). The refusal is translated: `exceptions.appliance_room_unknown` in
+`translations/*.json`, raised as a `ServiceValidationError`.
+
+**Room entry plus `maison` entry.** To have an appliance's every state in its room and its
+rank-2 states on every tablet, declare it twice: once with its room, once with `maison` and the
+same main entity (the role its card key is built from: `aspirateur`, the car's `batterie`). Both
+entries merge into one card by key (see "Merge order"): its room sees one card at any rank,
+the other tablets see it only at rank 2. The `maison` entry must carry what the rank is read
+from on the tablets that do not have the room entry, such as the car's `limite`. The example
+YAML does this for the vacuum and the car; `test_exemple_appareils.py` and
+`stack-appliances.test.ts` pin the pattern.
+
+## Time zone of the meal card
+
+`mealStartMs` (`app/src/garde-manger.ts`) parses the calendar's `start_time` attribute, which
+Home Assistant writes as a local time without an offset, in the **tablet's** time zone. The
+server writes it in **its** time zone. The meal card's hour window is therefore right only
+while the tablets and the Home Assistant server share one time zone, which is the case in this
+house. A tablet set to another zone would shift the window by the difference.
 
 ## Absent roles
 
@@ -205,7 +234,7 @@ Measures are shared with the media card (`outils/card-check.mjs`).
 
 The example appliances are checked by `make test-composant`
 (`tests/composant/test_exemple_appareils.py`): the YAML is read by the importer's parser and
-validated by `schema.validate_house`, and must show one entry per appliance type.
+validated by `schema.validate_house`; it must cover every appliance type, and a type shown twice must be the room-plus-`maison` pattern.
 
 **To run by the owner on the real HA**: `verifier-rendu.mjs` and `mesurer-hauteurs.mjs` (syntax
 checked only; they need the page served by HA and its token).

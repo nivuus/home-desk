@@ -29,7 +29,7 @@
   au mieux inutile, au pire une course.
 - **`home-stock` n'est pas dans `requires.packages`** : dépendance de bus, pas
   d'installation. Le silence que cela produisait est corrigé dans l'application
-  par `absenceNommee` (`app/src/ecran.ts`), pas par une ligne de manifeste.
+  par `absenceNommee` (`app/src/screen-types.ts`), pas par une ligne de manifeste.
 - **Les `id:` des sept automations de `packages/home_desk.yaml` sont ceux de
   production.** Ils fixent l'`entity_id` des entités `automation.*` dans le
   registre ; les changer perdrait l'historique et les traces.
@@ -83,7 +83,7 @@ c'est ce qui transformait la curiosité en dette (plan 2, n°2).
 
 ## `absenceNommee` — les cinq points de passage
 
-Le champ est déclaré sur `Bouton` et sur `EntreeSynthese` (`app/src/ecran.ts`).
+Le champ est déclaré sur `Bouton` et sur `EntreeSynthese` (`app/src/screen-types.ts`).
 Une commande qui le porte n'est jamais filtrée quand son entité est muette :
 elle reste, inerte, et affiche son libellé. Cinq endroits le respectent, et
 **tous les cinq sont nécessaires** — le plan n'en nommait que trois :
