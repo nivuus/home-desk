@@ -61,8 +61,12 @@ export function attachSwipe(
     return done;
   }
 
+  /** Runs in the CAPTURE phase, before any button of the card sees the contact: while a contact
+   *  is open, a second one — the phantom, wherever it lands on the card, or a second finger —
+   *  goes no further. One contact per card, as `geste.ts` holds one per tile: a phantom over
+   *  another button would otherwise open a press of its own and fire it mid-swipe. */
   function down(e: PointerEvent) {
-    if (g !== null) return;   // the phantom contact, or a second finger
+    if (g !== null) { e.stopPropagation(); return; }
     h.onTouch();
     // A release the WebView never delivers must not leave the card offset and locked for good.
     const safety = minuteurFn(() => { const lost = end(); if (lost) slide(offset(lost.dx)); }, DELAI_SECOURS_MS);
@@ -104,13 +108,13 @@ export function attachSwipe(
     if (done !== null && done.phase === 'swiping') slide(offset(done.dx));
   }
 
-  el.addEventListener('pointerdown', down);
+  el.addEventListener('pointerdown', down, { capture: true });
   el.addEventListener('pointermove', move);
   el.addEventListener('pointerup', up);
   el.addEventListener('pointercancel', cancel);
   return () => {
     end();
-    el.removeEventListener('pointerdown', down);
+    el.removeEventListener('pointerdown', down, { capture: true });
     el.removeEventListener('pointermove', move);
     el.removeEventListener('pointerup', up);
     el.removeEventListener('pointercancel', cancel);
@@ -122,7 +126,7 @@ export function attachSwipe(
  *  must not lose the press. `repeated`: a hold already acted, so its release adds nothing. */
 type PressState = {
   id: number; x0: number; y0: number; t0: number; armed: boolean;
-  repeated: boolean; stopHold?: () => void;
+  repeated: boolean; settled: boolean; stopHold?: () => void;
 };
 const presses = new WeakMap<Element, PressState>();
 
@@ -131,7 +135,8 @@ export type CardPressHandlers = {
   onpointerup: (e: PointerEvent) => void; onpointercancel: (e: PointerEvent) => void;
 };
 
-/** Holding repeats the action (`hold-repeat.ts`); `onEnd` runs once when the press ends, however. */
+/** Holding repeats the action (`hold-repeat.ts`); `onEnd` runs once when the press ends, however,
+ *  after the tap's action if there was one. */
 export type HoldPress = HoldTiming & { onEnd?: () => void };
 
 /** A card button: `.appuye` from contact, the action on release if the finger moved less than
@@ -139,10 +144,16 @@ export type HoldPress = HoldTiming & { onEnd?: () => void };
  *  button; the immediate feedback keeps the press feeling instant. With `hold`, a press held
  *  past its delay repeats the action instead, until the release or a travel past `SEUIL_PX`. */
 export function cardPress(act: () => void, hold?: HoldPress): CardPressHandlers {
+  /** The ONE end of a press, whoever ends it: its release, its cancel, or the hold ending on its
+   *  own (`holdRepeat`). `hold.onEnd` runs here once, after any tap action: whatever the action
+   *  left (the volume's pending level) is always released. */
   const settle = (b: Element, p: PressState) => {
-    presses.delete(b);
+    if (p.settled) return;
+    p.settled = true;
+    if (presses.get(b) === p) presses.delete(b);
     b.classList.remove('appuye');
     p.stopHold?.();
+    hold?.onEnd?.();
   };
   return {
     onpointerdown(e) {
@@ -155,11 +166,12 @@ export function cardPress(act: () => void, hold?: HoldPress): CardPressHandlers 
         settle(b, open);
       }
       const p: PressState = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: e.timeStamp,
-        armed: true, repeated: false };
+        armed: true, repeated: false, settled: false };
       presses.set(b, p);
       b.classList.add('appuye');
       if (hold !== undefined) {
-        p.stopHold = holdRepeat(b as HTMLElement, () => { p.repeated = true; act(); }, hold, hold.onEnd);
+        p.stopHold = holdRepeat(b as HTMLElement, () => { p.repeated = true; act(); }, hold,
+          e.pointerId, () => settle(b, p));
       }
     },
     onpointermove(e) {

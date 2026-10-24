@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, html } from 'lit';
 import { stepVolume, volumeRow, PENDING_MS } from '../src/rendu/media-volume';
 import { holdRepeat } from '../src/hold-repeat';
-import { SEUIL_PX } from '../src/geste';
+import { SEUIL_PX, DELAI_SECOURS_MS } from '../src/geste';
 
 describe('stepVolume', () => {
   it('stepVolume clamps at both ends and snaps to 5 %', () => {
@@ -27,11 +27,12 @@ describe('holdRepeat', () => {
   afterEach(() => { vi.useRealTimers(); });
 
   const OPTS = { delayMs: 400, everyMs: 200 };
+  const ev = (type: string, id = 1) => new PointerEvent(type, { pointerId: id, bubbles: true });
 
   it('fires nothing before the delay, then once at the delay and every step after', () => {
     const el = document.body.appendChild(document.createElement('div'));
     const fire = vi.fn();
-    const stop = holdRepeat(el, fire, OPTS);
+    const stop = holdRepeat(el, fire, OPTS, 1);
     vi.advanceTimersByTime(399);
     expect(fire).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1 + 200 * 3);
@@ -41,25 +42,39 @@ describe('holdRepeat', () => {
     expect(fire).toHaveBeenCalledTimes(4);
   });
 
-  it('hold repeat stops on pointerup, pointercancel and pointerleave', () => {
+  it('hold repeat stops on its pointer\'s release (bubbling to the document), cancel and leave', () => {
     for (const type of ['pointerup', 'pointercancel', 'pointerleave']) {
       const el = document.body.appendChild(document.createElement('div'));
       const fire = vi.fn();
-      holdRepeat(el, fire, OPTS);
+      holdRepeat(el, fire, OPTS, 1);
       vi.advanceTimersByTime(600);
       const before = fire.mock.calls.length;
       expect(before, type).toBeGreaterThan(1);
-      el.dispatchEvent(new Event(type));
+      el.dispatchEvent(ev(type));
       vi.advanceTimersByTime(2000);
       expect(fire.mock.calls.length, type).toBe(before);
     }
   });
 
-  it('a release before the delay repeats nothing (the single step is the tap\'s, `cardPress`)', () => {
-    const el = document.createElement('div');
+  it('another pointer\'s end events never end the hold', () => {
+    const el = document.body.appendChild(document.createElement('div'));
     const fire = vi.fn();
-    holdRepeat(el, fire, OPTS);
-    el.dispatchEvent(new Event('pointerup'));
+    const end = vi.fn();
+    holdRepeat(el, fire, OPTS, 1, end);
+    for (const type of ['pointerup', 'pointercancel', 'pointerleave', 'lostpointercapture']) el.dispatchEvent(ev(type, 9));
+    vi.advanceTimersByTime(600);
+    expect(fire).toHaveBeenCalledTimes(2);
+    expect(end).not.toHaveBeenCalled();
+    el.dispatchEvent(ev('pointerup', 1));
+    expect(end).toHaveBeenCalledTimes(1);
+    el.remove();
+  });
+
+  it('a release before the delay repeats nothing (the single step is the tap\'s, `cardPress`)', () => {
+    const el = document.body.appendChild(document.createElement('div'));
+    const fire = vi.fn();
+    holdRepeat(el, fire, OPTS, 1);
+    el.dispatchEvent(ev('pointerup'));
     vi.advanceTimersByTime(2000);
     expect(fire).not.toHaveBeenCalled();
   });
@@ -69,7 +84,7 @@ describe('holdRepeat', () => {
     document.body.appendChild(el);
     const fire = vi.fn();
     const end = vi.fn();
-    holdRepeat(el, fire, OPTS, end);
+    holdRepeat(el, fire, OPTS, 1, end);
     vi.advanceTimersByTime(600);
     const before = fire.mock.calls.length;
     el.remove();                       // re-rendered away: it will never see its pointerup
@@ -85,8 +100,8 @@ describe('holdRepeat', () => {
       document.body.appendChild(el);
       const fire = vi.fn();
       const end = vi.fn();
-      holdRepeat(el, fire, OPTS, end);
-      (target === 'document' ? document : el).dispatchEvent(new Event(type));
+      holdRepeat(el, fire, OPTS, 1, end);
+      (target === 'document' ? document : el).dispatchEvent(ev(type));
       vi.advanceTimersByTime(2000);
       expect(fire, `${target} ${type}`).not.toHaveBeenCalled();
       expect(end, `${target} ${type}`).toHaveBeenCalledTimes(1);
@@ -141,7 +156,7 @@ describe('volumeRow: the optimistic level belongs to the render', () => {
       .toBe('0.4');
   });
 
-  const pe = (type: string, x: number, id = 1) =>
+  const pe = (type: string, x: number, id = 1): PointerEvent =>
     new PointerEvent(type, { clientX: x, clientY: 100, pointerId: id, bubbles: true });
 
   it('a tap steps once, on release', () => {
@@ -184,6 +199,40 @@ describe('volumeRow: the optimistic level belongs to the render', () => {
     expect(m.act).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(PENDING_MS);
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('a phantom release during a tap neither eats the step nor freezes the level', () => {
+    const m = mount('media_player.phantom-up', 0.4);
+    m.plus().dispatchEvent(pe('pointerdown', 100, 1));
+    m.plus().dispatchEvent(pe('pointerup', 102, 9));        // the WebView's phantom lets go
+    m.plus().dispatchEvent(pe('pointerup', 100, 1));        // the finger, before the hold delay
+    expect(m.act).toHaveBeenCalledTimes(1);
+    expect(m.shown()).toBe('45\u00a0%');
+    vi.advanceTimersByTime(PENDING_MS);                     // HA never reached 45 %
+    expect(m.shown()).toBe('40\u00a0%');
+  });
+
+  it('another finger lifted elsewhere on the page does not end the hold', () => {
+    const m = mount('media_player.foreign-up', 0.4);
+    m.plus().dispatchEvent(pe('pointerdown', 100, 1));
+    document.dispatchEvent(pe('pointerup', 10, 5));
+    vi.advanceTimersByTime(400 + 200);                      // still held: 0.45, then 0.5
+    expect(m.act).toHaveBeenCalledTimes(2);
+    m.plus().dispatchEvent(pe('pointerup', 100, 1));
+    vi.advanceTimersByTime(PENDING_MS);
+    expect(m.shown()).toBe('40\u00a0%');
+  });
+
+  it('a hold whose release never comes stops at the safety delay and lets HA show again', () => {
+    const m = mount('media_player.lost-up', 0.0);
+    m.plus().dispatchEvent(pe('pointerdown', 100, 1));
+    vi.advanceTimersByTime(DELAI_SECOURS_MS + 1000);
+    const steps = m.act.mock.calls.length;
+    vi.advanceTimersByTime(5000);
+    expect(m.act.mock.calls.length).toBe(steps);            // no repeat past the net
+    vi.advanceTimersByTime(PENDING_MS);
+    expect(m.shown()).toBe('0\u00a0%');
+    expect(m.plus().classList.contains('appuye')).toBe(false);
   });
 
   it('once HA reaches the target, its later values show at once', () => {

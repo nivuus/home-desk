@@ -70,7 +70,7 @@ function settable(act: Act, repaint: () => void, entity: string, published: numb
   };
   return cardPress(step, { ...HOLD, onEnd: () => {
     const p = pending.get(entity);
-    if (p === undefined) return;
+    if (p === undefined || !p.pressing) return;
     p.pressing = false;
     p.expiry = setTimeout(() => {
       if (pending.get(entity) === p) pending.delete(entity);

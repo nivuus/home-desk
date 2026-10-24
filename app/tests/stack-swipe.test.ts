@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { html, render } from 'lit';
 import { renderCardFrame, type CardFrame } from '../src/rendu/card-frame';
-import { attachSwipe } from '../src/stack/swipe';
+import { attachSwipe, SLIDE_MS } from '../src/stack/swipe';
 import { SEUIL_PX, DELAI_SECOURS_MS } from '../src/geste';
 
 type Opts = { dx?: number; dy?: number; id?: number; up?: 'pointerup' | 'pointercancel' };
@@ -143,6 +143,57 @@ describe('attachSwipe — moving between cards', () => {
       dragFrom(el, { dx: -(SEUIL_PX * 4) });
       expect(onChange).toHaveBeenCalledTimes(1);
     } finally { vi.useRealTimers(); }
+  });
+});
+
+describe('attachSwipe — one contact per card', () => {
+  it('a phantom on a button during a swipe from the card body fires nothing', () => {
+    const { el, button } = card();
+    detach = attachSwipe(el, { count: 3, index: 0, onChange, onTouch });
+    el.dispatchEvent(pe('pointerdown', 100, 100, 1));
+    el.dispatchEvent(pe('pointermove', 60, 100, 1));
+    button.dispatchEvent(pe('pointerdown', 62, 101, 9));   // the phantom, over a button
+    button.dispatchEvent(pe('pointerup', 63, 101, 9));     // and released within SEUIL_PX
+    el.dispatchEvent(pe('pointermove', 40, 100, 1));
+    el.dispatchEvent(pe('pointerup', 40, 100, 1));
+    expect(act).not.toHaveBeenCalled();
+    expect(button.classList.contains('appuye')).toBe(false);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('a phantom on another button during a press fires neither', () => {
+    const other = vi.fn();
+    const f: CardFrame = {
+      key: 'minuteur:timer.fixture', label: 'TIMER', title: 'Pasta', middle: html``,
+      buttons: [{ icon: 'croix', label: 'Stop', act: other },
+        { icon: 'lecture', label: 'Play', primary: true, act }, undefined],
+      background: { kind: 'solid', token: 'timer' },
+    };
+    render(renderCardFrame(f), hote);
+    const el = hote.querySelector<HTMLElement>('.carte')!;
+    const [stop, play] = Array.from(hote.querySelectorAll<HTMLElement>('.actions > .bouton'));
+    detach = attachSwipe(el, { count: 3, index: 0, onChange, onTouch });
+    play.dispatchEvent(pe('pointerdown', 100, 100, 1));
+    play.dispatchEvent(pe('pointermove', 100 - SEUIL_PX * 3, 100, 1));   // a swipe from Play
+    stop.dispatchEvent(pe('pointerdown', 60, 100, 9));
+    stop.dispatchEvent(pe('pointerup', 61, 100, 9));
+    play.dispatchEvent(pe('pointerup', 100 - SEUIL_PX * 4, 100, 1));
+    expect(other).not.toHaveBeenCalled();
+    expect(act).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledWith(1);
+  });
+
+  it('the new card slides in from the side opposite the push, within SLIDE_MS', () => {
+    const { el } = card();
+    el.getBoundingClientRect = () => ({ width: 311 } as DOMRect);
+    const animate = vi.spyOn(el, 'animate');
+    detach = attachSwipe(el, { count: 3, index: 1, onChange, onTouch });
+    dragFrom(el, { dx: -(SEUIL_PX * 4) });
+    expect(animate.mock.calls[0][0]).toEqual([{ transform: 'translateX(311px)' }, { transform: 'none' }]);
+    dragFrom(el, { dx: SEUIL_PX * 4 });
+    expect(animate.mock.calls[1][0]).toEqual([{ transform: 'translateX(-311px)' }, { transform: 'none' }]);
+    expect((animate.mock.calls[1][1] as KeyframeAnimationOptions).duration).toBe(SLIDE_MS);
+    expect(SLIDE_MS).toBeLessThanOrEqual(200);
   });
 });
 
