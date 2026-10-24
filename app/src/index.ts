@@ -5,6 +5,7 @@ import './styles/media.css';
 import './styles/pantry.css';
 import './styles/vacuum.css';
 import './styles/printer.css';
+import './styles/reminders.css';
 import './styles/animation.css';
 import { startPage } from './page';
 

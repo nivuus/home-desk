@@ -71,7 +71,7 @@ describe('house appliances in the stack', () => {
     // Declared but unreadable, or a type whose card comes in a later batch.
     const later: Appareil[] = [
       { type: 'imprimante', piece: 'maison', entites: { etat: 'sensor.p', progression: 'sensor.q' } },
-      { type: 'plantes', piece: 'Kitchen', entites: { plantes: ['sensor.x'] } },
+      { type: 'tapis', piece: 'Kitchen', entites: { vitesse: 'sensor.x' } },
       { type: 'air', piece: 'Kitchen', entites: { co2: 'sensor.c' }, seuil: 1000 },
       vacuumAt('maison'),
     ];

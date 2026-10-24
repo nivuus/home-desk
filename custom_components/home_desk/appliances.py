@@ -103,9 +103,9 @@ def _branch(branch: dict, entity: Callable, button: Callable) -> tuple[str, Call
     if then.get("required", [_THRESHOLD]) != [_THRESHOLD] or then.get(
             "not", {"required": [_THRESHOLD]}) != {"required": [_THRESHOLD]}:
         raise _unsupported(f"branch {type_name!r}", then)
-    if ("required" in then) == ("not" in then):
-        raise _unsupported(f"branch {type_name!r}", "a threshold neither required nor forbidden")
-    threshold = _present(_THRESHOLD) if "required" in then else _absent(_THRESHOLD)
+    # Neither required nor forbidden: the threshold is optional (the plants card).
+    threshold = (_present(_THRESHOLD) if "required" in then
+                 else _absent(_THRESHOLD) if "not" in then else None)
     entities = _entities(type_name, then["properties"]["entites"], entity, button)
     item = vol.Schema(
         {
@@ -116,7 +116,7 @@ def _branch(branch: dict, entity: Callable, button: Callable) -> tuple[str, Call
         },
         extra=vol.PREVENT_EXTRA,
     )
-    return type_name, vol.All(item, threshold)
+    return type_name, item if threshold is None else vol.All(item, threshold)
 
 
 def appliance_validator(defs: dict, entity: Callable) -> Callable:

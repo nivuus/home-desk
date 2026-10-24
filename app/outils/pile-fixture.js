@@ -22,6 +22,7 @@ import { newVacuumState } from '../src/boot/vacuum';
 import { frameWith, pieceWith, running, screenWith } from '../tests/card-aides';
 import { CALME } from '../tests/contextes';
 import { printers } from './pile-fixture-printer.js';
+import { reminders } from './pile-fixture-reminders.js';
 
 const MIN = 60_000;
 const MUSIC = 'media_player.pile_music';
@@ -111,10 +112,12 @@ function fixture(script, variant) {
     robots: [{ entite: ROBOT, nom: t.robot, passages: { min: 1, max: 1 },
       pieces: t.rooms.map((nom, i) => ({ zone: `z${i}`, nom })) }],
     chosen: t.rooms.map((_, i) => ({ entite: ROBOT, zone: `z${i}` })) };
-  const house = { sources: [], appareils: printers(script, variant, t.room, ev, now) };
+  const house = { sources: [], appareils: [...printers(script, variant, t.room, ev, now), ...reminders(script, variant, t.room, ev)] };
   // Offline: the "later" button sends nothing (`laterButton`), there is no connection here.
   const s = screenWith({ etat, piece: pieceWith({ nom: t.room, aspirateur: ROBOT, voiture: CAR,
-    ouvrants: [OPENING] }), vacuum, climEnVol: null, snoozed: new Set(), recetteUid: 'pile',
+    ouvrants: [OPENING],
+    // Variant `a` declares a plants view: its plants cards carry the details button, `b`'s do not.
+    commandes: variant === 'a' ? [{ libelle: 'Plantes', icone: 'list', entite: 'sensor.pile_plant_view', vue: '#plantes' }] : [] }), vacuum, climEnVol: null, snoozed: new Set(), recetteUid: 'pile',
     platRecette: t.dish, pageSourceIndex: [0, 1, 2], pageRecette: 1, horsLigne: true, house });
   const cards = collectStack(f, s);
   // A card that repaints itself (the printer's camera, held) rebuilds its frame, as `dessiner`

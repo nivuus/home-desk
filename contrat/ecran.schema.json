@@ -124,6 +124,7 @@
           "minLength": 1,
           "enum": [
             "agenda",
+            "arrosoir",
             "aspirateur",
             "batterie",
             "book",
@@ -138,6 +139,7 @@
             "fenetre",
             "film",
             "flame",
+            "gamelle",
             "home",
             "horsligne",
             "jar",

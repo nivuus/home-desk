@@ -1255,6 +1255,31 @@ body {
 .carte .carte-camera { position: absolute; inset: 0; z-index: 1; background-color: #000;
   background-size: cover; background-position: center; pointer-events: none; }
 
+/* The soft-reminder cards: the plants gauges (`cards/plants.ts`) and the pets lines (`cards/pets.ts`). Its own file, like printer.css.
+
+   GAUGE. The name and the reading on one line (explicit heights, ellipsis: the name comes from
+   Home Assistant, in any script), a flat track under them. The track is the pill colour of the
+   dots and the level the icon colour: that pair is the one the stack already holds at 4.5:1 on
+   every solid card. Never a gradient. */
+.carte .jauge { flex: none; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.carte .jauge-tete { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.carte .jauge-tete .carte-ligne { flex: 1; }
+.carte .jauge-valeur { flex: none; font-size: 16px; font-weight: 700; line-height: 22px;
+  white-space: nowrap; font-variant-numeric: tabular-nums; }
+.carte .jauge-piste { height: 8px; border-radius: 4px; overflow: hidden;
+  background: var(--c-disque, var(--md-surface-container-highest)); }
+.carte .jauge-niveau { height: 100%; border-radius: 4px;
+  background: var(--c-icone, var(--md-on-surface)); }
+
+/* A line made of several pieces (the pets card: the problem, its detail, the entity's name): a
+   row whose pieces each shrink to an ellipsis, so none runs past the card's edge. The name is
+   text from Home Assistant, the longest and the first to give way. */
+.carte .carte-ligne.composee { display: flex; }
+.carte .carte-ligne.composee > span { flex: 0 1 auto; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.carte .carte-ligne.composee > .sep { flex: none; white-space: pre; }
+.carte .carte-ligne.composee > [dir] { flex-shrink: 3; }
+
 /* The animation pushed by Home Assistant (`rendu/animation.ts`): above every view, never a
    target of the touch — the first touch is caught in capture on `#app` (`boot/animation.ts`),
    so the layer itself lets pointers through. Plain black for the veil, not a palette token: it

@@ -52,4 +52,21 @@ export const S = {
   airing: 'À faire',
   /** How long it has been open, already formatted with `Intl` by the caller. */
   openSince: (duration: string) => `Ouvert depuis ${duration}`,
+  /** The label of a soft reminder card that lists what is left to do. */
+  todo: 'À faire',
+  /** The button that clears a card by hand: it hides the card like "later" when nothing else can. */
+  done: "C'est fait",
+  pets: 'Animaux',
+  petsFeed: 'Nourrir',
+  petsFountainEmpty: "Plus d'eau",
+  petsFilter: 'Filtre à changer',
+  petsFountainFault: 'Panne de la fontaine',
+  petsFeederFault: 'Panne du distributeur',
+  /** Days of filter life left, already formatted with `Intl` by the caller. */
+  petsFilterLeft: (days: string) => `Reste ${days}`,
+  plants: 'Plantes',
+  plantsWatered: 'Arrosée',
+  plantsDetails: 'Détails',
+  /** More dry plants than the card has room for, the count already formatted with `Intl`. */
+  plantsMore: (n: string) => `et ${n} autres`,
 } as const;
