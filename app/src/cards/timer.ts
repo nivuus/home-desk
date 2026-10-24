@@ -15,8 +15,11 @@ const TYPE = 'minuteur';
 const LATE_S = 60;
 
 export function detect(f: Frame, _s: ScreenState): Card[] {
-  // `listerMinuteurs` sorts running timers first, soonest first: the head is the most urgent.
-  const v = f.vuesMinuteurs[0];
+  // Least time left, running or paused: a paused timer keeps its frozen time, so pausing the head
+  // never swaps the card away from the timer the user just paused. (`listerMinuteurs` sorts
+  // running timers first, which would.)
+  const v = f.vuesMinuteurs.reduce<VueMinuteur | undefined>(
+    (head, x) => (head === undefined || x.restantS < head.restantS ? x : head), undefined);
   return v === undefined ? [] : [{ key: `${TYPE}:${v.timer}`, type: TYPE, rank: 1 }];
 }
 
@@ -49,7 +52,7 @@ export function frame(card: Card, f: Frame, _s: ScreenState): CardFrame {
         : { icon: 'lecture', label: S.play, primary: true, act: () => actionsMinuteur().reprendre(v.slot) },
       { icon: 'stop', label: S.timerStop, act: () => actionsMinuteur().annuler(v.slot) },
     ],
-    background: { kind: 'solid', token: v.restantS < LATE_S ? 'timer-late' : 'timer' },
+    background: { kind: 'solid', token: v.actif && v.restantS < LATE_S ? 'timer-late' : 'timer' },
     motion: { block: 'bloc:minuteur-solo' },
   };
 }

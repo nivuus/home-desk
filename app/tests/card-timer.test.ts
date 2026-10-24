@@ -30,7 +30,24 @@ describe('timer card — detect', () => {
   });
 });
 
+describe('timer card — head choice', () => {
+  it('pausing the head while a longer timer runs keeps the paused card, with resume', () => {
+    const f = frameWith({ timers: [running('timer.long', 600, 1), paused('timer.short', 120, 0)] });
+    expect(detect(f, s)).toEqual([{ key: 'minuteur:timer.short', type: 'minuteur', rank: 1 }]);
+    const fr = frame({ key: 'minuteur:timer.short', type: 'minuteur', rank: 1 }, f, s);
+    expect(fr.buttons[1]!.icon).toBe('lecture');
+  });
+  it('swaps only when another running timer gets below the head', () => {
+    const f = frameWith({ timers: [running('timer.a', 30, 1), paused('timer.b', 120, 0)] });
+    expect(detect(f, s)[0].key).toBe('minuteur:timer.a');
+  });
+});
+
 describe('timer card — frame', () => {
+  it('a paused timer never turns late, whatever its remaining time', () => {
+    const fr = frame(card, frameWith({ timers: [paused('timer.cuisine', 20)] }), s);
+    expect(fr.background).toEqual({ kind: 'solid', token: 'timer' });
+  });
   it('three icon buttons, primary in the middle, late colour under a minute', () => {
     const fr = frame(card, frameWith({ timers: [running('timer.cuisine', 45)] }), s);
     expect(fr.buttons.map((b) => b?.icon)).toEqual(['plus', 'pause', 'stop']);
