@@ -5,10 +5,12 @@ import { render } from 'lit';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  rendreMinuteurs, tuileMinuteur, brancherMinuteur, writeTime, rendreReglageMinuteur,
-  type ActionsMinuteur,
+  tuileMinuteur, brancherMinuteur, writeTime, rendreReglageMinuteur, type ActionsMinuteur,
 } from '../src/rendu/minuteur';
 import type { VueMinuteur } from '../src/minuteur';
+import { frame as timerFrame } from '../src/cards/timer';
+import { renderCardFrame } from '../src/rendu/card-frame';
+import { frameWith, screenWith } from './card-aides';
 
 function actions(): ActionsMinuteur & Record<string, ReturnType<typeof vi.fn>> {
   return {
@@ -33,121 +35,14 @@ function vue(p: Partial<VueMinuteur> = {}): VueMinuteur {
 let a: ReturnType<typeof actions>;
 beforeEach(() => { a = actions(); brancherMinuteur(a); });
 
-describe('rendreMinuteurs — forme solo', () => {
-  it('shows the time and offers −5 / −1 / +1 / +5 / pause / cancel', () => {
-    const el = rendre(rendreMinuteurs([vue({ restantS: 754 })], true));
-    expect(el.querySelector('.mn-temps')!.textContent).toBe('12:34');
-    expect(el.querySelectorAll('.mn-bouton')).toHaveLength(6);
-  });
-
-  it('appelle les actions du bon slot', () => {
-    const el = rendre(rendreMinuteurs([vue({ slot: 2, restantS: 754 })], true));
-    const boutons = el.querySelectorAll<HTMLElement>('.mn-bouton');
-    for (const b of Array.from(boutons)) b.dispatchEvent(new Event('pointerdown'));
-    expect(a.ajuster).toHaveBeenCalledWith(2, -300);
-    expect(a.ajuster).toHaveBeenCalledWith(2, -60);
-    expect(a.ajuster).toHaveBeenCalledWith(2, 60);
-    expect(a.ajuster).toHaveBeenCalledWith(2, 300);
-    expect(a.pause).toHaveBeenCalledWith(2);
-    expect(a.annuler).toHaveBeenCalledWith(2);
-  });
-
-  it('retire −5 quand il reste moins de cinq minutes — jamais un bouton mort', () => {
-    const el = rendre(rendreMinuteurs([vue({ restantS: 299 })], true));
-    expect(el.querySelector('[data-action="moins"]')).toBeNull();
-    expect(el.querySelector('[data-action="moins1"]')).not.toBeNull();
-    expect(el.querySelector('[data-action="plus"]')).not.toBeNull();
-  });
-
-  it('removes −1 at one minute left or less — the cross already cancels', () => {
-    const el = rendre(rendreMinuteurs([vue({ restantS: 60 })], true));
-    expect(el.querySelector('[data-action="moins1"]')).toBeNull();
-    expect(el.querySelector('[data-action="plus1"]')).not.toBeNull();
-  });
-
-  it('propose Reprendre, et non Pause, sur un minuteur en pause', () => {
-    const el = rendre(rendreMinuteurs([vue({ actif: false })], true));
-    el.querySelector<HTMLElement>('[data-action="marche"]')!.dispatchEvent(new Event('pointerdown'));
-    expect(a.reprendre).toHaveBeenCalledWith(0);
-    expect(a.pause).not.toHaveBeenCalled();
-  });
-
-  it('retire ± 5 sur un minuteur en pause — l\'ajustement le relancerait', () => {
-    const el = rendre(rendreMinuteurs([vue({ actif: false, restantS: 900 })], true));
-    for (const action of ['moins', 'moins1', 'plus1', 'plus']) {
-      expect(el.querySelector(`[data-action="${action}"]`)).toBeNull();
-    }
-    expect(el.querySelector('[data-action="marche"]')).not.toBeNull();
-  });
-
-  it('affiche le nom quand il existe, le numéro sinon', () => {
-    expect(rendre(rendreMinuteurs([vue({ nom: 'Pâtes' })], true))
-      .querySelector('.mn-nom')!.textContent).toContain('Pâtes');
-    expect(rendre(rendreMinuteurs([vue({ slot: 1 })], true))
-      .querySelector('.mn-nom')!.textContent).toContain('2');
-  });
-});
-
-describe('rendreMinuteurs — liste', () => {
-  it('rend une ligne par minuteur, dans l\'ordre reçu', () => {
-    const el = rendre(rendreMinuteurs(
-      [vue({ slot: 0, restantS: 60 }), vue({ slot: 1, restantS: 120 })], true));
-    const temps = Array.from(el.querySelectorAll('.mn-temps')).map((n) => n.textContent);
-    expect(temps).toEqual(['01:00', '02:00']);
-  });
-
-  it('n\'affiche « Nouveau » que s\'il reste un emplacement', () => {
-    const trois = [vue({ slot: 0 }), vue({ slot: 1 }), vue({ slot: 2 })];
-    expect(rendre(rendreMinuteurs(trois, false)).querySelector('[data-action="nouveau"]')).toBeNull();
-    expect(rendre(rendreMinuteurs(trois.slice(0, 2), true))
-      .querySelector('[data-action="nouveau"]')).not.toBeNull();
-  });
-
-  it('marque chaque temps de son slot, pour que le tic sache où écrire', () => {
-    const el = rendre(rendreMinuteurs([vue({ slot: 0 }), vue({ slot: 2 })], true));
-    expect(Array.from(el.querySelectorAll('.mn-temps')).map((n) => n.getAttribute('data-minuteur')))
-      .toEqual(['0', '2']);
-  });
-
-  it('ne pose jamais data-mvt sur un temps — le rôle chiffre du moteur ne doit pas y toucher',
-    () => {
-      const el = rendre(rendreMinuteurs([vue()], true));
-      expect(el.querySelector('.mn-temps')!.hasAttribute('data-mvt')).toBe(false);
-    });
-});
-
 // Tâche 7 (mouvement, 2026-08-22) : couverture — chaque forme (solo, liste, réglage) et ses
 // éléments qui apparaissent/disparaissent (étiquettes, bouton « Démarrer »/« Nouveau », pas ±5)
 // portent une marque, pour que le moteur (`src/mouvement/moteur.ts`) les anime plutôt que de les
 // faire sauter sec.
+// Card-stack task 6: the solo and list timer blocks (`rendreMinuteurs`) left with the timer
+// mode; the timer card replaces them (`tests/card-timer.test.ts`, `tests/home-stack.test.ts`).
+// The setting screen keeps its marks.
 describe('marques de mouvement', () => {
-  it('la forme solo porte une marque de bloc, distincte de la liste', () => {
-    const el = rendre(rendreMinuteurs([vue()], true));
-    expect(el.querySelector('.mn-solo')?.getAttribute('data-mvt')).toBe('bloc:minuteur-solo');
-  });
-
-  it('la forme liste porte sa propre marque de bloc', () => {
-    const el = rendre(rendreMinuteurs([vue({ slot: 0 }), vue({ slot: 1 })], true));
-    expect(el.querySelector('.minuteurs:not(.mn-solo)')?.getAttribute('data-mvt'))
-      .toBe('bloc:minuteurs');
-  });
-
-  it('les pas ±5 de la forme solo sont marqués par slot, jamais par index', () => {
-    const el = rendre(rendreMinuteurs([vue({ slot: 2, restantS: 754 })], true));
-    expect(el.querySelector('[data-action="moins"]')?.getAttribute('data-mvt'))
-      .toBe('detail:mn-moins-2');
-    expect(el.querySelector('[data-action="plus"]')?.getAttribute('data-mvt'))
-      .toBe('detail:mn-plus-2');
-  });
-
-  it('le bouton « Nouveau » de la liste porte sa marque', () => {
-    // Un seul minuteur rendrait la forme SOLO (vues.length === 1, cf. rendreMinuteurs) : deux
-    // minuteurs pour forcer la forme liste et voir « Nouveau ».
-    const el = rendre(rendreMinuteurs([vue({ slot: 0 }), vue({ slot: 1 })], true));
-    expect(el.querySelector('[data-action="nouveau"]')?.getAttribute('data-mvt'))
-      .toBe('detail:mn-nouveau');
-  });
-
   it('les étiquettes et le bouton « Démarrer » du réglage sont marqués', () => {
     const el = rendre(rendreReglageMinuteur(7, null, ['Pâtes', 'Four']));
     expect(el.querySelector('.mn-etiquettes')?.getAttribute('data-mvt')).toBe('detail:mn-etiquettes');
@@ -181,6 +76,24 @@ describe('tuileMinuteur', () => {
     tuile.dispatchEvent(new Event('pointerdown'));
     expect(a.ouvrir).not.toHaveBeenCalled();
     expect(tuile.classList.contains('inactif')).toBe(true);
+  });
+
+  // Under a card the Ambiance row drops: the tile becomes a place of the controls grid.
+  it('drawn in the controls grid: a control, same entry and mark', () => {
+    const el = rendre(tuileMinuteur(false, true));
+    const tuile = el.querySelector<HTMLElement>('.commande.tuile-minuteur')!;
+    expect(tuile.hasAttribute('data-minuteur-entree')).toBe(true);
+    expect(tuile.getAttribute('data-mvt')).toBe('tuile:minuteur');
+    tuile.dispatchEvent(new Event('pointerdown'));
+    expect(a.ouvrir).toHaveBeenCalled();
+  });
+
+  it('saturated in the grid: opens nothing and is an inert control, no feedback', () => {
+    const el = rendre(tuileMinuteur(true, true));
+    const tuile = el.querySelector<HTMLElement>('.commande.tuile-minuteur')!;
+    tuile.dispatchEvent(new Event('pointerdown'));
+    expect(a.ouvrir).not.toHaveBeenCalled();
+    expect(tuile.classList.contains('inerte')).toBe(true);
   });
 });
 
@@ -251,16 +164,26 @@ describe('rendreReglageMinuteur', () => {
 });
 
 describe('writeTime', () => {
+  /** The timer card, the one countdown left on screen (card-stack task 6). */
+  const carte = (restantS: number) => {
+    const card = { key: 'minuteur:timer.cuisine', type: 'minuteur', rank: 1 } as const;
+    return renderCardFrame(timerFrame(card, frameWith({ timers: [vue({ restantS })] }), screenWith()));
+  };
+
+  it('ne pose jamais data-mvt sur un temps — le rôle chiffre du moteur ne doit pas y toucher', () => {
+    expect(rendre(carte(300)).querySelector('.mn-temps')!.hasAttribute('data-mvt')).toBe(false);
+  });
+
   it('mute le nœud texte rendu par lit, sans détruire son marqueur', () => {
     const el = document.createElement('div');
-    render(rendreMinuteurs([vue({ restantS: 300 })], true), el);
+    render(carte(300), el);
     const span = el.querySelector<HTMLElement>('.mn-temps')!;
     const avant = span.childNodes.length;
     writeTime(span, '04:59');
     expect(span.textContent).toBe('04:59');
     expect(span.childNodes.length).toBe(avant);
     // Le rendu suivant ne doit pas lever : c'est exactement le défaut du 2026-08-03.
-    expect(() => render(rendreMinuteurs([vue({ restantS: 298 })], true), el)).not.toThrow();
+    expect(() => render(carte(298), el)).not.toThrow();
     expect(el.querySelector('.mn-temps')!.textContent).toBe('04:58');
   });
 });

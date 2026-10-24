@@ -691,7 +691,13 @@ describe('vue recette (#recette)', () => {
 
     // Le bloc réduit rouvre la vue LÀ OÙ ON L'AVAIT LAISSÉE : c'est tout l'intérêt de « Réduire »
     // plutôt que « Terminer » — sans ça, revenir à sa recette coûterait de retrouver son étape.
-    appuyer(m.racine, '.mode-bloc');
+    // Card-stack task 6: the reduced recipe is the recipe card; its primary button reopens the
+    // view, on release like every card button (`cardPress`).
+    const rouvrir = m.racine.querySelector('.carte[data-card^="recette:"] .bouton.primaire');
+    expect(rouvrir, 'the recipe card must be drawn').not.toBeNull();
+    for (const type of ['pointerdown', 'pointerup']) {
+      rouvrir!.dispatchEvent(new PointerEvent(type, { clientX: 10, clientY: 10, pointerId: 1, bubbles: true }));
+    }
     await viderApresHash();
     expect(m.racine.querySelector('[data-mvt="vue:recette"]')).not.toBeNull();
     expect(m.racine.querySelector('.recette-pages')?.textContent).toBe('2/2');

@@ -259,7 +259,7 @@ const ORIGIN = 'http://carte-media.test';
  *  re-listed). `__poser` renders the worst-case card (remote source, two-line title, subtitle,
  *  progress, three transport discs, a volume level), measures it, computes its tones with the
  *  app's own sampler (`computeTones` + `browserSampler`, same origin as the page), and renders it
- *  again with them — the sequence `boot/media-tones.ts` runs on the tablet. `withoutPlate` drops
+ *  again with them — the sequence `boot/card-tones.ts` runs on the tablet. `withoutPlate` drops
  *  the plate from the computed tones; `css` overrides the stylesheets before the card is drawn;
  *  `top` moves the card down so its bottom sits on the frame when it is `blocCarte` tall: the
  *  counter-proofs. */

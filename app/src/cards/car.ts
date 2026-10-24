@@ -1,7 +1,11 @@
 /** The car card: charging (rank 4, it runs on its own) or to plug in (rank 2: unplugged AND under
  *  the declared charge limit — no limit declared, never "to plug in"). The middle holds the charge
  *  and the range large, and the limit; the subtitle the end of the charge. Every field beyond the
- *  original seven is optional: a missing entity leaves its button's place empty.
+ *  original seven is optional: a missing entity leaves its button's place empty. `Voiture.limite`
+ *  is the charge limit (a number), `finCharge` the charge's end (a timestamp sensor);
+ *  `demarrerCharge`, `arreterCharge` and `boutonLimite` are `button.*` entities, pressed like
+ *  `demarrerClim`/`arreterClim`. They are documented here, not in `ecran.ts`: a comment there
+ *  shifts the comment registry (`outils/verdicts-commentaires.tsv`, keyed by line).
  *
  *  The climate button keeps the optimistic flight of the car block (`rendu/voiture.ts`): the car
  *  answers one to three minutes late, and a second order in flight would contradict the first. */

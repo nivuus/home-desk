@@ -47,8 +47,8 @@ describe('contrat/budget.json', () => {
     // (l. 159 et 177) : la table ci-dessus dit ce que `combien` promet, celles-ci disent que
     // la promesse arrive bien jusqu'a l'ecran.
     const quatre = ECRANS.bureau.commandes;
-    expect(ordreCommandes(quatre, CALME_VOITURE)).toHaveLength(2);
-    expect(ordreCommandes(quatre, { ...CALME_VOITURE, rangeeAmbiance: false })).toHaveLength(4);
+    expect(ordreCommandes(quatre, CALME_VOITURE, null)).toHaveLength(2);
+    expect(ordreCommandes(quatre, { ...CALME_VOITURE, rangeeAmbiance: false }, null)).toHaveLength(4);
   });
 });
 
@@ -148,8 +148,8 @@ describe('hauteurUtile', () => {
    *  RESULTAT qu'il faut affirmer — a 50 px, plus une seule commande ne tient. */
   it('ordreCommandes transmet hauteurUtile et ne leve jamais, meme sur un ecran absurde', () => {
     const absurde = { ...CALME_VOITURE, hauteurUtile: 50 };
-    expect(() => ordreCommandes(ECRANS.bureau.commandes, absurde)).not.toThrow();
-    expect(ordreCommandes(ECRANS.bureau.commandes, absurde)).toHaveLength(0);
+    expect(() => ordreCommandes(ECRANS.bureau.commandes, absurde, null)).not.toThrow();
+    expect(ordreCommandes(ECRANS.bureau.commandes, absurde, null)).toHaveLength(0);
   });
 });
 
@@ -266,8 +266,8 @@ describe('coutEcran compte les zones que l agencement demande, et elles seules',
     const sansCommandes: ContexteModes = {
       ...CALME_VOITURE, zones: ['ambiances', 'blocCentral', 'synthese'],
     };
-    expect(ordreCommandes(ECRANS.bureau.commandes, sansCommandes)).toHaveLength(0);
-    expect(ordreCommandes(ECRANS.bureau.commandes, CALME_VOITURE)).toHaveLength(2);
+    expect(ordreCommandes(ECRANS.bureau.commandes, sansCommandes, null)).toHaveLength(0);
+    expect(ordreCommandes(ECRANS.bureau.commandes, CALME_VOITURE, null)).toHaveLength(2);
   });
 });
 
@@ -311,10 +311,10 @@ describe('l echelle de la carte', () => {
   it('ordreCommandes coupe selon l echelle, sur les trois ecrans declares', () => {
     for (const [nom, ecran] of Object.entries(ECRANS)) {
       const ctx: ContexteModes = {
-        ...CALME, sourceJoue: true,
+        ...CALME,
         rangeeAmbiance: ecran.ambiances.length > 0 || (ecran.minuteurs?.length ?? 0) > 0,
       };
-      expect(ordreCommandes(ecran.commandes, ctx), nom).toHaveLength(2);
+      expect(ordreCommandes(ecran.commandes, ctx, 'media'), nom).toHaveLength(2);
     }
   });
 });

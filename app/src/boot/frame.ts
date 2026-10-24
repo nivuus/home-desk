@@ -27,6 +27,9 @@ export type Frame = {
    *  block in `boot/home.ts`. */
   minuteurActif: ReturnType<typeof listerMinuteurs>[number] | undefined;
   ctx: ContexteModes;
+  /** The central block when the stack is empty or out of play: `alerte`, `voiture` or `defaut`
+   *  only. The cards (timer, recipe, media, cinema, vacuum, airing, car) are the stack's
+   *  (`stack/collect.ts`), since card-stack task 6. */
   mode: ReturnType<typeof modePrincipal>;
   modulateurs: ReturnType<typeof modulateursActifs>;
 };
@@ -46,7 +49,7 @@ export function computeFrame(s: ScreenState): Frame {
   //
   // Task 12 review: this block is computed BEFORE the early returns (night, whole house, tasks),
   // and no longer after. One thing depends on it that is not specific to the normal screen: the
-  // dark palette forced by the cinema mode (entering a sub-view during a film lit the screen up
+  // dark palette forced by a lit screen (`ecranAllume`; entering a sub-view during a film lit the screen up
   // again in the middle of the living room).
   const maintenantMs = maintenant.getTime();
   const alerte = alerteActive(collecterAlertes(etat, maintenantMs), lastMotion(etat), maintenantMs);

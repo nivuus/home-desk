@@ -2,7 +2,7 @@
 //
 // Tâche 12 : le CÂBLAGE. Chacun des modules construits par les onze tâches précédentes est
 // correct pris isolément (`tests/media.test.ts`, `tests/modes.test.ts`, `tests/agenda.test.ts`,
-// `tests/carte-media.test.ts`, `tests/rendu-modes.test.ts`, `tests/mouvement.test.ts`) — et aucun de ces tests ne peut voir qu'ils ne sont appelés par
+// `tests/carte-media.test.ts`, `tests/card-*.test.ts`, `tests/mouvement.test.ts`) — et aucun de ces tests ne peut voir qu'ils ne sont appelés par
 // personne. C'est exactement la classe de défaut que cette suite existe pour attraper : elle
 // monte le vrai `startScreen()`, pousse des états comme le ferait le websocket, et regarde ce que
 // `#app` porte réellement.
@@ -12,6 +12,13 @@ import type { Prevision } from '../src/meteo';
 import { monterDemarrage, restaurerReseau, vider } from './aides';
 
 afterEach(() => { restaurerReseau(); });
+
+/** A finger down and up in place, as on the tablet: card buttons act on release. */
+function appuyer(el: Element) {
+  for (const type of ['pointerdown', 'pointerup']) {
+    el.dispatchEvent(new PointerEvent(type, { clientX: 10, clientY: 10, pointerId: 1, bubbles: true }));
+  }
+}
 
 const AUJOURD_HUI: Prevision = { datetime: '2026-08-01T12:00:00', condition: 'sunny', temperature: 30 };
 const DEMAIN: Prevision = { datetime: '2026-08-02T12:00:00', condition: 'rainy', temperature: 35 };
@@ -58,7 +65,9 @@ describe('orchestration des modes', () => {
     expect(racine.querySelector('.media .titre')?.textContent).toContain('Plex');
   });
 
-  it('rend le bloc ménage quand l\'aspirateur tourne, même si la TV est allumée', async () => {
+  // Card-stack task 6: the vacuum and the TV are two cards of the stack. A robot that cleans on
+  // its own (rank 4) comes after the film (rank 3); it is in the stack, one swipe away.
+  it('stacks the vacuum card behind the TV while the robot cleans', async () => {
     const { racine, pousser } = await monterDemarrage(ECRANS.salon);
     await pousser('media_player.televiseur_salon_3', 'on', { supported_features: 153529 });
     await pousser('vacuum.aspirateur_cuisine', 'cleaning', { battery_level: 60 });
@@ -68,11 +77,12 @@ describe('orchestration des modes', () => {
     // le relâche — comme pour toute sortie de ce moteur, jamais une disparition instantanée.
     await Promise.resolve(); await Promise.resolve();
 
-    expect(racine.querySelector('.mode-bloc .t')?.textContent).toContain('Ménage');
-    expect(racine.querySelector('.media')).toBeNull();
+    expect(racine.querySelector('.carte')?.getAttribute('data-card')).toMatch(/^cinema:/);
+    expect(racine.querySelector('.points [data-card="aspirateur:vacuum.aspirateur_cuisine"]'))
+      .not.toBeNull();
   });
 
-  it('rend le bloc aération quand un ouvrant est ouvert depuis plus de 10 min et que le chauffage chauffe', async () => {
+  it('rend la carte aération quand un ouvrant est ouvert depuis plus de 10 min et que le chauffage chauffe', async () => {
     // Horloge figée : `Etat.appliquer` horodate avec `Date.now()`, `dessiner()` lit le
     // `maintenant` injecté — les deux doivent venir de la même horloge, sinon « ouvert depuis »
     // vaut n'importe quoi.
@@ -82,13 +92,13 @@ describe('orchestration des modes', () => {
       const { racine, pousser } = await monterDemarrage(ECRANS.salon, { maintenant: () => new Date() });
       await pousser('binary_sensor.porte_balcon_s_ouverture', 'on',
               { friendly_name: 'Porte balcon (S) Ouverture' });
-      expect(racine.querySelector('.mode-bloc')).toBeNull();   // 0 min : rien à signaler encore
+      expect(racine.querySelector('[data-card^="aeration:"]')).toBeNull();   // 0 min : rien à signaler encore
 
       vi.setSystemTime(new Date(2026, 7, 1, 14, 11));
       await pousser('climate.radiateur', 'heat');   // 11 min plus tard, et le chauffage tourne
 
-      expect(racine.querySelector('.mode-bloc .t')?.textContent).toContain('Ouvert');
-      expect(racine.querySelector('.mode-bloc .v')?.textContent).toContain('Porte balcon');
+      const carte = racine.querySelector('.carte[data-card^="aeration:"]');
+      expect(carte?.querySelector('.titre')?.textContent).toContain('Porte balcon');
       expect(racine.querySelector('.alerte')).toBeNull();   // une aération n'est jamais une alerte
     } finally {
       vi.useRealTimers();
@@ -246,7 +256,8 @@ describe('actions des blocs de mode', () => {
     const { racine, pousser, appelerService } = await monterDemarrage(ECRANS.salon);
     await pousser('vacuum.aspirateur_cuisine', 'cleaning', { battery_level: 60 });
 
-    racine.querySelector('.mode-action')!.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    // The vacuum card's first button; a card button acts on release (`cardPress`).
+    appuyer(racine.querySelector('.carte[data-card^="aspirateur:"] .actions > :first-child')!);
 
     expect(appelerService).toHaveBeenCalledWith(
       'vacuum', 'return_to_base', { entity_id: 'vacuum.aspirateur_cuisine' });
@@ -258,10 +269,10 @@ describe('actions des blocs de mode', () => {
     // Le nœud est capturé AVANT la panne : hors ligne, `dessiner()` le remplace par le bandeau
     // « Hors ligne », mais un doigt déjà posé (ou un rendu que la dalle n'a pas encore repeint)
     // doit lui aussi se heurter au refus — c'est le rôle du garde dans `agir`, pas du rendu.
-    const bouton = racine.querySelector('.mode-action')!;
+    const bouton = racine.querySelector('.carte[data-card^="aspirateur:"] .actions > :first-child')!;
     silence(40_000);
 
-    bouton.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    appuyer(bouton);
 
     expect(appelerService).not.toHaveBeenCalled();
   });

@@ -5,6 +5,8 @@
 import { writeProgress } from '../rendu/media';
 import { restantAncre, formaterRestant } from '../minuteur';
 import { writeTime } from '../rendu/minuteur';
+import { solidStyle } from '../rendu/card-frame';
+import { timerToken } from '../cards/timer';
 import { horlogeMonotone, RETOUR_MS } from './constants';
 import type { ScreenState } from './state';
 
@@ -70,7 +72,14 @@ export function tictacMinuteurs(s: ScreenState) {
   for (const [slot, ancre] of s.ancresMinuteurs) {
     const el = s.racine.querySelector<HTMLElement>(`.mn-temps[data-minuteur="${slot}"]`);
     if (!el) continue;                     // the block changed between two ticks: nothing to write
-    writeTime(el, formaterRestant(restantAncre(ancre, horloge)));
+    const restant = restantAncre(ancre, horloge);
+    writeTime(el, formaterRestant(restant));
+    // The card turns late between two redraws, as its countdown goes down: the same rule as its
+    // frame (`timerToken`), written into the card's colour variables only. A paused timer is
+    // never late. The next `dessiner()` writes the same style, so `lit` and the tick agree.
+    const carte = el.closest<HTMLElement>('.carte');
+    const style = solidStyle(timerToken(!ancre.fige, restant));
+    if (carte !== null && carte.getAttribute('style') !== style) carte.setAttribute('style', style);
   }
 }
 

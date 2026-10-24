@@ -1,5 +1,5 @@
-/** The recipe card (rank 0): the recipe in progress, collapsed. Same content as the collapsed
- *  block of the home view (`rendreRecetteReduite`): the current step and, when one runs, the
+/** The recipe card (rank 0): the recipe in progress, collapsed. It replaces the collapsed
+ *  recipe block the home view had (card-stack task 6): the current step and, when one runs, the
  *  countdown of the most urgent timer. Its button reopens the `#recette` view. */
 import { html } from 'lit';
 import type { Frame } from '../boot/frame';

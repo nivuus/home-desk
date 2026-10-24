@@ -5,7 +5,7 @@ import { renderCardFrame, type CardButton, type CardFrame } from '../src/rendu/c
 import type { ToneState } from '../src/rendu/poster-sampler';
 
 const PLAY: CardButton = { icon: 'lecture', label: 'Play', primary: true, act: () => {} };
-const STOP: CardButton = { icon: 'croix', label: 'Stop', act: () => {} };
+const STOP: CardButton = { icon: 'stop', label: 'Stop', act: () => {} };
 const BASE: CardFrame = {
   key: 'minuteur:timer.fixture', label: 'MINUTEUR · Cuisine', title: 'Pâtes', subtitle: 'sonne à 12:41',
   middle: html`<div class="milieu-essai">2:48</div>`,

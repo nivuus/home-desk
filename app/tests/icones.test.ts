@@ -5,6 +5,7 @@ import { render } from 'lit';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CHEMINS, icone } from '../src/rendu/icones';
+import CONTRAT_ICONES from '../../contrat/icones.json';
 
 // Revue tâche 15, mineur M2 : `soleil` et `gateau` en sont sorties — déclarées, testées, rendues
 // par personne (cf. le commentaire de `rendu/icones.ts` et le test d'orphelines plus bas).
@@ -19,6 +20,13 @@ const NOUVELLES = ['pause', 'lecture', 'precedent', 'suivant', 'porte', 'rideau'
  *  légitime et le filet des autres. Cette liste est une EXEMPTION NOMMÉE : y ajouter une entrée
  *  doit rester un geste délibéré, jamais le moyen de faire taire le test. */
 const APPELANTS_DYNAMIQUES = ['sunny', 'partlycloudy', 'cloudy', 'rainy'];
+
+/** Icons the code no longer draws by name but the contract still offers to a configured button
+ *  (`$defs.bouton.properties.icone.enum`): removing one would make a saved screen that picked it
+ *  invalid. `croix` lost its last literal caller with the timer block (card-stack task 6). A
+ *  named exemption too, for the same reason as the list above; each entry must stay in the
+ *  contract (checked below), or it is dead and leaves. */
+const CONTRAT_SEULEMENT = ['croix'];
 
 const SRC = join(process.cwd(), 'src');
 
@@ -79,7 +87,8 @@ describe('icônes', () => {
   it('toute icône déclarée est référencée par au moins un appelant', () => {
     const litteraux = litterauxDeSrc();
     const orphelines = Object.keys(CHEMINS)
-      .filter((nom) => !litteraux.has(nom) && !APPELANTS_DYNAMIQUES.includes(nom));
+      .filter((nom) => !litteraux.has(nom) && !APPELANTS_DYNAMIQUES.includes(nom)
+        && !CONTRAT_SEULEMENT.includes(nom));
     expect(orphelines,
       `déclarée(s) dans CHEMINS et rendue(s) par personne : ${orphelines.join(', ')} — `
       + 'la brancher à un appelant, ou la retirer').toEqual([]);
@@ -89,6 +98,13 @@ describe('icônes', () => {
     // Contre-épreuve de la liste ci-dessus : une exemption qui ne correspond à aucune icône
     // déclarée serait un moyen silencieux de désarmer le test.
     for (const nom of APPELANTS_DYNAMIQUES) expect(CHEMINS[nom], nom).toBeDefined();
+  });
+
+  it('an icon kept for the contract only is really in the contract, and really drawn', () => {
+    for (const nom of CONTRAT_SEULEMENT) {
+      expect(CONTRAT_ICONES.icones, nom).toContain(nom);
+      expect(CHEMINS[nom], nom).toBeDefined();
+    }
   });
 
   it('toutes les icônes respectent la grille et le trait (pas de fill local, pas de stroke-width local, coordonnées dans [0,24])', () => {

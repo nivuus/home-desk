@@ -214,7 +214,7 @@ suivantes par une convention de dépôt, sans filet automatique :
   sans rangée Ambiance (`app/src/screen-budget.ts`, jumeau `budget.py`, corpus
   `contrat/cas-budget.json`).
 - **Teintes de la carte média** : `app/src/tones.ts`,
-  `app/src/rendu/poster-sampler.ts`, `app/src/boot/media-tones.ts`; contrôle de
+  `app/src/rendu/poster-sampler.ts`, `app/src/boot/card-tones.ts`; contrôle de
   rendu `app/outils/verifier-carte-media.mjs`.
 
 ## Dettes connues du composant, reportées au 3b/3c

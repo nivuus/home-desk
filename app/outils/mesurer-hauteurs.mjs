@@ -215,13 +215,13 @@ function releverZones() {
 
 // `mode.mode` names the main mode a VARIANT exercises (`minuteur-solo` is the `minuteur` mode
 // with a single timer); without it, the entry's name is the mode.
-// The budget bills a block kind (`contrat/budget.json` -> `hauteurs.bloc*`), not a mode. This is
-// the same PROVISIONAL translation as `blocDuMode` in `src/modes.ts` (the card-stack plan replaces
-// it once the stack decides the central block): the modes that draw a tall card are `blocCarte`,
-// `voiture` is `blocHaut`, every other mode is `blocDefaut`.
-const MODES_CARTE = ['minuteur', 'recette', 'media', 'cinema', 'menage', 'aeration'];
+// The budget bills a block kind (`contrat/budget.json` -> `hauteurs.bloc*`), not a mode. Since
+// card-stack task 6 the stack decides it (`arrangementEcran(c, stackHead)`, `src/modes.ts`): a
+// scenario that puts a card at the head of the stack is `blocCarte`, the car block (the empty
+// stack's block on a car screen) is `blocHaut`, every other block is `blocDefaut`.
+const SCENARIOS_CARTE = ['minuteur', 'recette', 'media', 'cinema', 'menage', 'aeration'];
 const familleDuBloc = (nom) => {
-  if (MODES_CARTE.includes(nom)) return 'blocCarte';
+  if (SCENARIOS_CARTE.includes(nom)) return 'blocCarte';
   return nom === 'voiture' ? 'blocHaut' : 'blocDefaut';
 };
 

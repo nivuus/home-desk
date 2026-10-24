@@ -46,6 +46,15 @@ describe('airing card — frame', () => {
       new Intl.NumberFormat(undefined, { style: 'unit', unit: 'minute', unitDisplay: 'long' }).format(25));
   });
 
+  // Replaces `rendu-modes.test.ts` ("nomme l'ouvrant réellement ouvert"), gone with the airing
+  // mode block in card-stack task 6.
+  it('names only the openings really open, never a closed one', () => {
+    const [f, s] = airing(AIRING, 'off');
+    const fr = frame(detect(f, s)[0], f, s);
+    expect(fr.title).toContain('Window A');
+    expect(fr.title).not.toContain('Window B');
+  });
+
   it('no button until "later" exists (task 7): three empty slots, never a dead one', () => {
     const [f, s] = airing(AIRING);
     expect(frame(detect(f, s)[0], f, s).buttons).toEqual([undefined, undefined, undefined]);

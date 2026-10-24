@@ -5,9 +5,7 @@
  *  (`boot/home.ts`). */
 import { html } from 'lit';
 import type { Moment } from '../contexte';
-import { ancrerMinuteur } from '../minuteur';
 import { rendreNuit } from '../rendu/nuit';
-import { horlogeMonotone } from './constants';
 import { computeFrame } from './frame';
 import { settlePin } from '../media-choice';
 import { reveiller } from './timers';
@@ -17,64 +15,18 @@ import type { ScreenState } from './state';
 
 export function dessiner(s: ScreenState): void {
   const f = computeFrame(s);
-  const { maintenant, moment, mode, sources, media, vuesMinuteurs } = f;
+  const { maintenant, moment, mode, media } = f;
   // `computeFrame` is pure: the pin is settled here, once per frame, on what it chose.
   s.pinnedMedia = settlePin(media, s.pinnedMedia);
 
-  // Correction round 1 (coordinator's review): set HERE, before the early returns (night, whole
-  // house, tasks, and since task 10 bis `#minuteur` — see below), NOT after `blocCentral`. An
-  // assignment placed after those `return`s would never run on those paths: the timer block
-  // would disappear from the DOM (night, sub-view) but `ancresMinuteurs` would indefinitely keep
-  // the map of its last "normal" render. The media rail (`ancreProgression`, `boot/home.ts`) has
-  // the same position defect but only gets away with it because its tick checks
-  // `querySelector('.media')` before writing; nothing guarantees that the task 8 tick will do the
-  // same defensive check for the timers — that is precisely the guarantee this task must
-  // deliver, not a chance to hope for later.
-  //
-  // `mode === 'minuteur'` IS NOT ENOUGH on its own: it only depends on `ctx` (hence on the state
-  // of HA), not on the view actually displayed — a timer may very well keep running while one is
-  // on the whole house, on the tasks, on the full-screen setting (`#minuteur`), or in the middle
-  // of the night (`moment`, `location.hash` are independent of `mode`). Without repeating it
-  // here, this boolean would stay true on those routes although the timer block is never rendered
-  // there (see the early returns below): exactly the same class of error as the one fixed by this
-  // move, just inverted (a map alive but WRONG rather than FROZEN). `horsLigne`/`mode`/`moment`
-  // are already final at this point (any taking over by HA happened before `ctx`, above): no
-  // dependency on `blocCentral`, which does not need to exist yet.
-  //
-  // Task 9 (wake): `moment !== 'nuit'` alone is no longer enough. A WOKEN night screen
-  // (`reveilNuit`) renders the normal central block (see the early return of the night below,
-  // conditioned on `!reveilNuit`) while `moment` still literally stays `'nuit'` as long as the
-  // hour has not left the 23:00 → 05:00 range by itself. Without the `|| reveilNuit` here, a
-  // running timer on a woken screen would end up with a displayed map but empty anchors: the
-  // `.minuteurs` block exists in the DOM, but `tictacMinuteurs` no longer finds anything to count
-  // down (`ancresMinuteurs.size === 0` cuts short, see its comment) — a frozen countdown,
-  // silently, exactly the class of error this comment describes just above for the original
-  // version of the bug.
-  //
-  // Task 10 bis: `!reglageMinuteur` (removed along with the local state) is replaced by
-  // `location.hash !== '#minuteur'` — exactly the same role, carried by the hash like the other two
-  // sub-views. It is also the answer to "does the countdown keep going down when leaving the
-  // sub-view?": on leaving `#minuteur` (hash reset to `''`), this condition becomes true again and
-  // `ancresMinuteurs` is recomputed on the next `dessiner()`, exactly as when coming back from
-  // `#maison`/`#taches`.
-  const minuteursAffiches = !s.horsLigne && mode === 'minuteur'
-    && (moment !== 'nuit' || s.reveilNuit) && location.hash !== '#maison'
-    && location.hash !== '#taches' && location.hash !== '#minuteur'
-    && location.hash !== '#garde-manger';
-  s.ancresMinuteurs = new Map(minuteursAffiches
-    ? vuesMinuteurs.map((v) => [v.slot, ancrerMinuteur(v, horlogeMonotone())])
-    : []);
-
-  // THE displayed source, chosen by the MODE and not by its position in the list (task 12
-  // review). `paused` counts as "playing" (`ETATS_ACTIFS`, `media.ts`) and "Music" is declared
-  // before "Television": a YouTube Music session left paused the day before therefore confiscated
-  // the card during a film — dark screen, cinema controls, and the last track listened to as the
-  // title. In cinema mode, it is the source whose SCREEN is on that is right; everywhere else, the
-  // first one that actually plays, in the declared order of exclusivity (in the living room: the
-  // music before the TV, as surveyed on the old setup). 2026-10-23: that first playing one is
-  // `media.source`, the very choice that set `sourceJoue` — own first, else a source playing in
-  // another room — so the mode and the card cannot disagree.
-  const source = (mode === 'cinema' ? sources.find((x) => x.allumee) : media.source) ?? null;
+  // The timer anchors are emptied HERE, before every early return (night, sub-views), and set
+  // again only by the home view when the card it displays is a timer card (`afterStackPaint`,
+  // `boot/home-stack.ts`). The same rule since task 7, carried by the displayed card instead of
+  // the `minuteur` mode: a timer keeps running while the night screen, a sub-view, the alert, the
+  // offline notice or another card of the stack is shown, and an anchor kept alive for a
+  // countdown that is not on screen would be a map alive but WRONG — the tick would write into
+  // whatever `.mn-temps` a later render puts there.
+  s.ancresMinuteurs = new Map();
 
   // Task 7 (palette fade): `basculerPalette` replaces the two original `classList.toggle('sombre',
   // …)` (on `racine` AND on `<html>`, see task 20 in `startWithScreen`) — it is what sets
@@ -93,10 +45,12 @@ export function dessiner(s: ScreenState): void {
   // PERMANENT state its own comment in `base.css` forbids ("it would also cross every tile state
   // change").
   //
-  // Placed AFTER the computation of `mode` (nothing between the two original points depended on
-  // it) and BEFORE the early returns below: entering the whole house or the tasks during a film
-  // must not light the screen up again in the middle of the showing.
-  s.moteur.basculerPalette(moment !== 'jour' || mode === 'cinema');
+  // Placed BEFORE the early returns below: entering the whole house or the tasks during a film
+  // must not light the screen up again in the middle of the showing. Since the card stack
+  // (2026-10-24) there is no `cinema` mode left: the dark palette follows the fact itself, a
+  // screen of this room is on, whichever card the stack displays — except under an alert, which
+  // takes the screen as the cinema mode never could.
+  s.moteur.basculerPalette(moment !== 'jour' || (f.ctx.ecranAllume && mode !== 'alerte'));
 
   // Task 8, correction round 1: the night (23:00 → 05:00, see `momentDuJour`) prevails over
   // EVERYTHING, including a touch already in progress on the whole house. First version: the hash
@@ -143,5 +97,5 @@ export function dessiner(s: ScreenState): void {
   // not need to be revisited.
   const momentRendu: Moment = moment === 'nuit' && s.reveilNuit ? 'soir' : moment;
   if (paintSubView(s, f)) return;
-  paintHome(s, f, source, momentRendu);
+  paintHome(s, f, momentRendu);
 }

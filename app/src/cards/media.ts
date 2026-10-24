@@ -21,13 +21,19 @@ export function detect(f: Frame, _s: ScreenState): Card[] {
   return cards;
 }
 
-export function frame(card: Card, f: Frame, s: ScreenState): CardFrame {
+/** The source a media card draws: a cinema card one of the screen's own sources, a media card
+ *  the followed one. Also what the progress rail anchors on (`boot/home-stack.ts`). */
+export function sourceOf(card: Card, f: Frame): SourceResolue {
   const wanted = card.key.slice(card.type.length + 1);
-  const cinema = card.type === 'cinema';
-  const candidates: (SourceResolue | undefined)[] = cinema ? f.sources : [f.media.source];
+  const candidates: (SourceResolue | undefined)[] = card.type === 'cinema' ? f.sources : [f.media.source];
   const src = candidates.find((x) => x !== undefined && sourceKey(x) === wanted);
   if (src === undefined) throw new Error(`media card: no source for ${card.key}`);
+  return src;
+}
+
+export function frame(card: Card, f: Frame, s: ScreenState): CardFrame {
+  const src = sourceOf(card, f);
   // Pausing a source of another room pins it; only the followed card can be that source.
-  const remote = !cinema && f.media.remote;
+  const remote = card.type !== 'cinema' && f.media.remote;
   return { ...mediaFrame(src, f.maintenantMs, tonesToPaint(src, s.measuredCard), remote), key: card.key };
 }

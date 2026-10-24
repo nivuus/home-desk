@@ -15,14 +15,13 @@ const noms = (b: Bouton[]) => b.map((x) => x.libelle);
 const tuile = (libelle: string, p: Partial<Bouton> = {}): Bouton =>
   ({ libelle, icone: 'sofa', entite: `light.${libelle.toLowerCase()}`, ...p });
 
-/** No ambiance row: four places in the default mode, two under a high central block. */
+/** No ambiance row: four places with the stack empty, two under a card. */
 const QUATRE_PLACES: ContexteModes = { ...CALME, rangeeAmbiance: false };
-const DEUX_PLACES: ContexteModes = { ...CALME, sourceJoue: true };
 
 describe('ordreCommandes — tall tile', () => {
   it('a tall tile takes two of the four places', () => {
     const commandes = [tuile('A'), tuile('B', { haute: true }), tuile('C'), tuile('D')];
-    const coupe = ordreCommandes(commandes, QUATRE_PLACES);
+    const coupe = ordreCommandes(commandes, QUATRE_PLACES, null);
     expect(noms(coupe)).toEqual(['A', 'B', 'C']);
     expect(coupe.find((b) => b.libelle === 'B')?.haute).toBe(true);
   });
@@ -30,17 +29,17 @@ describe('ordreCommandes — tall tile', () => {
   it('a pinned tall tile keeps its place, and the last unpinned tiles give way', () => {
     const commandes = [tuile('A'), tuile('B'), tuile('C'),
       tuile('Porte', { haute: true, epingle: true }), tuile('Rideau', { epingle: true })];
-    expect(noms(ordreCommandes(commandes, QUATRE_PLACES))).toEqual(['A', 'Porte', 'Rideau']);
+    expect(noms(ordreCommandes(commandes, QUATRE_PLACES, null))).toEqual(['A', 'Porte', 'Rideau']);
   });
 
   it('two tall tiles fill the four places on their own', () => {
     const commandes = [tuile('A', { haute: true }), tuile('B', { haute: true }), tuile('C')];
-    expect(noms(ordreCommandes(commandes, QUATRE_PLACES))).toEqual(['A', 'B']);
+    expect(noms(ordreCommandes(commandes, QUATRE_PLACES, null))).toEqual(['A', 'B']);
   });
 
   it('on a single row there is nothing to span: normal height, one place', () => {
     const commandes = [tuile('A', { haute: true }), tuile('B'), tuile('C')];
-    const coupe = ordreCommandes(commandes, DEUX_PLACES);
+    const coupe = ordreCommandes(commandes, CALME, 'media');
     expect(noms(coupe)).toEqual(['A', 'B']);
     expect(coupe.some((b) => b.haute)).toBe(false);
   });
@@ -48,7 +47,7 @@ describe('ordreCommandes — tall tile', () => {
   it('a pinned tall tile under a card is a normal tile on its single row', () => {
     // A card (the timer) leaves one row of two places: nothing to span, the tile takes one.
     const commandes = [tuile('A', { haute: true, epingle: true }), tuile('B')];
-    expect(noms(ordreCommandes(commandes, { ...CALME, minuteurEnCours: true }))).toEqual(['A', 'B']);
+    expect(noms(ordreCommandes(commandes, CALME, 'minuteur'))).toEqual(['A', 'B']);
   });
 });
 

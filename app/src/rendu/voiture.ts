@@ -3,7 +3,7 @@
  *
  *  Il remplace les six prochaines heures (demande du propriétaire, 2026-08-03). Aucune décision
  *  ici : le rendu lit l'état et appelle une action branchée par `demarrage.ts`, comme
- *  `rendu/minuteur.ts` et `rendu/modes.ts`.
+ *  `rendu/minuteur.ts`.
  *
  *  `enVol` est le retour optimiste. Il existe parce que cette voiture répond avec une à trois
  *  minutes de retard (cloud Stellantis) : sans lui, le bouton paraît mort et on rappuie trois

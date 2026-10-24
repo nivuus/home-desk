@@ -230,7 +230,7 @@ describe('le chemin dérivé de l’AST retrouve le chemin écrit', () => {
   // de `cheminAttendu` explique pourquoi une règle mécanique qui ne descend jamais dans un
   // tableau ne peut PAS deviner ce choix -- c'est exactement le cas que le coordinateur a nommé :
   // un classement humain peut être plus juste que la règle mécanique.
-  const EXCEPTIONS_CONNUES = [236, 237, 511, 512, 513, 514, 515, 516, 517];
+  const EXCEPTIONS_CONNUES = [241, 242, 516, 517, 518, 519, 520, 521, 522];
 
   it('coïncide plage par plage avec verdicts-commentaires.tsv, sauf les exceptions documentées', () => {
     const ecarts: string[] = [];

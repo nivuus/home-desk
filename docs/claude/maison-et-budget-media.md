@@ -39,5 +39,5 @@ synthèse réduite sans la rangée Ambiance.
 
 - `app/src/tones.ts` (calcul des teintes), `app/src/rendu/poster-sampler.ts`
   (échantillonnage de la vignette; les pixels ne sont lus QUE sur la vignette
-  de `vignetter()`), `app/src/boot/media-tones.ts` (câblage au démarrage).
+  de `vignetter()`), `app/src/boot/card-tones.ts` (câblage au démarrage, for any image card since the card stack).
 - Contrôle de rendu : `app/outils/verifier-carte-media.mjs`.

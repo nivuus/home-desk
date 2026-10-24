@@ -8,6 +8,12 @@ import { ENTITE_ENTRETIEN } from './defaut';
 import { bouton, commandeActive, pressTile } from './tile';
 import { arrangementEcran, ordreCommandes, type ContexteModes } from '../modes';
 import { AGENCEMENT_DEFAUT, type Agencement, type Zone } from '../agencement';
+import type { CardType } from '../stack/types';
+
+/** The timer entry tile, drawn by its caller for the place it takes: the Ambiance row
+ *  (`dansGrille` false), or the first place of the controls grid when the arrangement drops that
+ *  row (card-stack plan, 2026-10-24). */
+export type TuileMinuteur = (dansGrille: boolean) => TemplateResult;
 
 /** Tâche 8 bis : `alerteActive` (`contexte.ts`) existe et est testée depuis la tâche 2, mais rien
  *  ne l'appelait — cette fonction rend ce que `demarrage.ts` calcule dans le même gabarit `.t`/`.v`
@@ -173,7 +179,7 @@ export function rendreCorps(
   // puisse l'accueillir sans coûter une rangée de plus, et le budget de hauteur de l'accueil
   // cuisine est déjà saturé (585px, marge nulle). Optionnel et en dernière position, comme `ctx` :
   // le salon et le bureau ne le passent jamais et continuent de rendre exactement trois tuiles.
-  tuileMinuteur?: TemplateResult,
+  tuileMinuteur?: TuileMinuteur,
   // Tâche 17 : le bloc central affiche À CET INSTANT le détail des tâches d'entretien
   // (`rendreEntretien`, `rendu/defaut.ts`) — la ligne de synthèse doit alors taire son
   // « 3 tâches d'entretien », sinon le même compte s'écrit deux fois sur la même tablette, ce que
@@ -202,6 +208,10 @@ export function rendreCorps(
   // lui : sans lui, l'ordre est celui d'`AGENCEMENT_DEFAUT`, c'est-à-dire exactement celui que ce
   // gabarit écrivait en dur. Les tests de rendu existants restent donc verts sans être réécrits.
   agencement?: Agencement,
+  // Card-stack plan (2026-10-24): the type of the stack's HEAD card, `null` when no card is drawn
+  // (empty stack, alert, offline). It decides the block the budget bills and the controls'
+  // promotions (`arrangementEcran`/`ordreCommandes`, `modes.ts`).
+  stackHead: CardType | null = null,
 ): TemplateResult {
   // Modulateur `invites` : les écarts marqués `perso` (voiture, entretien) disparaissent — ils ne
   // regardent que Maxime. La porte déverrouillée, elle, reste : c'est une information de sécurité
@@ -226,14 +236,20 @@ export function rendreCorps(
   const affichables = recetteOuvrable
     ? utilisables
     : utilisables.filter((c) => c.vue !== '#recette' || !etat.isPresent(c.entite));
-  const commandes = ctx ? ordreCommandes(affichables, ctx) : affichables;
   // 2026-10-24: the budget's arrangement (`arrangementEcran`, `modes.ts`), the same answer that
-  // just cut the grid. While the media card is shown it may reduce the synthèse to one line and,
-  // if that is not enough, drop the Ambiance row — the owner's order (spec 2026-10-23). Without a
-  // context, the full composition, as before.
-  const arrangement = ctx ? arrangementEcran(ctx) : undefined;
+  // cuts the grid. While a card is shown it may reduce the synthèse to one line and, if that is
+  // not enough, drop the Ambiance row — the owner's order (spec 2026-10-23). Without a context,
+  // the full composition, as before.
+  const arrangement = ctx ? arrangementEcran(ctx, stackHead) : undefined;
   const rangeeAmbiance = arrangement?.rangeeAmbiance ?? true;
   const syntheseReduite = arrangement?.syntheseReduite ?? false;
+  // The timer tile survives a dropped Ambiance row: it takes the FIRST place of the controls grid
+  // and one control gives way, so the grid keeps the rows the budget counted. A grid with no
+  // place at all (a layout without the controls zone) leaves it out rather than open a row.
+  const tuileDansGrille = tuileMinuteur !== undefined && !rangeeAmbiance
+    && (arrangement?.commandes ?? 0) > 0;
+  const commandes = ctx
+    ? ordreCommandes(affichables, ctx, stackHead, tuileDansGrille ? 1 : 0) : affichables;
 
   // Les quatre zones mobiles, extraites du gabarit unique qu'elles formaient avant cette tâche —
   // chacune rend EXACTEMENT ce que ce gabarit rendait pour elle, commentaires HTML compris (ils
@@ -277,7 +293,7 @@ export function rendreCorps(
             <div class="ambiance" data-mvt="tuile:amb-${a.entite}"
                  @pointerdown=${(ev: PointerEvent) => pressTile(ev, etat, a)}>
               ${icone(a.icone)}<span>${a.libelle}</span></div>`)}
-          ${tuileMinuteur ?? ''}
+          ${tuileMinuteur?.(false) ?? ''}
         </div>`;
   const RENDU_COMMANDES = html`
         <!-- repeat CLÉ PAR ENTITÉ, jamais un simple .map : sans clé, lit réutilise les nœuds DOM DANS
@@ -307,6 +323,7 @@ export function rendreCorps(
              précède effectivement blocCentral. Un agencement personnalisé qui inverserait les deux
              n'est pas revisité ici — hors périmètre de cette tâche.) -->
         <div class="commandes" data-zone="commandes" data-mvt="ligne:commandes">
+          ${tuileDansGrille ? tuileMinuteur!(true) : ''}
           ${repeat(commandes, (c) => c.entite,
                    (c) => bouton(etat, c, etat.estUtilisable(c.entite)
                      && commandeActive(c.entite, etat.lire(c.entite)!.etat), 'commande'))}
@@ -364,7 +381,7 @@ export function rendreCorps(
     // Le corps ne connaît donc plus demain du tout : le bandeau en est seul propriétaire, jamais
     // deux fois la même donnée sur la même tablette.
     blocCentral: () => blocCentral,
-    commandes: () => (commandes.length ? RENDU_COMMANDES : undefined),
+    commandes: () => (commandes.length || tuileDansGrille ? RENDU_COMMANDES : undefined),
     synthese: () => RENDU_SYNTHESE,
   };
   // Relecture finale du plan 2 (I2) : repli PAR CHAMP, jamais par objet. `(agencement ??

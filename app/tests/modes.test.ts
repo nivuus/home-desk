@@ -3,6 +3,7 @@ import { modePrincipal, modulateursActifs, ordreCommandes, CONDITIONS,
   type ContexteModes, type ModePrincipal } from '../src/modes';
 import { ECRANS, type Bouton } from '../src/ecran';
 import { AGENCEMENT_DEFAUT } from '../src/agencement';
+import type { CardType } from '../src/stack/types';
 import { CALME } from './contextes';
 
 /** Fabrique dérivée de `CALME` : chaque test du mode minuteur ne cite que le(s) champ(s) qu'il
@@ -51,71 +52,44 @@ describe('modePrincipal', () => {
       .toBe('alerte');
   });
 
-  it('le ménage prime sur le cinéma', () => {
-    expect(modePrincipal({ ...CALME, aspirateurEnMarche: true, ecranAllume: true })).toBe('menage');
-  });
-
-  it('le cinéma prime sur le média', () => {
-    expect(modePrincipal({ ...CALME, ecranAllume: true, sourceJoue: true })).toBe('cinema');
-  });
-
-  it('un écran allumé sans lecture donne quand même le mode cinéma', () => {
-    expect(modePrincipal({ ...CALME, ecranAllume: true })).toBe('cinema');
-  });
-
-  it('une source qui joue sans écran allumé donne le mode média', () => {
-    expect(modePrincipal({ ...CALME, sourceJoue: true })).toBe('media');
-  });
-
-  it('aération : ouvrant ouvert depuis plus de 10 min ET chauffage en marche', () => {
-    expect(modePrincipal({ ...CALME, ouvrantOuvertDepuisMs: 11 * 60_000, chauffageEnMarche: true }))
-      .toBe('aeration');
-  });
-
-  it('aération : ouvrant ouvert depuis plus de 10 min ET pluie', () => {
-    expect(modePrincipal({ ...CALME, ouvrantOuvertDepuisMs: 11 * 60_000, ilPleut: true }))
-      .toBe('aeration');
-  });
-
-  it('pas d\'aération sous 10 minutes, même avec le chauffage', () => {
-    expect(modePrincipal({ ...CALME, ouvrantOuvertDepuisMs: 9 * 60_000, chauffageEnMarche: true }))
-      .toBe('defaut');
-  });
-
-  it('pas d\'aération sur un ouvrant ouvert par beau temps sans chauffage', () => {
-    expect(modePrincipal({ ...CALME, ouvrantOuvertDepuisMs: 3 * 3_600_000 })).toBe('defaut');
+  // Card-stack plan, task 6 (2026-10-24): the timer, the recipe, the vacuum, the media and the
+  // airing are stack cards (`stack/collect.ts`); they never take the block as a mode again.
+  it('a mode that became a card never takes the block', () => {
+    for (const sur of [{ minuteurEnCours: true }, { recetteEnCours: true }, { aspirateurEnMarche: true },
+      { ecranAllume: true }, { sourceJoue: true },
+      { ouvrantOuvertDepuisMs: 11 * 60_000, chauffageEnMarche: true }]) {
+      expect(modePrincipal(ctx(sur)), JSON.stringify(sur)).toBe('defaut');
+    }
   });
 });
 
-describe('mode minuteur', () => {
-  it('passe devant le ménage, le cinéma, le média et l\'aération', () => {
-    // L'aération n'est atteignable que si `ouvrantOuvertDepuisMs > AERATION_MS` (10 min) ET
-    // (`chauffageEnMarche` OU `ilPleut`) : sans ces deux champs, la condition d'aération est
-    // fausse quoi qu'il arrive et le test ne prouverait le rang que face à menage/cinema/media.
-    expect(modePrincipal(ctx({
-      minuteurEnCours: true, aspirateurEnMarche: true, ecranAllume: true, sourceJoue: true,
-      ouvrantOuvertDepuisMs: 11 * 60_000, chauffageEnMarche: true,
-    }))).toBe('minuteur');
+/** The airing card (`cards/airing.ts`) reads this condition as it is. */
+describe('CONDITIONS.aeration', () => {
+  it('ouvrant ouvert depuis plus de 10 min ET chauffage en marche, ou pluie', () => {
+    expect(CONDITIONS.aeration(ctx({ ouvrantOuvertDepuisMs: 11 * 60_000, chauffageEnMarche: true }))).toBe(true);
+    expect(CONDITIONS.aeration(ctx({ ouvrantOuvertDepuisMs: 11 * 60_000, ilPleut: true }))).toBe(true);
   });
 
-  it('cède devant une alerte', () => {
-    expect(modePrincipal(ctx({ minuteurEnCours: true, alerte: true }))).toBe('alerte');
+  it('pas d\'aération sous 10 minutes, même avec le chauffage', () => {
+    expect(CONDITIONS.aeration(ctx({ ouvrantOuvertDepuisMs: 9 * 60_000, chauffageEnMarche: true }))).toBe(false);
   });
 
-  it('rend la main quand plus aucun minuteur ne tourne', () => {
-    expect(modePrincipal(ctx({ minuteurEnCours: false }))).toBe('defaut');
+  it('pas d\'aération sur un ouvrant ouvert par beau temps sans chauffage', () => {
+    expect(CONDITIONS.aeration(ctx({ ouvrantOuvertDepuisMs: 3 * 3_600_000 }))).toBe(false);
+  });
+});
+
+describe('sous une carte', () => {
+  // Card-stack plan, task 1: a card (264 px) climbs the ladder (`arrangement`,
+  // `screen-budget.ts`): reduced synthèse, no Ambiance row, one row of two controls.
+  it('affiche deux commandes sous n\'importe quelle carte — la carte gravit l\'échelle', () => {
+    const heads: CardType[] = ['minuteur', 'recette', 'aspirateur', 'aeration', 'voiture', 'media', 'cinema'];
+    for (const head of heads) expect(ordreCommandes(QUATRE, CALME, head), head).toHaveLength(2);
   });
 
-  // Card-stack plan, task 1: the timer is a `carte` (264 px), which climbs the ladder
-  // (`arrangement`, `screen-budget.ts`): reduced synthèse, no Ambiance row, one row of two
-  // controls. The old 215 px timer block left none at 585 px.
-  it('affiche deux commandes pendant un minuteur — la carte gravit l\'échelle', () => {
-    const commandes = [
-      { libelle: 'A', icone: 'sofa', entite: 'light.a' },
-      { libelle: 'B', icone: 'sofa', entite: 'light.b' },
-    ];
-    expect(ordreCommandes(commandes, ctx({ minuteurEnCours: true })).map((b) => b.libelle))
-      .toEqual(['A', 'B']);
+  it('a place reserved for the timer tile is a control less, never a row more', () => {
+    expect(ordreCommandes(QUATRE, CALME, 'media', 1).map((b) => b.libelle)).toEqual(['A']);
+    expect(ordreCommandes(QUATRE, CALME, null, 1)).toHaveLength(3);
   });
 });
 
@@ -128,18 +102,22 @@ describe('mode voiture', () => {
     expect(modePrincipal(ctx({ blocDefaut: undefined }))).toBe('defaut');
   });
 
-  it('cède devant tout mode plus urgent, y compris l\'aération', () => {
-    expect(modePrincipal(ctx({
-      blocDefaut: 'voiture', ouvrantOuvertDepuisMs: 11 * 60_000, chauffageEnMarche: true,
-    }))).toBe('aeration');
-    expect(modePrincipal(ctx({ blocDefaut: 'voiture', minuteurEnCours: true }))).toBe('minuteur');
+  // The cards are above the block now: the car block is the stack's EMPTY state, and only the
+  // alert takes its place as a mode.
+  it('ne cède qu\'à l\'alerte', () => {
+    expect(modePrincipal(ctx({ blocDefaut: 'voiture', alerte: true }))).toBe('alerte');
+    expect(modePrincipal(ctx({ blocDefaut: 'voiture', minuteurEnCours: true }))).toBe('voiture');
   });
 
   // Tâche 10 bis, MESURÉ (tâche 10) : le bloc voiture fait 648 px, 63 px au-delà du budget — plus
   // haut que les prévisions à quatre commandes qu'il remplace. Il rejoint donc `media`/`cinema`
   // à deux commandes, comme tout bloc central plus haut que la normale.
   it('n\'en laisse que deux en mode voiture, comme les modes à bloc haut', () => {
-    expect(ordreCommandes(QUATRE, ctx({ blocDefaut: 'voiture' }))).toHaveLength(2);
+    expect(ordreCommandes(QUATRE, ctx({ blocDefaut: 'voiture' }), null)).toHaveLength(2);
+  });
+
+  it('under an alert the car block is not drawn: the small block\'s budget', () => {
+    expect(ordreCommandes(QUATRE, ctx({ blocDefaut: 'voiture', alerte: true }), null)).toHaveLength(4);
   });
 });
 
@@ -159,32 +137,23 @@ describe('rangeeAmbiance — le budget rendu par la rangée « Ambiance » suppr
   // `blocCarte`) costs more than the Ambiance row gives back: their ladder (`arrangement`,
   // `screen-budget.ts`) ends on ONE row with or without the Ambiance row.
   it('sans rangée Ambiance, le bloc haut (voiture) retrouve quatre commandes', () => {
-    expect(ordreCommandes(QUATRE, { ...ctx({ blocDefaut: 'voiture' }), rangeeAmbiance: false }))
+    expect(ordreCommandes(QUATRE, { ...ctx({ blocDefaut: 'voiture' }), rangeeAmbiance: false }, null))
       .toHaveLength(4);
-    for (const mode of [ctx({ sourceJoue: true }), ctx({ ecranAllume: true })]) {
-      expect(ordreCommandes(QUATRE, { ...mode, rangeeAmbiance: false })).toHaveLength(2);
+    for (const head of ['media', 'cinema'] as const) {
+      expect(ordreCommandes(QUATRE, { ...CALME, rangeeAmbiance: false }, head)).toHaveLength(2);
     }
   });
 
   it('avec rangée Ambiance (défaut, et champ absent), rien ne change', () => {
-    expect(ordreCommandes(QUATRE, ctx({ sourceJoue: true }))).toHaveLength(2);
-    expect(ordreCommandes(QUATRE, { ...ctx({ sourceJoue: true }), rangeeAmbiance: true }))
-      .toHaveLength(2);
+    expect(ordreCommandes(QUATRE, CALME, 'media')).toHaveLength(2);
+    expect(ordreCommandes(QUATRE, { ...CALME, rangeeAmbiance: true }, 'media')).toHaveLength(2);
   });
 
-  it('ne touche pas aux modes déjà à quatre ; le minuteur, lui, paie son coût', () => {
-    // Le budget rendu paie une rangée, jamais deux : un mode à quatre places n'en gagne pas une
+  it('ne touche pas aux pièces déjà à quatre ; une carte, elle, paie son coût', () => {
+    // Le budget rendu paie une rangée, jamais deux : un bloc à quatre places n'en gagne pas une
     // cinquième.
-    expect(ordreCommandes(QUATRE, { ...CALME, rangeeAmbiance: false })).toHaveLength(4);
-    // 2026-09-12 (plan 2, tâche 5) : `minuteur` ne reste plus à zéro « quoi qu'il arrive ». Sans
-    // rangée Ambiance, son bloc (215 px) plus une rangée de commandes coûte 542 px — sous les
-    // 585 : ça tient, donc 2. La croyance d'un zéro inconditionnel venait du court-circuit que
-    // cette tâche a retiré (`combien` rendait 0 pour `minuteur` avant tout calcul), jamais d'une
-    // vraie mesure de ce cas — `mesures.ecranModeMinuteur` (`contrat/budget.json`, 630 px) mesure
-    // le cas AVEC rangée Ambiance — celui du `describe('mode minuteur')` plus haut dans ce
-    // fichier, qui reste à 0. (Le test juste au-dessus porte sur `sourceJoue`, pas sur minuteur.)
-    expect(ordreCommandes(QUATRE, { ...ctx({ minuteurEnCours: true }), rangeeAmbiance: false }))
-      .toHaveLength(2);
+    expect(ordreCommandes(QUATRE, { ...CALME, rangeeAmbiance: false }, null)).toHaveLength(4);
+    expect(ordreCommandes(QUATRE, { ...CALME, rangeeAmbiance: false }, 'minuteur')).toHaveLength(2);
   });
 });
 
@@ -228,11 +197,11 @@ describe('ordreCommandes', () => {
   const noms = (b: Bouton[]) => b.map((x) => x.libelle);
 
   it('ordre par défaut : les quatre premières déclarées, Ambilight exclu', () => {
-    expect(noms(ordreCommandes(COMMANDES, CALME))).toEqual(['Lumières', 'Chauffage', 'Porte', 'Rideau']);
+    expect(noms(ordreCommandes(COMMANDES, CALME, null))).toEqual(['Lumières', 'Chauffage', 'Porte', 'Rideau']);
   });
 
   it('chaleur : le rideau passe premier et son libellé devient une consigne', () => {
-    expect(noms(ordreCommandes(COMMANDES, { ...CALME, temperatureExterieure: 35 })))
+    expect(noms(ordreCommandes(COMMANDES, { ...CALME, temperatureExterieure: 35 }, null)))
       .toEqual(['Fermer', 'Lumières', 'Chauffage', 'Porte']);
   });
 
@@ -241,11 +210,11 @@ describe('ordreCommandes', () => {
     // ~160 px de large et `.commande .t` est en 14 px — dix-neuf caractères y débordent. La
     // température est de toute façon déjà dans le bandeau, et le projet interdit la même donnée
     // deux fois sur une même tablette.
-    expect(noms(ordreCommandes(COMMANDES, CALME))).toContain('Rideau');
+    expect(noms(ordreCommandes(COMMANDES, CALME, null))).toContain('Rideau');
   });
 
   it('serrure déverrouillée : la porte passe première', () => {
-    expect(noms(ordreCommandes(COMMANDES, { ...CALME, serrureDeverrouillee: true })))
+    expect(noms(ordreCommandes(COMMANDES, { ...CALME, serrureDeverrouillee: true }, null)))
       .toEqual(['Porte', 'Lumières', 'Chauffage', 'Rideau']);
   });
 
@@ -253,30 +222,36 @@ describe('ordreCommandes', () => {
   // propriétaire du 2026-08-04) : c'est « Lumières » qui cède en cinéma — arbitrage explicite,
   // l'Ambilight est le réglage qu'on cherche pendant un film.
   it('cinéma : deux commandes seulement, Ambilight puis Porte', () => {
-    expect(noms(ordreCommandes(COMMANDES, { ...CALME, ecranAllume: true })))
-      .toEqual(['Ambilight', 'Porte']);
+    expect(noms(ordreCommandes(COMMANDES, CALME, 'cinema'))).toEqual(['Ambilight', 'Porte']);
   });
 
   it('média : deux commandes seulement, Lumières puis Porte', () => {
-    expect(noms(ordreCommandes(COMMANDES, { ...CALME, sourceJoue: true })))
+    expect(noms(ordreCommandes(COMMANDES, CALME, 'media'))).toEqual(['Lumières', 'Porte']);
+  });
+
+  // The promotions follow the stack's HEAD card, whatever the context says (spec 2026-10-24).
+  it('the promotions are keyed by the head card, never by the context', () => {
+    expect(noms(ordreCommandes(COMMANDES, { ...CALME, ecranAllume: true }, 'aspirateur')))
       .toEqual(['Lumières', 'Porte']);
+    expect(noms(ordreCommandes(COMMANDES, { ...CALME, ecranAllume: true }, null)))
+      .toEqual(['Lumières', 'Chauffage', 'Porte', 'Rideau']);
   });
 
   it('la chaleur prime sur la serrure quand les deux sont vraies', () => {
     expect(noms(ordreCommandes(COMMANDES, {
-      ...CALME, temperatureExterieure: 35, serrureDeverrouillee: true }))[0]).toBe('Fermer');
+      ...CALME, temperatureExterieure: 35, serrureDeverrouillee: true }, null))[0]).toBe('Fermer');
   });
 
   it('n\'invente jamais une commande absente de la déclaration', () => {
     const deux = COMMANDES.slice(0, 2);
-    expect(noms(ordreCommandes(deux, CALME))).toEqual(['Lumières', 'Chauffage']);
+    expect(noms(ordreCommandes(deux, CALME, null))).toEqual(['Lumières', 'Chauffage']);
   });
 
   it('chaleur avec tableau incomplet : ignore le Rideau absent sans inventer undefined', () => {
     // Contexte chaleur + tableau sans Rideau → remonter() cherche 'Rideau', ne le trouve pas,
     // le filtre l'écarte. Résultat : commandes présentes dans leur ordre, pas d'undefined.
     const sansRideau = COMMANDES.filter((b) => b.libelle !== 'Rideau');
-    const résultat = ordreCommandes(sansRideau, { ...CALME, temperatureExterieure: 35 });
+    const résultat = ordreCommandes(sansRideau, { ...CALME, temperatureExterieure: 35 }, null);
     // Sans Rideau, remonter() écarte le 'Rideau' manquant et retourne les 4 commandes restantes.
     expect(noms(résultat)).toEqual(['Lumières', 'Chauffage', 'Porte', 'Ambilight']);
     // Garantie structurelle : aucun undefined dans le résultat.
@@ -293,12 +268,12 @@ describe('ordreCommandes — cuisine et bureau à quatre commandes (tâche 19)',
   const noms = (b: Bouton[]) => b.map((x) => x.libelle);
 
   it('cuisine, mode courant : les quatre déclarées, dans leur ordre', () => {
-    expect(noms(ordreCommandes(ECRANS.cuisine.commandes, CALME)))
+    expect(noms(ordreCommandes(ECRANS.cuisine.commandes, CALME, null)))
       .toEqual(['Hotte', 'Rideau', 'Garde-manger', 'Recette']);
   });
 
   it('bureau, mode courant : les quatre déclarées, dans leur ordre', () => {
-    expect(noms(ordreCommandes(ECRANS.bureau.commandes, CALME)))
+    expect(noms(ordreCommandes(ECRANS.bureau.commandes, CALME, null)))
       .toEqual(['Chauffage', 'Chambre', 'Ventilateur', 'Velux']);
   });
 
@@ -306,7 +281,7 @@ describe('ordreCommandes — cuisine et bureau à quatre commandes (tâche 19)',
   // « Chauffage », déclaré en tête au bureau. Il reste donc premier, et « Chambre » garde la
   // seconde place — les deux nouvelles cèdent la place, exactement comme avant cette tâche.
   it('bureau, mode média : Chauffage puis Chambre — résultat identique à avant la tâche 19', () => {
-    expect(noms(ordreCommandes(ECRANS.bureau.commandes, { ...CALME, sourceJoue: true })))
+    expect(noms(ordreCommandes(ECRANS.bureau.commandes, CALME, 'media')))
       .toEqual(['Chauffage', 'Chambre']);
   });
 
@@ -316,7 +291,7 @@ describe('ordreCommandes — cuisine et bureau à quatre commandes (tâche 19)',
   // Recette restent à un appui : la ligne de synthèse ouvre la vue Tâches, et le bloc central du
   // mode média n'a de toute façon pas la place pour quatre tuiles.
   it('cuisine, mode média : les deux premières déclarées, Hotte et Rideau', () => {
-    expect(noms(ordreCommandes(ECRANS.cuisine.commandes, { ...CALME, sourceJoue: true })))
+    expect(noms(ordreCommandes(ECRANS.cuisine.commandes, CALME, 'media')))
       .toEqual(['Hotte', 'Rideau']);
   });
 
@@ -325,7 +300,7 @@ describe('ordreCommandes — cuisine et bureau à quatre commandes (tâche 19)',
   it('bureau : ni la chaleur ni la serrure ne délogent rien, aucun des deux libellés n\'y figure', () => {
     for (const c of [{ ...CALME, temperatureExterieure: 35 },
                      { ...CALME, serrureDeverrouillee: true }]) {
-      expect(noms(ordreCommandes(ECRANS.bureau.commandes, c)))
+      expect(noms(ordreCommandes(ECRANS.bureau.commandes, c, null)))
         .toEqual(noms(ECRANS.bureau.commandes));
     }
   });
@@ -336,19 +311,19 @@ describe('ordreCommandes — cuisine et bureau à quatre commandes (tâche 19)',
   // devient la consigne, comme au salon, et aucune tuile ne tombe : quatre déclarées, quatre
   // places.
   it('cuisine, chaleur : le rideau passe premier et devient la consigne « Fermer »', () => {
-    expect(noms(ordreCommandes(ECRANS.cuisine.commandes, { ...CALME, temperatureExterieure: 35 })))
+    expect(noms(ordreCommandes(ECRANS.cuisine.commandes, { ...CALME, temperatureExterieure: 35 }, null)))
       .toEqual(['Fermer', 'Hotte', 'Garde-manger', 'Recette']);
   });
 
   it('cuisine : la serrure déverrouillée n\'y déloge rien, « Porte » n\'y est pas déclarée', () => {
-    expect(noms(ordreCommandes(ECRANS.cuisine.commandes, { ...CALME, serrureDeverrouillee: true })))
+    expect(noms(ordreCommandes(ECRANS.cuisine.commandes, { ...CALME, serrureDeverrouillee: true }, null)))
       .toEqual(noms(ECRANS.cuisine.commandes));
   });
 
   // Le mode `minuteur` (cuisine) est une carte : une rangée de deux commandes, quatre déclarées ou
   // deux — la grille ne grandit jamais avec le nombre déclaré.
   it('le mode minuteur rend deux commandes, quel que soit le nombre déclaré', () => {
-    expect(ordreCommandes(ECRANS.cuisine.commandes, ctx({ minuteurEnCours: true }))).toHaveLength(2);
+    expect(ordreCommandes(ECRANS.cuisine.commandes, CALME, 'minuteur')).toHaveLength(2);
   });
 });
 
@@ -369,7 +344,7 @@ describe('ordreCommandes — commande épinglée (salon, 2026-08-04)', () => {
   // 2026-10-11: the door is TALL (two places, `Bouton.haute`) — the Heating, last unpinned tile
   // of the cut, gives it its place.
   it('default mode: Lights, the tall door and the curtain', () => {
-    expect(noms(ordreCommandes(salon, SALON)))
+    expect(noms(ordreCommandes(salon, SALON, null)))
       .toEqual(['Lumières', 'Porte', 'Rideau']);
   });
 
@@ -378,22 +353,21 @@ describe('ordreCommandes — commande épinglée (salon, 2026-08-04)', () => {
   // que ce test exigeait (« la porte survit ») est donc élargi à ce que le propriétaire a
   // demandé : la porte ET le rideau, dans TOUS les modes, y compris ceux à bloc central haut.
   it('la porte ET le rideau survivent à tous les modes du jour', () => {
-    const modes: Array<[string, ContexteModes]> = [
-      ['defaut', SALON],
-      ['cinema', { ...SALON, ecranAllume: true }],
-      ['media', { ...SALON, sourceJoue: true }],
-      ['voiture', { ...SALON, blocDefaut: 'voiture' }],
-      ['menage', { ...SALON, aspirateurEnMarche: true }],
-      ['alerte', { ...SALON, alerte: true }],
-      ['aeration', { ...SALON, ouvrantOuvertDepuisMs: 20 * 60_000, chauffageEnMarche: true }],
+    const cas: Array<[string, ContexteModes, CardType | null]> = [
+      ['defaut', SALON, null],
+      ['cinema', SALON, 'cinema'],
+      ['media', SALON, 'media'],
+      ['voiture', { ...SALON, blocDefaut: 'voiture' }, null],
+      ['aspirateur', SALON, 'aspirateur'],
+      ['alerte', { ...SALON, alerte: true }, null],
+      ['aeration', SALON, 'aeration'],
     ];
-    for (const [mode, c] of modes) {
-      const resultat = noms(ordreCommandes(salon, c));
-      // One row under a card (`arrangement`, the provisional `blocDuMode`: cinema, media, menage,
-      // aeration), the two pins fill it.
-      expect(resultat, mode).toHaveLength(['cinema', 'media', 'menage', 'aeration'].includes(mode) ? 2 : 3);
-      expect(resultat, mode).toContain('Porte');
-      expect(resultat, mode).toContain('Rideau');
+    for (const [nom, c, head] of cas) {
+      const resultat = noms(ordreCommandes(salon, c, head));
+      // One row under a card (`arrangement`), the two pins fill it.
+      expect(resultat, nom).toHaveLength(head !== null ? 2 : 3);
+      expect(resultat, nom).toContain('Porte');
+      expect(resultat, nom).toContain('Rideau');
     }
   });
 
@@ -401,14 +375,12 @@ describe('ordreCommandes — commande épinglée (salon, 2026-08-04)', () => {
   // `screen-budget.ts`), and the two pins take them: Ambilight in cinema and Lights in media give
   // way. Until then (four places) Ambilight kept the first place and the Heating gave way.
   it('cinéma et média : deux places, les deux épingles les prennent', () => {
-    expect(noms(ordreCommandes(salon, { ...SALON, ecranAllume: true })))
-      .toEqual(['Porte', 'Rideau']);
-    expect(noms(ordreCommandes(salon, { ...SALON, sourceJoue: true })))
-      .toEqual(['Porte', 'Rideau']);
+    expect(noms(ordreCommandes(salon, SALON, 'cinema'))).toEqual(['Porte', 'Rideau']);
+    expect(noms(ordreCommandes(salon, SALON, 'media'))).toEqual(['Porte', 'Rideau']);
   });
 
   it('voiture : l\'ordre déclaré suffit, aucune épingle n\'a à intervenir', () => {
-    expect(noms(ordreCommandes(salon, { ...SALON, blocDefaut: 'voiture' })))
+    expect(noms(ordreCommandes(salon, { ...SALON, blocDefaut: 'voiture' }, null)))
       .toEqual(['Lumières', 'Porte', 'Rideau']);
   });
 
@@ -416,7 +388,7 @@ describe('ordreCommandes — commande épinglée (salon, 2026-08-04)', () => {
   // places. Elles les prennent toutes les deux — une épingle est une SOUSTRACTION sur le budget
   // du mode, jamais une rangée de plus.
   it('deux épingles pour deux places : elles prennent les deux, dans l\'ordre déclaré', () => {
-    expect(noms(ordreCommandes(DEUX_EPINGLES, ctx({ sourceJoue: true }))))
+    expect(noms(ordreCommandes(DEUX_EPINGLES, CALME, 'media')))
       .toEqual(['Porte', 'Rideau']);
   });
 
@@ -424,24 +396,24 @@ describe('ordreCommandes — commande épinglée (salon, 2026-08-04)', () => {
   // « Rideau » (renommé « Fermer ») et la serrure déverrouillée remonte « Porte ». Aucun des deux
   // ne peut faire retomber la porte hors de la coupe, dans aucun mode.
   it('ni la chaleur ni la serrure déverrouillée ne délogent la porte ou le rideau', () => {
-    const contextes = [
-      { ...SALON, temperatureExterieure: 35 },
-      { ...SALON, serrureDeverrouillee: true },
-      { ...SALON, temperatureExterieure: 35, sourceJoue: true },
-      { ...SALON, temperatureExterieure: 35, ecranAllume: true },
-      { ...SALON, temperatureExterieure: 35, blocDefaut: 'voiture' as const },
-      { ...SALON, serrureDeverrouillee: true, ecranAllume: true },
-      { ...SALON, alerte: true },
-      { ...SALON, aspirateurEnMarche: true },
-      { ...SALON, ouvrantOuvertDepuisMs: 20 * 60_000, chauffageEnMarche: true },
+    const contextes: Array<[ContexteModes, CardType | null]> = [
+      [{ ...SALON, temperatureExterieure: 35 }, null],
+      [{ ...SALON, serrureDeverrouillee: true }, null],
+      [{ ...SALON, temperatureExterieure: 35 }, 'media'],
+      [{ ...SALON, temperatureExterieure: 35 }, 'cinema'],
+      [{ ...SALON, temperatureExterieure: 35, blocDefaut: 'voiture' }, null],
+      [{ ...SALON, serrureDeverrouillee: true }, 'cinema'],
+      [{ ...SALON, alerte: true }, null],
+      [SALON, 'aspirateur'],
+      [SALON, 'aeration'],
     ];
-    for (const c of contextes) {
-      const resultat = noms(ordreCommandes(salon, c));
-      expect(resultat, JSON.stringify(c)).toContain('Porte');
+    for (const [c, head] of contextes) {
+      const resultat = noms(ordreCommandes(salon, c, head));
+      const cle = `${JSON.stringify(c)} ${head}`;
+      expect(resultat, cle).toContain('Porte');
       // Sous chaleur, « Rideau » est renommé « Fermer » : c'est la même tuile, et la consigne est
       // justement ce qu'on veut lire ce jour-là.
-      expect(resultat.includes('Rideau') || resultat.includes('Fermer'), JSON.stringify(c))
-        .toBe(true);
+      expect(resultat.includes('Rideau') || resultat.includes('Fermer'), cle).toBe(true);
     }
   });
 
@@ -452,70 +424,31 @@ describe('ordreCommandes — commande épinglée (salon, 2026-08-04)', () => {
     const sansPorte = salon.filter((b) => b.libelle !== 'Porte');
     // Le rideau reste épinglé : c'est lui, et lui seul, qui occupe alors la dernière place.
     // Two places under the media card (2026-10-24): the mode's first tile, then the curtain.
-    expect(noms(ordreCommandes(sansPorte, { ...SALON, ecranAllume: true })))
-      .toEqual(['Ambilight', 'Rideau']);
-    expect(noms(ordreCommandes(sansPorte, { ...SALON, sourceJoue: true })))
-      .toEqual(['Lumières', 'Rideau']);
-    expect(noms(ordreCommandes(sansPorte, SALON)))
+    expect(noms(ordreCommandes(sansPorte, SALON, 'cinema'))).toEqual(['Ambilight', 'Rideau']);
+    expect(noms(ordreCommandes(sansPorte, SALON, 'media'))).toEqual(['Lumières', 'Rideau']);
+    expect(noms(ordreCommandes(sansPorte, SALON, null)))
       .toEqual(['Lumières', 'Chauffage', 'Rideau', 'Ambilight']);
   });
 
   // Garde-fou : un épinglage ne crée jamais une rangée. Sous une carte (minuteur), le budget laisse
   // deux places et les deux épingles du salon les prennent, pas une de plus.
   it('sous une carte, les épingles prennent les deux places et pas une de plus', () => {
-    expect(noms(ordreCommandes(salon, ctx({ minuteurEnCours: true })))).toEqual(['Porte', 'Rideau']);
+    expect(noms(ordreCommandes(salon, CALME, 'minuteur'))).toEqual(['Porte', 'Rideau']);
   });
 
   it('aucune commande épinglée en cuisine ni au bureau : leur ordre ne bouge pas', () => {
     for (const piece of [ECRANS.cuisine, ECRANS.bureau]) {
       expect(piece.commandes.some((b) => b.epingle)).toBe(false);
-      expect(noms(ordreCommandes(piece.commandes, ctx({ sourceJoue: true })))).toHaveLength(2);
+      expect(noms(ordreCommandes(piece.commandes, CALME, 'media'))).toHaveLength(2);
     }
   });
 });
 
-// Tâche 6 (2026-08-17) : le mode `recette` garde un point de reprise sur l'accueil quand une
-// recette est réduite pendant la cuisson. Contexte local à ce bloc plutôt que dérivé de `CALME` :
-// verbatim du brief, il n'y a rien à réconcilier.
-const CTX: ContexteModes = {
-  alerte: false, aspirateurEnMarche: false, ecranAllume: false, sourceJoue: false,
-  ouvrantOuvertDepuisMs: 0, chauffageEnMarche: false, ilPleut: false,
-  serrureDeverrouillee: false, temperatureExterieure: 20, soleilLeve: true,
-  modeInvites: false, minuteurEnCours: false,
-  recetteEnCours: false, blocDefaut: 'repas',
-};
-
-describe('mode recette', () => {
-  it('prime sur le minuteur, le média et le cinéma', () => {
-    expect(modePrincipal({ ...CTX, recetteEnCours: true, minuteurEnCours: true })).toBe('recette');
-    expect(modePrincipal({ ...CTX, recetteEnCours: true, sourceJoue: true })).toBe('recette');
-    expect(modePrincipal({ ...CTX, recetteEnCours: true, ecranAllume: true })).toBe('recette');
-  });
-
-  it('cède devant une alerte : la sécurité passe devant la cuisine', () => {
-    expect(modePrincipal({ ...CTX, recetteEnCours: true, alerte: true })).toBe('alerte');
-  });
-
-  it('laisse deux commandes : une recette ouverte est une carte', () => {
-    const boutons = [1, 2, 3, 4, 5].map((n) => ({
-      libelle: `B${n}`, icone: 'bulb', entite: `light.b${n}`,
-    }));
-    expect(ordreCommandes(boutons, { ...CTX, recetteEnCours: true })).toHaveLength(2);
-  });
-});
-
 describe('modePrincipal — la hierarchie devient une liste', () => {
-  /** Les neuf modes, chacun avec un contexte qui NE DECLENCHE QUE LUI, du plus prioritaire au
-   *  moins. Relevé sur la cascade de `if` d'avant cette tâche : c'est la table de vérité à ne pas
-   *  bouger. */
+  /** The block modes, each with a context that triggers it alone, from the first to the last of
+   *  the default list. The other six became stack cards (task 6). */
   const DECLENCHEURS: [string, Partial<ContexteModes>][] = [
     ['alerte', { alerte: true }],
-    ['recette', { recetteEnCours: true }],
-    ['minuteur', { minuteurEnCours: true }],
-    ['menage', { aspirateurEnMarche: true }],
-    ['cinema', { ecranAllume: true }],
-    ['media', { sourceJoue: true }],
-    ['aeration', { ouvrantOuvertDepuisMs: 40 * 60_000, chauffageEnMarche: true }],
     ['voiture', { blocDefaut: 'voiture' }],
     ['defaut', {}],
   ];
@@ -532,15 +465,13 @@ describe('modePrincipal — la hierarchie devient une liste', () => {
   });
 
   it('un mode absent de la liste ne se declenche jamais, meme si sa condition est vraie', () => {
-    const sansMinuteur = AGENCEMENT_DEFAUT.modes.filter((m) => m !== 'minuteur');
-    expect(modePrincipal(ctx({ minuteurEnCours: true, modes: sansMinuteur }))).toBe('defaut');
+    const sansAlerte = AGENCEMENT_DEFAUT.modes.filter((m) => m !== 'alerte');
+    expect(modePrincipal(ctx({ alerte: true, modes: sansAlerte }))).toBe('defaut');
   });
 
   it('l ordre declare prime sur l ordre par defaut', () => {
-    // Média devant le ménage, l'inverse du défaut.
-    const inverse: ModePrincipal[] = ['media', 'menage', 'defaut'];
-    expect(modePrincipal(ctx({ aspirateurEnMarche: true, sourceJoue: true, modes: inverse })))
-      .toBe('media');
+    const inverse: ModePrincipal[] = ['voiture', 'alerte', 'defaut'];
+    expect(modePrincipal(ctx({ alerte: true, blocDefaut: 'voiture', modes: inverse }))).toBe('voiture');
   });
 
   it('CONDITIONS couvre les neuf modes', () => {

@@ -9,8 +9,7 @@ vi.mock('../src/rendu/poster-sampler', async (original) => ({
   tonesFor,
 }));
 
-const { tonesToPaint, measureCard } = await import('../src/boot/card-tones');
-const { afterMediaPaint } = await import('../src/boot/media-tones');
+const { tonesToPaint, measureCard, afterCardPaint } = await import('../src/boot/card-tones');
 
 const SOURCE = { nom: 'Musique', titre: 'Nude', affiche: '/api/vignette?url=a' } as SourceResolue;
 const SPEC = { w: 311, h: 260, boxes: [{ x: 16, y: 12, w: 80, h: 15 }] };
@@ -80,13 +79,13 @@ describe('measureCard', () => {
   });
 });
 
-describe('afterMediaPaint', () => {
+describe('afterCardPaint', () => {
   it('a zero-size card asks nothing and forgets the measurement', () => {
     const c = card();
     lay(c, { w: 0, h: 0, parent: null });
     const { s } = screen(c);
     s.measuredCard = { url: SOURCE.affiche!, spec: SPEC };
-    afterMediaPaint(s, SOURCE);
+    afterCardPaint(s, SOURCE.affiche!);
     expect(tonesFor).not.toHaveBeenCalled();
     expect(s.measuredCard).toBeNull();
   });
@@ -94,7 +93,7 @@ describe('afterMediaPaint', () => {
   it('a new measurement asks for the tones; a miss waits for onTonesReady', () => {
     tonesFor.mockReturnValue({ status: 'pending' });
     const { s, minuteurFn } = screen(card());
-    afterMediaPaint(s, SOURCE);
+    afterCardPaint(s, SOURCE.affiche!);
     expect(s.measuredCard).toEqual({ url: SOURCE.affiche, spec: SPEC });
     expect(tonesFor).toHaveBeenCalledWith(SOURCE.affiche, SPEC);
     expect(minuteurFn).not.toHaveBeenCalled();
@@ -103,7 +102,7 @@ describe('afterMediaPaint', () => {
   it('a cache hit schedules exactly one redraw', () => {
     tonesFor.mockReturnValue(READY);
     const { s, minuteurFn } = screen(card());
-    afterMediaPaint(s, SOURCE);
+    afterCardPaint(s, SOURCE.affiche!);
     expect(minuteurFn).toHaveBeenCalledTimes(1);
     expect(minuteurFn).toHaveBeenCalledWith(s.dessiner, 0);
   });
@@ -111,9 +110,9 @@ describe('afterMediaPaint', () => {
   it('the same measurement again does nothing: no paint loop', () => {
     tonesFor.mockReturnValue(READY);
     const { s, minuteurFn } = screen(card());
-    afterMediaPaint(s, SOURCE);
-    afterMediaPaint(s, SOURCE);
-    afterMediaPaint(s, SOURCE);
+    afterCardPaint(s, SOURCE.affiche!);
+    afterCardPaint(s, SOURCE.affiche!);
+    afterCardPaint(s, SOURCE.affiche!);
     expect(tonesFor).toHaveBeenCalledTimes(1);
     expect(minuteurFn).toHaveBeenCalledTimes(1);
   });
@@ -121,8 +120,8 @@ describe('afterMediaPaint', () => {
   it('a new poster on the same layout is measured again', () => {
     tonesFor.mockReturnValue({ status: 'pending' });
     const { s } = screen(card());
-    afterMediaPaint(s, SOURCE);
-    afterMediaPaint(s, { ...SOURCE, affiche: '/api/vignette?url=b' });
+    afterCardPaint(s, SOURCE.affiche!);
+    afterCardPaint(s, '/api/vignette?url=b');
     expect(s.measuredCard!.url).toBe('/api/vignette?url=b');
     expect(tonesFor).toHaveBeenCalledTimes(2);
   });

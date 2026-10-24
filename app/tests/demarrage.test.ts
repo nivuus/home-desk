@@ -607,6 +607,16 @@ describe('mouvement=aucun (URL) — câblage du moteur (ronde de correction 1, t
 // (`modes.ts`) — mais rien ne les reliait encore. Comme pour l'appui sur une commande ou le
 // cochage d'une tâche plus haut dans ce fichier, c'est le seul niveau où l'on peut prouver que
 // le geste réel sur le DOM aboutit au bon appel de service `timer.*`.
+/** Presses the displayed card's button `i` (0, 1, 2): down then up in place, as a card button acts
+ *  on release (`cardPress`, `rendu/card-frame.ts`). */
+function boutonCarte(racine: HTMLElement, i: number): void {
+  const el = racine.querySelectorAll('.carte .actions > *')[i];
+  expect(el?.classList.contains('bouton'), `card button ${i} must be drawn`).toBe(true);
+  for (const type of ['pointerdown', 'pointerup']) {
+    el.dispatchEvent(new PointerEvent(type, { clientX: 10, clientY: 10, pointerId: 1, bubbles: true }));
+  }
+}
+
 describe('minuteurs de cuisine', () => {
   const cuisine = ECRANS.cuisine;
 
@@ -694,15 +704,17 @@ describe('minuteurs de cuisine', () => {
     expect(location.hash).toBe('');
   });
 
-  // Le bouton « Nouveau » (liste, au moins deux minuteurs déjà actifs) ouvre le MÊME écran plein
-  // que la tuile d'entrée de la rangée « Ambiance » — les deux appellent `actions.ouvrir()`.
-  it('« Nouveau » ouvre le même écran plein', async () => {
+  // Card-stack task 6: the list's « Nouveau » left with the timer block. Under the timer card the
+  // Ambiance row drops and the entry tile takes the first place of the controls grid: it is the
+  // one way in, and opens the same full screen (`actions.ouvrir()`).
+  it('under the timer card, the entry tile in the grid opens the same full screen', async () => {
     const m = await monterCuisine();
     await m.pousser('timer.cuisine', 'active',
       { finishes_at: new Date(MAINTENANT_FIXE + 60_000).toISOString() });
     await m.pousser('timer.cuisine_2', 'active',
       { finishes_at: new Date(MAINTENANT_FIXE + 60_000).toISOString() });
-    m.racine.querySelector<HTMLElement>('[data-action="nouveau"]')!
+    expect(m.racine.querySelector('.carte[data-card^="minuteur:"]')).not.toBeNull();
+    m.racine.querySelector<HTMLElement>('.commandes [data-minuteur-entree]')!
       .dispatchEvent(new Event('pointerdown'));
     expect(location.hash).toBe('#minuteur');
     location.hash = '';
@@ -719,7 +731,7 @@ describe('minuteurs de cuisine', () => {
       { finishes_at: new Date(MAINTENANT_FIXE + 60_000).toISOString() });
     await m.pousser('timer.cuisine_2', 'active',
       { finishes_at: new Date(MAINTENANT_FIXE + 60_000).toISOString() });
-    m.racine.querySelector<HTMLElement>('[data-action="nouveau"]')!
+    m.racine.querySelector<HTMLElement>('[data-minuteur-entree]')!
       .dispatchEvent(new Event('pointerdown'));
     expect(location.hash).toBe('#minuteur');
 
@@ -736,18 +748,21 @@ describe('minuteurs de cuisine', () => {
     await m.pousser('timer.cuisine', 'active',
       { finishes_at: new Date(MAINTENANT_FIXE + 60_000).toISOString() });
     // Card-stack plan, task 1: the timer is a `carte`, which the ladder fits with two controls at
-    // 585 px (it used to be a 215 px block that left none).
-    expect(m.racine.querySelectorAll('.commande')).toHaveLength(2);
-    expect(m.racine.querySelector('.minuteurs')).not.toBeNull();
+    // 585 px (it used to be a 215 px block that left none). Task 6: the Ambiance row dropped, the
+    // entry tile is the first of the two places.
+    const places = m.racine.querySelectorAll('.commandes .commande');
+    expect(places).toHaveLength(2);
+    expect(places[0].hasAttribute('data-minuteur-entree')).toBe(true);
+    expect(m.racine.querySelector('.carte[data-card^="minuteur:"]')).not.toBeNull();
   });
 
   it('affiche le décompte dès qu\'un minuteur tourne, et le retire à la fin', async () => {
     const m = await monterCuisine();
     await m.pousser('timer.cuisine', 'active',
       { finishes_at: new Date(MAINTENANT_FIXE + 300_000).toISOString() });
-    expect(m.racine.querySelector('.minuteurs')).not.toBeNull();
+    expect(m.racine.querySelector('.carte[data-card^="minuteur:"]')).not.toBeNull();
     await m.pousser('timer.cuisine', 'idle', {});
-    expect(m.racine.querySelector('.minuteurs')).toBeNull();
+    expect(m.racine.querySelector('.carte[data-card^="minuteur:"]')).toBeNull();
     expect(m.racine.querySelector('.prevision, .corps')).not.toBeNull();
   });
 
@@ -755,11 +770,10 @@ describe('minuteurs de cuisine', () => {
     const m = await monterCuisine();
     await m.pousser('timer.cuisine', 'active',
       { finishes_at: new Date(MAINTENANT_FIXE + 300_000).toISOString() });
-    m.racine.querySelector<HTMLElement>('[data-action="plus"]')!
-      .dispatchEvent(new Event('pointerdown'));
-    // 300 s restantes + 300 s = 10 min. `timer.change` échouerait ici côté HA (relevé en tâche 1).
+    boutonCarte(m.racine, 0);                                        // the card's « +1 min »
+    // 300 s restantes + 60 s = 6 min. `timer.change` échouerait ici côté HA (relevé en tâche 1).
     expect(m.appelerService).toHaveBeenCalledWith('timer', 'start',
-      { entity_id: 'timer.cuisine', duration: '00:10:00' });
+      { entity_id: 'timer.cuisine', duration: '00:06:00' });
     expect(m.appelerService).not.toHaveBeenCalledWith('timer', 'change', expect.anything());
   });
 
@@ -783,7 +797,7 @@ describe('minuteurs de cuisine', () => {
     const m = await monterCuisine();
     await m.pousser('timer.cuisine', 'active',
       { finishes_at: new Date(MAINTENANT_FIXE + 300_000).toISOString() });
-    expect(m.racine.querySelector('.minuteurs')).not.toBeNull();
+    expect(m.racine.querySelector('.carte[data-card^="minuteur:"]')).not.toBeNull();
 
     location.hash = '#maison';
     window.dispatchEvent(new Event('hashchange'));
@@ -791,7 +805,7 @@ describe('minuteurs de cuisine', () => {
     // réglage en plein écran » ci-dessus, l'accueil sortant (minuteur compris) survit le temps
     // d'une micro-tâche dans `#mvt-fantomes`.
     await vider();
-    expect(m.racine.querySelector('.minuteurs')).toBeNull();
+    expect(m.racine.querySelector('.carte[data-card^="minuteur:"]')).toBeNull();
 
     const tic = m.intervalFn.mock.calls.filter((c: any[]) => c[1] === 1000).map((c: any[]) => c[0]);
     expect(() => { for (const t of tic) t(); }).not.toThrow();
@@ -817,8 +831,7 @@ describe('minuteurs de cuisine', () => {
     const m = await monterCuisine();
     await m.pousser('timer.cuisine', 'active',
       { finishes_at: new Date(MAINTENANT_FIXE + 300_000).toISOString() });
-    m.racine.querySelector<HTMLElement>('[data-action="marche"]')!
-      .dispatchEvent(new Event('pointerdown'));
+    boutonCarte(m.racine, 1);
     expect(m.appelerService).toHaveBeenCalledWith('timer', 'pause', { entity_id: 'timer.cuisine' });
   });
 
@@ -830,8 +843,7 @@ describe('minuteurs de cuisine', () => {
   it('reprend un minuteur en pause SANS repartir de zéro (aucune duration)', async () => {
     const m = await monterCuisine();
     await m.pousser('timer.cuisine', 'paused', { remaining: '00:02:00' });
-    m.racine.querySelector<HTMLElement>('[data-action="marche"]')!
-      .dispatchEvent(new Event('pointerdown'));
+    boutonCarte(m.racine, 1);
     expect(m.appelerService).toHaveBeenCalledWith('timer', 'start', { entity_id: 'timer.cuisine' });
   });
 
@@ -839,8 +851,7 @@ describe('minuteurs de cuisine', () => {
     const m = await monterCuisine();
     await m.pousser('timer.cuisine', 'active',
       { finishes_at: new Date(MAINTENANT_FIXE + 300_000).toISOString() });
-    m.racine.querySelector<HTMLElement>('[data-action="annuler"]')!
-      .dispatchEvent(new Event('pointerdown'));
+    boutonCarte(m.racine, 2);
     expect(m.appelerService).toHaveBeenCalledWith('timer', 'cancel', { entity_id: 'timer.cuisine' });
   });
 
@@ -1002,8 +1013,8 @@ describe('minuteurs sans ambiance : le contexte budgète la rangée que le gabar
     expect(groupe!.style.getPropertyValue('--ambiances')).toBe('1');
     expect(m.racine.querySelector('[data-minuteur-entree]')).not.toBeNull();
     // And the context budgeted it: a card under an Ambiance row, hence two controls.
-    expect(m.racine.querySelector('[data-zone="blocCentral"].minuteurs, .minuteurs'),
-           'le mode minuteur doit être atteint').not.toBeNull();
+    expect(m.racine.querySelector('.carte[data-card^="minuteur:"]'),
+           'the timer card must be drawn').not.toBeNull();
     expect(m.racine.querySelectorAll('.commande')).toHaveLength(2);
   });
 });
@@ -1059,7 +1070,7 @@ describe('réveil de l\'écran de nuit', () => {
     await m.pousser('timer.cuisine_3', 'idle', {});
 
     m.racine.querySelector<HTMLElement>('.nuit')!.dispatchEvent(new Event('pointerdown'));
-    expect(m.racine.querySelector('.minuteurs')).not.toBeNull();
+    expect(m.racine.querySelector('.carte[data-card^="minuteur:"]')).not.toBeNull();
     const avant = m.racine.querySelector('.mn-temps')!.textContent;
 
     const tic = m.intervalFn.mock.calls.filter((c: any[]) => c[1] === 1000).map((c: any[]) => c[0]);
@@ -1333,14 +1344,14 @@ describe('repli du bloc par défaut vers l\'entretien', () => {
       .toContain("2 tâches d'entretien");
   });
 
-  // Un mode plus prioritaire (ici le ménage) confisque le bloc central : l'entretien n'est PLUS
+  // Une carte (ici le ménage) confisque le bloc central : l'entretien n'est PLUS
   // affiché nulle part, donc la synthèse doit le reprendre. C'est exactement ce qu'un masquage posé
   // sur la pièce (et non sur le rendu réel) ferait disparaître à tort.
   it('la synthèse reprend sa mention dès qu\'un mode prioritaire confisque le bloc', async () => {
     const m = await monterDemarrage(ECRANS.cuisine, { taches: ENTRETIEN });
     await m.pousser('todo.maintenance', '2', {});
     await m.pousser('vacuum.aspirateur_cuisine', 'cleaning', { battery_level: 80 });
-    expect(m.racine.querySelector('.mode-bloc .t')?.textContent).toBe('Ménage');
+    expect(m.racine.querySelector('.carte[data-card^="aspirateur:"]')).not.toBeNull();
     expect(m.racine.querySelector('.synthese .ecart')?.textContent).toContain('2 tâches d\'entretien');
   });
 

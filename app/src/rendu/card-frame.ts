@@ -12,6 +12,7 @@
  *  Never a gradient, never a veil. */
 import { html, type TemplateResult } from 'lit';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { live } from 'lit/directives/live.js';
 import type { ToneState } from './poster-sampler';
 import { icone } from './icones';
 import { cardPress, type CardPressHandlers } from '../stack/swipe';
@@ -68,7 +69,7 @@ const SOLID_ROLES = ['fond', 'texte', 'icone', 'disque', 'primaire', 'sur-primai
 
 /** A solid card reads its colours through `--c-*`, pointed at the token's `--carte-<token>-*`
  *  values in `cards.css`: one rule set for every token, and the token is a literal of ours. */
-const solidStyle = (token: SolidToken): string =>
+export const solidStyle = (token: SolidToken): string =>
   SOLID_ROLES.map((r) => `--c-${r}:var(--carte-${token}-${r});`).join('');
 
 /** A card button acts on release, not on contact: a swipe that starts on it must not fire it
@@ -95,8 +96,11 @@ export function renderCardFrame(f: CardFrame, position?: TemplateResult): Templa
   // colours, same layout.
   const image = bg.kind === 'image' && f.tones?.status === 'ready' ? bg.url : undefined;
   const style = bg.kind === 'solid' ? solidStyle(bg.token) : bg.kind === 'image' ? toneStyle(f.tones) : '';
+  // `live`: the per-second tick turns a timer card late by writing this attribute between two
+  // renders (`tictacMinuteurs`); compared with the DOM, never with the last value `lit` wrote, a
+  // card that is no longer late (paused, a minute added) gets its colour back.
   return html`<section class="carte ${f.className ?? ''} ${image !== undefined ? 'avec-image' : ''}"
-      style=${style} data-zone="blocCentral" data-card=${f.key}
+      style=${live(style)} data-zone="blocCentral" data-card=${f.key}
       data-mvt=${ifDefined(f.motion?.block)} data-mvt-etat=${ifDefined(f.motion?.state)}>
     ${image !== undefined
       // A background layer, never an <img> in the flow: a replaced element would take part in the

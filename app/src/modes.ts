@@ -14,7 +14,8 @@
 import type { Bouton } from './ecran';
 import { AGENCEMENT_DEFAUT } from './agencement';
 import type { Zone } from './agencement';
-import { arrangement, BUDGET, type Arrangement, type BudgetBlock } from './screen-budget';
+import { arrangement, BUDGET, type Arrangement } from './screen-budget';
+import type { CardType } from './stack/types';
 
 export type ModePrincipal =
   'alerte' | 'recette' | 'minuteur' | 'menage' | 'cinema' | 'media' | 'aeration' | 'voiture' | 'defaut';
@@ -112,9 +113,8 @@ function chaleurActive(c: ContexteModes): boolean {
 export const CONDITIONS: Record<ModePrincipal, (c: ContexteModes) => boolean> = {
   alerte: (c) => c.alerte,
   // Priorité 2 par défaut, devant le minuteur : pendant une cuisson, l'écran doit pouvoir ramener
-  // à l'étape en cours. Le décompte du minuteur le plus urgent est repris dans le bloc
-  // (`rendreRecetteReduite`), donc rien n'est perdu ; la liste détaillée des trois minuteurs reste
-  // à un appui (tuile).
+  // à l'étape en cours. Le décompte du minuteur le plus urgent est repris dans la carte recette
+  // (`cards/recipe.ts`), donc rien n'est perdu ; la carte minuteur reste à un glissement.
   recette: (c) => c.recetteEnCours,
   // Priorité 3 par défaut, devant le ménage et le média : une cuisson a une échéance, une playlist
   // n'en a pas. Le mode ne dure que le temps du minuteur et rend la main de lui-même dès que les
@@ -137,11 +137,16 @@ export const CONDITIONS: Record<ModePrincipal, (c: ContexteModes) => boolean> = 
   defaut: () => true,
 };
 
-/** Le premier mode ACTIF dont la condition est vraie. L'ordre vient de l'agencement de l'écran
- *  (`agencement.ts`), plus d'une cascade de `if` — mais le défaut reproduit cette cascade à
- *  l'identique, et `tests/modes.test.ts` en garde la table de vérité. */
+/** The modes that still own the central block since the card stack (plan of 2026-10-24, task 6):
+ *  the alert, which stays outside the stack and takes the whole block, and the two default blocks
+ *  shown when the stack is empty. Every other mode became a card (`stack/collect.ts`); its
+ *  condition stays in `CONDITIONS` for the card that reads it (`cards/airing.ts`). */
+const MODES_DU_BLOC: ReadonlySet<ModePrincipal> = new Set(['alerte', 'voiture', 'defaut']);
+
+/** The first ACTIVE block mode whose condition holds, in the screen's declared order
+ *  (`agencement.ts`): `alerte`, `voiture` or `defaut`, never a mode that became a card. */
 export function modePrincipal(c: ContexteModes): ModePrincipal {
-  const actifs = c.modes ?? AGENCEMENT_DEFAUT.modes;
+  const actifs = (c.modes ?? AGENCEMENT_DEFAUT.modes).filter((m) => MODES_DU_BLOC.has(m));
   return actifs.find((m) => CONDITIONS[m](c)) ?? 'defaut';
 }
 
@@ -159,31 +164,22 @@ export function modulateursActifs(c: ContexteModes): Modulateur[] {
     .filter((m) => declares.includes(m) && CONDITIONS_MODULATEURS[m](c));
 }
 
-/** The arrangement of the screen this context describes: `arrangement` (`screen-budget.ts`)
- *  applied to the main mode and to the screen data `boot/frame.ts` copied into the context. ONE
- *  derivation, read by `ordreCommandes` below (how many controls) AND by `rendreCorps`
- *  (`rendu/corps.ts`: Ambiance row drawn or not, synthèse reduced or not) — the grid and the
- *  column it sits in can never be budgeted from two different answers.
+/** The arrangement of the screen: `arrangement` (`screen-budget.ts`) applied to the central
+ *  block's kind and to the screen data `boot/frame.ts` copied into the context. ONE derivation,
+ *  read by `ordreCommandes` below (how many controls) AND by `rendreCorps` (`rendu/corps.ts`:
+ *  Ambiance row drawn or not, synthèse reduced or not) — the grid and the column it sits in can
+ *  never be budgeted from two different answers.
  *
- *  CORRECTED ON 2026-10-24. This file said, since August, that the room a tall media card needs
- *  "comes from the 3rd/4th control, never from the Ambiance row (changing the light scene during
- *  a film remains the common need)". The owner reversed it with the redesigned media card
- *  (spec 2026-10-23, "Place à l'écran"): measured at 264 px against 153, it leaves no row of
- *  controls on any of the three 585 px screens. His order: the synthèse is reduced first; if that
- *  is not enough, the Ambiance row goes while the media card is shown, and the controls stay. The
- *  BUDGET decides (`combien`), never a list of rooms: a screen with the room keeps its row. Still
- *  true: never a row of controls cut in half — the whole row or nothing. */
-export function arrangementEcran(c: ContexteModes): Arrangement {
-  return arrangement(blocDuMode(modePrincipal(c)), c.rangeeAmbiance, c.hauteurUtile, c.zones);
-}
-
-/** PROVISIONAL (card-stack plan, task 1): the budget bills a block kind, not a mode. Until the
- *  stack decides what the central block is (task 6 replaces this), the modes that drew a tall
- *  card keep climbing the ladder as `carte`, `voiture` keeps its tall block, the rest is default. */
-const MODES_CARTE: ModePrincipal[] = ['minuteur', 'recette', 'media', 'cinema', 'menage', 'aeration'];
-function blocDuMode(mode: ModePrincipal): BudgetBlock {
-  if (MODES_CARTE.includes(mode)) return 'carte';
-  return mode === 'voiture' ? 'haut' : 'defaut';
+ *  Since the card stack (2026-10-24, task 6) the block kind is no longer a mode's: `stackHead` is
+ *  the type of the stack's HEAD card, `null` when the stack is empty or not shown (alert,
+ *  offline). Any card climbs the ladder as `carte` (the owner's order of 2026-10-23: the synthèse
+ *  is reduced first, then the Ambiance row goes, the controls stay — the budget decides, never a
+ *  list of rooms). An empty stack gives back the screen's default block: the car's tall one when
+ *  `modePrincipal` says `voiture` (never under an alert, a short block), the small one otherwise.
+ *  Still true: never a row of controls cut in half — the whole row or nothing. */
+export function arrangementEcran(c: ContexteModes, stackHead: CardType | null): Arrangement {
+  const bloc = stackHead !== null ? 'carte' : modePrincipal(c) === 'voiture' ? 'haut' : 'defaut';
+  return arrangement(bloc, c.rangeeAmbiance, c.hauteurUtile, c.zones);
 }
 
 /** Remonte en tête les commandes dont le libellé est cité, dans l'ordre cité, en gardant les
@@ -258,8 +254,13 @@ function couper(ordre: Bouton[], n: number): Bouton[] {
   return [];
 }
 
-export function ordreCommandes(commandes: Bouton[], c: ContexteModes): Bouton[] {
-  const mode = modePrincipal(c);
+/** The controls of the grid, promoted and cut. The promotions follow the stack's HEAD card
+ *  (`stackHead`), never the displayed one: swiping never reorders the controls under the finger
+ *  (spec 2026-10-24, "Budget"). `reservees`: places of the grid already taken by something that is
+ *  not a control (the timer tile when the Ambiance row is dropped, `rendu/corps.ts`). */
+export function ordreCommandes(
+  commandes: Bouton[], c: ContexteModes, stackHead: CardType | null, reservees = 0,
+): Bouton[] {
   const chaleur = chaleurActive(c);
   let ordre = commandes;
   // « Ambilight » AVANT « Lumières » depuis l'épinglage de la porte (2026-08-04) : les deux places
@@ -267,8 +268,8 @@ export function ordreCommandes(commandes: Bouton[], c: ContexteModes): Bouton[] 
   // des deux cède — la dernière — et le propriétaire a tranché pour les Lumières, le réglage
   // qu'on cherche pendant un film étant l'Ambilight. « Lumières » reste cité : sans lui, une
   // serrure muette laisserait la seconde place au Chauffage plutôt qu'aux lumières du salon.
-  if (mode === 'cinema') ordre = remonter(commandes, ['Ambilight', 'Lumières']);
-  else if (mode === 'media') ordre = remonter(commandes, ['Lumières', 'Chauffage']);
+  if (stackHead === 'cinema') ordre = remonter(commandes, ['Ambilight', 'Lumières']);
+  else if (stackHead === 'media') ordre = remonter(commandes, ['Lumières', 'Chauffage']);
   // La chaleur prime sur la serrure : une fournaise derrière la baie vitrée est plus urgente
   // qu'une porte déverrouillée pendant que quelqu'un est à la maison. La porte n'y perd rien —
   // depuis l'épinglage (2026-08-04), `epingler` la garde dans la coupe quel que soit l'ordre
@@ -285,5 +286,5 @@ export function ordreCommandes(commandes: Bouton[], c: ContexteModes): Bouton[] 
   else if (c.serrureDeverrouillee) ordre = remonter(commandes, ['Porte']);
   // `Ambilight` n'a rien à faire sur l'accueil courant : déclaré au salon pour le mode cinéma
   // seulement, il ne remonte dans aucun autre ordre et se fait donc écarter par la coupe.
-  return couper(ordre, arrangementEcran(c).commandes);
+  return couper(ordre, Math.max(0, arrangementEcran(c, stackHead).commandes - reservees));
 }

@@ -153,3 +153,12 @@
 .carte .timer-autres { font-size: 15px; font-weight: 600; line-height: 20px; }
 .carte .recette-etape { font-size: 20px; font-weight: 700; line-height: 26px; overflow: hidden;
   white-space: nowrap; text-overflow: ellipsis; }
+
+/* VACUUM, CAR AND AIRING MIDDLES. A large figure (charge, battery) and lines of detail; explicit
+   line heights, one line each, ellipsis: room and opening names come from Home Assistant, in any
+   script and of any length. */
+.carte .carte-chiffres { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.carte .carte-chiffre { font-size: 44px; font-weight: 700; line-height: 52px; white-space: nowrap;
+  font-variant-numeric: tabular-nums; }
+.carte .carte-ligne { font-size: 16px; font-weight: 600; line-height: 22px; min-width: 0;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

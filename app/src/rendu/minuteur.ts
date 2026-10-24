@@ -1,12 +1,11 @@
-/** Le bloc central des minuteurs : liste, forme solo, écran de réglage, tuile d'entrée.
+/** The timer setting screen, the timer entry tile and the actions both call. The timers
+ *  themselves are a stack card since 2026-10-24 (`cards/timer.ts`).
  *
- *  Aucune décision ici — ni quel slot est libre, ni quel service appeler. Ce module reçoit des
- *  `VueMinuteur` déjà triées (`minuteur.ts`) et appelle des actions branchées par `demarrage.ts`,
- *  seul à détenir la connexion. Même patron que `rendu/modes.ts` et `rendu/media.ts`. */
+ *  No decision here — neither which slot is free nor which service to call. This module calls
+ *  actions wired by `boot/wiring.ts`, the only one holding the connection. */
 import { html, nothing, type TemplateResult } from 'lit';
-import { repeat } from 'lit/directives/repeat.js';
 import {
-  estDureeValide, formaterRestant, PAS_FIN_MINUTEUR_S, PAS_MINUTEUR_S, type VueMinuteur,
+  estDureeValide, PAS_FIN_MINUTEUR_S, PAS_MINUTEUR_S, type VueMinuteur,
 } from '../minuteur';
 import { icone } from './icones';
 
@@ -46,14 +45,6 @@ export function libelle(v: VueMinuteur): string {
   return v.nom !== '' ? v.nom : `N° ${v.slot + 1}`;
 }
 
-/** Le temps d'une ligne. `data-minuteur` porte le slot : c'est par lui que le tic d'une seconde
- *  (`demarrage.ts`) retrouve le nœud à faire descendre. JAMAIS `data-mvt="chiffre:…"` : le rôle
- *  `chiffre` du moteur de mouvement (`src/mouvement/moteur.ts`) ferait rouler un chiffre à CHAQUE
- *  seconde, ce qui n'a aucun sens pour un décompte et se battrait avec le tic. */
-function temps(v: VueMinuteur): TemplateResult {
-  return html`<span class="mn-temps" data-minuteur=${v.slot}>${formaterRestant(v.restantS)}</span>`;
-}
-
 // Task 7 (motion): `cle` stays optional. The ± 5 and ± 1 steps (SOLO form AND setting screen)
 // each carry a mark; `marche`/`annuler` (row and solo alike) stay outside the table of task 7,
 // hence without `data-mvt`. `cle` is the real SLOT (`solo()`) when there is one, otherwise a fixed
@@ -66,12 +57,6 @@ function bouton(
     <div class="mn-bouton" data-action=${action}
          data-mvt=${cle ? `detail:mn-${action}-${cle}` : nothing}
          @pointerdown=${surAppui}>${contenu}</div>`;
-}
-
-function marche(v: VueMinuteur): TemplateResult {
-  return v.actif
-    ? bouton('marche', icone('pause'), () => actions.pause(v.slot))
-    : bouton('marche', icone('lecture'), () => actions.reprendre(v.slot));
 }
 
 /** The four steps of a duration, `− 5 / − 1 / + 1 / + 5`, shared by the SOLO form and the
@@ -89,34 +74,6 @@ function pas(
     <div class="mn-pas">
       ${etapes.map(([action, texte, delta]) => (permis(delta)
         ? bouton(action, texte, () => appliquer(delta), cle) : nothing))}
-    </div>`;
-}
-
-/** SOLO form: a single running timer, hence room for a large time and fine steps.
- *
- *  The steps exist ONLY on a running timer (task 1, found while running it): an adjustment goes
- *  through a `timer.start` with a recomputed duration (see `boot/controls.ts`), which would
- *  restart a paused timer. And a step down disappears as soon as there is not enough time left
- *  to remove it whole: it could only cancel the timer, which the cross next to it already does.
- *  The steps (`.mn-pas`) and the controls (`.mn-actions`) sit on two rows: six 62 px targets do
- *  not fit in a 311 px column. */
-// Task 7 (motion) — the steps below are marked by SLOT, never by array index: solo() receives a
-// single VueMinuteur (vues.length === 1, see rendreMinuteurs), so they are trivially unique on
-// screen — but the slot also makes them STABLE over time for the same physical timer, the same
-// datum that already identifies the matching row of the list form (data-minuteur of temps()).
-function solo(v: VueMinuteur): TemplateResult {
-  return html`
-    <div class="minuteurs mn-solo" data-zone="blocCentral" data-mvt="bloc:minuteur-solo">
-      <div class="mn-nom">${libelle(v)}</div>
-      <div class="mn-grand">${temps(v)}</div>
-      ${v.actif
-        ? pas(String(v.slot), PAS_MINUTEUR_S, PAS_FIN_MINUTEUR_S,
-              (delta) => actions.ajuster(v.slot, delta), (delta) => v.restantS > -delta)
-        : nothing}
-      <div class="mn-actions">
-        ${marche(v)}
-        ${bouton('annuler', icone('croix'), () => actions.annuler(v.slot))}
-      </div>
     </div>`;
 }
 
@@ -149,39 +106,21 @@ export function rendreReglageMinuteur(
     </div>`;
 }
 
-function ligne(v: VueMinuteur): TemplateResult {
-  return html`
-    <div class="mn-ligne ${v.actif ? '' : 'mn-pause'}">
-      <div class="mn-nom">${libelle(v)}</div>
-      ${temps(v)}
-      ${marche(v)}
-      ${bouton('annuler', icone('croix'), () => actions.annuler(v.slot))}
-    </div>`;
-}
-
-export function rendreMinuteurs(vues: VueMinuteur[], slotLibre: boolean): TemplateResult {
-  if (vues.length === 1) return solo(vues[0]);
-  return html`
-    <div class="minuteurs" data-zone="blocCentral" data-mvt="bloc:minuteurs">
-      <!-- Clé par SLOT : une ligne qui change de rang doit être déplacée par lit, pas réécrite —
-           sans quoi le tic d'une seconde écrirait dans le nœud d'un autre minuteur pendant une
-           trame. Même raison que le repeat par entité de rendu/corps.ts. -->
-      ${repeat(vues, (v) => v.slot, (v) => ligne(v))}
-      ${slotLibre
-        ? html`<div class="mn-nouveau" data-action="nouveau" data-mvt="detail:mn-nouveau"
-                     @pointerdown=${() => actions.ouvrir()}>${icone('plus')}Nouveau</div>`
-        : nothing}
-    </div>`;
-}
-
-/** La 4e tuile de la rangée « Ambiance ». Saturée (trois minuteurs en cours), elle ne fait rien et
- *  le montre : la liste est déjà à l'écran, et un réglage dont `Démarrer` n'aurait nulle part où
- *  aller serait précisément le bouton mort que ce projet traque partout. */
-export function tuileMinuteur(sature: boolean): TemplateResult {
-  return html`
-    <div class="ambiance ${sature ? 'inactif' : ''}" data-minuteur-entree data-mvt="tuile:minuteur"
-         @pointerdown=${() => { if (!sature) actions.ouvrir(); }}>
-      ${icone('minuteur')}<span>Minuteur</span></div>`;
+/** The timer entry tile: the 4th tile of the "Ambiance" row, or — when a card makes the
+ *  arrangement drop that row (`rendu/corps.ts`) — the first place of the controls grid, drawn as
+ *  a control (`dansGrille`). Saturated (three timers running), it does nothing and shows it: a
+ *  setting whose `Démarrer` would have nowhere to go would be precisely the dead button this
+ *  project hunts everywhere. */
+export function tuileMinuteur(sature: boolean, dansGrille = false): TemplateResult {
+  const ouvrir = () => { if (!sature) actions.ouvrir(); };
+  return dansGrille
+    // Saturated in the grid, it is an inert control (`.commande.inerte`, `base.css`): no feedback.
+    ? html`<div class="commande tuile-minuteur ${sature ? 'inerte' : ''}" data-minuteur-entree
+             data-mvt="tuile:minuteur" @pointerdown=${ouvrir}>
+        ${icone('minuteur')}<div><div class="t">Minuteur</div></div></div>`
+    : html`<div class="ambiance ${sature ? 'inactif' : ''}" data-minuteur-entree
+             data-mvt="tuile:minuteur" @pointerdown=${ouvrir}>
+        ${icone('minuteur')}<span>Minuteur</span></div>`;
 }
 
 /** Écrit un temps dans un nœud RENDU PAR LIT sans détruire son marqueur.
@@ -190,7 +129,8 @@ export function tuileMinuteur(sature: boolean): TemplateResult {
  *  `lit` lève `TypeError: Cannot set properties of null` — et à CHAQUE redessin ensuite. C'est le
  *  défaut qui a figé les trois écrans dans la nuit du 2026-08-03 ; on mute donc le nœud texte
  *  existant plutôt que de le remplacer — le tic d'une seconde reste ainsi hors du moteur de
- *  mouvement (cf. `temps()` ci-dessus), qui ne voit jamais ce nœud. */
+ *  mouvement, qui ne voit jamais ce nœud (the timer card's countdown carries no `data-mvt`,
+ *  `cards/timer.ts`). */
 export function writeTime(el: HTMLElement, texte: string): void {
   for (const n of Array.from(el.childNodes)) {
     if (n.nodeType === Node.TEXT_NODE) { (n as Text).data = texte; return; }

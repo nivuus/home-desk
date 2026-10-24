@@ -1,40 +1,26 @@
-/** The home view: header + body, with the central block chosen by the mode. Reached by
- *  `dessiner()` (`boot/draw.ts`) when neither the night screen nor a sub-view applies. */
+/** The home view: header + body. The central block is, in this order, the offline notice, the
+ *  alert, the card stack (`boot/home-stack.ts`), or the screen's default block when the stack is
+ *  empty. Reached by `dessiner()` (`boot/draw.ts`) when neither the night screen nor a sub-view
+ *  applies. */
 import { html } from 'lit';
 import type { Moment } from '../contexte';
-import type { ContexteModes } from '../modes';
-import type { SourceResolue } from '../media';
 import { pastilleBandeau } from '../agenda';
-import { ancrerProgression } from '../progression';
-import { afterMediaPaint } from './media-tones';
-import { tonesToPaint } from './card-tones';
 import { rendreBandeau } from '../rendu/bandeau';
 import { rendreCorps, rendreAlerte, rendreHorsLigne } from '../rendu/corps';
-import { rendreCarteMedia } from '../rendu/media';
-import { rendreMenage, rendreAeration } from '../rendu/modes';
-import { rendreMinuteurs, tuileMinuteur } from '../rendu/minuteur';
+import { tuileMinuteur } from '../rendu/minuteur';
 import { rendreVoiture } from '../rendu/voiture';
-import { renderNextMeal, rendreRecetteReduite, rendreProchainRdv, rendreEntretien,
-         ENTITE_ENTRETIEN } from '../rendu/defaut';
-import { etapeSource } from '../rendu/recette';
+import { renderNextMeal, rendreProchainRdv, rendreEntretien, ENTITE_ENTRETIEN } from '../rendu/defaut';
 import { aplatirTaches } from '../cochage';
-import { horlogeMonotone } from './constants';
+import { collectStack } from '../stack/collect';
+import { paintStack, afterStackPaint } from './home-stack';
 import { currentMeal } from './recipe';
 import type { Frame } from './frame';
 import type { ScreenState } from './state';
 
-export function paintHome(
-  s: ScreenState, f: Frame, source: SourceResolue | null, momentRendu: Moment,
-): void {
+export function paintHome(s: ScreenState, f: Frame, momentRendu: Moment): void {
   const { etat, piece, agencement } = s;
-  const { maintenant, maintenantMs, alerte, ctx, mode, modulateurs, vuesMinuteurs, slotLibre,
-          minuteurActif } = f;
+  const { maintenant, alerte, ctx, mode, modulateurs, slotLibre } = f;
 
-  // `horsLigne` prevails over EVERYTHING, including an alert: displaying an alert as if it were up
-  // to date while the connection has been dead for 30 s would be exactly the lie task 9
-  // eliminated. It is not a mode — it is the question "is what I show still true?", which comes
-  // before that of the rank. All these blocks share the same template (`.t`/`.v`) and REPLACE one
-  // another, never in addition: the height of the screen does not move from one mode to another.
   // Task 9 bis: the car's confirmation prevails over optimism — as soon as the sensor says what
   // the gesture asked for, we stop displaying a movement in progress. Same discipline as
   // `Etat.confirme`. Placed here, just before `blocCentral`, hence AFTER the early returns (night,
@@ -91,73 +77,32 @@ export function paintHome(
     // extra fields.
     ? rendreEntretien(aplatirTaches(s.taches, [ENTITE_ENTRETIEN], s.cochage.estMasquee)) : undefined;
 
-  // Task 10 bis: the setting is no longer a state of this block — it has its own early return
-  // (`location.hash === '#minuteur'`, `boot/subviews.ts`), never reached from here.
+  // The offline notice prevails over EVERYTHING, an alert included: displaying an alert as if it
+  // were up to date while the connection has been dead for 30 s would be exactly the lie task 9
+  // eliminated. The alert stays outside the stack and takes the block, a timer included (spec
+  // 2026-10-24). Under either, the stack is not drawn and its view is left as it was: what the
+  // user last chose is still there when the block comes back.
+  // Below them, the stack; an empty stack gives back the screen's default block (task 14:
+  // `agencement.blocDefaut` says WHICH — the car, the meal, the next appointment — and
+  // `renderNextMeal`/`rendreProchainRdv` return `undefined` when there is nothing to show). The
+  // maintenance (task 17, `replEntretien` above) only takes the place they leave empty.
+  const stackDrawn = !s.horsLigne && !(mode === 'alerte' && alerte);
+  const cards = stackDrawn ? collectStack(f, s) : [];
+  const stack = stackDrawn ? paintStack(s, f, cards) : undefined;
+  if (!stackDrawn) s.stackShown = null;
   const blocCentral =
     s.horsLigne ? rendreHorsLigne()
     : mode === 'alerte' && alerte ? rendreAlerte(alerte)
-    // "Recipe" batch: the collapsed recipe comes BEFORE the timer (see `modePrincipal`,
-    // `modes.ts`) — the `minuteur` mode displays no control, so without this precedence,
-    // starting a cooking would make the only resume point of the recipe disappear. The countdown
-    // of the most urgent timer is taken into the block: nothing is lost.
-    // FINAL REVIEW — THE STEP NUMBER COUNTS THE SOURCE PAGES, NEVER THE SUB-SPLIT.
-    // `pagesRecette.length` (the former value) is the SUB-SPLIT version: it displayed "Step 2/4"
-    // on a 3-step recipe. `etapeSource` (`rendu/recette.ts`) reads the `pageSourceIndex` table
-    // instead; see its docstring for the passage of the spec that imposes it.
-    // The displayed countdown is only taken from a timer ACTUALLY RUNNING (`.actif`):
-    // `listerMinuteurs` sorts the active ones first, so `vuesMinuteurs[0]` is a PAUSED timer as
-    // soon as none runs — and its remaining time, frozen, was displayed as if it went down. The
-    // spec (§4) only promises this countdown "when a timer runs: the most urgent one".
-    : mode === 'recette' ? rendreRecetteReduite({
-        ...etapeSource(s.pageSourceIndex, s.pageRecette),
-        plat: s.platRecette || 'Recette',
-        ...(minuteurActif ? { restantS: minuteurActif.restantS } : {}),
-      })
-    : mode === 'minuteur' ? rendreMinuteurs(vuesMinuteurs, slotLibre)
-    : mode === 'menage' && piece.aspirateur ? rendreMenage(etat, piece.aspirateur)
-    // In cinema the card shows the own source whose screen is on (`boot/draw.ts`), never a remote one.
-    : (mode === 'cinema' || mode === 'media') && source
-      ? rendreCarteMedia(source, maintenantMs, tonesToPaint(source, s.measuredCard),
-                         mode === 'media' && f.media.remote)
-    : mode === 'aeration' ? rendreAeration(etat, piece.ouvrants)
-    : mode === 'voiture' && piece.voiture ? rendreVoiture(etat, piece.voiture, s.climEnVol)
-    // Task 14: the `defaut` mode (formerly `previsions`) no longer has anything to compute itself
-    // — `agencement.blocDefaut` says WHICH content (meal, calendar, nothing) belongs to it;
-    // `renderNextMeal`/`rendreProchainRdv` (`rendu/defaut.ts`) return `undefined` if there is
-    // nothing to show (empty meal plan, no more appointment today), and `blocCentral` then stays
-    // `undefined` — exactly the same contract as all the other modes above.
-    // Task 17: the meal and the appointment KEEP the priority — the maintenance (`replEntretien`
-    // above) only takes the place they leave empty, which, on this installation, is the most
-    // common case: meal plan permanently empty, calendar empty from the evening on.
-    : agencement.blocDefaut === 'repas' ? renderNextMeal(currentMeal(s)) ?? replEntretien
-    : agencement.blocDefaut === 'agenda' ? rendreProchainRdv(s.evenements, maintenant) ?? replEntretien
-    : undefined;
-
-  // Task 15 review (I1): the anchor of the rail is set ONLY when the media card is actually on
-  // screen. Under `horsLigne` (or under an alert, or during cleaning) it is not: leaving a live
-  // anchor would make the tick write `--progression` on a `.media` that does not exist — or
-  // worse, on that of a previous render still in the tree.
-  // Final review of plan 2 (I4): `agencement.zones.includes('blocCentral')` first. Since task 3
-  // made the composition a piece of DATA, "the central block is computed" no longer means "the
-  // central block is rendered": a layout that omits the `blocCentral` zone renders nothing at
-  // all, and `rendreCorps` does not even place the `TemplateResult` it receives.
-  //
-  // Second final review, HONESTY ABOUT THIS GUARD: it is UNOBSERVABLE today, and no test holds it.
-  // `ancreProgression` is read in only one place, in `tictacProgression`, which already returns
-  // on `if (!carte) return;`; and `agencement` is resolved once for the lifetime of the page, so
-  // a screen that omits `blocCentral` has a `.media` at NO instant — including in the case "that
-  // of a previous render still in the tree" named above, which only arises from a change of
-  // MODE, already covered by the `cinema`/`media` term. We keep it anyway: it makes the invariant
-  // LOCAL instead of making it depend on a distant `return`, and it costs a comparison. But it
-  // protects from nothing we know how to provoke, and saying so is better than lending it a danger
-  // that does not exist — it is the third time in this code that a comment promises more than the
-  // code does.
-  const carteMediaAffichee = agencement.zones.includes('blocCentral')
-    && blocCentral !== undefined && !s.horsLigne
-    && (mode === 'cinema' || mode === 'media') && source !== null;
-  s.ancreProgression = carteMediaAffichee
-    ? ancrerProgression(source!.progression, maintenantMs, horlogeMonotone())
-    : null;
+    : stack
+      ?? (mode === 'voiture' && piece.voiture ? rendreVoiture(etat, piece.voiture, s.climEnVol)
+        : agencement.blocDefaut === 'repas' ? renderNextMeal(currentMeal(s)) ?? replEntretien
+        : agencement.blocDefaut === 'agenda' ? rendreProchainRdv(s.evenements, maintenant) ?? replEntretien
+        : undefined);
+  // The controls follow the stack's HEAD card, never the displayed one (spec 2026-10-24,
+  // "Budget"): swiping never reorders the grid under the finger. No stack drawn, no head — the
+  // grid of the offline notice or of the alert is the default block's (task 15 review, M4: the
+  // room a card takes only exists if the card is there).
+  const stackHead = stack !== undefined ? cards[0].type : null;
 
   // Task 14, correction round 1: `agencement.blocDefaut === 'agenda'` (office) already displays
   // the next appointment LARGE in the central block (`rendreProchainRdv`) — the badge gives up its
@@ -169,28 +114,17 @@ export function paintHome(
   const pastille = pastilleBandeau(s.evenements, s.jours, maintenant, modulateurs.includes('invites'),
                                    agencement.blocDefaut === 'agenda');
 
-  // Task 15 review, minor M4: the context given to the BODY describes the screen ACTUALLY
-  // rendered, not the one the mode would have produced. Under `horsLigne`, the central block is
-  // no longer the media card (twice as tall) but `rendreHorsLigne()` (one line, like an alert) —
-  // yet `ordreCommandes` kept cutting the grid down to 2 controls on account of the `media` mode.
-  // The screen lost Door and Curtain to render ~90 px of white, precisely when the house no
-  // longer answers and the little that remains tappable matters most. A benign consequence, a
-  // false invariant: the room freed by the media card only exists if the card is there.
-  const ctxCorps: ContexteModes = s.horsLigne
-    ? { ...ctx, ecranAllume: false, sourceJoue: false }
-    : ctx;
-
-  // Task 17 — anti-duplicate guard, same spirit as `carteMediaAffichee` just above: it is not
+  // Task 17 — anti-duplicate guard: it is not
   // "this room can display the maintenance", it is "the central block rendered at this instant IS
-  // that of the maintenance". A higher-priority mode (alert, timer, cleaning, media, airing) or
+  // that of the maintenance". A card, the alert or
   // the offline mode may have confiscated the place, and on an evening when a dish is planned,
   // the kitchen shows the meal: in all those cases the maintenance is written nowhere, so the
   // summary line must keep its mention. `replEntretien !== undefined` excludes along the way the
   // "no task" case (the comparison would then be `undefined === undefined`, true on a screen
   // without any central block — and would cut the summary for nothing).
   //
-  // Final review of plan 2 (I4): `agencement.zones.includes('blocCentral')` on top, same reason as
-  // for `carteMediaAffichee` above. Without it, a screen whose layout omits the `blocCentral` zone
+  // Final review of plan 2 (I4): `agencement.zones.includes('blocCentral')` on top: a layout may
+  // omit the central block, which then renders nothing. Without it, a screen whose layout omits the `blocCentral` zone
   // kept "3 maintenance tasks" out of its summary line on the grounds that the central block
   // displayed them — whereas NOTHING displayed them. It is the invariant "the computed central
   // block IS the rendered central block" that task 3 turned into adjustable data.
@@ -210,8 +144,9 @@ export function paintHome(
   // project hunts everywhere. `ouvrir()` already refuses on its own if no slot is free (including
   // in that case), so nothing opens wrongly while the first state arrives.
   const auMoinsUnConnu = (piece.minuteurs ?? []).some((t) => etat.estUtilisable(t.timer));
+  const sature = auMoinsUnConnu && !slotLibre;
   const tuile = (piece.minuteurs?.length ?? 0) > 0
-    ? tuileMinuteur(auMoinsUnConnu && !slotLibre) : undefined;
+    ? (dansGrille: boolean) => tuileMinuteur(sature, dansGrille) : undefined;
 
   // Task 8 (motion engine): the cadence measurement and the degradation that lived here (a single
   // name, `commandes`, and a single `niveau` for the whole screen — a single bad measurement
@@ -231,9 +166,9 @@ export function paintHome(
   // and the body its `flex: 1`.
   s.moteur.peindre(html`<div class="ecran" data-mvt="vue:accueil">
                           ${rendreBandeau(etat, momentRendu, maintenant, piece.temperature, pastille)}
-                          ${rendreCorps(etat, piece, blocCentral, ctxCorps, tuile, maintenanceShown,
+                          ${rendreCorps(etat, piece, blocCentral, ctx, tuile, maintenanceShown,
                                         (currentMeal(s)?.recetteId ?? null) !== null
-                                          || s.recetteUid !== null, agencement)}
+                                          || s.recetteUid !== null, agencement, stackHead)}
                         </div>`);
-  if (carteMediaAffichee) afterMediaPaint(s, source!);
+  afterStackPaint(s, f);
 }

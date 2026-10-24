@@ -5,11 +5,11 @@
  *  choisies par `demarrage.ts`, exactement comme `rendreVoiture` (`rendu/voiture.ts`) qu'elles
  *  rejoignent au même emplacement (le bloc central du mode `defaut`, `modes.ts`).
  *
- *  Même gabarit que `rendu/modes.ts` (ménage, aération) : `.mode-bloc`/`.mode-texte`/`.t`/`.v`,
- *  couleur neutre — ni l'un ni l'autre n'est une alerte. Aucun `.mode-action` : ni le repas ni le
- *  rendez-vous ne proposent de geste, contrairement au ménage (« Ranger »).
+ *  Même gabarit qu'avaient les blocs ménage et aération (the former `rendu/modes.ts`, stack cards
+ *  since card-stack task 6) : `.mode-bloc`/`.mode-texte`/`.t`/`.v`, couleur neutre — ni l'un ni
+ *  l'autre n'est une alerte. Ni le repas ni le rendez-vous ne proposent de geste.
  *
- *  `.v` seul, ailleurs dans `rendu/modes.ts`, tient sur une ligne (nowrap + ellipse) : son
+ *  `.v` seul, dans l'ancien `rendu/modes.ts`, tenait sur une ligne (nowrap + ellipse) : son
  *  vocabulaire est FIXE et court (« Ménage », « Ouvert »). Ici, le nom du plat et le résumé du
  *  rendez-vous viennent d'une source EXTERNE (`home_stock`, calendrier) dont la longueur n'est pas
  *  maîtrisée par ce projet — `.v.deux-lignes` (`base.css`, même mécanisme que `.media
@@ -59,31 +59,13 @@ export function renderNextMeal(r: NextMeal | undefined): TemplateResult | undefi
     </div>`;
 }
 
-/** La recette RÉDUITE : le point de reprise pendant la cuisson (mode `recette`, `modes.ts`). Même
- *  gabarit `.mode-bloc` que tous les autres blocs centraux — c'est ce qui garantit que le budget de
- *  hauteur ne bouge pas quand ce mode prend la place du mode `minuteur`.
- *
- *  Le décompte du minuteur le plus urgent vit dans `.t`, à côté de l'étape, JAMAIS sur une ligne à
- *  lui : une ligne de plus ferait grandir le bloc, donc coûterait une commande de la grille
- *  (`combien`, `screen-budget.ts`). Aucun doublon avec la tuile « Minuteur », qui n'affiche que son libellé
- *  (`tuileMinuteur`, `rendu/minuteur.ts`). */
+/** The step line of the collapsed recipe, `Étape 2/4 · 05:00`: the countdown of the most urgent
+ *  RUNNING timer sits next to the step, never on a line of its own. The collapsed recipe is the
+ *  recipe card since card-stack task 6 (`cards/recipe.ts`), which draws this line. */
 export type EtapeRecette = { etape: number; total: number; restantS?: number };
-/** `Étape 2/4 · 05:00`: shared by this block and the recipe card (`cards/recipe.ts`). */
 export function ligneEtape(v: EtapeRecette): string {
   const decompte = v.restantS === undefined ? '' : `${S.separator}${formaterRestant(v.restantS)}`;
   return `${S.step(v.etape, v.total)}${decompte}`;
-}
-
-export function rendreRecetteReduite(v: EtapeRecette & { plat: string }): TemplateResult {
-  return html`
-    <div class="mode-bloc" data-zone="blocCentral" data-mvt="bloc:recette"
-         @pointerdown=${() => { location.hash = '#recette'; }}>
-      ${icone('book')}
-      <div class="mode-texte">
-        <div class="t">${ligneEtape(v)}</div>
-        <div class="v deux-lignes">${v.plat}</div>
-      </div>
-    </div>`;
 }
 
 /** Bureau : le prochain rendez-vous du jour, parmi les mêmes calendriers que la pastille du

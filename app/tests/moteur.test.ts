@@ -5,7 +5,11 @@ import { lireMarques, positionReelle } from '../src/mouvement/marques';
 import { comparer } from '../src/mouvement/diff';
 import { Etat } from '../src/etat';
 import { renderNextMeal, rendreEntretien, rendreProchainRdv } from '../src/rendu/defaut';
-import { rendreMenage, rendreAeration } from '../src/rendu/modes';
+import { renderCardFrame } from '../src/rendu/card-frame';
+import * as vacuumCard from '../src/cards/vacuum';
+import * as airingCard from '../src/cards/airing';
+import { newVacuumState } from '../src/boot/vacuum';
+import { frameWith, pieceWith, screenWith } from './card-aides';
 import { rendreBandeau } from '../src/rendu/bandeau';
 import { rendreCarteMedia } from '../src/rendu/media';
 import type { SourceResolue } from '../src/media';
@@ -840,12 +844,22 @@ describe('creerMoteur — estMasquee() qui lève ne doit jamais s\'échapper (ro
 // Test d'intégration sur les VRAIES fonctions de rendu (pas des littéraux copiés dans le test) :
 // il aurait détecté la clé partagée d'origine.
 describe('data-mvt des blocs de mode — une clé par genre (ronde de correction 1)', () => {
-  it('les cinq genres de blocs de mode portent chacun une clé data-mvt distincte', () => {
+  /** The vacuum and airing blocks are stack cards since card-stack task 6: their real frames,
+   *  through the one card template (`renderCardFrame`). */
+  const etatCartes = () => {
     const etat = new Etat();
     etat.appliquer({ entity_id: 'vacuum.rdc', state: 'cleaning', attributes: {} });
     etat.appliquer({ entity_id: 'binary_sensor.a', state: 'on',
                       attributes: { friendly_name: 'Fenêtre' } });
+    return screenWith({ etat, vacuum: newVacuumState(),
+      piece: pieceWith({ aspirateur: 'vacuum.rdc', ouvrants: ['binary_sensor.a'] }) });
+  };
+  const rendreMenage = () => renderCardFrame(vacuumCard.frame(
+    { key: 'aspirateur:vacuum.rdc', type: 'aspirateur', rank: 4 }, frameWith(), etatCartes()));
+  const rendreAeration = () => renderCardFrame(airingCard.frame(
+    { key: 'aeration:binary_sensor.a', type: 'aeration', rank: 2 }, frameWith(), etatCartes()));
 
+  it('les cinq genres de blocs de mode portent chacun une clé data-mvt distincte', () => {
     const cles = new Set<string>();
     const releve = (gabarit: TemplateResult) => {
       const div = document.createElement('div');
@@ -861,8 +875,8 @@ describe('data-mvt des blocs de mode — une clé par genre (ronde de correction
     releve(rendreProchainRdv(
       [{ resume: 'Réunion', debut: '2026-08-03T16:30:00+02:00', estAnniversaire: false }],
       new Date('2026-08-03T14:00:00+02:00'))!);
-    releve(rendreMenage(etat, 'vacuum.rdc'));
-    releve(rendreAeration(etat, ['binary_sensor.a']));
+    releve(rendreMenage());
+    releve(rendreAeration());
 
     expect(cles.size).toBe(5);
   });
@@ -880,15 +894,10 @@ describe('data-mvt des blocs de mode — une clé par genre (ronde de correction
   // `comparer()` les apparie donc en UN croisement plutôt qu'en la sortie + entrée d'avant cette
   // tâche : c'est la scène que ce test documentait déjà, rejouée avec le nouveau verdict.
   it('remplacer un genre de bloc par un autre produit un croisement', () => {
-    const etat = new Etat();
-    etat.appliquer({ entity_id: 'vacuum.rdc', state: 'cleaning', attributes: {} });
-    etat.appliquer({ entity_id: 'binary_sensor.a', state: 'on',
-                      attributes: { friendly_name: 'Fenêtre' } });
-
     const avantEl = document.createElement('div');
-    render(rendreMenage(etat, 'vacuum.rdc'), avantEl);
+    render(rendreMenage(), avantEl);
     const apresEl = document.createElement('div');
-    render(rendreAeration(etat, ['binary_sensor.a']), apresEl);
+    render(rendreAeration(), apresEl);
 
     const verdicts = comparer(lireMarques(avantEl), lireMarques(apresEl));
     expect(verdicts).toHaveLength(1);

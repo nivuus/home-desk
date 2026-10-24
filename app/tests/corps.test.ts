@@ -20,6 +20,7 @@ import type { Alerte } from '../src/contexte';
 import type { ContexteModes } from '../src/modes';
 import { AGENCEMENT_DEFAUT, type Agencement, type Zone } from '../src/agencement';
 import type { Ecran } from '../src/ecran';
+import type { CardType } from '../src/stack/types';
 
 const ev = (id: string, etat: string, attributes: Record<string, unknown> = {}) =>
   ({ entity_id: id, state: etat, attributes });
@@ -119,6 +120,12 @@ function declencheur(entree: EntreeSynthese): string {
 // @ts-expect-error : `<` exige `valeur: number` ; une chaîne n'est pas assignable ici.
 const _operateurIncoherent: EntreeSynthese = { entite: 'sensor.x', operateur: '<', valeur: '35', texte: 't' };
 void _operateurIncoherent;
+
+
+/** The body under the stack's head card `head` (card-stack task 6): the budget and the controls'
+ *  promotions follow the head card, no longer a mode read from the context. */
+const corpsSous = (etat: Etat, piece: Ecran, ctx: ContexteModes, head: CardType | null) =>
+  rendreCorps(etat, piece, undefined, ctx, undefined, false, false, undefined, head);
 
 describe('smoke rendreCorps', () => {
   it('colore la commande chauffage quand climate.radiateur est en chauffe (heat), pas seulement on', () => {
@@ -702,8 +709,7 @@ describe('rangées de commandes selon le mode', () => {
   // which the two pins of the living room take (`epingler`, `modes.ts`).
   it('en mode média, le salon garde une rangée : ses deux épingles', () => {
     const etat = etatSalonComplet();
-    render(rendreCorps(etat, ECRANS.salon, undefined,
-                       { ...CTX_SALON, sourceJoue: true }), hote);
+    render(corpsSous(etat, ECRANS.salon, CTX_SALON, 'media'), hote);
     expect(places(hote)).toBe(2);
     expect(Array.from(hote.querySelectorAll('.commande .t')).map((e) => e.textContent))
       .toEqual(['Porte', 'Rideau']);
@@ -717,8 +723,7 @@ describe('rangées de commandes selon le mode', () => {
       ['todo.home_stock_shopping', '5', {}],
       ['sensor.home_stock_next_meal', '2', {}],
     ] as const) etat.appliquer(ev(id, v, attrs));
-    render(rendreCorps(etat, ECRANS.cuisine, undefined,
-                       { ...CTX_CALME, sourceJoue: true }), hote);
+    render(corpsSous(etat, ECRANS.cuisine, CTX_CALME, 'media'), hote);
     expect(hote.querySelectorAll('.commande').length).toBe(2);
   });
 
@@ -734,8 +739,7 @@ describe('rangées de commandes selon le mode', () => {
   // two.
   it('en mode cinéma au salon, les deux épingles prennent les deux places', () => {
     const etat = etatSalonComplet();
-    render(rendreCorps(etat, ECRANS.salon, undefined,
-                       { ...CTX_SALON, ecranAllume: true }), hote);
+    render(corpsSous(etat, ECRANS.salon, CTX_SALON, 'cinema'), hote);
     const libelles = Array.from(hote.querySelectorAll('.commande .t')).map((e) => e.textContent);
     expect(libelles).toEqual(['Porte', 'Rideau']);
   });
@@ -744,17 +748,17 @@ describe('rangées de commandes selon le mode', () => {
   // c'est une tuile PEINTE que le propriétaire attend au salon, dans tous les modes du jour, et
   // sans rangée supplémentaire (le nombre de tuiles ne bouge pas d'un mode à l'autre).
   it('la porte ET le rideau sont peints dans tous les modes du jour, sans rangée en plus', () => {
-    const modes = [
-      ['courant', CTX_SALON],
-      ['média', { ...CTX_SALON, sourceJoue: true }],
-      ['cinéma', { ...CTX_SALON, ecranAllume: true }],
-      ['voiture', { ...CTX_SALON, blocDefaut: 'voiture' as const }],
-      ['ménage', { ...CTX_SALON, aspirateurEnMarche: true }],
-      ['chaleur', { ...CTX_SALON, temperatureExterieure: 35 }],
-    ] as const;
-    for (const [nom, ctx] of modes) {
+    const modes: Array<[string, ContexteModes, CardType | null]> = [
+      ['courant', CTX_SALON, null],
+      ['média', CTX_SALON, 'media'],
+      ['cinéma', CTX_SALON, 'cinema'],
+      ['voiture', { ...CTX_SALON, blocDefaut: 'voiture' as const }, null],
+      ['ménage', CTX_SALON, 'aspirateur'],
+      ['chaleur', { ...CTX_SALON, temperatureExterieure: 35 }, null],
+    ];
+    for (const [nom, ctx, head] of modes) {
       const etat = etatSalonComplet();
-      render(rendreCorps(etat, ECRANS.salon, undefined, ctx), hote);
+      render(corpsSous(etat, ECRANS.salon, ctx, head), hote);
       const libelles = Array.from(hote.querySelectorAll('.commande .t')).map((e) => e.textContent);
       expect(libelles, nom).toContain('Porte');
       // Sous chaleur, la même tuile s'appelle « Fermer » : c'est la consigne du jour, pas un objet.
@@ -762,8 +766,7 @@ describe('rangées de commandes selon le mode', () => {
       // Four places in every mode but the ones that show a card: the ambiance row given back to
       // the budget buys them (the tall door takes two). A card leaves one row (`arrangement`,
       // `screen-budget.ts`), where the door is a normal tile.
-      const carte = nom === 'média' || nom === 'cinéma' || nom === 'ménage';
-      expect(places(hote), nom).toBe(carte ? 2 : 4);
+      expect(places(hote), nom).toBe(head !== null ? 2 : 4);
     }
   });
 
@@ -876,7 +879,7 @@ describe('rangée Ambiance — absente quand la pièce n\'en déclare aucune', (
   // que de se découvrir un jour à l'écran.
   it('une tuile minuteur seule suffit à garder la rangée', () => {
     const div = document.createElement('div');
-    const tuile = html`<div class="ambiance" data-minuteur-entree>Minuteur</div>`;
+    const tuile = () => html`<div class="ambiance" data-minuteur-entree>Minuteur</div>`;
     render(rendreCorps(etatSalonComplet(), ECRANS.salon, undefined, undefined, tuile), div);
     const groupe = div.querySelector<HTMLElement>('.groupe')!;
     expect(groupe).not.toBeNull();
@@ -896,7 +899,7 @@ describe('rangée Ambiance — 4e tuile', () => {
   it('ajoute la tuile fournie et l\'inclut dans le compte', () => {
     const etat = new Etat();
     const div = document.createElement('div');
-    const tuile = html`<div class="ambiance" data-minuteur-entree>Minuteur</div>`;
+    const tuile = () => html`<div class="ambiance" data-minuteur-entree>Minuteur</div>`;
     render(
       rendreCorps(etat, ECRANS.cuisine, undefined, undefined, tuile),
       div,

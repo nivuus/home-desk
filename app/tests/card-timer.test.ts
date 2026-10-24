@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render } from 'lit';
-import { detect, frame } from '../src/cards/timer';
+import { detect, frame, timerToken } from '../src/cards/timer';
 import { brancherMinuteur, type ActionsMinuteur } from '../src/rendu/minuteur';
 import { formaterRestant } from '../src/minuteur';
 import { frameWith, screenWith, running, paused, T0 } from './card-aides';
@@ -100,5 +100,13 @@ describe('timer card — frame', () => {
   });
   it('refuses a card whose timer is gone rather than showing another one', () => {
     expect(() => frame(card, frameWith({ timers: [] }), s)).toThrow(/timer\.cuisine/);
+  });
+});
+
+describe('timerToken — the one late rule of the frame and the tick', () => {
+  it('late under a minute while running; a paused timer is never late', () => {
+    expect(timerToken(true, 59)).toBe('timer-late');
+    expect(timerToken(true, 60)).toBe('timer');
+    expect(timerToken(false, 5)).toBe('timer');
   });
 });

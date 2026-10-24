@@ -9,7 +9,7 @@ import { brancherAppuiMaison, brancherGesteMaison } from '../rendu/maison';
 import { brancherCochageTaches } from '../rendu/taches';
 import { brancherMedia } from '../rendu/media';
 import { onTonesReady } from '../rendu/poster-sampler';
-import { brancherModes } from '../rendu/modes';
+import { wireCardActions } from '../cards/actions';
 import { ENTITE_ENTRETIEN } from '../rendu/defaut';
 import { createPress } from '../interaction';
 import { createGesture } from '../geste';
@@ -127,12 +127,12 @@ export function wireScreen(s: ScreenState, jetons: Jetons): void {
   brancherGeste(gesteTuile);
   brancherGesteMaison(gesteTuile);
 
-  // Task 12: the media card (`rendu/media.ts`) and the mode blocks (`rendu/modes.ts`) call
+  // Task 12: the media card (`rendu/media.ts`) and the stack cards (`cards/actions.ts`) call
   // services directly — not through `createPress`, which is made for tiles with a STATE and an
   // optimistic feedback. A `media_pause` has no state to anticipate, and optimism on the volume
   // would lie about what the player actually applied (the rail gives its own immediate feedback,
   // locally, see `rendu/media.ts`). Set under the `initialise` guard like everything else:
-  // `brancherMedia`/`brancherModes` overwrite a module variable, calling them again on every
+  // `brancherMedia`/`wireCardActions` overwrite a module variable, calling them again on every
   // redraw would not leak but would install a fresh closure every 20 s, for nothing.
   const agir: Agir = (domaine, service, entite, data = {}) => {
     if (s.horsLigne) return;   // same refusal as `createPress`: never an action that lies
@@ -142,7 +142,7 @@ export function wireScreen(s: ScreenState, jetons: Jetons): void {
   // the next frame if it does not apply. The poster tones arrive asynchronously: repaint then.
   brancherMedia(agir, (key) => { s.pinnedMedia = { key, paused: false }; }, s.dessiner);
   onTonesReady(s.dessiner);
-  brancherModes(agir);
+  wireCardActions(agir);
   brancherMinuteurs(s, agir);
   brancherClim(s, agir);
 

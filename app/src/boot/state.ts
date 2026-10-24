@@ -22,6 +22,9 @@ import type { AnimationEnCours } from '../animation';
 import type { DeclarationSource } from '../media';
 import type { MediaPin } from '../media-choice';
 import type { MeasuredCard } from './card-tones';
+import type { Card, StackView } from '../stack/types';
+import type { CardFrame } from '../rendu/card-frame';
+import type { SwipeHandlers } from '../stack/swipe';
 import type { ConnexionLike, DependancesDemarrage } from './types';
 import { newPantryState, type PantryState } from './pantry';
 import { newVacuumState, type VacuumState } from './vacuum';
@@ -76,7 +79,7 @@ export class ScreenState {
    *  from "I inject the absence". */
   repasInjecte: NextMeal | null | undefined;
 
-  // The recipe in progress — collapsed (block `rendreRecetteReduite` on the home view) or open
+  // The recipe in progress — collapsed (the recipe card on the home view, `cards/recipe.ts`) or open
   // (sub-view `#recette`). `recetteUid` is the id of the `meal_plan` entry, the same key as the
   // persistence (`src/recette-en-cours.ts`): `null` = no recipe in progress, and it is IT that
   // decides the `recette` mode (see `ctx` in `boot/frame.ts`), never the hash — a collapsed
@@ -169,6 +172,20 @@ export class ScreenState {
   pinnedMedia: MediaPin | undefined;
   /** The image card as the last paint measured it, for its tones (`boot/card-tones.ts`). */
   measuredCard: MeasuredCard | null = null;
+
+  /** The card stack of the home view (`boot/home-stack.ts`): which card is displayed, when it was
+   *  last touched, and the keys the last frame knew (`followStack`, `stack/follow.ts`). */
+  stack: StackView = { displayedKey: null, lastTouchMs: null, known: [] };
+  /** Card keys "plus tard" hides (task 7 fills it); `collectStack` leaves them out. */
+  snoozed = new Set<string>();
+  /** The card the last home paint put on screen, `null` when the stack was not drawn. */
+  stackShown: { card: Card; frame: CardFrame } | null = null;
+  /** The swipe attached to the stack's `.pile` element, kept across paints: `lit` keeps that
+   *  element while the stack stays on screen, so the handlers are updated in place and a gesture
+   *  in progress survives a redraw. */
+  stackSwipe: { el: HTMLElement; h: SwipeHandlers; detach: () => void } | null = null;
+  /** One token per armed return to the head card, same single-winner pattern as `jetonClim`. */
+  jetonRetourPile = 0;
 
   // Task 15 review (I1): the starting point of the media progress rail, recomputed on every
   // `dessiner()` and consumed by the one-second tick armed in `wireScreen`. `null` = nothing to

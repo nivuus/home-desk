@@ -6,6 +6,7 @@ import { Etat } from '../src/etat';
 import type { Ecran } from '../src/ecran';
 import type { DeclarationSource } from '../src/media';
 import { sourceKey } from '../src/media-choice';
+import { detect as detectMedia } from '../src/cards/media';
 import { ecranVide } from './aides';
 
 function decl(nom: string, entite: string, extra: Partial<DeclarationSource> = {}): DeclarationSource {
@@ -34,10 +35,16 @@ function frameOf(states: [string, string][], opts: {
   return computeFrame(s);
 }
 
+/** The media cards this frame stacks: media and cinema left the modes for the stack (card-stack
+ *  task 6), and the media module reads only the frame. */
+const cardTypes = (f: ReturnType<typeof frameOf>) =>
+  detectMedia(f, {} as ScreenState).map((c) => c.type);
+
 describe('computeFrame — what plays elsewhere', () => {
-  it('frame enters media mode for a remote playing source', () => {
+  it('frame stacks a media card for a remote playing source', () => {
     const f = frameOf([['media_player.music_bedroom', 'playing']], { house: [music] });
-    expect(f.mode).toBe('media');
+    expect(cardTypes(f)).toEqual(['media']);
+    expect(f.mode).toBe('defaut');
     expect(f.ctx.sourceJoue).toBe(true);
     expect(f.media.remote).toBe(true);
     expect(f.media.source?.nom).toBe('Music');
@@ -46,21 +53,21 @@ describe('computeFrame — what plays elsewhere', () => {
 
   it('a remote source that is only paused does not take over the tablet', () => {
     const f = frameOf([['media_player.music_bedroom', 'paused']], { house: [music] });
-    expect(f.mode).not.toBe('media');
+    expect(cardTypes(f)).toEqual([]);
     expect(f.media.source).toBeUndefined();
   });
 
-  it('frame does not enter cinema for a remote TV that is only on', () => {
+  it('frame stacks no cinema card for a remote TV that is only on', () => {
     const f = frameOf([['media_player.tv_bedroom', 'on']], { house: [tv] });
     expect(f.ctx.ecranAllume).toBe(false);
-    expect(f.mode).not.toBe('cinema');
-    // Control: the very same TV declared as the screen's OWN source does enter cinema.
-    expect(frameOf([['media_player.tv_bedroom', 'on']], { own: [tv] }).mode).toBe('cinema');
+    expect(cardTypes(f)).not.toContain('cinema');
+    // Control: the very same TV declared as the screen's OWN source does stack a cinema card.
+    expect(cardTypes(frameOf([['media_player.tv_bedroom', 'on']], { own: [tv] }))).toContain('cinema');
   });
 
-  it('frame keeps media mode on the tablet that paused a remote source', () => {
+  it('frame keeps the media card on the tablet that paused a remote source', () => {
     const f = frameOf([['media_player.music_bedroom', 'paused']], { house: [music], pinned: sourceKey(music) });
-    expect(f.mode).toBe('media');
+    expect(cardTypes(f)).toEqual(['media']);
     expect(f.media).toMatchObject({ remote: true, source: { nom: 'Music' } });
   });
 

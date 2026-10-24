@@ -537,7 +537,8 @@ export const MODES = [
     // ~144 disponibles et CONTOURNAIT le pire cas, qui n'existait plus que dans un commentaire.
     // Un vérificateur qui n'exerce pas le cas limite qu'il a lui-même documenté ne le garde pas.
     etats: [['vacuum.aspirateur_cuisine', 'cleaning', { battery_level: 100 }]],
-    marqueur: '.mode-bloc', attendu: 'le bloc ménage et son bouton « Retour base »',
+    // Card-stack task 6: the vacuum is a stack card, its base button in the card's actions.
+    marqueur: '.carte[data-card^="aspirateur:"]', attendu: 'the vacuum card and its base button',
   },
   {
     nom: 'aeration',
@@ -546,7 +547,7 @@ export const MODES = [
        { friendly_name: 'Porte balcon (S) Ouverture' }, AERATION_ANCIENNETE_MS],
       ['climate.radiateur', 'heat', { temperature: 21 }],
     ],
-    marqueur: '.mode-bloc', attendu: 'le bloc aération',
+    marqueur: '.carte[data-card^="aeration:"]', attendu: 'the airing card',
   },
   {
     nom: 'alerte',
@@ -714,12 +715,13 @@ export const MODES = [
       ['timer.cuisine_3', 'paused', { remaining: '0:03:20' }],
       ['input_text.minuteur_cuisine_3_nom', '', {}],
     ],
-    marqueur: '.minuteurs', attendu: 'la liste des trois minuteurs',
+    // Card-stack task 6: three timers are one timer card, the most urgent, and « +2 ».
+    marqueur: '.carte[data-card^="minuteur:"]', attendu: 'the timer card, two more timers counted',
   },
   {
-    // The SOLO form (a single running timer) carries the `− 5 / − 1 / + 1 / + 5` steps on a row of
-    // their own since 2026-10-11, above pause/cancel: taller than the list of three, so it is
-    // measured too — a budget holds at the worst case, and the worst case changed.
+    // A single running timer: the same timer card (card-stack task 6), without « +N ». The solo
+    // block and its steps row left with the timer mode; kept as a scenario so the card is
+    // measured alone as well.
     nom: 'minuteur-solo', mode: 'minuteur', pages: ['cuisine'],
     etats: [
       ['timer.cuisine', 'active',
@@ -728,7 +730,7 @@ export const MODES = [
       ['timer.cuisine_2', 'idle', {}],
       ['timer.cuisine_3', 'idle', {}],
     ],
-    marqueur: '.mn-solo', attendu: 'le minuteur seul et ses pas',
+    marqueur: '.carte[data-card^="minuteur:"]', attendu: 'the timer card, alone',
   },
   {
     // REVUE FINALE (2026-08-17) : le mode `recette` était le SEUL `ModePrincipal` (`src/modes.ts`)

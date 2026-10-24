@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render } from 'lit';
 import {
-  rendreProchainRdv, rendreEntretien, renderNextMeal, rendreRecetteReduite,
+  rendreProchainRdv, rendreEntretien, renderNextMeal,
 } from '../src/rendu/defaut';
 import type { Evenement } from '../src/agenda';
 import type { NextMeal } from '../src/garde-manger';
@@ -211,24 +211,6 @@ describe('renderNextMeal', () => {
   });
 });
 
-describe('rendreRecetteReduite', () => {
-  it('affiche l_étape et le plat', () => {
-    const hote = peindre(rendreRecetteReduite({ etape: 2, total: 3, plat: 'Bol lentilles' }));
-    expect(hote.querySelector('.t')?.textContent).toBe('Étape 2/3');
-    expect(hote.querySelector('.v')?.textContent).toContain('Bol lentilles');
-  });
+// `rendreRecetteReduite` left with the recipe mode (card-stack task 6): the step, the countdown
+// and the reopening are the recipe card's, tested in `tests/card-recipe.test.ts`.
 
-  it('ajoute le décompte du minuteur le plus urgent quand il y en a un', () => {
-    const hote = peindre(rendreRecetteReduite({
-      etape: 2, total: 3, plat: 'Bol lentilles', restantS: 452,
-    }));
-    expect(hote.querySelector('.t')?.textContent).toBe('Étape 2/3 · 07:32');
-  });
-
-  it('rouvre la recette au contact', () => {
-    const hote = peindre(rendreRecetteReduite({ etape: 1, total: 2, plat: 'X' }));
-    location.hash = '';
-    hote.querySelector('.mode-bloc')!.dispatchEvent(new Event('pointerdown'));
-    expect(location.hash).toBe('#recette');
-  });
-});

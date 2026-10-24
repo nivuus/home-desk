@@ -22,7 +22,7 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
 afterEach(() => { vi.restoreAllMocks(); });
 
 describe('tone cache', () => {
-  // `tonesToPaint` (`boot/media-tones.ts`) asks on every paint: a load still running must not be
+  // `tonesToPaint` (`boot/card-tones.ts`) asks on every paint: a load still running must not be
   // started a second time.
   it('repeated calls for one poster while it loads start one load', () => {
     const sampler = vi.fn<Sampler>(() => new Promise(() => {}));

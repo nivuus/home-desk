@@ -5,7 +5,7 @@ import { html } from 'lit';
 import type { Frame } from '../boot/frame';
 import type { ScreenState } from '../boot/state';
 import { formaterRestant, PAS_FIN_MINUTEUR_S, type VueMinuteur } from '../minuteur';
-import type { CardFrame } from '../rendu/card-frame';
+import type { CardFrame, SolidToken } from '../rendu/card-frame';
 import { actionsMinuteur, libelle } from '../rendu/minuteur';
 import type { Card } from '../stack/types';
 import { S } from './strings';
@@ -13,6 +13,13 @@ import { S } from './strings';
 const TYPE = 'minuteur';
 /** Under this many seconds left the card turns to its urgent colour. */
 const LATE_S = 60;
+
+/** The timer card's colour: urgent under `LATE_S` while it runs; a paused timer is never late, its
+ *  time does not go down. ONE rule, read by the frame and by the per-second tick
+ *  (`tictacMinuteurs`), which turns the card late between two redraws. */
+export function timerToken(actif: boolean, restantS: number): SolidToken {
+  return actif && restantS < LATE_S ? 'timer-late' : 'timer';
+}
 
 export function detect(f: Frame, _s: ScreenState): Card[] {
   // Least time left, running or paused: a paused timer keeps its frozen time, so pausing the head
@@ -28,8 +35,13 @@ function ringTime(f: Frame, v: VueMinuteur): string {
     .format(new Date(f.maintenantMs + v.restantS * 1000));
 }
 
+/** The timer a card shows, `undefined` once it is no longer running or paused. */
+export function timerOf(card: Card, f: Frame): VueMinuteur | undefined {
+  return f.vuesMinuteurs.find((x) => `${TYPE}:${x.timer}` === card.key);
+}
+
 export function frame(card: Card, f: Frame, _s: ScreenState): CardFrame {
-  const v = f.vuesMinuteurs.find((x) => `${TYPE}:${x.timer}` === card.key);
+  const v = timerOf(card, f);
   if (v === undefined) throw new Error(`timer card: no timer for ${card.key}`);
   const others = f.vuesMinuteurs.length - 1;
   const more = others > 0
@@ -52,7 +64,7 @@ export function frame(card: Card, f: Frame, _s: ScreenState): CardFrame {
         : { icon: 'lecture', label: S.play, primary: true, act: () => actionsMinuteur().reprendre(v.slot) },
       { icon: 'stop', label: S.timerStop, act: () => actionsMinuteur().annuler(v.slot) },
     ],
-    background: { kind: 'solid', token: v.actif && v.restantS < LATE_S ? 'timer-late' : 'timer' },
+    background: { kind: 'solid', token: timerToken(v.actif, v.restantS) },
     motion: { block: 'bloc:minuteur-solo' },
   };
 }

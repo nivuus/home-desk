@@ -165,7 +165,7 @@ describe('attachSwipe — one contact per card', () => {
     const other = vi.fn();
     const f: CardFrame = {
       key: 'minuteur:timer.fixture', label: 'TIMER', title: 'Pasta', middle: html``,
-      buttons: [{ icon: 'croix', label: 'Stop', act: other },
+      buttons: [{ icon: 'stop', label: 'Stop', act: other },
         { icon: 'lecture', label: 'Play', primary: true, act }, undefined],
       background: { kind: 'solid', token: 'timer' },
     };
