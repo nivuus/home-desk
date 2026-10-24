@@ -78,7 +78,8 @@ export function wireScreen(s: ScreenState, jetons: Jetons): void {
   s.etat.surMaj(s.dessiner);
   // "Plus tard" is shared by every tablet: the set comes from the integration, its own presses
   // included, and a displayed card that leaves gives way through the stack's usual `followStack`.
-  subscribeSnoozes(s.cx, (keys) => { s.snoozed = keys; s.dessiner(); });
+  subscribeSnoozes(s.cx, (keys) => { s.snoozed = keys; s.dessiner(); },
+    { now: () => s.d.maintenant().getTime(), minuteurFn: s.d.minuteurFn });
 
   // Task 9: the screen never goes blank after a cut — it keeps the last known state and greys it
   // out, rather than staying frozen without saying so. `cx.surSilence` is called back every 5 s by

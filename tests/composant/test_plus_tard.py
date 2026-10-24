@@ -9,10 +9,12 @@ from datetime import timedelta
 
 import pytest
 from homeassistant import config_entries
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
+from custom_components.home_desk import plus_tard
 from custom_components.home_desk.const import DOMAIN
 
 KEY = "aspirateur:vacuum.x"
@@ -132,7 +134,8 @@ async def test_a_restart_reads_the_stored_snoozes(hass, hass_storage, tablette, 
 
 @pytest.mark.parametrize("cle", [
     "", "aspirateur", "aspirateur:", ":vacuum.x", "Aspirateur:vacuum.x", "a" * 250 + ":" + "b" * 10,
-    "aspirateur:vacuum.x\n",
+    "aspirateur:vacuum.x\n", "aspirateur:vacuum\x85x", "aspirateur:vacuum\u2028x",
+    "aspirateur:vacuum\u2029x",
 ])
 async def test_a_malformed_key_is_refused(hass, tablette, entree, cle):
     sub_id, _ = await _subscribe(tablette)
@@ -172,3 +175,46 @@ async def test_unload_leaves_no_timer_behind(hass, tablette, entree, freezer):
     assert await tablette.receive_json() == {"id": sub_id, "type": "event", "event": {}}
     await tablette.send_json_auto_id({"type": SUBSCRIBE})
     assert (await tablette.receive_json())["type"] == "result"
+
+
+async def test_both_commands_serve_while_the_entry_is_unloaded(hass, tablette, entree, hass_storage):
+    """The set is house-wide and outlives the entry: a subscription made
+    during a reload is served, and so is a snooze."""
+    assert await hass.config_entries.async_unload(entree.entry_id)
+    await hass.async_block_till_done()
+
+    sub_id, initial = await _subscribe(tablette)
+    assert initial == {}
+    messages = await _snooze(tablette)
+    assert _result(messages)["success"] is True
+    event = next(m for m in messages if m["type"] == "event")
+    assert event["id"] == sub_id and list(event["event"]) == [KEY]
+    await hass.async_block_till_done()
+    assert list(hass_storage[STORAGE_KEY]["data"]) == [KEY]
+
+
+async def test_an_expiry_is_written_to_disk(hass, tablette, entree, hass_storage, freezer):
+    now = dt_util.utcnow()
+    await _subscribe(tablette)
+    await _snooze(tablette)
+    async_fire_time_changed(hass, now)   # the delayed write
+    await hass.async_block_till_done()
+    assert list(hass_storage[STORAGE_KEY]["data"]) == [KEY]
+
+    end = now + timedelta(seconds=7200)
+    freezer.move_to(end)
+    async_fire_time_changed(hass, end)
+    await hass.async_block_till_done()
+    async_fire_time_changed(hass, end)   # the delayed write
+    await hass.async_block_till_done()
+    assert hass_storage[STORAGE_KEY]["data"] == {}
+
+
+async def test_a_second_start_adds_no_stop_listener(hass, entree):
+    """A setup that fails after the start is set up again: no second
+    listener for the stop event."""
+    stop_listeners = hass.bus.async_listeners()[EVENT_HOMEASSISTANT_STOP]
+    snoozes = hass.data["home_desk_snoozes"]
+    snoozes.async_start()
+    assert hass.bus.async_listeners()[EVENT_HOMEASSISTANT_STOP] == stop_listeners
+    assert snoozes is await plus_tard.async_setup(hass)

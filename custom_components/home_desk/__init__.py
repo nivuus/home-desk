@@ -105,9 +105,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     websocket_api.async_register_command(hass, websocket.ws_animations)
     websocket_api.async_register_command(hass, aspirateurs.ws_aspirateurs)
     websocket_api.async_register_command(hass, aspirateurs.ws_aspirer)
+    # The snoozes exist before their commands can be called.
+    snoozes = await plus_tard.async_setup(hass)
     websocket_api.async_register_command(hass, websocket.ws_plus_tard)
     websocket_api.async_register_command(hass, websocket.ws_plus_tard_abonner)
-    await plus_tard.async_start(hass)
+    snoozes.async_start()
     services.async_setup_services(hass)
     animations.async_setup_service(hass)
 
@@ -208,7 +210,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     stay for the next setup of the entry."""
     services.async_unload_services(hass)
     animations.async_unload_service(hass)
-    snoozes = plus_tard.get(hass)
-    if snoozes is not None:
-        await snoozes.async_stop()
+    await plus_tard.get(hass).async_stop()
     return True

@@ -69,8 +69,6 @@ SNOOZE_S = 7200
 SNOOZE_KEY_MAX = 255
 # `hass.data` slot of the single `plus_tard.Snoozes` of this Home Assistant run.
 DATA_SNOOZES = f"{DOMAIN}_snoozes"
-# Refusal of a snooze command while the integration is not loaded.
-ERROR_NOT_LOADED = "non_charge"
 
 # The HTTP path of the tablet entry document (`page.py`). It is the
 # `startURL` typed into each tablet's Fully Kiosk, with `?ecran=<nom>`.

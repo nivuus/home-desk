@@ -76,7 +76,6 @@ from homeassistant.util import dt as dt_util
 from . import garde_ecran, plus_tard, schema
 from .const import (
     DOMAIN,
-    ERROR_NOT_LOADED,
     ERROR_SCREEN_CORRUPT,
     ERROR_SCREEN_NOT_FOUND,
     ERROR_VERSION_UNKNOWN,
@@ -335,20 +334,6 @@ def ws_maison(hass: HomeAssistant, connection: websocket_api.ActiveConnection, m
     connection.send_result(msg["id"], {"sources": valide["sources"]})
 
 
-def _loaded_snoozes(
-    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict,
-) -> plus_tard.Snoozes | None:
-    """The snoozes, or None after refusing `msg`: the commands outlive the
-    entry (nothing unregisters them), the expiry timer does not."""
-    snoozes = plus_tard.get(hass)
-    if snoozes is None:
-        connection.send_error(
-            msg["id"], ERROR_NOT_LOADED,
-            "the home_desk integration is not loaded -- "
-            "reload it from Settings > Devices & services")
-    return snoozes
-
-
 @websocket_api.websocket_command(
     {
         vol.Required("type"): WS_PLUS_TARD,
@@ -358,11 +343,9 @@ def _loaded_snoozes(
 @callback
 def ws_plus_tard(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
     """`home_desk/plus_tard`: hides the card `cle` on every tablet. The
-    subscribers hear the new set before this answer."""
-    snoozes = _loaded_snoozes(hass, connection, msg)
-    if snoozes is None:
-        return
-    snoozes.snooze(msg["cle"], dt_util.utcnow())
+    subscribers hear the new set before this answer. Served while the entry
+    is unloaded too: the set is house-wide (`plus_tard.py`)."""
+    plus_tard.get(hass).snooze(msg["cle"], dt_util.utcnow())
     connection.send_result(msg["id"])
 
 
@@ -373,10 +356,9 @@ def ws_plus_tard_abonner(
 ) -> None:
     """`home_desk/plus_tard/abonner`: the active set, now and on every
     change or expiry. Stored in `connection.subscriptions`, so
-    `unsubscribe_events` and the closing of the socket both remove it."""
-    snoozes = _loaded_snoozes(hass, connection, msg)
-    if snoozes is None:
-        return
+    `unsubscribe_events` and the closing of the socket both remove it.
+    Served while the entry is unloaded too, like `home_desk/plus_tard`."""
+    snoozes = plus_tard.get(hass)
 
     @callback
     def _relay(active: dict[str, str]) -> None:

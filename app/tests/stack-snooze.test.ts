@@ -18,6 +18,21 @@ import { monterDemarrage, restaurerReseau, vider, type Montage } from './aides';
 const VACUUM = 'vacuum.x';
 const KEY = `aspirateur:${VACUUM}`;
 const SUBSCRIPTION = 'home_desk/plus_tard/abonner';
+const T = Date.UTC(2026, 7, 1, 12, 0);
+const iso = (ms: number) => new Date(ms).toISOString();
+const last = <T>(xs: T[]): T => xs[xs.length - 1];
+
+/** A clock the test moves, and the timers armed on it, fired by hand. */
+function testClock() {
+  const c = { nowMs: T, timers: [] as { fn: () => void; ms: number }[] };
+  const clock = {
+    now: () => c.nowMs,
+    minuteurFn: ((fn: () => void, ms: number) => { c.timers.push({ fn, ms }); return c.timers.length; }) as unknown as typeof setTimeout,
+  };
+  /** Moves the clock to `ms` and fires the last armed timer, as `setTimeout` would. */
+  const fireAt = (ms: number) => { c.nowMs = ms; c.timers[c.timers.length - 1].fn(); };
+  return { c, clock, fireAt };
+}
 
 afterEach(() => { restaurerReseau(); vi.restoreAllMocks(); });
 
@@ -41,9 +56,9 @@ describe('the snooze transport', () => {
     let push: (e: Record<string, unknown>) => void = () => {};
     const abonner = vi.fn((_c: Record<string, unknown>, cb: (e: Record<string, unknown>) => void) => { push = cb; });
     const seen: Set<string>[] = [];
-    subscribeSnoozes({ abonner }, (keys) => seen.push(keys));
+    subscribeSnoozes({ abonner }, (keys) => seen.push(keys), testClock().clock);
     expect(abonner).toHaveBeenCalledWith({ type: SUBSCRIPTION }, expect.any(Function));
-    push({ [KEY]: '2026-08-01T14:00:00+00:00' });
+    push({ [KEY]: iso(T + 7_200_000) });
     push({});
     expect(seen).toEqual([new Set([KEY]), new Set()]);
   });
@@ -52,10 +67,47 @@ describe('the snooze transport', () => {
     let push: (e: Record<string, unknown>) => void = () => {};
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     const onChange = vi.fn();
-    subscribeSnoozes({ abonner: (_c, cb) => { push = cb; } }, onChange);
+    subscribeSnoozes({ abonner: (_c, cb) => { push = cb; } }, onChange, testClock().clock);
     push({ [KEY]: 12 });
+    push({ [KEY]: 'not a date' });
     expect(onChange).not.toHaveBeenCalled();
-    expect(error).toHaveBeenCalled();
+    expect(error).toHaveBeenCalledTimes(2);
+  });
+
+  // A refused or silent subscription must not hide a card for longer than its two hours.
+  it('with no push from the server, a key is gone at its end, on the tablet clock', () => {
+    const { c, clock, fireAt } = testClock();
+    let push: (e: Record<string, unknown>) => void = () => {};
+    const seen: Set<string>[] = [];
+    subscribeSnoozes({ abonner: (_c, cb) => { push = cb; } }, (keys) => seen.push(keys), clock);
+    const OTHER = 'aeration:binary_sensor.window';
+    push({ [KEY]: iso(T + 7_200_000), [OTHER]: iso(T + 9_000_000) });
+    expect(last(c.timers).ms).toBe(7_200_000);             // one timer, on the soonest end
+
+    fireAt(T + 7_199_000);                                      // early: nothing ends yet
+    expect(seen).toHaveLength(1);
+    expect(last(c.timers).ms).toBe(1_000);
+
+    fireAt(T + 7_200_000);
+    expect(last(seen)).toEqual(new Set([OTHER]));
+    expect(last(c.timers).ms).toBe(1_800_000);
+    fireAt(T + 9_000_000);
+    expect(last(seen)).toEqual(new Set());
+  });
+
+  it('a push replaces the whole set, and its timer with it', () => {
+    const { c, clock, fireAt } = testClock();
+    let push: (e: Record<string, unknown>) => void = () => {};
+    const onChange = vi.fn();
+    subscribeSnoozes({ abonner: (_c, cb) => { push = cb; } }, onChange, clock);
+    push({ [KEY]: iso(T + 7_200_000) });
+    const armed = c.timers.length;
+    push({});
+    expect(onChange).toHaveBeenLastCalledWith(new Set());
+    expect(c.timers).toHaveLength(armed);                      // an empty set arms nothing
+    // The replaced timer, had it fired, finds nothing to drop and says nothing.
+    fireAt(T + 7_200_000);
+    expect(onChange).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -112,21 +164,35 @@ describe('a mounted screen follows the shared set', () => {
     allumee: { entite: 'switch.tv_power', etats: ['on'] } };
   const LIVING = base({ sources: [TV], aspirateur: 'vacuum.robot' });
   let m: Montage;
+  let now = T;
   const displayedType = () =>
     m.racine.querySelector('.carte')?.getAttribute('data-card')?.split(':')[0] ?? null;
 
   it('subscribes once, and a snoozed displayed card gives way to the next one', async () => {
-    m = await monterDemarrage(LIVING, { etats: [['switch.tv_power', 'on'],
+    m = await monterDemarrage(LIVING, { maintenant: () => new Date(now), etats: [['switch.tv_power', 'on'],
       ['media_player.tv', 'playing', { media_title: 'Film' }],
       ['vacuum.robot', 'error', { friendly_name: 'Robot' }]] });
     expect(m.abonnements.filter((a) => a.commande.type === SUBSCRIPTION)).toHaveLength(1);
     expect(displayedType()).toBe('aspirateur');
 
-    await m.diffuser(SUBSCRIPTION, { 'aspirateur:vacuum.robot': '2026-08-01T16:00:00+00:00' });
+    await m.diffuser(SUBSCRIPTION, { 'aspirateur:vacuum.robot': iso(T + 7_200_000) });
     expect(displayedType()).toBe('cinema');
 
     // Expired: the card comes back, and as it reappears with a higher rank it takes the place.
     await m.diffuser(SUBSCRIPTION, {});
+    expect(displayedType()).toBe('aspirateur');
+  });
+
+  it('a snoozed card comes back at its end even if the server says nothing', async () => {
+    now = T;
+    m = await monterDemarrage(LIVING, { maintenant: () => new Date(now), etats: [['switch.tv_power', 'on'],
+      ['media_player.tv', 'playing', { media_title: 'Film' }],
+      ['vacuum.robot', 'error', { friendly_name: 'Robot' }]] });
+    await m.diffuser(SUBSCRIPTION, { 'aspirateur:vacuum.robot': iso(T + 7_200_000) });
+    expect(displayedType()).toBe('cinema');
+    now = T + 7_200_000;
+    for (const [fn, ms] of m.minuteurFn.mock.calls) if (ms === 7_200_000) (fn as () => void)();
+    await vider();
     expect(displayedType()).toBe('aspirateur');
   });
 });
