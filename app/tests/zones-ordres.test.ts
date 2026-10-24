@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// `demarrer()` appelle `render()` (lit) sur un element reel et bascule des classes CSS dessus --
+// `startScreen()` appelle `render()` (lit) sur un element reel et bascule des classes CSS dessus --
 // meme regle que `tests/demarrage.test.ts`, le seul autre fichier de la suite a en avoir besoin.
 import { describe, it, expect } from 'vitest';
 import { monterDemarrage, ecranVide } from './aides';

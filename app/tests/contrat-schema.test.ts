@@ -201,4 +201,22 @@ describe('contrat/ecran.schema.json', () => {
       expect(valider(reste), JSON.stringify(valider.errors)).toBe(true);
     });
   });
+
+  // Version 2 (spec 2026-09-28): the hardcoded DeLorean scenes are gone, replaced by animations
+  // launched from Home Assistant. Neither the root flag nor the modulator may come back.
+  describe('version 2 : plus de scene DeLorean', () => {
+    it('le schema ne porte plus de propriete delorean', () => {
+      expect(Object.keys(SCHEMA.properties)).not.toContain('delorean');
+      refusePour({ ...ECRANS.salon, delorean: true },
+        { instancePath: '', keyword: 'additionalProperties', params: { additionalProperty: 'delorean' } });
+    });
+
+    it('les modulateurs sont invites et chaleur, rien d autre', () => {
+      expect(SCHEMA.$defs.agencement.properties.modulateurs.items.enum).toEqual(['invites', 'chaleur']);
+    });
+
+    it('la version publiee est 2', () => {
+      expect(SCHEMA.properties.version).toEqual({ const: 2 });
+    });
+  });
 });

@@ -1,23 +1,27 @@
-"""Le miroir Python de `coutEcran`/`combien`/`verifierBudget` (`app/src/modes.ts`).
+"""The Python mirror of the screen-budget functions of `app/src/screen-budget.ts`:
+`coutEcran`/`combien`/`arrangement`/`verifierBudget`.  policy: allow-fr (TypeScript names, not ours)
 
-DEUX implementations pour une seule regle, et c'est assume : ce composant tourne dans Home
-Assistant, l'application tourne dans un navigateur. Ce qui les empeche de diverger n'est pas la
-discipline, c'est `contrat/cas-budget.json` — un corpus que les DEUX suites rejouent
-(`app/tests/cas-budget.test.ts` cote TypeScript, `tests/composant/test_budget.py` ici), ou un cas
-present d'un cote et absent de l'autre est impossible puisque c'est le meme fichier.
+TWO implementations for a single rule, and that is deliberate: this component runs in Home
+Assistant, the application runs in a browser. What keeps them from diverging is not
+discipline, it is `contrat/cas-budget.json` — a corpus that BOTH suites replay
+(`app/tests/cas-budget.test.ts` on the TypeScript side, `tests/composant/test_budget.py` here), where a
+case present on one side and absent from the other is impossible since it is the same file.
 
-Le formulaire de l'integration (taches 5 a 7) refusera une saisie sur la foi de
-`verifier_budget`. S'il calcule autre chose que `verifierBudget`, il refuse des ecrans qui
-tiennent et accepte des ecrans qui debordent — et personne ne le voit avant que la tablette soit
-au mur. TRADUIRE, PAS REINVENTER : chaque terme ci-dessous a une contrepartie exacte dans
-`modes.ts`, meme quand une formule plus courte aurait donne le meme resultat sur les cas connus —
-deux formules de ce genre ont deja ete proposees et refusees dans ce chantier, toutes deux vertes
-sur les points testes et toutes deux fausses sur un point non teste (la gouttiere de colonne,
-celle entre rangees, ou le plafond derive).
+The integration's form (tasks 5 to 7) will reject an input on the strength of
+`check_budget`. If it computes anything other than its TypeScript twin, it rejects screens that
+fit and accepts screens that overflow — and nobody sees it before the tablet is
+on the wall. TRANSLATE, DO NOT REINVENT: every term below has an exact counterpart in
+`screen-budget.ts`, even when a shorter formula would have given the same result on the known cases —
+two formulas of that kind have already been proposed and rejected in this project, both green
+on the tested points and both wrong on an untested point (the column gutter,
+the one between rows, or the derived ceiling).
 
-Le contrat lu ici est celui EMBARQUE (`contrat/` sous ce module), jamais celui du depot : une fois
-installe, ce composant tourne depuis `config/custom_components/home_desk/` et n'a aucun chemin
-vers le depot. Meme regle que `schema.py` (decision de la tache 3), cf.
+`screen-budget.ts` holds these functions since 2026-10-24 (task 9 of the media card redesign);
+they lived in `app/src/modes.ts` before.
+
+The contract read here is the EMBEDDED one (`contrat/` under this module), never the repository's: once
+installed, this component runs from `config/custom_components/home_desk/` and has no path
+to the repository. Same rule as `schema.py` (task 3 decision), cf.
 `test_budget_lit_reellement_son_contrat_embarque` (`tests/composant/test_budget.py`).
 """
 from __future__ import annotations
@@ -25,49 +29,52 @@ from __future__ import annotations
 import json
 import pathlib
 
-# Decision de la tache 3, reprise ici : jamais "../../contrat", toujours relatif au module.
-# Clouee par test_budget_lit_le_contrat_embarque ET
-# test_budget_lit_reellement_son_contrat_embarque (tests/composant/test_budget.py) — la seconde
-# espionne la lecture reelle, pas seulement le nom de cette constante.
+# Task 3 decision, carried over here: never "../../contrat", always relative to the module.
+# Pinned by test_budget_lit_le_contrat_embarque AND
+# test_budget_lit_reellement_son_contrat_embarque (tests/composant/test_budget.py) — the second
+# spies on the actual read, not just the name of this constant.
 CHEMIN_BUDGET = pathlib.Path(__file__).parent / "contrat" / "budget.json"
 
 BUDGET = json.loads(CHEMIN_BUDGET.read_text(encoding="utf-8"))
 
-# Les quatre zones du defaut (`AGENCEMENT_DEFAUT.zones`, `app/src/agencement.ts`). `contrat/`
-# n'a pas de fichier qui les nomme — elles ne viennent d'un contrat que cote TypeScript, ou
-# `agencement.ts` les declare a la main. Cette liste EST la traduction de cette declaration, et
-# non une invention : les memes quatre valeurs, dans le meme ordre.
+# The four default zones (`AGENCEMENT_DEFAUT.zones`, `app/src/agencement.ts`). `contrat/`
+# has no file that names them — they come from a contract only on the TypeScript side, where
+# `agencement.ts` declares them by hand. This list IS the translation of that declaration, and
+# not an invention: the same four values, in the same order.
 ZONES_DEFAUT: list[str] = ["ambiances", "commandes", "blocCentral", "synthese"]
 
 
 def cout_ecran(mode: str, rangee_ambiance: bool, rangees: int,
-               zones: list[str] | None = None) -> int:
-    """Ce que l'ecran mesure pour `rangees` rangees de commandes, a mode, rangee d'ambiance et
-    zones donnes. `.corps` est une COLONNE FLEX a gouttiere fixe : son cout est la somme de ses
-    enfants plus une gouttiere entre chaque paire, plus son padding vertical, le bandeau venant
-    au-dessus. UN SEUL enfant est toujours la, le bouton « Toute la maison » — il vit hors de
-    l'ordre reglable (cf. `rendu/corps.ts` cote application). Les autres ne comptent que si
-    `zones` les demande : le bloc central UN, la ligne de synthese UN, la rangee « Ambiance »
-    DEUX (son etiquette est un enfant a part entiere), la grille de commandes UN.
+               zones: list[str] | None = None, synthese_reduite: bool = False) -> int:
+    """What the screen measures for `rangees` rows of controls, at a given mode, ambience row and
+    zones. `.corps` is a FLEX COLUMN with a fixed gutter: its cost is the sum of its
+    children plus one gutter between each pair, plus its vertical padding, with the header band
+    on top. ONE SINGLE child is always there, the "Toute la maison" (whole house) button — it lives outside
+    the adjustable order (cf. `rendu/corps.ts` on the application side). The others count only if
+    `zones` asks for them: the central block ONE, the summary line ONE, the "Ambiance" row
+    TWO (its label is a child in its own right), the control grid ONE.
 
-    `zones=None` signifie « les quatre zones du defaut », exactement comme la valeur par defaut
-    TypeScript (`AGENCEMENT_DEFAUT.zones`)."""
+    `zones=None` means "the four default zones", exactly like the TypeScript default
+    value (`AGENCEMENT_DEFAUT.zones`). `synthese_reduite` bills the one-line synthesis
+    (`hauteurs.syntheseReduite`, 2026-10-24) instead of the two-line one."""
     if zones is None:
         zones = ZONES_DEFAUT
     h = BUDGET["hauteurs"]
-    # Trois branches, jamais deux : `minuteur` paie `blocMinuteur` (206 px), les modes a bloc
-    # haut (`media`, `cinema`, `voiture`) paient `blocHaut` (153 px), tous les autres paient
-    # `blocDefaut` (84 px). Un seul bloc central par ecran : c'est un TERNAIRE a trois branches,
-    # jamais un "en plus".
+    # Four branches: `minuteur` pays `blocMinuteur` (215 px), the media modes (`media`,
+    # `cinema`) pay `blocMedia` (264 px, since 2026-10-24), the other tall block (`voiture`)
+    # pays `blocHaut` (153 px), all the others pay `blocDefaut` (84 px). A single central block
+    # per screen: never an "on top of".
     if mode in BUDGET["modesABlocMinuteur"]:
         bloc = h["blocMinuteur"]
+    elif mode in BUDGET["modesABlocMedia"]:
+        bloc = h["blocMedia"]
     elif mode in BUDGET["modesABlocHaut"]:
         bloc = h["blocHaut"]
     else:
         bloc = h["blocDefaut"]
 
-    # « Toute la maison » est HORS de l'ordre reglable : toujours la, toujours facturee. Les
-    # quatre autres ne coutent que si l'agencement les demande.
+    # "Toute la maison" (whole house) is OUTSIDE the adjustable order: always there, always billed. The
+    # four others cost something only if the layout asks for them.
     enfants = 1
     somme = h["touteLaMaison"]
     if "blocCentral" in zones:
@@ -75,60 +82,100 @@ def cout_ecran(mode: str, rangee_ambiance: bool, rangees: int,
         somme += bloc
     if "synthese" in zones:
         enfants += 1
-        somme += h["synthese"]
+        somme += h["syntheseReduite"] if synthese_reduite else h["synthese"]
     if rangee_ambiance and "ambiances" in zones:
-        # L'etiquette « Ambiance » est un enfant a part entiere de la colonne flex, pas un titre
-        # dans le groupe : deux enfants, donc deux gouttieres.
+        # The "Ambiance" label is a child in its own right of the flex column, not a title
+        # inside the group: two children, hence two gutters.
         enfants += 2
         somme += h["etiquetteAmbiance"] + h["rangeeAmbiance"]
     if rangees > 0:
         enfants += 1
-        # Les rangees vivent dans UNE grille : leur gouttiere est celle de la grille (10 px), pas
-        # celle de la colonne (8 px) — et il n'y en a pas apres la derniere.
+        # The rows live in ONE grid: their gutter is the grid's (10 px), not
+        # the column's (8 px) — and there is none after the last one.
         somme += h["rangeeCommandes"] * rangees + h["gouttiereCommandes"] * (rangees - 1)
     return h["bandeau"] + h["paddingCorps"] + somme + h["gouttiere"] * (enfants - 1)
 
 
 def combien(mode: str, rangee_ambiance: bool = True,
             hauteur_utile: int | None = None,
-            zones: list[str] | None = None) -> int:
-    """Combien de commandes l'ecran montre. NE LEVE JAMAIS : un budget intenable rend 0, et
-    l'ecran affiche alors ses autres zones sans rangee de commandes — exactement ce que le mode
-    `minuteur` fait deja legitimement.
+            zones: list[str] | None = None,
+            synthese_reduite: bool = False) -> int:
+    """How many controls the screen shows. NEVER RAISES: an untenable budget returns 0, and
+    the screen then displays its other zones without a row of controls — exactly what the
+    `minuteur` mode already does legitimately.
 
-    `hauteur_utile=None` signifie `BUDGET["hauteurUtileParDefaut"]` (585, les Fire 7).
-    `zones=None` signifie les quatre zones du defaut."""
+    `hauteur_utile=None` means `BUDGET["hauteurUtileParDefaut"]` (585, the Fire 7s).
+    `zones=None` means the four default zones."""
     if hauteur_utile is None:
         hauteur_utile = BUDGET["hauteurUtileParDefaut"]
     if zones is None:
         zones = ZONES_DEFAUT
-    # Un ecran qui n'affiche pas la zone `commandes` n'affiche AUCUNE commande — ce n'est pas une
-    # question de budget, c'est une question de composition. Rend 0, ne leve JAMAIS.
+    # A screen that does not display the `commandes` zone displays NO control at all — it is not a
+    # budget question, it is a composition question. Returns 0, NEVER raises.
     if "commandes" not in zones:
         return 0
-    # Le plafond de DEUX rangees n'est pas un chiffre de plus : c'est ce que `commandesParDefaut`
-    # (4 places) et `tuilesParRangee` (2 colonnes) disent deja. `rangees_max` se DERIVE, il ne
-    # s'ecrit jamais `2`.
+    # The ceiling of TWO rows is not one more number: it is what `commandesParDefaut`
+    # (4 slots) and `tuilesParRangee` (2 columns) already say. `rangees_max` is DERIVED, it is
+    # never written `2`.
     rangees_max = BUDGET["commandesParDefaut"] // BUDGET["tuilesParRangee"]
-    # `combien` BOUCLE de `rangees_max` vers 1 et rend le premier qui tient ; il ne divise jamais
-    # le reste par la hauteur d'une rangee.
+    # `combien` LOOPS from `rangees_max` down to 1 and returns the first that fits; it never divides
+    # the remainder by the height of a row.
     for rangees in range(rangees_max, 0, -1):
-        if cout_ecran(mode, rangee_ambiance, rangees, zones) <= hauteur_utile:
+        if cout_ecran(mode, rangee_ambiance, rangees, zones, synthese_reduite) <= hauteur_utile:
             return rangees * BUDGET["tuilesParRangee"]
-    # Jamais de rangee coupee en deux : sous une rangee, il ne reste que zero — que le budget
-    # tienne ou non.
+    # Never a row cut in half: below one row, only zero remains — whether the budget
+    # holds or not.
     return 0
 
 
-def verifier_budget(mode: str, rangee_ambiance: bool, hauteur_utile: int,
-                     zones: list[str] | None = None) -> int:
-    """De combien cette composition deborde, en pixels. 0 si elle tient. Ecrite pour le
-    formulaire de l'integration Home Assistant, qui doit pouvoir dire « cet ecran deborde de
-    58 px » (`verifier_budget('minuteur', True, 500)`, verifie en l'executant — la valeur
-    precedente, 45, etait fausse : `verifier_budget('minuteur', True, 585)` rend 0, pas 45)
-    AU MOMENT DE LA SAISIE — pas devant la tablette.
+def _echelons(rangee_ambiance: bool) -> list[dict[str, bool]]:
+    """The rungs of the ladder, in the owner's order (spec 2026-10-23, "Place a l'ecran"): the
+    full composition, then the reduced synthesis, then the reduced synthesis without the
+    Ambiance row. Same list as `echelons` in `screen-budget.ts`."""
+    return [
+        {"rangeeAmbiance": rangee_ambiance, "syntheseReduite": False},
+        {"rangeeAmbiance": rangee_ambiance, "syntheseReduite": True},
+        {"rangeeAmbiance": False, "syntheseReduite": True},
+    ]
 
-    Compte toujours ZERO rangee de commandes : c'est la composition la plus petite que l'ecran
-    puisse rendre, donc la question « tient-elle, meme a vide ? ». Le rendu ne l'appelle jamais :
-    c'est `combien` qui degrade, `verifier_budget` qui porte le verdict."""
-    return max(0, cout_ecran(mode, rangee_ambiance, 0, zones) - hauteur_utile)
+
+def arrangement(mode: str, rangee_ambiance: bool = True,
+                hauteur_utile: int | None = None,
+                zones: list[str] | None = None) -> dict[str, bool | int]:
+    """What the screen shows in `mode`: the first rung whose `combien` reaches
+    `commandesSousBlocHaut`, or the last rung if none does. Only the modes of
+    `modesABlocMedia` climb the ladder; every other mode gets its full composition. The budget
+    decides, never a list of rooms. Returns the keys of the TypeScript `Arrangement`
+    (`rangeeAmbiance`, `syntheseReduite`, `commandes`), so the corpus compares them as is."""
+    rungs = _echelons(rangee_ambiance)
+    if mode not in BUDGET["modesABlocMedia"]:
+        rungs = rungs[:1]
+    chiffres = [
+        {**r, "commandes": combien(mode, r["rangeeAmbiance"], hauteur_utile, zones,
+                                   r["syntheseReduite"])}
+        for r in rungs
+    ]
+    for a in chiffres:
+        if a["commandes"] >= BUDGET["commandesSousBlocHaut"]:
+            return a
+    return chiffres[-1]
+
+
+def check_budget(mode: str, rangee_ambiance: bool, hauteur_utile: int,
+                 zones: list[str] | None = None) -> int:
+    """By how much this composition overflows, in pixels. 0 if it fits. Written for the
+    Home Assistant integration's form, which must be able to say "this screen overflows by
+    58 px" (`check_budget('minuteur', True, 500)`, checked by running it — the previous
+    value, 45, was wrong: `check_budget('minuteur', True, 585)` returns 0, not 45)
+    AT INPUT TIME — not in front of the tablet.
+
+    Always counts ZERO rows of controls: it is the smallest composition the screen
+    can render, hence the question "does it fit, even empty?". The rendering never calls it:
+    it is `combien` that degrades, `check_budget` that delivers the verdict.
+
+    Since 2026-10-24, for the modes of `modesABlocMedia`, that smallest composition is the LAST
+    rung of the ladder (reduced synthesis, no Ambiance row): the screen draws it whenever nothing
+    else fits, so the form refuses only what overflows even there."""
+    r = _echelons(rangee_ambiance)[2 if mode in BUDGET["modesABlocMedia"] else 0]
+    return max(0, cout_ecran(mode, r["rangeeAmbiance"], 0, zones, r["syntheseReduite"])
+               - hauteur_utile)

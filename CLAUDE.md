@@ -13,9 +13,12 @@
 
 - **`dist/` est versionné.** Le contrat livre par `git archive HEAD` ; un build
   à l'installation aurait exigé `apt: [nodejs, npm]` et 115 Mo de
-  `node_modules` sur la cible. `dist/` contient aussi ses `assets/`, dupliqués
-  depuis `app/assets/` — 411 Ko payés une fois pour que le dépôt se fasse en
-  **un seul `replace_tree()` atomique**. `www/wallpanel/` est relu par trois
+  `node_modules` sur la cible. `dist/` contient aussi le lecteur Lottie
+  (`dotlottie.js`, 61 Ko) et son WASM (`assets/dotlottie-player.wasm`,
+  1,2 Mo, copié depuis `app/node_modules` par le build ; `app/assets/` et
+  les polices DSEG sont partis le 2026-09-28) — payés une fois par version du
+  lecteur (git stocke par contenu), et jamais par un CDN, pour que le dépôt se
+  fasse en **un seul `replace_tree()` atomique**. `www/wallpanel/` est relu par trois
   clients qui rechargent tout seuls : deux gestes de dépôt y ouvriraient une
   fenêtre.
 - **Le hook n'écrit jamais dans `configuration.yaml`**, il signale deux lignes.
@@ -45,7 +48,7 @@
   | **survivraient au retrait des littéraux** | **15** (14 propres à cette maison, plus `sun.sun`) |
 
   Les quinze vivent dans `rendu/maison.ts` (table `TOUTE_LA_MAISON`),
-  `demarrage.ts` (les quatre `calendar.*`, `weather.maison`,
+  `boot/` (ex-`demarrage.ts`, découpé le 2026-09-28 : les quatre `calendar.*`, `weather.maison`,
   `input_boolean.mode_invites`, `input_number.duree_minuteur_cuisine`,
   `sun.sun`), `alertes.ts` (les trois `binary_sensor.tablette_*_mouvement`,
   les trois capteurs de présence, le distributeur de croquettes), puis
@@ -87,15 +90,24 @@ elle reste, inerte, et affiche son libellé. Cinq endroits le respectent, et
 
 | Fichier | Ce qu'il fait |
 |---|---|
-| `rendu/corps.ts:417` | le filtre des commandes de la pièce |
-| `rendu/corps.ts:425` | le **second** filtre (`recetteOuvrable`), qui reprenait ce que le premier venait de laisser passer |
-| `rendu/corps.ts:106` | `ligneSynthese`, qui **sautait** l'entrée |
-| `rendu/corps.ts:270` | l'étiquette, appelée **inconditionnellement** depuis |
-| `rendu/maison.ts:90` | la tuile « Scanner », qui vit dans `extrasMaison` et n'est **pas** rendue par `corps.ts` |
+| `rendu/corps.ts:216` | le filtre des commandes de la pièce |
+| `rendu/corps.ts:228` | le **second** filtre (`recetteOuvrable`), qui reprenait ce que le premier venait de laisser passer |
+| `rendu/corps.ts:114` | `ligneSynthese`, qui **sautait** l'entrée |
+| `rendu/tile.ts:168` | l'étiquette, appelée **inconditionnellement** depuis (sortie de `corps.ts` le 2026-09-28, avec toute la tuile) |
+| `rendu/maison.ts:116` | la tuile « Scanner », qui vit dans `extrasMaison` et n'est **pas** rendue par `corps.ts` |
 
 `interaction.ts` rend l'appui inerte, et `base.css` retire le retour tactile
 (`.absent`) : une tuile qui accuse réception d'une action qui n'a pas lieu est
 le « bouton mort » que ce projet s'interdit.
+
+**« Absente » veut dire absente, pas muette** (porte de l'étape 5,
+2026-09-28, défaut A). Le masquage générique demande `Etat.estUtilisable` ;
+`absenceNommee` demande `Etat.isPresent` : l'entité manque ou vaut
+`unavailable`. `unknown` est une entité PRÉSENTE qui n'a rien à dire —
+`sensor.home_stock_next_meal` sans repas planifié — et affirmer alors
+« Garde-manger non installé » était un diagnostic faux. Sans repas, la tuile
+Recette disparaît (même règle qu'un repas sans recette) ; Courses et Scanner
+restent vivants, sans libellé d'absence.
 
 ## Génération 1 — morte, et il ne faut pas la réveiller par erreur
 
@@ -149,7 +161,15 @@ suivantes par une convention de dépôt, sans filet automatique :
   test_garde_ecran_est_le_seul_module_a_appeler_une_porte_d_ecriture`,
   table `_PORTES_ECRITURE`). `garde_ecran.persister_si_valide` (mise à
   jour d'une sous-entrée) et `garde_ecran.importer_ecrans` (tâche 9,
-  création en masse) sont les deux seuls appelants légitimes. Relevé en
+  création en masse) sont deux appelants légitimes — rejoints
+  le 2026-09-28 par `garde_ecran.migrate_subentry`, la réécriture au
+  chargement des écrans de version 1 (`migration.py` calcule la donnée,
+  `garde_ecran.py` l'écrit), puis par `garde_ecran.persist_house_if_valid`
+  (écriture de la sous-entrée maison). **Corrigé le 2026-10-24** — cette
+  section disait « les deux seuls appelants légitimes » ; ils sont quatre
+  (`persister_si_valide`, `importer_ecrans`, `migrate_subentry`,
+  `persist_house_if_valid`), la sous-entrée maison ayant ajouté le
+  quatrième, toujours dans `garde_ecran.py`. Relevé en
   relecture finale de branche (deuxième ronde) : cette section (première
   ronde) omettait purement et simplement `async_remove_subentry` de son
   compte (« Six » portes listées, aucune n'étant celle-ci) — un appel
@@ -181,6 +201,22 @@ suivantes par une convention de dépôt, sans filet automatique :
   évite la dépendance circulaire. La prochaine extraction suit la même
   ligne ; ne coupez pas à un nombre de lignes.
 
+## Index — maison et carte média (détail : `docs/claude/maison-et-budget-media.md`)
+
+- **Sous-entrée maison** (`SUBENTRY_HOUSE = "maison"`, `maison.py`
+  `HouseSubentryFlow`, commande WS `home_desk/maison`, contrat
+  `contrat/maison.schema.json` + `cas-maison.json`, `schema.validate_house`) :
+  sources média de la maison, champ `piece` obligatoire (facultatif sur les
+  sources propres d'un écran). Bloc `maison:` du YAML ;
+  absent à l'import, il supprime la maison.
+- **Échelle de budget** des modes de `budget.json` -> `modesABlocMedia`
+  (media, cinema) : composition complète, synthèse réduite, synthèse réduite
+  sans rangée Ambiance (`app/src/screen-budget.ts`, jumeau `budget.py`, corpus
+  `contrat/cas-budget.json`).
+- **Teintes de la carte média** : `app/src/tones.ts`,
+  `app/src/rendu/poster-sampler.ts`, `app/src/boot/media-tones.ts`; contrôle de
+  rendu `app/outils/verifier-carte-media.mjs`.
+
 ## Dettes connues du composant, reportées au 3b/3c
 
 Relevées en relecture finale de branche — un registre de bord qui ne part
@@ -195,24 +231,48 @@ deviennent éditables (trois en 3b, `aspirateurMaison` en 3c), le préalable
 tablettes partent avec le lot de portabilité du 3c. Cette section reste ici
 comme CONSTAT mesuré ; la spec porte la décision.
 
-- **Les trois IP de tablettes (`192.168.0.159`/`.218`/`.138`) apparaissent
-  à QUATRE endroits**, pas un seul (relevé une première fois de façon
-  incomplète en première ronde de relecture finale, corrigé ici) :
-  `app/src/styles/base.css:38-39` (la SOURCE dont `dist/wallpanel.css` est
-  bâti — le commentaire de mesure Fully Kiosk), `app/outils/
-  verifier-rendu.mjs:979-980`, et `app/README.md:18-20`, qui porte un
-  TABLEAU des trois IP avec leurs `entity_id` de capture d'écran. Aucune
-  garde ne les cherche nulle part : `tests/test_dist_portable.py` scanne
-  bien `dist/` (`INTERDITS`), mais cette liste ne connaît que deux chemins
-  de fichier (`/opt/nivuus/HomeAssistant`, `/home/mallanic`), aucune IP ;
-  et `app/`, lui, n'est scanné par AUCUNE garde de portabilité. Le
-  littéral `"192.168.0.1"` qu'`INTERDITS_COMPOSANT` porte dans le même
-  fichier ne s'applique QU'à `custom_components/home_desk/`, un
-  répertoire différent — et même transposé, il ne matche `.159`/`.138` que
-  par coïncidence de préfixe (`"192.168.0.1" in "192.168.0.159"` est
-  vrai), jamais `.218`. Dette antérieure à cette branche, à trancher en 3c
-  (un motif `192\.168\.0\.\d+` sur les quatre fichiers, ou accepter que
-  ces IP restent).
+- **Fermée à la tâche 5 du plan 3c, complétée en ronde de relecture 1.**
+  Cette entrée constatait que les trois IP de tablettes
+  (`192.168.0.159`/`.218`/`.138`) apparaissaient à quatre endroits sans
+  qu'aucune garde ne les cherche : `app/`, la SOURCE dont `dist/` est bâti,
+  n'était scanné par rien, et le littéral `"192.168.0.1"`
+  d'`INTERDITS_COMPOSANT` (`tests/test_dist_portable.py`) ne s'appliquait
+  qu'à `custom_components/home_desk/` et n'attrapait `.159`/`.138` que par
+  coïncidence de préfixe, jamais `.218`. Retiré des quatre fichiers
+  (`app/src/styles/base.css`, `app/outils/verifier-rendu.mjs`,
+  `app/README.md`, et le mot de passe Fully Kiosk en clair trouvé au
+  passage dans `app/docs/superpowers/plans/
+  2026-08-06-bandeau-mise-en-page.md`), en conservant le savoir que ces
+  commentaires portaient (deux moteurs Chrome distincts sur les trois
+  tablettes, `dvh` absent sur l'un).
+
+  **La première passe s'arrêtait juste avant un fichier qui violait la
+  règle.** `SCANNES` ne couvrait que `app/src`, `app/outils`,
+  `app/scripts`, `app/gabarits` et `app/README.md` — `app/docs/`, pourtant
+  livré par `git archive HEAD` au même titre que `app/README.md`, restait
+  hors du filet, et une IP de tablette avait survécu juste à côté du mot
+  de passe retiré, sur la même ligne 592 de `2026-08-06-bandeau-mise-en-page.md`.
+  Étendre `SCANNES` à `app/docs` a aussi mis au jour, non nommés par la
+  mesure initiale : quatre chemins morts `/opt/nivuus/HomeAssistant/...`
+  (disparu le 2026-08-28) dans ce même fichier et dans
+  `2026-08-22-mouvement-grammaire.md` — dont un mode opératoire encore
+  actionnable qui lit `HA_TOKEN` sur un chemin mort depuis six semaines —,
+  et trois IP supplémentaires (`192.168.0.1`, la passerelle du Grocy
+  local, pas une tablette) dans trois specs/plans de la fonctionnalité
+  recette/scan. Même traitement partout : le fait reste, l'identifiant
+  part, la date de retrait est dite.
+
+  `tests/test_portabilite_app.py`, ajouté à la boucle de `make test`,
+  scanne `app/src`, `app/outils`, `app/scripts`, `app/gabarits`,
+  `app/README.md` et `app/docs` par MOTIF (jamais par littéral) et referme
+  le filet sur ce périmètre : une IP, un chemin personnel ou un mot de
+  passe en clair qui y réapparaîtrait ferait échouer `make test`, pas
+  seulement une relecture. **Laissé hors de `SCANNES`, à dessein, et donc
+  hors filet** : `app/tests/` (sa propre suite vitest) et les fichiers à
+  la racine d'`app/` (`package.json`, `package-lock.json`,
+  `rollup.config.js`, `tsconfig.json`, `vitest.config.ts`)
+  — vérifiés sans trace de cette machine au 2026-09-14, mais une
+  régression future n'y serait pas détectée automatiquement.
 - **Au-delà des IP, `dist/wallpanel.js` embarque la configuration
   littérale COMPLÈTE de cette maison** — mesuré : 69 `entity_id` distincts
   (`grep -oE '"[a-z_]+\.[a-z0-9_]+"' dist/wallpanel.js | sort -u | wc -l`),
@@ -230,21 +290,30 @@ comme CONSTAT mesuré ; la spec porte la décision.
   cette maison. Non nommée ailleurs avant cette ligne. Aucune décision de
   trancher n'est prise ici — seulement le constat, pour que la prochaine
   tâche qui touche à `dist/` ou à la portabilité du dépôt le trouve.
-- **Un champ racine du contrat n'a toujours aucune porte de saisie** :
-  `aspirateurMaison`. La tâche 7 en a ouvert trois (`aspirateur`,
-  `listesTachesExtra`, `delorean`) ; celui-là reste dehors à dessein. Son
-  vrai blocage est le littéral `'vacuum.aspirateur_cuisine'` écrit en dur
-  dans `rendu/maison.ts` : le rendre éditable depuis Home Assistant avant
-  de traiter ce littéral livrerait un bouton à demi mort. Part au plan 3c.
+- **Fermée, plan 3c tâche 1 : `aspirateurMaison`, le quatrième champ racine,
+  avait sa porte de saisie manquante — corrigée dans cet ordre précis, parce
+  que l'ordre était le piège.** D'abord le littéral : `rendu/maison.ts`
+  comparait `b.entite === 'vacuum.aspirateur_cuisine'` pour décider si
+  `piece.aspirateurMaison` remplace la tuile générique « Aspirateur » de la
+  vue « Toute la maison » — un second endroit qui recopiait le même fait que
+  la table `TOUTE_LA_MAISON`, à quinze lignes de distance, sans lien entre
+  les deux. L'entrée est désormais nommée (`export const
+  ASPIRATEUR_GENERIQUE: Bouton`) et comparée par IDENTITÉ, jamais par sa
+  valeur d'entité. Ensuite seulement le formulaire :
+  `custom_components/home_desk/objets.py` (`SectionsObjetMixin.
+  async_step_aspirateur_maison`, calqué sur `async_step_voiture`) ouvre la
+  saisie. Traiter la saisie avant le littéral aurait livré un bouton à demi
+  mort — la tuile saisie depuis Home Assistant n'aurait jamais remplacé la
+  générique, sans un mot, dès que la table aurait changé d'aspirateur.
 - **Une entité inconnue du registre HA donne un avertissement, jamais un
   refus** (décision 7 de la spec citée ci-dessus) — tenue à la tâche 7 :
   `custom_components/home_desk/registre.py` (`entites_inconnues`,
-  `entites_dans`) lit le registre ET l'état (une entité créée en YAML ou
+  `entities_in`) lit le registre ET l'état (une entité créée en YAML ou
   par template répond sans être au registre). **Corrigé en relecture
   finale de branche (I3) : cette entrée comptait « les TROIS câblages »
   (les DEUX entrées de l'identité, `EcranSubentryFlow.async_step_user`/
   `async_step_identite`, et le squelette des sections « liste »,
-  `SectionsListeMixin._async_step_section_element`) et omettait le
+  `ListSectionsMixin._async_step_section_element`) et omettait le
   QUATRIÈME — exactement la faute que le commit `0bfa8ff` corrigeait par
   ailleurs (`_PORTES_ECRITURE` à qui il manquait `async_remove_
   subentry`).** Le quatrième câblage est la section « objet » `voiture`

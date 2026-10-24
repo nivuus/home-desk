@@ -4,7 +4,7 @@
  *  chaque `creerMoteur(...)` et n'a besoin de rien ici — ce stub ne prend le relais que là où rien
  *  n'est injecté.
  *
- *  C'est le cas des suites qui montent RÉELLEMENT `demarrer()` (`tests/orchestration.test.ts`,
+ *  C'est le cas des suites qui montent RÉELLEMENT `startScreen()` (`tests/orchestration.test.ts`,
  *  `tests/demarrage.test.ts`…, via `tests/aides.ts`) : elles passent par le VRAI
  *  `creerMoteur(racine)` de `demarrage.ts`, sans option `animer`. Sans ce stub, le premier verdict
  *  joué (déplacement, entrée ou sortie) lève `TypeError: el.animate is not a function` — rattrapée

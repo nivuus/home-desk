@@ -1,5 +1,5 @@
 /** Distinction appui / glissement sur les tuiles à jauge (tâche 13). Complète `interaction.ts`
- *  (le tap optimiste) SANS y toucher : `creerGeste` se place EN AMONT de la bascule, uniquement
+ *  (le tap optimiste) SANS y toucher : `createGesture` se place EN AMONT de la bascule, uniquement
  *  sur les tuiles qui exposent une jauge (`descripteurJauge`, `jauge.ts`) — luminosité, consigne
  *  de chauffage, position de rideau, volume média — et retarde ou annule l'appel de bascule selon
  *  que le doigt a glissé ou non.
@@ -81,36 +81,34 @@ const INTERVALLE_MIN_MS = 150;
 // mais pas si long qu'une tuile réellement coincée reste inutilisable une minute.
 export const DELAI_SECOURS_MS = 5_000;
 
-/** Fabrique le dispatcher partagé par les trois points d'attache (`rendu/corps.ts` pour les
- *  commandes ET le bloc média, `rendu/maison.ts` pour la vue « Toute la maison ») — une seule
- *  instance, comme `creerAppui` (même raison : pas de table de minuteurs/throttle dédoublée pour
- *  une même entité visible sur deux écrans). `surBascule` est la bascule déjà construite par
- *  l'appelant (typiquement `() => appuyer(etat, b)`, où `appuyer` est le retour de `creerAppui`) —
- *  ce fichier ne sait rien de `Bouton` ni de `etatVise`, il décide seulement QUAND l'appeler. */
-export function creerGeste(
+/** Builds the dispatcher shared by the three attachment points (`rendu/corps.ts` for the
+ *  commands AND the media block, `rendu/maison.ts` for the "Toute la maison" view) — a single
+ *  instance, like `createPress` (same reason: no duplicated timer/throttle table for the same
+ *  entity visible on two screens). `surBascule` is the toggle already built by the caller
+ *  (typically `() => appuyer(etat, b)`, where `appuyer` is the return value of `createPress`) —
+ *  this file knows nothing about `Bouton` or `etatVise`, it only decides WHEN to call it. */
+export function createGesture(
   etat: Etat, cx: ConnexionAppelable, estHorsLigne: () => boolean,
   // Horloge injectable : par défaut `Date.now`, jamais un minuteur — cf. docstring `INTERVALLE_MIN_MS`.
   maintenant: () => number = Date.now,
-  // Minuteur injectable pour le filet de sécurité ci-dessous (`DELAI_SECOURS_MS`) — même patron
-  // que `d.minuteurFn` dans `demarrage.ts`/`creerAppui` (`interaction.ts`) : par défaut
-  // l'enveloppe qui appelle `setTimeout` en appel nu (cf. docstring `minuteurs.ts`), jamais un
-  // `setTimeout` capturé ailleurs. `clearTimeout`, lui, n'a pas ce piège de récepteur (vérifié
-  // contre Chromium, cf. `minuteurs.ts`) : appelé nu directement plus bas, comme partout ailleurs
-  // dans ce projet (`interaction.ts`, `demarrage.ts`).
+  // Injectable timer for the safety net below (`DELAI_SECOURS_MS`) — same pattern as
+  // `d.minuteurFn` in `demarrage.ts`/`createPress` (`interaction.ts`): by default the wrapper that
+  // calls `setTimeout` as a bare call (see the `minuteurs.ts` docstring), never a `setTimeout`
+  // captured elsewhere. `clearTimeout`, for its part, does not have this receiver trap (checked
+  // against Chromium, see `minuteurs.ts`): called bare directly further down, as everywhere else
+  // in this project (`interaction.ts`, `demarrage.ts`).
   minuteurFn: typeof setTimeout = minuteurFnParDefaut,
 ): (ev: PointerEvent, entite: string, surBascule: () => void) => void {
-  // Ronde de correction 4 (relecture de rattrapage) : verrou PAR TUILE, plus un booléen unique
-  // partagé par toute l'application. `creerGeste` n'est instancié qu'une seule fois pour tout le
-  // programme (`demarrage.ts`, branché à la fois sur l'écran de pièce et sur « Toute la maison »)
-  // : un simple booléen dans cette fermeture était donc UN SEUL verrou pour toutes les tuiles à
-  // jauge de l'app entière. Preuve du relecteur : un geste démarré sur une tuile qui ne reçoit
-  // jamais son relâchement (doigt sorti par le bord, évènement perdu, page redessinée pendant le
-  // mouvement) bloquait ensuite TOUT `pointerdown` sur N'IMPORTE QUELLE AUTRE tuile, indéfiniment,
-  // jusqu'au rechargement de la page — aucun filet de récupération n'existait. Une clé sur
-  // l'élément DOM seul (→ minuteur de secours vivant) confine désormais un geste bloqué à SA SEULE
-  // tuile ; combinée au minuteur de secours (`DELAI_SECOURS_MS`) posé plus bas, même cette
-  // tuile-là se libère toute seule au bout de quelques secondes plutôt que de rester verrouillée
-  // à vie.
+  // Correction round 4 (catch-up review): lock PER TILE, no longer a single boolean shared by the
+  // whole application. `createGesture` is instantiated only once for the whole program
+  // (`demarrage.ts`, wired both on the room screen and on "Toute la maison"): a plain boolean in
+  // this closure was therefore ONE SINGLE lock for all the gauge tiles of the entire app. The
+  // reviewer's proof: a gesture started on a tile that never receives its release (finger gone
+  // off the edge, lost event, page redrawn during the movement) then blocked EVERY `pointerdown`
+  // on ANY OTHER tile, indefinitely, until the page was reloaded — no recovery net existed. A key
+  // on the DOM element alone (→ live fallback timer) now confines a stuck gesture to ITS OWN tile
+  // only; combined with the fallback timer (`DELAI_SECOURS_MS`) set further down, even that tile
+  // frees itself after a few seconds rather than staying locked for life.
   //
   // Ronde de correction 5 (2026-08-02) : la clé a d'abord été composée élément → pointerId, sur
   // la même relecture — erreur corrigée ici. Le WebView de ces tablettes n'émet pas seulement
@@ -139,14 +137,13 @@ export function creerGeste(
     // frontières de fonction, même piège que `jetons`/`tenter()` dans `demarrage.ts`) : `desc`
     // capture la valeur déjà garantie non nulle dans une constante à part.
     const desc: DescripteurJauge = d;
-    // Même garde que `creerAppui` (`interaction.ts`) pour tout ce qui est un VRAI appel de
-    // service : un glissement en est un au même titre qu'un appui, et doit être bloqué de la
-    // même façon pendant une panne de connexion silencieuse — pas seulement l'appui simple. On
-    // s'arrête ici, avant même `setPointerCapture`/l'armement des écouteurs : ni la couche
-    // visuelle spécifique à la jauge, ni aucun appel réseau, ne doivent avoir lieu hors ligne.
-    // (La couche `:active` générique, CSS pure, continue de réagir — ce fichier ne la commande
-    // pas et ne peut donc pas la bloquer, ce qui est très exactement voulu : le contact reste
-    // senti, seule l'action est empêchée.)
+    // Same guard as `createPress` (`interaction.ts`) for everything that is a REAL service call:
+    // a slide is one just as much as a press, and must be blocked the same way during a silent
+    // connection outage — not only the simple press. We stop here, even before
+    // `setPointerCapture`/the arming of the listeners: neither the gauge-specific visual layer
+    // nor any network call must happen offline. (The generic `:active` layer, pure CSS, keeps
+    // reacting — this file does not control it and therefore cannot block it, which is exactly
+    // what is wanted: the touch is still felt, only the action is prevented.)
     if (estHorsLigne()) return;
 
     const cibleEl = ev.currentTarget as HTMLElement | null;

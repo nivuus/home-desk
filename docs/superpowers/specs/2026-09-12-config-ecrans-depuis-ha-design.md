@@ -212,7 +212,7 @@ Le flow refuse à l'écriture :
 - une composition qui déborde `hauteurUtile` — « cet écran déborde de N px en
   mode minuteur », dit AU MOMENT DE L'ÉDITION, pas devant la tablette. *Le
   « 45 px » que la spec citait est faux : les valeurs mesurées de
-  `verifier_budget` sont 336 px restants en mode `defaut` sur 100 px de bloc,
+  `check_budget` sont 336 px restants en mode `defaut` sur 100 px de bloc,
   58 en mode `minuteur` sur 500, et 0 à 585 — la valeur de débordement dépend de
   la composition, aucune constante ne la fixe.*
 
@@ -281,7 +281,7 @@ else p.reject(new Error(m.error?.message ?? 'commande refusée'));
 
 En face, `websocket.py` a investi dans le code : `not_found` *(corrigé en
 relecture finale de branche — cette section écrivait `ecran_introuvable`,
-le nom cosmétique de la constante Python `ERREUR_ECRAN_INTROUVABLE`, pas
+le nom cosmétique de la constante Python `ERROR_SCREEN_NOT_FOUND`, pas
 la valeur réellement transportée : `const.py:232`)*,
 `version_inconnue`, `ecran_corrompu`, plus `invalid_format` de Home Assistant.
 Leurs `message` sont du **français Python sans accents**, jamais passés par
@@ -584,7 +584,7 @@ par 23 tests — jamais par un rendeur maison, qui divergerait.
 
 **Le fichier produit n'entre JAMAIS dans git** : il porte les 54 `entity_id`. Il
 va dans un chemin de travail, puis dans `config/home_desk_ecrans.yaml` sur
-l'hôte, nom fixé par `const.FICHIER_EXPORT_ECRANS` — le service n'accepte aucun
+l'hôte, nom fixé par `const.SCREENS_EXPORT_FILE` — le service n'accepte aucun
 chemin d'appel.
 
 **La preuve tient en trois niveaux, parce que les deux moitiés n'ont pas la même

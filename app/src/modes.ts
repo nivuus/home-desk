@@ -14,13 +14,11 @@
 import type { Bouton } from './ecran';
 import { AGENCEMENT_DEFAUT } from './agencement';
 import type { Zone } from './agencement';
-import BUDGET from '../../contrat/budget.json';
-
-export { BUDGET };
+import { arrangement, BUDGET, type Arrangement } from './screen-budget';
 
 export type ModePrincipal =
   'alerte' | 'recette' | 'minuteur' | 'menage' | 'cinema' | 'media' | 'aeration' | 'voiture' | 'defaut';
-export type Modulateur = 'invites' | 'chaleur' | 'delorean';
+export type Modulateur = 'invites' | 'chaleur';
 
 export type ContexteModes = {
   alerte: boolean;
@@ -35,7 +33,6 @@ export type ContexteModes = {
   temperatureExterieure: number;
   soleilLeve: boolean;
   modeInvites: boolean;
-  instantDelorean: boolean;
   /** Au moins un minuteur de la pièce est en marche ou en pause. */
   minuteurEnCours: boolean;
   /** Une recette est ouverte et réduite (vue `#recette` quittée sans « Terminer »). Prime sur tout
@@ -47,7 +44,8 @@ export type ContexteModes = {
    *  `voitureDeclaree: boolean` (qui déduisait ce fait de la simple présence de `piece.voiture`,
    *  un mécanisme que le repas/l'agenda n'auraient pas pu réutiliser sans en écrire un second en
    *  parallèle). Seule la valeur `'voiture'` change le MODE ci-dessous (`voiture` a un gabarit
-   *  plus haut, cf. `combien`) ; `'repas'`/`'agenda'`/`undefined` retombent tous sur `defaut` —
+   *  plus haut, cf. `combien`, `screen-budget.ts`) ; `'repas'`/`'agenda'`/`undefined` retombent
+   *  tous sur `defaut` —
    *  c'est `demarrage.ts`, qui seul connaît `agencement.blocDefaut` en clair, qui choisit ENSUITE
    *  quel contenu (repas, agenda, rien) remplit ce bloc, cf. `rendu/defaut.ts`. */
   blocDefaut?: 'voiture' | 'repas' | 'agenda';
@@ -56,7 +54,9 @@ export type ContexteModes = {
    *  mêmes 585 px. Une pièce qui a renoncé à cette rangée (le salon depuis cette date) rend ~100 px
    *  au budget : 72 px de tuiles, l'étiquette et la gouttière de 8 px, soit très exactement la
    *  deuxième rangée de commandes (64 + 10 px). Les modes à bloc central haut y retrouvent donc
-   *  leurs quatre places, cf. `combien`.
+   *  leurs quatre places, cf. `combien`. Sauf la carte média depuis le 2026-10-24 (264 px, cf.
+   *  `arrangementEcran` plus bas) : sans rangée « Ambiance », le salon y réduit sa synthèse et
+   *  garde deux commandes.
    *
    *  FACULTATIF, et « oui » quand il est absent : les deux autres pièces gardent leur rangée, et
    *  aucun appelant existant n'a une ligne à changer. Comme `blocDefaut`, il est repris tel quel
@@ -129,7 +129,8 @@ export const CONDITIONS: Record<ModePrincipal, (c: ContexteModes) => boolean> = 
   // en couleur neutre, jamais le rouge d'erreur, et ne confisque rien.
   aeration: (c) => c.ouvrantOuvertDepuisMs > AERATION_MS && (c.chauffageEnMarche || c.ilPleut),
   // Le bloc par défaut du salon, à la place des six prochaines heures (demande du propriétaire,
-  // 2026-08-03) — plus haut que la normale (cf. `combien`), il garde donc son propre mode.
+  // 2026-08-03) — plus haut que la normale (cf. `combien`, `screen-budget.ts`), il garde donc son
+  // propre mode.
   // `'repas'`/`'agenda'`/absent partagent tous le même gabarit que l'ancien `previsions`
   // (`defaut`, tâche 14) : c'est `demarrage.ts` qui choisit ensuite leur contenu respectif.
   voiture: (c) => c.blocDefaut === 'voiture',
@@ -147,7 +148,6 @@ export function modePrincipal(c: ContexteModes): ModePrincipal {
 export const CONDITIONS_MODULATEURS: Record<Modulateur, (c: ContexteModes) => boolean> = {
   invites: (c) => c.modeInvites,
   chaleur: (c) => chaleurActive(c),
-  delorean: (c) => c.instantDelorean,
 };
 
 /** Les modulateurs actifs. Cumulatifs : ils ne prennent le bloc de personne. L'ordre de la liste
@@ -159,200 +159,22 @@ export function modulateursActifs(c: ContexteModes): Modulateur[] {
     .filter((m) => declares.includes(m) && CONDITIONS_MODULATEURS[m](c));
 }
 
-/** Ce que l'écran mesure pour `rangees` rangées de commandes, à mode, rangée d'ambiance et zones
- *  donnés. `.corps` est une COLONNE FLEX à gouttière fixe : son coût est la somme de ses enfants
- *  plus une gouttière entre chaque paire, plus son padding vertical, le bandeau venant au-dessus.
- *  UN SEUL enfant est toujours là, le bouton « Toute la maison » — il vit hors de l'ordre réglable
- *  (cf. `rendu/corps.ts`, où il est écrit après le `repeat` des zones et collé en bas par
- *  `margin-top: auto`). Les autres ne comptent que si `zones` les demande : le bloc central UN, la
- *  ligne de synthèse UN, la rangée « Ambiance » DEUX (son étiquette est un enfant à part entière),
- *  la grille de commandes UN.
+/** The arrangement of the screen this context describes: `arrangement` (`screen-budget.ts`)
+ *  applied to the main mode and to the screen data `boot/frame.ts` copied into the context. ONE
+ *  derivation, read by `ordreCommandes` below (how many controls) AND by `rendreCorps`
+ *  (`rendu/corps.ts`: Ambiance row drawn or not, synthèse reduced or not) — the grid and the
+ *  column it sits in can never be budgeted from two different answers.
  *
- *  2026-09-12, plan 2 : extraite de la clôture `cout` qui vivait dans `combien` — `verifierBudget`
- *  la réutilise sans dupliquer l'addition. Deux additions du même budget finiraient par diverger,
- *  et c'est précisément ce que `contrat/budget.json` existe pour empêcher. Ne recapture pas `bloc`
- *  d'un appelant : elle le recalcule depuis `mode`, puisqu'elle n'a plus de fermeture commune avec
- *  `combien` pour le lui prêter.
- *
- *  Relecture finale du plan 2 (I4) : `zones` est arrivé ici parce que cette fonction facturait les
- *  quatre zones EN DUR — elle partait de `enfants = 3` et ne recevait jamais la composition de
- *  l'écran. Le défaut (`AGENCEMENT_DEFAUT.zones`) les contient toutes les quatre, donc l'addition
- *  redevient TERME POUR TERME celle d'avant dès qu'on ne passe rien : c'est ce qui rend la
- *  correction vérifiable par une table de vérité gelée qu'on n'a pas eu à retoucher
- *  (`tests/budget.test.ts`). */
-function coutEcran(mode: ModePrincipal, rangeeAmbiance: boolean, rangees: number,
-                  zones: Zone[] = AGENCEMENT_DEFAUT.zones): number {
-  const h = BUDGET.hauteurs;
-  // Troisième branche depuis 2026-09-12 (plan 2, tâche 5) : `minuteur` payait `blocDefaut`
-  // jusqu'ici, un chiffre qu'aucun `.mode-bloc` de minuteur n'a jamais mesuré — le court-circuit
-  // de `combien` rendait ce choix sans conséquence. `modesABlocMinuteur` (contrat, un seul mode
-  // aujourd'hui) suit le même patron que `modesABlocHaut` juste en dessous.
-  const bloc = (BUDGET.modesABlocMinuteur as string[]).includes(mode) ? h.blocMinuteur
-    : (BUDGET.modesABlocHaut as string[]).includes(mode) ? h.blocHaut : h.blocDefaut;
-  // « Toute la maison » est HORS de l'ordre réglable (cf. `rendu/corps.ts`, où elle est écrite
-  // après le `repeat` des zones, collée en bas par `margin-top: auto`) : toujours là, toujours
-  // facturée. Les quatre autres ne coûtent que si l'agencement les demande — c'est la correction
-  // de la relecture finale du plan 2 (I4). Avec les quatre zones, l'addition redevient TERME POUR
-  // TERME celle d'avant cette correction, ce que la table de vérité gelée de `tests/budget.test.ts`
-  // vérifie sans avoir été retouchée.
-  let enfants = 1;
-  let somme = h.touteLaMaison;
-  if (zones.includes('blocCentral')) {
-    enfants += 1;
-    somme += bloc;
-  }
-  if (zones.includes('synthese')) {
-    enfants += 1;
-    somme += h.synthese;
-  }
-  if (rangeeAmbiance && zones.includes('ambiances')) {
-    // L'étiquette « Ambiance » est un enfant à part entière de la colonne flex, pas un titre
-    // dans le groupe : deux enfants, donc deux gouttières.
-    enfants += 2;
-    somme += h.etiquetteAmbiance + h.rangeeAmbiance;
-  }
-  if (rangees > 0) {
-    enfants += 1;
-    // Les rangées vivent dans UNE grille : leur gouttière est celle de la grille (10 px), pas
-    // celle de la colonne (8 px) — et il n'y en a pas après la dernière.
-    somme += h.rangeeCommandes * rangees + h.gouttiereCommandes * (rangees - 1);
-  }
-  return h.bandeau + h.paddingCorps + somme + h.gouttiere * (enfants - 1);
-}
-
-/** Combien de commandes l'écran montre. NE LÈVE JAMAIS : un budget intenable rend 0, et l'écran
- *  affiche alors ses autres zones sans rangée de commandes — exactement ce que le mode `minuteur`
- *  fait déjà légitimement (630 px pour sa seule liste, aucune place pour une commande).
- *
- *  2026-09-12, plan 2 : cette fonction LEVAIT `BudgetIntenable` jusqu'ici. Or c'est le moteur de
- *  rendu qui l'appelle, via `ordreCommandes` — un écran mal configuré aurait fait un écran blanc,
- *  ce que ce projet s'interdit au même titre que le bouton mort. Le verdict déménage dans
- *  `verifierBudget`, que le rendu n'appelle jamais et que le formulaire de l'intégration (plan 3)
- *  appellera. Le rendu dégrade, la saisie refuse.
- *
- *  ---- CE QUI A CONDUIT À CE CALCUL, et pourquoi il est mesuré et non estimé. Ce bloc vivait
- *  au-dessus de `coutEcran`, dont la vraie docstring commençait à la ligne suivante : deux
- *  commentaires consécutifs, dont seul le second s'attachait. Il décrit `combien`, il vit donc
- *  avec `combien`, et dans le MÊME commentaire (relecture finale du plan 2, M9).
- *
- *  La carte média est deux fois plus haute
- *  que le bloc `defaut` qu'elle remplace : la place vient de la 3e/4e commande, jamais de la rangée
- *  « Ambiance » (pendant un film, changer d'ambiance lumineuse reste le besoin courant). Jamais de
- *  rangée coupée en deux : c'est toute la rangée ou rien, sinon la grille se déséquilibre.
- *  Ces nombres n'ont PAS bougé avec l'épinglage de la porte (2026-08-04) : `epingler` réserve une
- *  des places comptées ici, il n'en ajoute jamais une — le budget de hauteur de chaque mode est
- *  strictement le même qu'avant.
- *
- *  Tâche 10 bis, chiffres MESURÉS (tâche 10) et non plus estimés : le réglage du minuteur est
- *  devenu une sous-vue plein écran (arbitrage du propriétaire, 2026-08-03), donc `minuteur` ne
- *  désigne plus ici que la LISTE des minuteurs en cours — mesurée à 630 px, 45 px au-delà du
- *  budget de 585 px. Trois lignes de 62 px ne laissent la place à AUCUNE commande : pendant une
- *  cuisson, l'écran sert au minuteur, et les commandes restent à un appui dans « Toute la
- *  maison ». `voiture`, mesuré à 648 px (−63 px), rejoint `media`/`cinema` à deux commandes,
- *  comme tout bloc central plus haut que le bloc `defaut` qu'il remplace. Tâche 14 : `repas`/
- *  `agenda` (mode `defaut` en cuisine/bureau) reprennent le même gabarit `.mode-bloc` que
- *  `menage`/`aeration` — déjà mesurés à quatre commandes — donc `defaut` reste dans la branche
- *  par défaut de `coutEcran` ci-dessus, comme `previsions` avant lui.
- *
- *  2026-09-12 : la règle et ses chiffres vivent désormais dans `contrat/budget.json`, lu aussi
- *  par l'intégration Home Assistant (plan 3) — elle doit pouvoir dire « cet écran déborde » au
- *  moment de la saisie, ce qu'elle ne peut pas faire en relisant des `if` TypeScript. Le
- *  RÉSULTAT est strictement inchangé : `tests/budget.test.ts` porte la table de vérité d'avant
- *  et la vérifie à chaque commit.
- *
- *  2026-09-12, second temps — CECI N'EST PLUS UNE TABLE, C'EST UN CALCUL. `Ecran.hauteurUtile`
- *  existe depuis la tâche 1, et une table calibrée pour 585 px ne sait pas l'honorer : elle rend
- *  le même 0/2/4 à 585 px comme à 900. Les hauteurs par zone n'avaient JAMAIS été mesurées — les
- *  commentaires ci-dessus ne donnent que des totaux d'écran (630 px, 648 px). Elles le sont
- *  maintenant, dans un vrai navigateur, au viewport de référence, par
- *  `app/outils/mesurer-hauteurs.mjs` (attribut `data-zone`, cf. `rendu/corps.ts`) : onze modes,
- *  trois écrans, et pour chaque zone le PIRE CAS retenu. Elles vivent sous `hauteurs` dans
- *  `contrat/budget.json`.
- *
- *  `combien` additionne donc la colonne `.corps` comme le moteur de rendu l'additionne — les
- *  enfants, la gouttière entre chacun, le padding, le bandeau au-dessus — et garde la plus grande
- *  composition qui tient. Le modèle a été confronté à la mesure avant d'être écrit : pour chacun
- *  des onze modes relevés, le reste qu'il prédit est EXACTEMENT le reste mesuré à l'écran (11,1 px
- *  en cuisine et au bureau, 108,1 px en mode ménage, 34,1 px en mode voiture...). Et il reproduit
- *  la table historique sans y toucher, ligne par ligne, avec 3,1 px de marge sur son cas le plus
- *  serré — c'était la condition d'acceptation de la tâche, pas un résultat espéré : un modèle qui
- *  ne l'aurait pas reproduite aurait été ANNULÉ plutôt qu'ajusté (on ne truque pas une mesure
- *  pour faire passer un test).
- *
- *  À NE PAS CONFONDRE avec la clé `mesures` du même fichier, qui reste le relevé de 2026-08-29 et
- *  compte le coût d'une zone GOUTTIÈRE COMPRISE (« rangeeCommandes : 74 px = 64 + 10 »). Les
- *  `hauteurs` lues ici sont des coûts NETS, les gouttières étant ajoutées par `coutEcran` ci-dessus
- *  — sans quoi elles seraient comptées deux fois. Les deux relevés s'accordent, ce qui est déjà
- *  une vérification : 64 + 10 pour une rangée de commandes, 9 + 72 + 2 × 8 = 97 px pour la rangée
- *  « Ambiance » complète, contre les ~100 px estimés en août.
- */
-export function combien(
-  mode: ModePrincipal,
-  rangeeAmbiance = true,
-  hauteurUtile: number = BUDGET.hauteurUtileParDefaut,
-  zones: Zone[] = AGENCEMENT_DEFAUT.zones,
-): number {
-  // Relecture finale du plan 2 (I4) : un écran qui n'affiche pas la zone `commandes` n'affiche
-  // AUCUNE commande — ce n'est pas une question de budget, c'est une question de composition, et
-  // `rendu/corps.ts` ne rendra de toute façon jamais le conteneur. Sans cette garde, `combien`
-  // rendrait 2 ou 4 pour un écran qui n'a nulle part où les mettre, et `ordreCommandes` couperait
-  // une liste que personne n'affiche. Le schéma exige aujourd'hui `commandes` dans `zones`
-  // (`contains`, `contrat/ecran.schema.json`) — cette garde est ce qui rend `combien` honnête si
-  // la donnée entre quand même par une autre porte, exactement comme le repli par champ de
-  // `rendu/corps.ts`.
-  if (!zones.includes('commandes')) return 0;
-  // Plus de court-circuit pour `minuteur` depuis 2026-09-12 (plan 2, tâche 5) : `coutEcran` lui
-  // fait déjà payer `blocMinuteur` (206 px, troisième branche ci-dessus), donc le mode traverse
-  // la même boucle que les huit autres. À 585 px avec rangée d'ambiance, il rend encore 0 — mais
-  // désormais PARCE QUE le calcul le dit (558 px consommés, 27 px de reste, moins que les 64 px
-  // d'une rangée), pas parce qu'une exception l'a décidé sans rien calculer.
-  // Le plafond de DEUX rangées n'est pas un chiffre de plus : c'est ce que `commandesParDefaut`
-  // (4 places) et `tuilesParRangee` (2 colonnes) disent déjà. Une troisième rangée n'existe dans
-  // aucun écran de ce projet, et l'inventer ici sur un grand écran ferait rendre à `combien` un
-  // nombre que la grille n'a jamais rendu.
-  const rangeesMax = Math.floor(BUDGET.commandesParDefaut / BUDGET.tuilesParRangee);
-  for (let rangees = rangeesMax; rangees >= 1; rangees--) {
-    if (coutEcran(mode, rangeeAmbiance, rangees, zones) <= hauteurUtile) {
-      return rangees * BUDGET.tuilesParRangee;
-    }
-  }
-  // Jamais de rangée coupée en deux (cf. plus haut) : sous une rangée, il ne reste que zéro — que
-  // le budget tienne ou non. Ne lève plus depuis 2026-09-12 (plan 2) : cf. le docstring ci-dessus.
-  return 0;
-}
-
-/** De combien cette composition déborde, en pixels. 0 si elle tient. Écrite pour le formulaire de
- *  l'intégration Home Assistant (plan 3), qui doit pouvoir dire « cet écran déborde de 45 px »
- *  AU MOMENT DE LA SAISIE — pas devant la tablette.
- *
- *  TOUS LES MODES SONT FACTURÉS depuis 2026-09-12 (plan 2, tâche 5), `minuteur` compris : il vit
- *  désormais dans `modesABlocMinuteur` et `coutEcran` lui compte son vrai `blocMinuteur` (206 px)
- *  AU LIEU DE `blocDefaut` (84 px). Au lieu de, jamais en plus : la sélection du bloc central est
- *  un TERNAIRE à trois branches, un écran n'a qu'un seul bloc central. (La relecture finale du
- *  plan 2 a trouvé ici le mot « plus », qui annonçait 290 px de bloc — 84 px de dette fantôme dans
- *  le modèle même sur lequel le plan 3 dira « cet écran déborde », et que la phrase suivante
- *  contredisait déjà. C'est la DEUXIÈME fois que cette docstring ment : la ronde 1 de la tâche 4
- *  l'avait déjà réécrite pour un exemple faux.)
- *
- *  Les deux valeurs, recalculées depuis `contrat/budget.json` : `verifierBudget('minuteur', true,
- *  585)` rend 0 — à bon droit, cet écran ne déborde pas, 121 + 24 + (62 + 206 + 32 + 9 + 72) +
- *  8 x 4 = 558 px consommés sur 585 — et `verifierBudget('minuteur', true, 500)` rend 58, le vrai
- *  débordement. C'était la dette que `contrat/budget.json` nommait sous `_blocMinuteur` ; elle est
- *  refermée.
- *
- *  `zones` est FACULTATIF et vaut les quatre zones du défaut (relecture finale du plan 2, I4) :
- *  une zone que l'agencement n'affiche pas ne coûte pas sa hauteur, sans quoi cette fonction
- *  refuserait une saisie tenable en annonçant un débordement fantôme (jusqu'à 214 px pour un
- *  écran sans bloc central en mode minuteur). Elle compte toujours ZÉRO rangée de commandes :
- *  c'est la composition la plus petite que l'écran puisse rendre, donc la question « tient-elle,
- *  même à vide ? ».
- *
- *  Le rendu ne l'appelle jamais : c'est toute la différence avec la version d'avant, où le verdict
- *  (l'ex-`BudgetIntenable`) et le calcul vivaient dans la même fonction, `combien`. */
-export function verifierBudget(mode: ModePrincipal, rangeeAmbiance: boolean,
-                               hauteurUtile: number,
-                               zones: Zone[] = AGENCEMENT_DEFAUT.zones): number {
-  return Math.max(0, coutEcran(mode, rangeeAmbiance, 0, zones) - hauteurUtile);
+ *  CORRECTED ON 2026-10-24. This file said, since August, that the room a tall media card needs
+ *  "comes from the 3rd/4th control, never from the Ambiance row (changing the light scene during
+ *  a film remains the common need)". The owner reversed it with the redesigned media card
+ *  (spec 2026-10-23, "Place à l'écran"): measured at 264 px against 153, it leaves no row of
+ *  controls on any of the three 585 px screens. His order: the synthèse is reduced first; if that
+ *  is not enough, the Ambiance row goes while the media card is shown, and the controls stay. The
+ *  BUDGET decides (`combien`), never a list of rooms: a screen with the room keeps its row. Still
+ *  true: never a row of controls cut in half — the whole row or nothing. */
+export function arrangementEcran(c: ContexteModes): Arrangement {
+  return arrangement(modePrincipal(c), c.rangeeAmbiance, c.hauteurUtile, c.zones);
 }
 
 /** Remonte en tête les commandes dont le libellé est cité, dans l'ordre cité, en gardant les
@@ -372,15 +194,16 @@ function remonter(commandes: Bouton[], libelles: string[]): Bouton[] {
  *  celle qui répond au besoin du moment (l'Ambilight pendant un film, les Lumières pendant la
  *  musique), et l'épinglée coûte toujours la même chose — la dernière tuile, jamais une rangée de
  *  plus. La règle est donc une SOUSTRACTION, pas un ajout : le budget de hauteur de chaque mode
- *  (585 px, cf. `combien`) est strictement inchangé, y compris `minuteur` à zéro commande, où il
+ *  (585 px, cf. `combien`, `screen-budget.ts`) est strictement inchangé, y compris `minuteur` à
+ *  zéro commande, où il
  *  n'y a aucune place à réserver et où rien n'apparaît.
  *
  *  Garde-fou, même que `remonter` : une commande absente du tableau reçu n'est jamais inventée
  *  (serrure muette → `estUtilisable` faux → filtrée en amont par `rendu/corps.ts`, et la coupe
  *  reste pleine avec les commandes suivantes). Les épingles, elles, sont bornées à `n` : sur un
- *  mode à deux places, deux épingles prennent les deux — c'est le cas limite que le salon ne
- *  rencontre plus (il a quatre places dans tous ses modes) mais qui reste défini plutôt que
- *  laissé au hasard d'un `slice` négatif. */
+ *  mode à deux places, deux épingles prennent les deux. Le salon y est depuis le 2026-10-24 : la
+ *  carte média ne lui laisse que deux places en `media`/`cinema`, et Porte et Rideau les prennent
+ *  toutes les deux (jamais un `slice` négatif). */
 function epingler(ordre: Bouton[], n: number): Bouton[] {
   const coupe = ordre.slice(0, n);
   // Plus d'une épingle depuis le 2026-08-29 (le salon en porte deux : Porte et Rideau). Bornées à
@@ -397,6 +220,33 @@ function epingler(ordre: Bouton[], n: number): Bouton[] {
   const cedables = coupe.filter((b) => !b.epingle);
   const conservees = cedables.slice(0, Math.max(0, cedables.length - manquantes.length));
   return [...coupe.filter((b) => b.epingle || conservees.includes(b)), ...manquantes];
+}
+
+/** The places a cut takes. A tall tile (`Bouton.haute`) spans the two rows of its column, so it
+ *  takes two places: its own and the one below it. */
+function places(coupe: Bouton[]): number {
+  return coupe.reduce((n, b) => n + (b.haute ? 2 : 1), 0);
+}
+
+/** `epingler`, with tall tiles paid for. On a grid of at least two rows, the cut is the longest
+ *  one `epingler` gives whose places still fit in `n` — the pins keep their guarantee, and it is
+ *  the last unpinned tiles that give way to a tall one. On a single row there is nothing to span:
+ *  the tile loses its `haute` and renders at normal height, one place like any other — a tall tile
+ *  never creates a row, the height budget of every mode (`combien`, `screen-budget.ts`) is
+ *  unchanged. */
+function couper(ordre: Bouton[], n: number): Bouton[] {
+  if (n < 2 * BUDGET.tuilesParRangee) {
+    return epingler(ordre, n).map((b) => {
+      if (!b.haute) return b;
+      const { haute: _haute, ...normale } = b;
+      return normale;
+    });
+  }
+  for (let k = n; k > 0; k--) {
+    const coupe = epingler(ordre, k);
+    if (places(coupe) <= n) return coupe;
+  }
+  return [];
 }
 
 export function ordreCommandes(commandes: Bouton[], c: ContexteModes): Bouton[] {
@@ -426,5 +276,5 @@ export function ordreCommandes(commandes: Bouton[], c: ContexteModes): Bouton[] 
   else if (c.serrureDeverrouillee) ordre = remonter(commandes, ['Porte']);
   // `Ambilight` n'a rien à faire sur l'accueil courant : déclaré au salon pour le mode cinéma
   // seulement, il ne remonte dans aucun autre ordre et se fait donc écarter par la coupe.
-  return epingler(ordre, combien(mode, c.rangeeAmbiance, c.hauteurUtile, c.zones));
+  return couper(ordre, arrangementEcran(c).commandes);
 }

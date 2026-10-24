@@ -1,7 +1,7 @@
 """Les DEUX sections « objet » (`agencement` — « Blocs et modes » —,
 `voiture`) et les DEUX regles hors-schema de la tache 7. Separe de
 `test_config_flow.py` en ronde 1 de relecture (ce dernier approchait 500
-lignes) — meme couture que `listes.py`/`listes_champs.py` a la tache 6.
+lignes) — meme couture que `list_sections.py`/`list_fields.py` a la tache 6.
 `sources` (I5) est parti dans son propre fichier en ronde 2, la section
 `voiture` elle-meme (I1) en ronde 3, pour la meme raison (voir
 `test_config_flow_sources.py`, `test_config_flow_voiture.py`) ; les
@@ -27,11 +27,11 @@ from homeassistant import data_entry_flow
 from conftest import ELEMENTS_VALIDES, _creer_ecran, _init_reconfigure
 from custom_components.home_desk.const import (
     DOMAIN,
-    ERREUR_ALERTE_PAS_EN_TETE,
-    ERREUR_BUDGET_INTENABLE_MODE,
-    ERREUR_CHAMP_ELEMENT_REQUIS,
-    ERREUR_RECETTE_SANS_MODE,
-    SOUS_ENTREE_ECRAN,
+    ERROR_ALERT_NOT_FIRST,
+    ERROR_BUDGET_UNTENABLE_MODE,
+    ERROR_FIELD_ITEM_REQUIRED,
+    ERROR_RECIPE_WITHOUT_MODE,
+    SUBENTRY_SCREEN,
 )
 
 CHEMIN_TRADUCTIONS = (
@@ -71,7 +71,7 @@ async def test_le_TROISIEME_invariant_croise_est_refuse_a_la_saisie(hass, entree
         },
     )
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["base"] == ERREUR_RECETTE_SANS_MODE
+    assert resultat["errors"]["base"] == ERROR_RECIPE_WITHOUT_MODE
     # Ronde 1 de relecture (Mineur) : le message affirmait que la tuile « ne
     # ferait rien » — FAUX, `app/src/demarrage.ts` ouvre `#recette` sur le
     # SEUL hash, sans jamais lire `agencement.modes` (la tuile fonctionne).
@@ -79,13 +79,13 @@ async def test_le_TROISIEME_invariant_croise_est_refuse_a_la_saisie(hass, entree
     # (`modes.ts`, CONDITIONS.recette). Sonde de bout en bout, en francais
     # et en anglais, le texte que l'utilisateur verrait reellement.
     fr = json.loads((CHEMIN_TRADUCTIONS / "fr.json").read_text(encoding="utf-8"))
-    message_fr = fr["config_subentries"][SOUS_ENTREE_ECRAN]["error"][ERREUR_RECETTE_SANS_MODE]
+    message_fr = fr["config_subentries"][SUBENTRY_SCREEN]["error"][ERROR_RECIPE_WITHOUT_MODE]
     assert "recette" in message_fr.lower()
     assert "blocs et modes" in message_fr.lower()
     assert "ne fera rien" not in message_fr.lower()
     assert "inerte" not in message_fr.lower()
     en = json.loads((CHEMIN_TRADUCTIONS / "en.json").read_text(encoding="utf-8"))
-    message_en = en["config_subentries"][SOUS_ENTREE_ECRAN]["error"][ERREUR_RECETTE_SANS_MODE]
+    message_en = en["config_subentries"][SUBENTRY_SCREEN]["error"][ERROR_RECIPE_WITHOUT_MODE]
     assert "recette" in message_en.lower()
     assert "blocks and modes" in message_en.lower()
 
@@ -120,8 +120,11 @@ async def test_le_budget_nomme_le_PIRE_mode_pas_le_premier_qui_deborde(hass, ent
     formule compte aussi les minuteurs, cf. app/src/demarrage.ts) : ce
     test-ci ne cherche donc PAS a faire varier rangee_ambiance (voir le
     test suivant pour cette preuve-la, avec un decor SANS minuteur). A
-    rangee_ambiance=True : verifier_budget("cinema", True, 436, zones) =
-    29, verifier_budget("minuteur", True, 436, zones) = 82 (le pire) --
+    rangee_ambiance=True : check_budget("cinema", True, 436, zones) =
+    43 (29 avant l'echelle de la carte media du 2026-10-24 ; 42 a blocMedia
+    263 px, 43 a 264 px, sans rangee Ambiance), check_budget("minuteur", True, 436,
+    zones) = 91 (le pire ; 82
+    avant que blocMinuteur passe de 206 a 215 px le 2026-10-11) --
     verifie par execution, PAS retape de memoire (le brief nomme "45" a cet
     endroit, et previent explicitement que cette valeur est fausse)."""
     subentry_id = await _creer_ecran(hass, entree, hauteurUtile=436)
@@ -142,14 +145,14 @@ async def test_le_budget_nomme_le_PIRE_mode_pas_le_premier_qui_deborde(hass, ent
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {"zones": zones, "modes": modes})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["base"] == ERREUR_BUDGET_INTENABLE_MODE
+    assert resultat["errors"]["base"] == ERROR_BUDGET_UNTENABLE_MODE
     # "cinema" est SOUMIS AVANT "minuteur" : un bug "premier qui deborde"
-    # nommerait cinema (29 px). Le PIRE est minuteur (82 px).
+    # nommerait cinema (43 px). Le PIRE est minuteur (91 px).
     # Ronde 2 de relecture (point 3) : {mode} est desormais TRADUIT
     # ("Timer", le libelle EN du selecteur "mode"), plus l'identifiant
     # brut du contrat ("minuteur").
     assert resultat["description_placeholders"]["mode"] == "Timer"
-    assert resultat["description_placeholders"]["debordement"] == "82"
+    assert resultat["description_placeholders"]["debordement"] == "91"
 
     entry = hass.config_entries.async_get_entry(entree.entry_id)
     assert entry.subentries[subentry_id].data.get("agencement") is None, (
@@ -163,18 +166,25 @@ async def test_le_budget_suit_rangee_ambiance_REELLEMENT_persistee(hass, entree)
     Decor SANS mode "minuteur" (dont la seule presence dans `minuteurs`
     forcerait `rangee_ambiance` a vrai en permanence, cf. le test
     ci-dessus -- ce test-ci veut l'isoler de la seule contribution des
-    AMBIANCES) : `modes=["defaut", "cinema"]`, memes zones que ci-dessus.
+    AMBIANCES) : `modes=["defaut", "voiture"]`, memes zones que ci-dessus.
+
+    2026-10-24 : "voiture", plus "cinema". Les modes de la carte media
+    passent par l'echelle (`arrangement`), dont le dernier echelon n'a
+    plus de rangee Ambiance : leur verdict ne depend donc plus de
+    `rangee_ambiance`, et ne pouvait plus rien prouver ici. "voiture"
+    garde blocHaut (153 px) et sa rangee, avec exactement les memes
+    chiffres qu'avait "cinema".
 
     Sans aucune tuile d'ambiance persistee, rangee_ambiance=False et
-    verifier_budget("cinema", False, 436, zones) = 0 : l'agencement TIENT.
+    check_budget("voiture", False, 436, zones) = 0 : l'agencement TIENT.
     Une fois une VRAIE tuile d'ambiance ajoutee, rangee_ambiance=True et
-    verifier_budget("cinema", True, 436, zones) = 29 : LE MEME agencement,
+    check_budget("voiture", True, 436, zones) = 29 : LE MEME agencement,
     resoumis a l'identique, est desormais REFUSE. Un code qui ignorerait
     `rangee_ambiance` (fige a True, ou a False) rendrait les deux
     soumissions indiscernables."""
     subentry_id = await _creer_ecran(hass, entree, hauteurUtile=436)
     zones = ["ambiances", "commandes", "blocCentral"]
-    modes = ["defaut", "cinema"]
+    modes = ["defaut", "voiture"]
 
     flow = await _init_reconfigure(hass, entree, subentry_id)
     await hass.config_entries.subentries.async_configure(
@@ -197,11 +207,41 @@ async def test_le_budget_suit_rangee_ambiance_REELLEMENT_persistee(hass, entree)
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {"zones": zones, "modes": modes})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["base"] == ERREUR_BUDGET_INTENABLE_MODE
-    # Ronde 2 de relecture (point 3) : libelle traduit ("Cinema"), pas
-    # l'identifiant brut ("cinema").
-    assert resultat["description_placeholders"]["mode"] == "Cinema"
+    assert resultat["errors"]["base"] == ERROR_BUDGET_UNTENABLE_MODE
+    # Ronde 2 de relecture (point 3) : libelle traduit ("Car"), pas
+    # l'identifiant brut ("voiture").
+    assert resultat["description_placeholders"]["mode"] == "Car"
     assert resultat["description_placeholders"]["debordement"] == "29"
+
+
+async def test_le_budget_des_modes_media_suit_l_echelle(hass, entree):
+    """2026-10-24 (spec 2026-10-23, "Place a l'ecran") : the screen draws
+    the media card on the LAST rung of the ladder when nothing else fits
+    (reduced synthesis, no Ambiance row), so the form prices that rung.
+    At 500 px with the four default zones: 121 + 24 + (62 + 264 + 24) +
+    8 x 2 = 511 px, an overflow of 11 px -- and not the 115 px of the full
+    composition (two-line synthesis and Ambiance row), which would refuse
+    by a figure the tablet never shows."""
+    subentry_id = await _creer_ecran(hass, entree, hauteurUtile=500)
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "ambiances"})
+    await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], ELEMENTS_VALIDES["ambiances"])
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "agencement"})
+    resultat = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"],
+        {"zones": ["ambiances", "commandes", "blocCentral", "synthese"],
+         "modes": ["defaut", "media"]})
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+    assert resultat["errors"]["base"] == ERROR_BUDGET_UNTENABLE_MODE
+    assert resultat["description_placeholders"]["mode"] == "Media"
+    assert resultat["description_placeholders"]["debordement"] == "11"
 
 
 # ---------------------------------------------------------------------------
@@ -241,7 +281,7 @@ async def test_agencement_conserve_l_ordre_soumis_des_zones_et_des_modes(hass, e
 
 
 async def test_agencement_zones_sans_commandes_est_refuse(hass, entree):
-    """Mineur de la ronde 1 : `contains` -> `ERREUR_CHAMP_ELEMENT_REQUIS`
+    """Mineur de la ronde 1 : `contains` -> `ERROR_FIELD_ITEM_REQUIRED`
     n'etait asserte nulle part (mutation verte : supprimer
     `vol.Contains("commandes")` de `schema.AGENCEMENT` ne faisait tomber
     AUCUN test de flow)."""
@@ -252,14 +292,14 @@ async def test_agencement_zones_sans_commandes_est_refuse(hass, entree):
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {"zones": ["synthese", "ambiances"], "modes": ["defaut"]})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["zones"] == ERREUR_CHAMP_ELEMENT_REQUIS
+    assert resultat["errors"]["zones"] == ERROR_FIELD_ITEM_REQUIRED
 
 
 async def test_agencement_alerte_pas_en_tete_est_refuse_a_la_saisie(hass, entree):
     """Relecture finale de branche (deuxieme ronde) : `ERREUR_ALERTE_PAS_
     EN_TETE` etait le SEUL des 27 codes d'erreur de formulaire cite nulle
     part dans `tests/composant/` -- mesure : retirer son entree de la
-    table des messages (`_ERREUR_PAR_MOT_CLE`, listes_erreurs.py, ou desormais le
+    table des messages (`_ERROR_BY_KEYWORD`, list_errors.py, ou desormais le
     cas special d'`objets.py`) laissait les 208 tests d'alors verts, et le
     formulaire retombait sur le charabia « Ce champ n'est pas valide »
     (le meme que la ronde 3 de la tache 6 avait corrige). Ce test epingle
@@ -274,19 +314,19 @@ async def test_agencement_alerte_pas_en_tete_est_refuse_a_la_saisie(hass, entree
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {"zones": ["commandes"], "modes": ["defaut", "media", "alerte"]})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["modes"] == ERREUR_ALERTE_PAS_EN_TETE
+    assert resultat["errors"]["modes"] == ERROR_ALERT_NOT_FIRST
 
     # Le champ est une liste de cases a cocher : « mettre en premier » n'a
     # aucun geste evident, contrairement aux voisines de ce message
     # (« augmentez », « retirez »...) -- le message doit donc NOMMER le
     # geste (decocher/recocher), pas seulement la regle.
     fr = json.loads((CHEMIN_TRADUCTIONS / "fr.json").read_text(encoding="utf-8"))
-    message_fr = fr["config_subentries"][SOUS_ENTREE_ECRAN]["error"][ERREUR_ALERTE_PAS_EN_TETE]
+    message_fr = fr["config_subentries"][SUBENTRY_SCREEN]["error"][ERROR_ALERT_NOT_FIRST]
     assert "alerte" in message_fr.lower()
     assert "décochez" in message_fr.lower()
     assert "recochez" in message_fr.lower()
     en = json.loads((CHEMIN_TRADUCTIONS / "en.json").read_text(encoding="utf-8"))
-    message_en = en["config_subentries"][SOUS_ENTREE_ECRAN]["error"][ERREUR_ALERTE_PAS_EN_TETE]
+    message_en = en["config_subentries"][SUBENTRY_SCREEN]["error"][ERROR_ALERT_NOT_FIRST]
     assert "alert" in message_en.lower()
     assert "uncheck" in message_en.lower()
     assert "check" in message_en.lower()
@@ -304,7 +344,7 @@ async def test_agencement_alerte_pas_en_tete_est_refuse_a_la_saisie(hass, entree
 # I5 (les six champs multi-entites de `sources`, Required SANS default) et
 # les deux mineurs de `sources` vivent dans test_config_flow_sources.py,
 # separe d'ici en ronde 2 de relecture (ce fichier approchait 500 lignes) —
-# meme couture que `listes_champs_sources.py` : « une section = un fichier ».
+# meme couture que `list_fields_sources.py` : « une section = un fichier ».
 # ---------------------------------------------------------------------------
 
 
@@ -329,8 +369,8 @@ def test_tous_les_selectselectorconfig_d_objets_py_portent_un_translation_key():
 
     Scope deliberement limite a `objets.py` (pas tout le paquet) : trois
     AUTRES `SelectSelectorConfig` existent ailleurs (`_selecteur_icone` et
-    l'"operateur" de synthese, `listes_champs.py` ; les options DYNAMIQUES
-    de `_schema_choix`, `listes.py`, qui portent deja leur propre libelle
+    l'"operateur" de synthese, `list_fields.py` ; les options DYNAMIQUES
+    de `_schema_choix`, `list_sections.py`, qui portent deja leur propre libelle
     via `SelectOptionDict` et n'ont donc rien a traduire) — dette anterieure
     a cette tache, non fermee ici (voir le rapport)."""
     chemin = (

@@ -15,7 +15,7 @@ import { icone } from './icones';
 
 export type EnVolClim = 'demarrage' | 'arret' | null;
 
-let actions = { clim(_demarrer: boolean) {} };
+let actions = { clim(_start: boolean) {} };
 export function brancherVoiture(a: typeof actions) { actions = a; }
 
 /** Un nombre publié par la voiture, ou `null`. Jamais une valeur inventée : une donnée absente

@@ -164,9 +164,10 @@ async def test_une_version_FUTURE_est_REFUSEE_a_la_lecture(hass, ws_client, entr
 async def test_une_version_INFERIEURE_est_aussi_refusee(hass, ws_client, entree):
     """Ronde 1 de relecture (Mineur M11) : un controle `<= VERSION_CONFIG`
     (au lieu de `!=`) passait inapercu, faute d'un decor avec une version
-    STRICTEMENT inferieure. Aucune version anterieure n'a jamais existe
-    (VERSION_CONFIG == 1 depuis la toute premiere ecriture) : TOUTE version
-    differente doit etre refusee, pas seulement les superieures."""
+    STRICTEMENT inferieure. TOUTE version differente doit etre refusee, pas
+    seulement les superieures -- la version 1, elle, est reecrite au
+    chargement par `migration.py` (test_migration_v2.py) avant toute
+    lecture ; 0 n'a jamais existe."""
     await _creer_ecran(hass, entree)
     entry, subentry = _subentry(hass, entree.entry_id)
     hass.config_entries.async_update_subentry(entry, subentry, data={**subentry.data, "version": 0})

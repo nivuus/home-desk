@@ -16,20 +16,23 @@ Transposition de test_compose_portable.py du package home-manager.
 Run: python3 tests/test_dist_portable.py
 """
 import pathlib
+import re
 import subprocess
 import sys
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 
-# Les cinq artefacts que le hook depose. assets/ est duplique depuis
-# app/assets/ par le build : c'est 411 Ko payes une fois (git stocke par
-# contenu) pour que dist/ soit COMPLET, donc deposable par un seul
-# replace_tree() atomique — le repertoire est relu par trois clients qui
-# rechargent tout seuls.
+# The artefacts the hook deploys. The Lottie player (dotlottie.js) and its WASM
+# (assets/dotlottie-player.wasm, copied from node_modules by the build) are
+# fetched by URL on the first Lottie, never through a CDN: missing, a Lottie
+# would fail on the wall only. Keeping them in dist/ keeps it COMPLETE, hence
+# deployable by a single atomic replace_tree() — the directory is re-read by
+# three clients that reload on their own.
 ATTENDUS = (
     "wallpanel.js", "wallpanel.css",
     "salon.html", "bureau.html", "cuisine.html",
 )
+ATTENDUS_CHEMINS = ("dist/dotlottie.js", "dist/assets/dotlottie-player.wasm")
 
 # Aucun chemin de machine ne doit survivre dans ce qui est depose.
 # /opt/nivuus/HomeAssistant est l'ancien emplacement, disparu le 2026-08-28.
@@ -54,9 +57,10 @@ for attendu in ATTENDUS:
     if attendu not in noms:
         failures.append(f"dist/{attendu} n'est pas suivi par git")
 
-if not any(f.startswith("dist/assets/") for f in fichiers):
-    failures.append("dist/assets/ n'est suivi par aucun fichier ; "
-                    "les polices DSEG et les deux videos manqueraient")
+for chemin in ATTENDUS_CHEMINS:
+    if chemin not in fichiers:
+        failures.append(f"{chemin} is not tracked by git: "
+                        "Lottie animations would fail on the tablets")
 
 # Les binaires ne se relisent pas en texte : on ne scanne que le texte.
 for rel in fichiers:
@@ -69,11 +73,15 @@ for rel in fichiers:
             failures.append(f"{rel} porte le chemin de machine {interdit}")
 
 # Le composant tourne DANS la configuration : plus expose que dist/, qui n'est
-# qu'un bundle statique depose a cote. Memes motifs que dist/, plus trois
+# qu'un bundle statique depose a cote. Memes motifs que dist/, plus deux
 # specifiques a lui — home-manager et /opt/nivuus designeraient le socle par
-# son nom de package ou son chemin, l'adresse de l'instance identifierait
-# cette maison precise.
-INTERDITS_COMPOSANT = INTERDITS + ("home-manager", "/opt/nivuus", "192.168.0.1")
+# son nom de package ou son chemin.
+INTERDITS_COMPOSANT = INTERDITS + ("home-manager", "/opt/nivuus")
+
+# Les IP se cherchent par MOTIF, jamais par litteral : "192.168.0.1" n'attrape
+# ".159" et ".138" que par coincidence de prefixe (`"192.168.0.1" in
+# "192.168.0.159"` est vrai) et JAMAIS ".218". Mesure et corrige au plan 3c.
+MOTIFS_COMPOSANT = (re.compile(r"192\.168\.\d{1,3}\.\d{1,3}"),)
 
 for rel in suivis("custom_components/home_desk"):
     chemin = REPO / rel
@@ -87,6 +95,21 @@ for rel in suivis("custom_components/home_desk"):
         if interdit in texte:
             failures.append(f"{rel} porte le chemin ou l'adresse de cette "
                             f"maison {interdit!r}")
+    for motif in MOTIFS_COMPOSANT:
+        if motif.search(texte):
+            failures.append(f"{rel} porte une adresse IP du reseau local")
+
+# The bundle is generated, not a source file: the org policy (nivuus/.github)
+# would otherwise hold it to the French-text and 500-line rules of hand-written
+# code. Both exemptions are written by the build itself (app/rollup.config.js,
+# banner), on the bundle's first line, so a rebuild can never lose them.
+BUNDLE = REPO / "dist" / "wallpanel.js"
+if BUNDLE.exists():
+    premiere = BUNDLE.read_text(encoding="utf-8").splitlines()[0]
+    for marqueur in ("policy: allow-fr-file", "policy: allow-long-file"):
+        if marqueur not in premiere:
+            failures.append(f"dist/wallpanel.js does not open with {marqueur!r}: "
+                            "the org policy would check a generated bundle as code")
 
 # Le code SUIVI de l'application ne doit plus citer l'ancien emplacement.
 for rel in suivis("app"):

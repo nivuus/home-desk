@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 //
 // Câblage de navigation posé par la tâche 8 dans `demarrage.ts` (pas `index.ts` : `dessiner()`
-// vit dans la fermeture de `demarrer()`, cf. commentaire de tête de `demarrage.ts` — le brief
+// vit dans la fermeture de `startScreen()`, cf. commentaire de tête de `demarrage.ts` — le brief
 // l'illustrait dans `index.ts`, qui n'a jamais accès à `etat`/`piece`/`cx`). Quatre choses à
 // prouver, qu'un test au niveau de `rendreNuit`/`rendreMaison` seuls ne peut pas voir :
 //   1. l'écran de nuit remplace bandeau+corps entre 23 h et 5 h, et prime sur TOUT le reste, y
@@ -15,9 +15,9 @@
 //   3. les écouteurs `hashchange`/`pointerdown` sont posés une seule fois par la durée de vie de
 //      la page, jamais une fois par redessin (deuxième piège déjà payé dans ce projet).
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { demarrerAvecEcran, type ConnexionLike } from '../src/demarrage';
+import { startWithScreen, type ConnexionLike } from '../src/demarrage';
 import { ECRANS, type Ecran } from '../src/ecran';
-import type { EvenementEtat } from '../src/connexion';
+import { RefusHA, type EvenementEtat } from '../src/connexion';
 import { CLE_RECETTE } from '../src/recette-en-cours';
 import { ENTREE_MS, GARDE_MS, PALETTE_MS } from '../src/mouvement/grammaire';
 import { monterDemarrage, vider, type OptionsMontage } from './aides';
@@ -74,21 +74,21 @@ function connexionFactice(): ConnexionLike {
     surSilence: (_cb: (ms: number) => void) => {},
     listerTaches: async () => [],
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
-    surEvenement: () => {},
+    abonner: () => {},
   };
 }
 
 // Un hash laissé à '#maison' par un test contaminerait le premier `dessiner()` du suivant (dans
-// ce même fichier, donc le même `window`/`location` jsdom) : `demarrer()` regarderait
+// ce même fichier, donc le même `window`/`location` jsdom) : `startScreen()` regarderait
 // `location.hash` avant même que ce test n'ait rien posé lui-même.
 afterEach(() => { location.hash = ''; });
 
 describe('navigation (nuit / toute la maison)', () => {
   it('entre 23h et 5h, l ecran de nuit remplace le bandeau et le corps', async () => {
     const racine = document.createElement('div');
-    await demarrerAvecEcran(racine, piece, {
+    await startWithScreen(racine, piece, {
       stockage: stockageAvecSession,
-      creerConnexion: () => connexionFactice(),
+      createConnection: () => connexionFactice(),
       intervalFn: vi.fn() as any,
       minuteurFn: vi.fn() as any,
       maintenant: () => new Date(2026, 7, 1, 23, 30),
@@ -101,9 +101,9 @@ describe('navigation (nuit / toute la maison)', () => {
 
   it('en journee, l ecran normal (bandeau + corps) reste affiche', async () => {
     const racine = document.createElement('div');
-    await demarrerAvecEcran(racine, piece, {
+    await startWithScreen(racine, piece, {
       stockage: stockageAvecSession,
-      creerConnexion: () => connexionFactice(),
+      createConnection: () => connexionFactice(),
       intervalFn: vi.fn() as any,
       minuteurFn: vi.fn() as any,
       maintenant: () => new Date(2026, 7, 1, 14, 0),
@@ -125,9 +125,9 @@ describe('navigation (nuit / toute la maison)', () => {
   it('l accueil se declare au moteur par UNE racine de vue qui contient le bandeau ET le corps',
      async () => {
     const racine = document.createElement('div');
-    await demarrerAvecEcran(racine, piece, {
+    await startWithScreen(racine, piece, {
       stockage: stockageAvecSession,
-      creerConnexion: () => connexionFactice(),
+      createConnection: () => connexionFactice(),
       intervalFn: vi.fn() as any,
       minuteurFn: vi.fn() as any,
       maintenant: () => new Date(2026, 7, 1, 14, 0),
@@ -154,9 +154,9 @@ describe('navigation (nuit / toute la maison)', () => {
   it('l ecran de nuit prime sur un hash « #maison » deja pose (residu d une navigation anterieure)', async () => {
     const racine = document.createElement('div');
     location.hash = '#maison';   // état résiduel, posé AVANT le démarrage de cette instance
-    await demarrerAvecEcran(racine, piece, {
+    await startWithScreen(racine, piece, {
       stockage: stockageAvecSession,
-      creerConnexion: () => connexionFactice(),
+      createConnection: () => connexionFactice(),
       intervalFn: vi.fn() as any,
       minuteurFn: vi.fn() as any,
       maintenant: () => new Date(2026, 7, 1, 23, 30),
@@ -176,9 +176,9 @@ describe('navigation (nuit / toute la maison)', () => {
     const racine = document.createElement('div');
     let maintenant = new Date(2026, 7, 1, 22, 58);
     const intervalFn = vi.fn();
-    await demarrerAvecEcran(racine, piece, {
+    await startWithScreen(racine, piece, {
       stockage: stockageAvecSession,
-      creerConnexion: () => connexionFactice(),
+      createConnection: () => connexionFactice(),
       intervalFn: intervalFn as any,
       minuteurFn: vi.fn() as any,
       maintenant: () => maintenant,
@@ -194,7 +194,7 @@ describe('navigation (nuit / toute la maison)', () => {
     // aucun changement d'entité ni aucun contact.
     const rappelHorloge = intervalFn.mock.calls.find(([, delai]) => delai === 20_000)?.[0] as
       (() => void) | undefined;
-    expect(rappelHorloge, 'd.intervalFn(dessiner, 20_000) doit avoir été armé par demarrer()').toBeDefined();
+    expect(rappelHorloge, 'd.intervalFn(dessiner, 20_000) doit avoir été armé par startScreen()').toBeDefined();
 
     maintenant = new Date(2026, 7, 1, 23, 0);   // l'heure bascule, aucun contact entre-temps
     rappelHorloge!();
@@ -209,7 +209,7 @@ describe('navigation (nuit / toute la maison)', () => {
   // coïncidence sans que l'un n'ait jamais annulé l'autre.
   it('des contacts rapproches sur « Toute la maison » n arment jamais plus d un retour a la fois, et il ramene bien a l accueil apres 45s', async () => {
     vi.useFakeTimers();
-    // `chargerMeteo()` (déclenché par `demarrer()`) appelle le `fetch` global réel (undici) :
+    // `chargerMeteo()` (déclenché par `startScreen()`) appelle le `fetch` global réel (undici) :
     // sous timers factices, son mécanisme interne de délai pose lui-même un minuteur, ce qui
     // fausserait `vi.getTimerCount()` sans rapport avec ce que ce test vérifie. Un rejet
     // immédiat suffit : `chargerMeteo` avale toute erreur (règle 4 du brief, cf. `demarrage.ts`).
@@ -217,9 +217,9 @@ describe('navigation (nuit / toute la maison)', () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error('réseau indisponible dans ce test')) as any;
     try {
       const racine = document.createElement('div');
-      await demarrerAvecEcran(racine, piece, {
+      await startWithScreen(racine, piece, {
         stockage: stockageAvecSession,
-        creerConnexion: () => connexionFactice(),
+        createConnection: () => connexionFactice(),
         intervalFn: vi.fn() as any,
         minuteurFn: setTimeout,
         maintenant: () => new Date(2026, 7, 1, 14, 0),
@@ -281,9 +281,9 @@ describe('navigation (nuit / toute la maison)', () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error('réseau indisponible dans ce test')) as any;
     try {
       const racine = document.createElement('div');
-      await demarrerAvecEcran(racine, piece, {
+      await startWithScreen(racine, piece, {
         stockage: stockageAvecSession,
-        creerConnexion: () => connexionFactice(),
+        createConnection: () => connexionFactice(),
         intervalFn: vi.fn() as any,
         minuteurFn: setTimeout,
         maintenant: () => new Date(2026, 7, 1, 14, 0),
@@ -317,9 +317,9 @@ describe('navigation (nuit / toute la maison)', () => {
       globalThis.fetch = vi.fn().mockRejectedValue(new Error('réseau indisponible dans ce test')) as any;
       try {
         const racine = document.createElement('div');
-        await demarrerAvecEcran(racine, piece, {
+        await startWithScreen(racine, piece, {
           stockage: stockageAvecSession,
-          creerConnexion: () => connexionFactice(),
+          createConnection: () => connexionFactice(),
           intervalFn: vi.fn() as any,
           minuteurFn: setTimeout,
           maintenant: () => new Date(2026, 7, 1, 14, 0),
@@ -359,9 +359,9 @@ describe('navigation (nuit / toute la maison)', () => {
       globalThis.fetch = vi.fn().mockRejectedValue(new Error('réseau indisponible dans ce test')) as any;
       try {
         const racine = document.createElement('div');
-        await demarrerAvecEcran(racine, piece, {
+        await startWithScreen(racine, piece, {
           stockage: stockageAvecSession,
-          creerConnexion: () => connexionFactice(),
+          createConnection: () => connexionFactice(),
           intervalFn: vi.fn() as any,
           minuteurFn: setTimeout,
           maintenant: () => new Date(2026, 7, 1, 14, 0),
@@ -403,7 +403,7 @@ describe('navigation (nuit / toute la maison)', () => {
     // traversée qui ouvre sa propre fenêtre de mesure. L'écart restait donc racé DANS LES DEUX
     // SENS (cf. `CONTACTS_RAPPROCHES` en tête de fichier pour la cause).
     //
-    // On ne compte donc plus « les minuteurs » mais LES RETOURS : `demarrer` reçoit déjà son
+    // On ne compte donc plus « les minuteurs » mais LES RETOURS : `startScreen` reçoit déjà son
     // `minuteurFn` du test, et `armerRetour` (`demarrage.ts`) annule le précédent par
     // `clearTimeout` global avant d'en reposer un. Enregistrer les deux bouts donne le nombre exact
     // de retours vivants, sans rien devoir à l'horloge réelle — et c'est une assertion PLUS
@@ -439,9 +439,9 @@ describe('navigation (nuit / toute la maison)', () => {
       globalThis.fetch = vi.fn().mockRejectedValue(new Error('réseau indisponible dans ce test')) as any;
       try {
         const racine = document.createElement('div');
-        await demarrerAvecEcran(racine, piece, {
+        await startWithScreen(racine, piece, {
           stockage: stockageAvecSession,
-          creerConnexion: () => connexionFactice(),
+          createConnection: () => connexionFactice(),
           intervalFn: vi.fn() as any,
           minuteurFn: armes.poser,
           maintenant: () => new Date(2026, 7, 1, 14, 0),
@@ -477,9 +477,9 @@ describe('navigation (nuit / toute la maison)', () => {
     // `outils/verifier-rendu.mjs` sur la tablette réelle.
     it('la vue « Toute la maison » se déclare comme telle au moteur', async () => {
       const racine = document.createElement('div');
-      await demarrerAvecEcran(racine, piece, {
+      await startWithScreen(racine, piece, {
         stockage: stockageAvecSession,
-        creerConnexion: () => connexionFactice(),
+        createConnection: () => connexionFactice(),
         intervalFn: vi.fn() as any,
         minuteurFn: vi.fn() as any,
         maintenant: () => new Date(2026, 7, 1, 14, 0),
@@ -501,9 +501,9 @@ describe('navigation (nuit / toute la maison)', () => {
     let emettre: ((e: EvenementEtat) => void) | undefined;
 
     try {
-      await demarrerAvecEcran(racine, piece, {
+      await startWithScreen(racine, piece, {
         stockage: stockageAvecSession,
-        creerConnexion: () => ({
+        createConnection: () => ({
           connecter: () => Promise.resolve(),
           prete: () => Promise.resolve(),
           surChangement: (cb) => { emettre = cb; },
@@ -511,7 +511,7 @@ describe('navigation (nuit / toute la maison)', () => {
           surSilence: (_cb: (ms: number) => void) => {},
           listerTaches: async () => [],
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
-      surEvenement: () => {},
+      abonner: () => {},
         }),
         intervalFn: vi.fn() as any,
         minuteurFn: vi.fn() as any,
@@ -739,6 +739,73 @@ describe('vue recette (#recette)', () => {
     expect(m.racine.querySelector('[data-mvt="vue:recette"]')).not.toBeNull();
     expect(m.racine.textContent).toContain('Stock insuffisant.');
     expect(m.racine.querySelector('.recette-page')).not.toBeNull();
+  });
+
+  // MESURÉ le 2026-09-28 en production : la recette ouverte sous le repas 104, replanifié entre-temps
+  // en 106 (même recette), gardait 104 ; « Terminer » était refusé (« Repas 104 introuvable. ») à
+  // chaque appui et la tablette ne pouvait plus sortir du repas. Le repas n'est jamais RE-LIÉ au
+  // suivant par sa recette : le lendemain midi était ce même curry, et c'est lui qui aurait été
+  // validé à la place.
+  const REPAS_REPLANIFIE = { day: '2026-08-17', slot: 'dinner', recipe_id: 76, meal_id: 141,
+    missing_ingredients: 0 };
+
+  it('un repas retiré du plan se dit, et « Terminer » ferme alors la recette sans rien valider', async () => {
+    const m = await monterCuisine({ commandes: {
+      ...commandes(),
+      'home_stock/meal/validate': () => { throw new RefusHA('not_found', 'Repas 139 introuvable.'); },
+    } });
+    await ouvrir();
+    await m.pousser('sensor.home_stock_next_meal', 'Bol lentilles', REPAS_REPLANIFIE);
+    appuyer(m.racine, '.recette-terminer');
+    await vider();
+    appuyer(m.racine, '.recette-terminer');
+    await vider();
+    expect(m.racine.textContent).toContain("Ce repas n'est plus au plan.");
+    expect(m.racine.querySelector('.recette-page')).not.toBeNull();
+
+    appuyer(m.racine, '.recette-terminer');
+    await vider();
+    const validations = envoyees(m).filter((c) => c.type === 'home_stock/meal/validate');
+    expect(validations.map((c) => c.meal_id)).toEqual([139]);
+    expect(location.hash).toBe('');
+    expect(m.racine.querySelector('[data-mvt="vue:recette"]')).toBeNull();
+  });
+
+  it('un not_found sur le repas que le capteur annonce encore reste un refus affiché', async () => {
+    // Deux sujets : le même refus, mais le capteur annonce TOUJOURS le repas 139 — l'introuvable
+    // porte alors sur autre chose (une recette, un produit) et le repas reste à valider.
+    const m = await monterCuisine({ commandes: {
+      ...commandes(),
+      'home_stock/meal/validate': () => { throw new RefusHA('not_found', 'Recette 76 introuvable.'); },
+    } });
+    await ouvrir();
+    appuyer(m.racine, '.recette-terminer');
+    await vider();
+    appuyer(m.racine, '.recette-terminer');
+    await vider();
+    appuyer(m.racine, '.recette-terminer');
+    await vider();
+    expect(m.racine.textContent).toContain('Recette 76 introuvable.');
+    expect(m.racine.querySelector('[data-mvt="vue:recette"]')).not.toBeNull();
+  });
+
+  it('un autre refus, capteur passé à un autre repas, reste un refus affiché', async () => {
+    // Troisième sujet : le capteur a avancé, mais le refus ne dit pas « introuvable » — le repas
+    // 139 existe encore, il se valide toujours d'ici une fois le stock rétabli.
+    const m = await monterCuisine({ commandes: {
+      ...commandes(),
+      'home_stock/meal/validate': () => { throw new RefusHA('invalid_value', 'Stock insuffisant.'); },
+    } });
+    await ouvrir();
+    await m.pousser('sensor.home_stock_next_meal', 'Bol lentilles', REPAS_REPLANIFIE);
+    appuyer(m.racine, '.recette-terminer');
+    await vider();
+    appuyer(m.racine, '.recette-terminer');
+    await vider();
+    appuyer(m.racine, '.recette-terminer');
+    await vider();
+    expect(m.racine.textContent).toContain('Stock insuffisant.');
+    expect(m.racine.querySelector('[data-mvt="vue:recette"]')).not.toBeNull();
   });
 
   it("hors ligne, « Terminer » est refusé VISIBLEMENT et rien n'est mis en file", async () => {

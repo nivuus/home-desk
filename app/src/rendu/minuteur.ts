@@ -5,7 +5,9 @@
  *  seul à détenir la connexion. Même patron que `rendu/modes.ts` et `rendu/media.ts`. */
 import { html, nothing, type TemplateResult } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
-import { formaterRestant, PAS_MINUTEUR_S, type VueMinuteur } from '../minuteur';
+import {
+  estDureeValide, formaterRestant, PAS_FIN_MINUTEUR_S, PAS_MINUTEUR_S, type VueMinuteur,
+} from '../minuteur';
 import { icone } from './icones';
 
 export type ActionsMinuteur = {
@@ -13,7 +15,7 @@ export type ActionsMinuteur = {
   fermer(): void;
   changerDuree(deltaMinutes: number): void;
   choisirEtiquette(nom: string): void;
-  demarrer(): void;
+  start(): void;
   pause(slot: number): void;
   reprendre(slot: number): void;
   annuler(slot: number): void;
@@ -21,7 +23,7 @@ export type ActionsMinuteur = {
 };
 
 const INERTE: ActionsMinuteur = {
-  ouvrir() {}, fermer() {}, changerDuree() {}, choisirEtiquette() {}, demarrer() {},
+  ouvrir() {}, fermer() {}, changerDuree() {}, choisirEtiquette() {}, start() {},
   pause() {}, reprendre() {}, annuler() {}, ajuster() {},
 };
 
@@ -50,11 +52,11 @@ function temps(v: VueMinuteur): TemplateResult {
   return html`<span class="mn-temps" data-minuteur=${v.slot}>${formaterRestant(v.restantS)}</span>`;
 }
 
-// Tâche 7 (mouvement) : `cle` reste optionnel. Les pas ± 5 (forme SOLO ET réglage) portent
-// chacun une marque ; `marche`/`annuler` (ligne comme solo) restent hors de la table de la
-// tâche 7, donc sans `data-mvt`. `cle` est le SLOT réel (`solo()`) quand il existe, sinon un
-// littéral fixe (`rendreReglageMinuteur`, avant qu'aucun minuteur n'existe) : un seul écran de
-// réglage possible à la fois, la clé fixe y est donc tout aussi stable/unique qu'un slot.
+// Task 7 (motion): `cle` stays optional. The ± 5 and ± 1 steps (SOLO form AND setting screen)
+// each carry a mark; `marche`/`annuler` (row and solo alike) stay outside the table of task 7,
+// hence without `data-mvt`. `cle` is the real SLOT (`solo()`) when there is one, otherwise a fixed
+// literal (`rendreReglageMinuteur`, before any timer exists): a single setting screen at a time,
+// so the fixed key is just as stable and unique there as a slot.
 function bouton(
   action: string, contenu: unknown, surAppui: () => void, cle?: string,
 ): TemplateResult {
@@ -70,55 +72,68 @@ function marche(v: VueMinuteur): TemplateResult {
     : bouton('marche', icone('lecture'), () => actions.reprendre(v.slot));
 }
 
-/** Forme SOLO : un seul minuteur en cours, donc la place d'un gros temps et du réglage fin.
+/** The four steps of a duration, `− 5 / − 1 / + 1 / + 5`, shared by the SOLO form and the
+ *  setting screen so that both screens step the same way. `pas` decides which steps are still
+ *  meaningful at this value: a step that could only clamp, or cancel, is a dead button. */
+function pas(
+  cle: string, pasGros: number, pasFin: number, appliquer: (delta: number) => void,
+  permis: (delta: number) => boolean,
+): TemplateResult {
+  const etapes: [string, string, number][] = [
+    ['moins', '− 5', -pasGros], ['moins1', '− 1', -pasFin],
+    ['plus1', '+ 1', pasFin], ['plus', '+ 5', pasGros],
+  ];
+  return html`
+    <div class="mn-pas">
+      ${etapes.map(([action, texte, delta]) => (permis(delta)
+        ? bouton(action, texte, () => appliquer(delta), cle) : nothing))}
+    </div>`;
+}
+
+/** SOLO form: a single running timer, hence room for a large time and fine steps.
  *
- *  `± 5` n'existe QUE sur un minuteur en marche (tâche 1, découverte à l'exécution) : l'ajustement
- *  passe par un `timer.start` avec une durée recalculée (cf. `demarrage.ts`), qui relancerait un
- *  minuteur mis en pause. Et `− 5` disparaît sous les 5 minutes restantes : il ne pourrait
- *  qu'annuler le minuteur, ce que fait déjà la croix à côté. */
-// Tâche 7 (mouvement) — les pas ± 5 ci-dessous sont marqués par SLOT, jamais par index de
-// tableau : solo() ne reçoit qu'un seul VueMinuteur (vues.length === 1, cf. rendreMinuteurs), donc
-// unique dans l'écran trivialement — mais le slot les rend en plus STABLES dans le temps pour le
-// même minuteur physique, la même donnée que celle qui identifie déjà la ligne équivalente de la
-// forme liste (data-minuteur de temps()).
+ *  The steps exist ONLY on a running timer (task 1, found while running it): an adjustment goes
+ *  through a `timer.start` with a recomputed duration (see `boot/controls.ts`), which would
+ *  restart a paused timer. And a step down disappears as soon as there is not enough time left
+ *  to remove it whole: it could only cancel the timer, which the cross next to it already does.
+ *  The steps (`.mn-pas`) and the controls (`.mn-actions`) sit on two rows: six 62 px targets do
+ *  not fit in a 311 px column. */
+// Task 7 (motion) — the steps below are marked by SLOT, never by array index: solo() receives a
+// single VueMinuteur (vues.length === 1, see rendreMinuteurs), so they are trivially unique on
+// screen — but the slot also makes them STABLE over time for the same physical timer, the same
+// datum that already identifies the matching row of the list form (data-minuteur of temps()).
 function solo(v: VueMinuteur): TemplateResult {
   return html`
     <div class="minuteurs mn-solo" data-zone="blocCentral" data-mvt="bloc:minuteur-solo">
       <div class="mn-nom">${libelle(v)}</div>
       <div class="mn-grand">${temps(v)}</div>
+      ${v.actif
+        ? pas(String(v.slot), PAS_MINUTEUR_S, PAS_FIN_MINUTEUR_S,
+              (delta) => actions.ajuster(v.slot, delta), (delta) => v.restantS > -delta)
+        : nothing}
       <div class="mn-actions">
-        ${v.actif && v.restantS > PAS_MINUTEUR_S
-          ? bouton('moins', '− 5', () => actions.ajuster(v.slot, -PAS_MINUTEUR_S), String(v.slot))
-          : nothing}
-        ${v.actif
-          ? bouton('plus', '+ 5', () => actions.ajuster(v.slot, PAS_MINUTEUR_S), String(v.slot))
-          : nothing}
         ${marche(v)}
         ${bouton('annuler', icone('croix'), () => actions.annuler(v.slot))}
       </div>
     </div>`;
 }
 
-/** L'écran de réglage — tâche 10 bis (arbitrage du propriétaire, 2026-08-03) : une sous-vue
- *  PLEIN ÉCRAN (`#minuteur`), exactement comme `rendu/maison.ts`/`rendu/taches.ts`, plutôt qu'un
- *  état du bloc central (mesuré à 718 px en tâche 10, 133 px au-delà du budget de 585 px). Le
- *  retour automatique après 45 s d'inactivité est désormais celui, générique, des sous-vues
- *  (`estSousVue`/`armerRetour`, `demarrage.ts`) — plus de jeton ni de minuteur propres à cet
- *  écran. Les pas disparaissent aux bornes : à 1 min, « − 5 » ne pourrait que redonner 1 min, ce
- *  qui est un bouton mort. */
+/** The setting screen — task 10 bis (owner's decision, 2026-08-03): a FULL-SCREEN sub-view
+ *  (`#minuteur`), exactly like `rendu/maison.ts`/`rendu/taches.ts`, rather than a state of the
+ *  central block (measured at 718 px in task 10, 133 px beyond the 585 px budget). The automatic
+ *  return after 45 s of inactivity is the generic one of the sub-views (`estSousVue`/
+ *  `armerRetour`, `demarrage.ts`) — no token or timer of its own. A step is offered only if it
+ *  lands WHOLE within the bounds: "− 5" at 3 min could only give back 1 min, which "− 1" already
+ *  does honestly. */
 export function rendreReglageMinuteur(
   dureeMinutes: number, etiquette: string | null, etiquettes: string[],
 ): TemplateResult {
   return html`
     <div class="minuteurs mn-reglage" data-mvt="vue:minuteur">
       <div class="mn-nom">Minuteur</div>
-      <div class="mn-actions">
-        ${dureeMinutes > 1
-          ? bouton('moins', '− 5', () => actions.changerDuree(-5), 'reglage') : nothing}
-        <div class="mn-duree">${dureeMinutes} min</div>
-        ${dureeMinutes < 120
-          ? bouton('plus', '+ 5', () => actions.changerDuree(5), 'reglage') : nothing}
-      </div>
+      <div class="mn-duree">${dureeMinutes} min</div>
+      ${pas('reglage', PAS_MINUTEUR_S / 60, PAS_FIN_MINUTEUR_S / 60,
+            (delta) => actions.changerDuree(delta), (delta) => estDureeValide(dureeMinutes + delta))}
       ${etiquettes.length ? html`
         <div class="mn-etiquettes" data-mvt="detail:mn-etiquettes">
           ${etiquettes.map((e) => html`
@@ -126,7 +141,7 @@ export function rendreReglageMinuteur(
                  @pointerdown=${() => actions.choisirEtiquette(e)}>${e}</div>`)}
         </div>` : nothing}
       <div class="mn-nouveau" data-action="demarrer" data-mvt="detail:mn-nouveau"
-           @pointerdown=${() => actions.demarrer()}>
+           @pointerdown=${() => actions.start()}>
         ${icone('lecture')}Démarrer</div>
       <div class="xl" @pointerdown=${() => actions.fermer()}>${icone('home')}Retour</div>
     </div>`;
@@ -174,7 +189,7 @@ export function tuileMinuteur(sature: boolean): TemplateResult {
  *  défaut qui a figé les trois écrans dans la nuit du 2026-08-03 ; on mute donc le nœud texte
  *  existant plutôt que de le remplacer — le tic d'une seconde reste ainsi hors du moteur de
  *  mouvement (cf. `temps()` ci-dessus), qui ne voit jamais ce nœud. */
-export function ecrireTemps(el: HTMLElement, texte: string): void {
+export function writeTime(el: HTMLElement, texte: string): void {
   for (const n of Array.from(el.childNodes)) {
     if (n.nodeType === Node.TEXT_NODE) { (n as Text).data = texte; return; }
   }

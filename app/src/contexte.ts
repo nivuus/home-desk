@@ -22,10 +22,10 @@ const REPLI_MS = 15 * 60_000;
 /** Une alerte occupe le premier plan tant que quelqu'un bouge — quelqu'un peut agir. Dès que
  *  la maison est calme depuis un quart d'heure, elle se replie sur la ligne de synthèse. */
 export function alerteActive(
-  alertes: Alerte[], dernierMouvement: number, maintenant: number,
+  alertes: Alerte[], lastMotion: number, maintenant: number,
 ): Alerte | null {
   if (alertes.length === 0) return null;
-  if (maintenant - dernierMouvement >= REPLI_MS) return null;
+  if (maintenant - lastMotion >= REPLI_MS) return null;
   return alertes.reduce((a, b) => (b.depuis > a.depuis ? b : a));
 }
 

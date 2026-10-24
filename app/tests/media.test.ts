@@ -244,3 +244,26 @@ describe('resoudreSource — ce qu\'il faut au rail de progression (revue tâche
     }
   });
 });
+
+describe('piece and active', () => {
+  const decl: DeclarationSource = { ...TELE, piece: 'Salon' };
+
+  it('piece is carried to the resolved source', () => {
+    const etat = etatAvec({ 'media_player.plex_tv': { etat: 'playing', attributs: {} } });
+    expect(resoudreSource(etat, decl)!.piece).toBe('Salon');
+  });
+
+  it('active is false when paused and joue is true', () => {
+    const etat = etatAvec({ 'media_player.plex_tv': { etat: 'paused', attributs: {} } });
+    const s = resoudreSource(etat, decl)!;
+    expect(s.joue).toBe(true);
+    expect(s.active).toBe(false);
+  });
+
+  it('active is true when playing or buffering', () => {
+    for (const st of ['playing', 'buffering']) {
+      const etat = etatAvec({ 'media_player.plex_tv': { etat: st, attributs: {} } });
+      expect(resoudreSource(etat, decl)!.active).toBe(true);
+    }
+  });
+});

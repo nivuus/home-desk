@@ -5,7 +5,7 @@ dashboard Lovelace.** Application web dédiée en TypeScript + [`lit`](https://l
 par rollup vers `config/www/wallpanel/` et servie par Home Assistant.
 
 > ⚠️ **Chemin de déploiement, corrigé le 2026-08-29.** La configuration de Home Assistant a été
-> déplacée le 2026-08-28 de `/opt/nivuus/HomeAssistant/config` vers
+> déplacée le 2026-08-28 d'un ancien chemin propre à cette machine vers
 > `/opt/nivuus/home-manager/config` — c'est ce dossier-là que `docker-compose.yml` monte sur
 > `/config`. Les quatre fichiers qui écrivaient encore à l'ancienne adresse (`rollup.config.js`,
 > `scripts/copier-assets.mjs`, `scripts/versionner.mjs`, `outils/verifier-rendu.mjs`) ont été
@@ -13,11 +13,17 @@ par rollup vers `config/www/wallpanel/` et servie par Home Assistant.
 > recrée un dossier orphelin que personne ne sert, et les tablettes continuent d'afficher
 > l'ancien bundle — tandis que `verifier-rendu.mjs` annonce « Aucune page à vérifier ».
 
-| Pièce | URL affichée par Fully Kiosk | Admin Fully | Screenshot HA |
-|-------|------------------------------|-------------|---------------|
-| Salon | `/local/wallpanel/salon.html` | `192.168.0.218:2323` | `image.tablette_salon_capture_d_ecran` |
-| Bureau | `/local/wallpanel/bureau.html` | `192.168.0.138:2323` | `image.tablette_bureau_capture_d_ecran` |
-| Cuisine | `/local/wallpanel/cuisine.html` | `192.168.0.159:2323` | `image.tablette_cuisine_capture_d_ecran` |
+| Pièce | URL affichée par Fully Kiosk | Screenshot HA |
+|-------|------------------------------|---------------|
+| Salon | `/local/wallpanel/salon.html` | `image.tablette_salon_capture_d_ecran` |
+| Bureau | `/local/wallpanel/bureau.html` | `image.tablette_bureau_capture_d_ecran` |
+| Cuisine | `/local/wallpanel/cuisine.html` | `image.tablette_cuisine_capture_d_ecran` |
+
+Les IP d'administration Fully Kiosk de chaque tablette (port `2323`) ont été retirées d'ici le
+2026-09-14 — `app/` est la SOURCE dont `dist/` est bâti et livré par `git archive HEAD` ; ce dépôt
+ne les porte donc plus (gardé par `tests/test_portabilite_app.py`, plan 3c, tâche 5). Aucun
+fichier ne les remplace encore : ce mapping pièce → IP reste à consigner hors du dépôt, sur la
+machine de production elle-même (tâche 6 du même plan).
 
 L'app se connecte à HA en **websocket** avec le jeton de session du navigateur (`src/connexion.ts`) :
 aucune card, aucun dashboard, aucun `custom_component` frontend dans la boucle.
@@ -40,11 +46,13 @@ de libre.
 | Fichier | Contenu |
 |---------|---------|
 | `src/ecran.ts` | tuiles, commandes, entités et lignes de synthèse **par pièce** |
-| `src/modes.ts` | mode principal exclusif (`alerte`, `minuteur`, `menage`, `cinema`, `media`, `aeration`, `voiture`, `defaut`), modulateurs cumulables (`invites`, `chaleur`, `delorean`), nombre de commandes visibles |
+| `src/modes.ts` | mode principal exclusif (`alerte`, `minuteur`, `menage`, `cinema`, `media`, `aeration`, `voiture`, `defaut`), modulateurs cumulables (`invites`, `chaleur`), ordre et coupe des commandes visibles |
+| `src/screen-budget.ts` | budget de hauteur : coût de la colonne, nombre de commandes (`combien`), échelle de la carte média (`arrangement`), débordement pour le formulaire (`verifierBudget`) |
 | `src/rendu/*.ts` | blocs centraux (`media`, `voiture`, `taches`, `minuteur`, `nuit`, `maison`, `defaut`, `recette`…) et `icones.ts` |
 | `src/garde-manger.ts` | le repas suivant et le compte de DLC, **lus dans les attributs** de `sensor.home_stock_next_meal` et `todo.home_stock_expirations` |
 | `src/contexte.ts` | moment du jour (nuit 23 h–5 h), alertes |
-| `src/demarrage.ts` | connexion, souscriptions d'état, orchestration, retour auto après inactivité |
+| `src/demarrage.ts` | les deux points d'entrée (`startScreen`, `startWithScreen`) et leurs boucles de reprise |
+| `src/boot/` | un écran monté, découpé le 2026-09-28 : `state.ts` (état partagé), `wiring.ts` (souscriptions, gestes, retour auto après inactivité), `controls.ts`, `loaders.ts` (tâches, météo, agenda), `recipe.ts`, `timers.ts`, `draw.ts` + `frame.ts`/`subviews.ts`/`home.ts` (le dessin), `test-hooks.ts` (`?essai=1`) |
 | `src/styles/` | `base.css` + `jetons.css` (généré, Material 3 Expressive) |
 
 ## Commandes
@@ -58,6 +66,7 @@ node outils/verifier-rendu.mjs --deploye   # idem, sur le bundle réellement en 
 node outils/mesurer-salve.mjs salon        # coût des 12 premières secondes (salve de connexion)
 node outils/mesurer-salve.mjs salon --src  # idem, sur le bundle construit depuis src/
 node outils/mesurer-rendus.mjs salon 300   # régime établi : styles/layouts par seconde, nœuds DOM
+node outils/mesurer-carte-media.mjs        # hauteur de la carte média et de la synthèse réduite, sans Home Assistant
 npm run build                     # ⚠️ DÉPLOIE EN PRODUCTION (écrit config/www/wallpanel/)
 npm run jetons                    # régénère src/styles/jetons.css
 ```

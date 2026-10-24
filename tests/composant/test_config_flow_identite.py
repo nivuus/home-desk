@@ -12,9 +12,9 @@ from homeassistant import data_entry_flow
 
 from conftest import IDENTITE_MINIMALE, _creer_ecran, _init_reconfigure
 from custom_components.home_desk.const import (
-    ERREUR_BUDGET_INTENABLE,
-    ERREUR_NOM_DEJA_UTILISE,
-    ERREUR_NOM_VIDE,
+    ERROR_BUDGET_UNTENABLE,
+    ERROR_NAME_ALREADY_USED,
+    ERROR_NAME_EMPTY,
     VERSION_CONFIG,
 )
 
@@ -43,7 +43,7 @@ async def test_reconfigurer_l_identite_refuse_un_nom_vide(hass, entree):
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {**IDENTITE_MINIMALE, "nom": "   "})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["nom"] == ERREUR_NOM_VIDE
+    assert resultat["errors"]["nom"] == ERROR_NAME_EMPTY
     subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
     assert subentry.data["nom"] == IDENTITE_MINIMALE["nom"], "un refus ne doit RIEN persister"
 
@@ -56,7 +56,7 @@ async def test_reconfigurer_l_identite_refuse_une_hauteur_qui_deborde(hass, entr
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {**IDENTITE_MINIMALE, "hauteurUtile": 100})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["hauteurUtile"] == ERREUR_BUDGET_INTENABLE
+    assert resultat["errors"]["hauteurUtile"] == ERROR_BUDGET_UNTENABLE
     subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
     assert subentry.data["hauteurUtile"] == IDENTITE_MINIMALE["hauteurUtile"]
 
@@ -75,10 +75,10 @@ async def test_reconfigurer_l_identite_preremplit_les_valeurs_stockees(hass, ent
 async def test_reconfigurer_l_identite_vide_la_note_existante(hass, entree):
     """Ronde 2 de relecture (point 6) : deux mutations survivaient sur
     `async_step_identite`, toutes deux invisibles sur CE seul test.
-    (a) retirer la ligne `if "note" not in donnee: nouvelles_donnees.pop
+    (a) retirer la ligne `if "note" not in identity_data: new_data.pop
     ("note", None)` — une note videe restait persistee telle quelle. (b)
-    remplacer `garde_ecran.persister_si_valide(..., nouvelles_donnees, ...)`
-    (une ecriture COMPLETE) par un appel qui ne passerait que `donnee` (le
+    remplacer `garde_ecran.persister_si_valide(..., new_data, ...)`
+    (une ecriture COMPLETE) par un appel qui ne passerait que `identity_data` (le
     seul DELTA identite, sans "note" quand elle est vide) en `data_updates`
     — une UNION qui NE RETIRE JAMAIS de cle garderait alors l'ancienne note.
     Une note EXISTANTE, videe puis resoumise, doit disparaitre : ce test
@@ -108,7 +108,7 @@ async def test_reconfigurer_l_identite_refuse_un_nom_deja_pris_par_un_autre_ecra
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {**IDENTITE_MINIMALE, "nom": "cuisine"})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["nom"] == ERREUR_NOM_DEJA_UTILISE
+    assert resultat["errors"]["nom"] == ERROR_NAME_ALREADY_USED
     assert "cuisine" in str(resultat["description_placeholders"])
     subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[salon_id]
     assert subentry.data["nom"] == "salon", "un refus ne doit RIEN persister"
@@ -137,7 +137,7 @@ async def test_reconfigurer_l_identite_preserve_la_version(hass, entree):
     reconfiguration la perdait, l'ecran deviendrait IRRECUPERABLE par le
     transport, pas seulement degrade. Rien ne gardait cette garantie avant
     ce test : `_valider_identite` ne touche jamais `version`, et
-    `nouvelles_donnees = dict(subentry.data)` (avant `.update(donnee)`)
+    `new_data = dict(subentry.data)` (avant `.update(identity_data)`)
     la conserve seulement TANT QUE ce point de depart ne change pas."""
     subentry_id = await _creer_ecran(hass, entree)
     flow = await _init_reconfigure(hass, entree, subentry_id)

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Etat } from '../src/etat';
-import { creerAppui, etatVise } from '../src/interaction';
+import { createPress, etatVise } from '../src/interaction';
 
 describe('etatVise', () => {
   it('inverse sur un toggle', () => {
@@ -58,7 +58,7 @@ describe('etatVise', () => {
   });
 });
 
-describe('creerAppui', () => {
+describe('createPress', () => {
   const bouton: any = { libelle: 'Lumières', icone: 'bulb',
                         entite: 'light.salon', service: ['light', 'toggle'] };
 
@@ -66,7 +66,7 @@ describe('creerAppui', () => {
     const etat = new Etat();
     etat.appliquer({ entity_id: 'light.salon', state: 'off', attributes: {} });
     const cx: any = { appelerService: vi.fn() };
-    creerAppui(etat, cx, setTimeout)(etat, bouton);
+    createPress(etat, cx, setTimeout)(etat, bouton);
     expect(etat.lire('light.salon')!.etat).toBe('on');
     expect(cx.appelerService).toHaveBeenCalledWith('light', 'toggle', { entity_id: 'light.salon' });
   });
@@ -75,7 +75,7 @@ describe('creerAppui', () => {
     vi.useFakeTimers();
     const etat = new Etat();
     etat.appliquer({ entity_id: 'light.salon', state: 'off', attributes: {} });
-    creerAppui(etat, { appelerService: vi.fn() } as any, setTimeout)(etat, bouton);
+    createPress(etat, { appelerService: vi.fn() } as any, setTimeout)(etat, bouton);
     expect(etat.lire('light.salon')!.etat).toBe('on');
     vi.advanceTimersByTime(3100);
     expect(etat.lire('light.salon')!.etat).toBe('off');
@@ -86,7 +86,7 @@ describe('creerAppui', () => {
     vi.useFakeTimers();
     const etat = new Etat();
     etat.appliquer({ entity_id: 'light.salon', state: 'off', attributes: {} });
-    creerAppui(etat, { appelerService: vi.fn() } as any, setTimeout)(etat, bouton);
+    createPress(etat, { appelerService: vi.fn() } as any, setTimeout)(etat, bouton);
     etat.appliquer({ entity_id: 'light.salon', state: 'on', attributes: {} });
     vi.advanceTimersByTime(3100);
     expect(etat.lire('light.salon')!.etat).toBe('on');
@@ -105,7 +105,7 @@ describe('creerAppui', () => {
     const cx: any = { appelerService: vi.fn() };
     const boutonScene: any = { libelle: 'Clair', icone: 'sofa',
                                 entite: 'scene.salon_clair', service: ['scene', 'turn_on'] };
-    creerAppui(etat, cx, setTimeout)(etat, boutonScene);
+    createPress(etat, cx, setTimeout)(etat, boutonScene);
 
     expect(cx.appelerService).toHaveBeenCalledWith('scene', 'turn_on', { entity_id: 'scene.salon_clair' });
     // Inchangé tout de suite : rien à afficher comme « actif » pour une scène.
@@ -125,7 +125,7 @@ describe('creerAppui', () => {
     etat.appliquer({ entity_id: 'climate.radiateur', state: 'heat', attributes: {} });
     const cx: any = { appelerService: vi.fn() };
     const boutonInfo: any = { libelle: 'Chauffage', icone: 'flame', entite: 'climate.radiateur' };
-    creerAppui(etat, cx, setTimeout)(etat, boutonInfo);
+    createPress(etat, cx, setTimeout)(etat, boutonInfo);
     expect(cx.appelerService).not.toHaveBeenCalled();
     expect(etat.lire('climate.radiateur')!.etat).toBe('heat');
   });
@@ -146,7 +146,7 @@ describe('creerAppui', () => {
   // jamais appeler HA ni poser d'état optimiste — c'est une simple page autonome, pas une
   // commande. Ce fichier tourne en environnement `node` (pas jsdom, cf. tests/demarrage.test.ts),
   // d'où le double minimal de `location` : suffisant pour vérifier l'affectation faite par
-  // `creerAppui`, sans dépendre d'un vrai DOM ni de la navigation (non implémentée par jsdom de
+  // `createPress`, sans dépendre d'un vrai DOM ni de la navigation (non implémentée par jsdom de
   // toute façon pour une URL absolue — testée ici au niveau qui ne dépend pas de cette limite).
   it('un bouton avec `lien` navigue via location.href, sans appeler de service ni poser d etat optimiste', () => {
     const etat = new Etat();
@@ -158,7 +158,7 @@ describe('creerAppui', () => {
     const localisationOriginale = (globalThis as any).location;
     (globalThis as any).location = localisationFactice;
     try {
-      creerAppui(etat, cx, setTimeout)(etat, boutonLien);
+      createPress(etat, cx, setTimeout)(etat, boutonLien);
       expect(localisationFactice.href).toBe('/home-stock');
       expect(cx.appelerService).not.toHaveBeenCalled();
       expect(etat.lire('sensor.home_stock_next_meal')!.etat).toBe('3');   // inchangé : rien n est optimiste ici
@@ -171,7 +171,7 @@ describe('creerAppui', () => {
     vi.useFakeTimers();
     const etat = new Etat();
     etat.appliquer({ entity_id: 'light.salon', state: 'off', attributes: {} });
-    const appui = creerAppui(etat, { appelerService: vi.fn() } as any, setTimeout);
+    const appui = createPress(etat, { appelerService: vi.fn() } as any, setTimeout);
 
     for (let i = 0; i < 10; i++) appui(etat, bouton);
 
@@ -194,7 +194,7 @@ describe('creerAppui', () => {
     vi.useFakeTimers();
     const etat = new Etat();
     etat.appliquer({ entity_id: 'light.salon', state: 'off', attributes: {} });
-    const appui = creerAppui(etat, { appelerService: vi.fn() } as any, setTimeout);
+    const appui = createPress(etat, { appelerService: vi.fn() } as any, setTimeout);
 
     for (let i = 0; i < 3; i++) appui(etat, bouton);   // off -> on -> off -> on (affiché : 'on')
     etat.appliquer({ entity_id: 'light.salon', state: 'on', attributes: {} });   // HA confirme
@@ -214,7 +214,7 @@ describe('creerAppui', () => {
     const etat = new Etat();
     etat.appliquer({ entity_id: 'light.salon', state: 'off', attributes: {} });
     const appelerService = vi.fn();
-    const appui = creerAppui(etat, { appelerService }, setTimeout, () => true);
+    const appui = createPress(etat, { appelerService }, setTimeout, () => true);
 
     appui(etat, bouton);
 
@@ -228,7 +228,7 @@ describe('creerAppui', () => {
     etat.appliquer({ entity_id: 'climate.radiateur', state: 'heat', attributes: {} });
     const appelerService = vi.fn();
     const boutonInfo: any = { libelle: 'Chauffage', icone: 'flame', entite: 'climate.radiateur' };
-    const appui = creerAppui(etat, { appelerService }, setTimeout, () => true);
+    const appui = createPress(etat, { appelerService }, setTimeout, () => true);
 
     expect(() => appui(etat, boutonInfo)).not.toThrow();
     expect(appelerService).not.toHaveBeenCalled();   // pas de service à appeler de toute façon
@@ -245,7 +245,7 @@ describe('creerAppui', () => {
     const localisationOriginale = (globalThis as any).location;
     (globalThis as any).location = localisationFactice;
     try {
-      creerAppui(etat, { appelerService }, setTimeout, () => true)(etat, boutonLien);
+      createPress(etat, { appelerService }, setTimeout, () => true)(etat, boutonLien);
       expect(localisationFactice.href).toBe('/local/wallpanel/recettes.html');
     } finally {
       (globalThis as any).location = localisationOriginale;
@@ -260,7 +260,7 @@ describe('creerAppui', () => {
   it('un bouton `vue` pose le hash sans appeler aucun service', () => {
     const etat = new Etat();
     const cx = { appelerService: vi.fn() };
-    const appui = creerAppui(etat, cx, setTimeout);
+    const appui = createPress(etat, cx, setTimeout);
     const localisationFactice = { hash: '' };
     const localisationOriginale = (globalThis as any).location;
     (globalThis as any).location = localisationFactice;
@@ -277,7 +277,7 @@ describe('creerAppui', () => {
   // appellent un script (`ecran.ts`, champ `cible`). Le service doit viser `cible`, jamais
   // `entite` — sans quoi HA recevrait un `turn_on` sur la serrure elle-même, qui n'a pas ce
   // service. Pas de fabrique `monterAppui`/`cx.appels` dans ce fichier : on suit le même patron
-  // que les tests `creerAppui` ci-dessus (`Etat` réel + double `{ appelerService: vi.fn() }`).
+  // que les tests `createPress` ci-dessus (`Etat` réel + double `{ appelerService: vi.fn() }`).
   it('appelle le script quand une commande déclare une cible, jamais l entité affichée', () => {
     const etat = new Etat();
     etat.appliquer({ entity_id: 'lock.serrure', state: 'locked', attributes: {} });
@@ -285,7 +285,7 @@ describe('creerAppui', () => {
     const boutonPorte: any = { libelle: 'Porte', icone: 'porte', entite: 'lock.serrure',
                                 service: ['script', 'turn_on'], cible: 'script.ouvrir' };
 
-    creerAppui(etat, cx, setTimeout)(etat, boutonPorte);
+    createPress(etat, cx, setTimeout)(etat, boutonPorte);
 
     expect(cx.appelerService).toHaveBeenCalledWith('script', 'turn_on', { entity_id: 'script.ouvrir' });
     // `script` est absent de `DOMAINES_MARCHE_ARRET` : aucun état n'est visé pour ce couple
@@ -300,7 +300,7 @@ describe('creerAppui', () => {
   it('estHorsLigne() faux (comportement par defaut, retro-compatible) : l optimisme fonctionne normalement', () => {
     const etat = new Etat();
     etat.appliquer({ entity_id: 'light.salon', state: 'off', attributes: {} });
-    const appui = creerAppui(etat, { appelerService: vi.fn() }, setTimeout);   // 4e argument omis
+    const appui = createPress(etat, { appelerService: vi.fn() }, setTimeout);   // 4e argument omis
 
     appui(etat, bouton);
 

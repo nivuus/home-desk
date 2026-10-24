@@ -127,7 +127,7 @@ describe('déclarations des pièces', () => {
 });
 
 /** Tâche 19 (2026-08-03, choix du propriétaire) : la cuisine et le bureau ne déclaraient que DEUX
- *  commandes là où `combien()` (`modes.ts`) en affiche quatre en mode `defaut` — une seule rangée
+ *  commandes là où `combien()` (`screen-budget.ts`) en affiche quatre en mode `defaut` — une seule rangée
  *  rendue au lieu des deux du salon, soit les ~93 px de jeu mesurés au milieu de ces deux écrans à
  *  la tâche 18 (74 px de rangée + la gouttière). Deux tuiles de plus par pièce comblent EXACTEMENT
  *  cette rangée manquante : la hauteur de leurs modes `defaut`/`entretien`/`agenda` passe de 500 à
@@ -141,7 +141,7 @@ describe('tâche 19 — les quatre commandes ajoutées à la cuisine et au burea
   // l'ordre déclaré, ce qui garantit les deux tuiles demandées sans toucher à `modes.ts`.
   it('la cuisine déclare quatre commandes, Hotte et Rideau en tête', () => {
     expect(ECRANS.cuisine.commandes.map((c) => c.libelle))
-      .toEqual(['Hotte', 'Rideau', 'Courses', 'Recette']);
+      .toEqual(['Hotte', 'Rideau', 'Garde-manger', 'Recette']);
   });
 
   // Le rideau de cuisine appelait `cover.toggle` — donc `open_cover`/`close_cover`, que ces
@@ -192,14 +192,23 @@ describe('tâche 19 — les quatre commandes ajoutées à la cuisine et au burea
     expect(JSON.stringify(ECRANS.cuisine)).not.toMatch(/grocy/i);
   });
 
-  it('la commande « Courses » ouvre la vue Tâches', () => {
-    // Avant ce lot, la tuile affichait un compte sur lequel on ne pouvait RIEN faire : la vue
-    // « Tâches » ne s'atteignait qu'en touchant la ligne de synthèse. Une navigation interne ne
-    // coûte aucun appel HA et supprime un cul-de-sac.
-    const b = ECRANS.cuisine.commandes.find((c) => c.libelle === 'Courses')!;
-    expect(b.entite).toBe('todo.home_stock_shopping');
-    expect(b.vue).toBe('#taches');
+  it('the "Garde-manger" tile opens the pantry view, in place of "Courses"', () => {
+    // Spec 2026-09-28: taking a product out of stock gets its own screen instead of checking a
+    // line in the Tasks view. The tile keeps the grid place of "Courses" and its absence label.
+    const b = ECRANS.cuisine.commandes.find((c) => c.libelle === 'Garde-manger')!;
+    expect(b.entite).toBe('todo.home_stock_expirations');
+    expect(b.vue).toBe('#garde-manger');
+    expect(b.icone).toBe('jar');
+    expect(b.absenceNommee).toBe('Garde-manger non installé');
     expect(b.service).toBeUndefined();
+    expect(ECRANS.cuisine.commandes.find((c) => c.libelle === 'Courses')).toBeUndefined();
+  });
+
+  it('the kitchen keeps the soon count on its summary line, out of its Tasks view', () => {
+    const dlc = ECRANS.cuisine.synthese.find((e) => e.entite === 'todo.home_stock_expirations');
+    expect(dlc?.horsTaches).toBe(true);
+    // Shopping stays reachable in the Tasks view.
+    expect(ECRANS.cuisine.listesTachesExtra).toContain('todo.home_stock_shopping');
   });
 
   it('« Recette » garde son indicateur de disponibilité', () => {
@@ -218,14 +227,14 @@ describe('tâche 19 — les quatre commandes ajoutées à la cuisine et au burea
   });
 
   it('la cuisine porte la ligne DLC, en CINQUIÈME position', () => {
-    // L'ordre compte deux fois : la ligne de synthèse n'affiche qu'un nombre borné d'écarts, et
-    // `listesTachesPiece` reprend cet ordre pour la vue « Tâches ». Déclarée APRÈS
-    // `todo.maintenance`, la DLC passe donc après l'entretien et avant les courses.
+    // The summary line shows a bounded number of gaps, in declaration order. Since the pantry
+    // screen (spec 2026-09-28) the line stays out of the Tasks view (`horsTaches`): a batch is
+    // taken out of stock in the pantry view, never checked off in Tasks.
     const s = ECRANS.cuisine.synthese;
     expect(s).toHaveLength(5);
     expect(s[4]).toEqual({
       entite: 'todo.home_stock_expirations', operateur: '>', valeur: 0,
-      texte: '{etat} produit{s} à consommer', perso: true,
+      texte: '{etat} produit{s} à consommer', perso: true, horsTaches: true,
     });
   });
 

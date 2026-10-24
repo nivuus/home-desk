@@ -13,6 +13,11 @@
   },
   "cas": [
     {"nom": "l ecran minimal est valide", "valide": true, "ecran": "@minimal"},
+    {"nom": "une tuile ouvre la vue du garde-manger", "valide": true,
+     "modifie": {"commandes": [{"libelle": "Garde-manger", "icone": "jar", "entite": "todo.stock", "vue": "#garde-manger"}]}},
+    {"nom": "une vue sans diese est refusee", "valide": false,
+     "motif": "/commandes/0/vue: pattern",
+     "modifie": {"commandes": [{"libelle": "X", "icone": "bulb", "entite": "light.x", "vue": "garde-manger"}]}},
     {"nom": "un seuil chaine sous un operateur d ordre est refuse", "valide": false,
      "motif": "/synthese/0/valeur: type",
      "modifie": {"synthese": [{"entite": "sensor.x", "operateur": "<", "valeur": "35", "texte": "x"}]}},
@@ -49,6 +54,11 @@
     {"nom": "alerte presente mais pas en premiere position est refusee", "valide": false,
      "motif": "/agencement/modes/0: const",
      "modifie": {"agencement": {"zones": ["commandes"],
-                                "modes": ["defaut", "media", "alerte"], "modulateurs": []}}}
+                                "modes": ["defaut", "media", "alerte"], "modulateurs": []}}},
+    {"nom": "une source peut porter le nom de sa piece", "valide": true,
+     "modifie": {"sources": [{"nom": "Cuisine", "titre": ["sensor.t"], "sousTitre": [], "affiche": [], "progression": [], "transport": [], "volume": [], "piece": "Salon"}]}},
+    {"nom": "un nom de piece vide est refuse", "valide": false,
+     "motif": "/sources/0/piece: minLength",
+     "modifie": {"sources": [{"nom": "Cuisine", "titre": ["sensor.t"], "sousTitre": [], "affiche": [], "progression": [], "transport": [], "volume": [], "piece": ""}]}}
   ]
 }

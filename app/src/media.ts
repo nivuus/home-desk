@@ -38,8 +38,14 @@ export const CAP = {
  *  cinéma dépend de la première, le contenu de la carte de la seconde. */
 export const ETATS_ACTIFS = ['playing', 'paused', 'buffering'];
 
+/** The stricter notion: something is actually going on right now. `paused` is excluded, so a
+ *  paused source elsewhere in the house never takes over the card (see `media-choice.ts`). */
+export const ACTIVE_STATES = ['playing', 'buffering'];
+
 export type DeclarationSource = {
   nom: string;
+  /** Room the source lives in; shown when it is not the screen's own room. */
+  piece?: string;
   /** Ce qui prouve que l'écran/l'enceinte est allumé, indépendamment d'une lecture en cours. */
   allumee?: { entite: string; etats: string[] };
   titre: string[];
@@ -54,6 +60,11 @@ export type DeclarationSource = {
 
 export type SourceResolue = {
   nom: string;
+  /** Copied from the declaration. */
+  piece?: string;
+  /** True when an entity of `titre`/`progression`/`transport` is in `ACTIVE_STATES`
+   *  (`paused` excluded, unlike `joue`). */
+  active: boolean;
   /** Vrai si une des entités de `titre`/`progression`/`transport` est dans `ETATS_ACTIFS`. */
   joue: boolean;
   /** Vrai si `decl.allumee` est satisfaite : l'écran est allumé, indépendamment de `joue`.
@@ -136,6 +147,14 @@ export function vignetter(url: string | undefined): string | undefined {
   return `/api/vignette?w=${LARGEUR_AFFICHE}&url=${encodeURIComponent(url)}`;
 }
 
+/** Every entity a declaration names, across the six lists and `allumee`. */
+export function entitiesOf(decl: DeclarationSource): Set<string> {
+  const ids = [...decl.titre, ...decl.sousTitre, ...decl.affiche, ...decl.progression,
+    ...decl.transport, ...decl.volume];
+  if (decl.allumee !== undefined) ids.push(decl.allumee.entite);
+  return new Set(ids);
+}
+
 export function resoudreSource(etat: Etat, decl: DeclarationSource): SourceResolue | null {
   const toutes = [...new Set([...decl.titre, ...decl.progression, ...decl.transport])];
   const joue = toutes.some((id) => etat.estUtilisable(id) && ETATS_ACTIFS.includes(etat.lire(id)!.etat));
@@ -145,6 +164,7 @@ export function resoudreSource(etat: Etat, decl: DeclarationSource): SourceResol
   // Ni allumée ni en train de jouer : cette source n'a rien à montrer. `null` plutôt qu'un objet
   // vide, pour que l'appelant n'ait jamais à distinguer « pas de titre » de « pas de source ».
   if (!joue && !allumee) return null;
+  const active = toutes.some((id) => etat.estUtilisable(id) && ACTIVE_STATES.includes(etat.lire(id)!.etat));
 
   // Repli du titre sur `app_name` (« Disney+ ») : mieux qu'un bloc muet quand une application ne
   // publie aucune métadonnée — cas explicitement prévu par le spec, pas un accident.
@@ -211,5 +231,5 @@ export function resoudreSource(etat: Etat, decl: DeclarationSource): SourceResol
     return { entite: id, niveau: undefined, parPas: true };
   });
 
-  return { nom: decl.nom, joue, allumee, titre, sousTitre, affiche, progression, transport, volume };
+  return { nom: decl.nom, piece: decl.piece, joue, active, allumee, titre, sousTitre, affiche, progression, transport, volume };
 }

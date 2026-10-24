@@ -12,15 +12,19 @@ ci-dessous n'en nomme que trois — `budget.json`, `icones.json`,
 | `budget.json` | à la main, sauf la clé `hauteurs` — mesurée par `app/outils/mesurer-hauteurs.mjs` dans un vrai navigateur, puis recopiée depuis sa sortie | La règle de `combien()` et ses mesures. L'intégration doit pouvoir dire « cet écran déborde » AU MOMENT DE LA SAISIE, donc elle doit rejouer la même règle. |
 | `icones.json` | `app/scripts/generer-contrats.mjs` | Le formulaire doit proposer les icônes RÉELLES de l'application, pas une liste recopiée qui dérive. |
 | `ecran.schema.json` | à la main, sauf l'`enum` de `$defs/bouton/properties/icone` — injecté par ce même générateur depuis `icones.json`, pour que le schéma ne puisse plus accepter une icône que l'application ne sait pas dessiner | Le schéma d'un écran. Deux implémentations (TypeScript, `voluptuous`), une seule vérité. |
+| `maison.schema.json` | à la main | La liste des sources média de la maison (partagée par toutes les tablettes) : des sources d'écran dont `piece` est obligatoire. Son corpus partagé est `cas-maison.json`, rejoué par `app/tests/cas-maison.test.ts` et `tests/composant/test_schema_maison.py`. Le nom de pièce vient de la configuration, jamais du code. |
 
 **Rien de cette maison n'entre ici.** Pas d'`entity_id`, pas de nom de pièce :
 ces fichiers partent chez toutes les maisons.
 
-**`version`** est porté par `ecran.schema.json` (`"version": {"const": 1}`),
+**`version`** est porté par `ecran.schema.json` (`"version": {"const": 2}`
+depuis le 2026-09-28 — la version 2 retire les scènes d'animation codées en dur ;
+`custom_components/home_desk/migration.py` réécrit au chargement les écrans
+enregistrés en version 1),
 dans l'intention qu'une configuration d'une `version` inconnue soit
 refusée net, jamais rendue à moitié. **Le schéma tient déjà LA MOITIÉ de
 cette garantie, mesuré à ajv** : une `version` PRÉSENTE mais différente
-de `1` (`{version: 2}`, par exemple) est bien refusée par `const` — ce que
+de `2` (`{version: 3}`, par exemple) est bien refusée par `const` — ce que
 le schéma NE PEUT PAS faire, puisque `version` reste `Optional` (jamais
 `required`) dans `ecran.schema.json`, c'est refuser une `version` ABSENTE
 : un écran qui ne la porte pas du tout passe le schéma sans un mot.
@@ -78,14 +82,16 @@ n'atteint pas le formulaire qui s'en sert pour refuser une saisie.
 
 `cas-budget.json` (tâche 4) est un corpus de vérité pour le budget de hauteur : chaque cas donne
 un mode, une rangée d'ambiance, des zones (`null` = les quatre du défaut) et une hauteur utile, et
-attend un nombre de commandes et un débordement en pixels. Il est lu par deux suites :
+attend un nombre de commandes et un débordement en pixels — et, depuis le 2026-10-24, pour
+certains cas, l'`arrangement` que l'échelle de la carte média choisit (synthèse réduite, puis plus
+de rangée « Ambiance »). Il est lu par deux suites :
 
-- `app/tests/cas-budget.test.ts`, qui rejoue chaque cas avec `combien()` et `verifierBudget()`
-  (`app/src/modes.ts`) ;
-- `tests/composant/test_budget.py`, qui rejoue le même cas avec le miroir Python `combien()` et
-  `verifier_budget()` (`custom_components/home_desk/budget.py`).
+- `app/tests/cas-budget.test.ts`, qui rejoue chaque cas avec `combien()`, `arrangement()` et
+  `verifierBudget()` (`app/src/screen-budget.ts`) ;
+- `tests/composant/test_budget.py`, qui rejoue le même cas avec le miroir Python `combien()`,
+  `arrangement()` et `check_budget()` (`custom_components/home_desk/budget.py`).
 
-Les vingt-deux cas sont sur-déterminés : onze restes mesurés dans un vrai navigateur, prédits
+Les vingt-deux premiers cas sont sur-déterminés : onze restes mesurés dans un vrai navigateur, prédits
 exactement, une corroboration à 630 px sur une mesure du 2026-08-03 antérieure au modèle, et
 quatre cas à zones omises qu'aucun des trois écrans réels de la maison n'exerce aujourd'hui — les
 premiers que le formulaire de l'intégration rencontrera quand quelqu'un réordonnera ses zones

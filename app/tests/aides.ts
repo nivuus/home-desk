@@ -1,11 +1,12 @@
-/** Fabriques partagées par les suites qui montent RÉELLEMENT `demarrer()` (`tests/demarrage.test.ts`,
+/** Fabriques partagées par les suites qui montent RÉELLEMENT `startScreen()` (`tests/demarrage.test.ts`,
  *  `tests/orchestration.test.ts`, `tests/navigation.test.ts`, `tests/pannes.test.ts`).
  *
  *  Ce fichier ne contient AUCUN test : nommé `aides.ts` et non `aides.test.ts` pour que vitest ne
  *  le ramasse pas comme une suite vide. */
 import { vi } from 'vitest';
-import { demarrer, type ConnexionLike } from '../src/demarrage';
+import { startScreen, type ConnexionLike, type DependancesDemarrage } from '../src/demarrage';
 import type { Ecran } from '../src/ecran';
+import type { DeclarationSource } from '../src/media';
 import type { EvenementEtat } from '../src/connexion';
 import type { Prevision } from '../src/meteo';
 
@@ -22,9 +23,9 @@ export const stockageAvecSession = { getItem: () => JSON.stringify(jetons), setI
 export const stockageSansSession = { getItem: () => null, setItem: vi.fn() } as any;
 
 /** Double minimal de `Connexion` : ne construit aucun WebSocket, se contente de résoudre ou de
- *  rejeter `connecter()` sur commande selon une séquence — exactement ce dont `demarrer()` a
+ *  rejeter `connecter()` sur commande selon une séquence — exactement ce dont `startScreen()` a
  *  besoin pour être testé sans réseau ni navigateur réel. Depuis la ronde de correction 2,
- *  `creerConnexion` n'est appelé qu'une seule fois par `demarrer()` (plus une fois par
+ *  `createConnection` n'est appelé qu'une seule fois par `startScreen()` (plus une fois par
  *  tentative) : c'est `connecter()` lui-même qui doit varier d'un appel à l'autre pour simuler
  *  un échec suivi d'une réussite.
  */
@@ -52,10 +53,10 @@ export function connexionFactice(...sequence: ('succes' | 'echec')[]): Connexion
     // la vue « Recette »). Aucun des tests qui utilisent ce double n'ouvre cette vue : rejeter est
     // la réponse la plus honnête — c'est ce que fait `Connexion` sur une socket fermée.
     envoyerCommande: async () => { throw new Error('websocket indisponible'); },
-    // Tâche 5 du plan 3b : `ConnexionLike` porte aussi `surEvenement` (rechargement à chaud).
+    // Tâche 5 du plan 3b : `ConnexionLike` porte aussi `abonner` (rechargement à chaud).
     // Aucun des tests qui utilisent ce double n'édite l'écran depuis Home Assistant pendant le
     // test, donc pas besoin de faire autre chose que satisfaire le type.
-    surEvenement: () => {},
+    abonner: () => {},
   };
 }
 
@@ -116,6 +117,8 @@ export async function vider(): Promise<void> {
 }
 
 export type OptionsMontage = {
+  /** The shared house sources answered by `loadHouse` (`home_desk/maison`). Empty by default. */
+  house?: DeclarationSource[];
   /** Par défaut le 1er août 2026 à 14 h : jamais la nuit (`momentDuJour`), donc l'écran normal —
    *  celui dont l'orchestration des modes décide le contenu. */
   maintenant?: () => Date;
@@ -138,7 +141,32 @@ export type OptionsMontage = {
   /** Stockage du navigateur. Par défaut, une session ouverte et rien d'autre ; un test de reprise
    *  y pose en plus l'étape mémorisée (`CLE_RECETTE`, `src/recette-en-cours.ts`). */
   stockage?: Storage;
+  /** Replaces the recording double of the connection with the given one — a REAL `Connexion`
+   *  over `SocketFactice`, for a test about what goes over the wire (a replay on reconnection).
+   *  `abonnements` and `diffuser` then stay empty: the subscriptions live in that connection. */
+  createConnection?: DependancesDemarrage['createConnection'];
 };
+
+/** A websocket double for a REAL `Connexion`: records every message it is sent, and plays Home
+ *  Assistant's handshake on its own (`auth_ok` at the next microtask, once `Connexion` has set its
+ *  `onmessage`) — `startScreen()` awaits `prete()` before it mounts anything. `readyState` is
+ *  OPEN, so the body's second `connecter()` reuses the socket instead of opening another one;
+ *  `couper()` closes it, and the next `connecter()` opens a new socket, as `ws.onclose` does. */
+export class SocketFactice {
+  static ouvertes: SocketFactice[] = [];
+  readyState = 1;
+  onmessage: ((ev: { data: string }) => void) | null = null;
+  onclose: (() => void) | null = null;
+  envoyes: Record<string, unknown>[] = [];
+  constructor(readonly url: string) {
+    SocketFactice.ouvertes.push(this);
+    queueMicrotask(() => this.recevoir({ type: 'auth_ok' }));
+  }
+  send(brut: string): void { this.envoyes.push(JSON.parse(brut)); }
+  /** Plays one message from Home Assistant. */
+  recevoir(m: unknown): void { this.onmessage?.({ data: JSON.stringify(m) }); }
+  couper(): void { this.readyState = 3; }
+}
 
 export type Montage = {
   racine: HTMLElement;
@@ -159,9 +187,18 @@ export type Montage = {
    *  massif après reconnexion) ne relance RIEN : une boucle de rechargement ne se voit pas à
    *  l'écran, elle ne se voit qu'au compteur d'appels. */
   listerTaches: ReturnType<typeof vi.fn>;
+  /** Every subscription command the screen sent through `abonner`, in order, with its callback. */
+  abonnements: { commande: Record<string, unknown>; cb: (evenement: Record<string, unknown>) => void }[];
+  /** Pushes `evenement` to every subscriber of the command `type`, as Home Assistant would, then
+   *  lets the redraw land. */
+  diffuser: (type: string, evenement: Record<string, unknown>) => Promise<void>;
+  /** The double of the Lottie player's loader (`src/lottie.ts`): never a real `<script>`. It
+   *  rejects until a test says what it resolves to, so that a Lottie nobody prepared for fails
+   *  loudly instead of hanging. */
+  chargerLottie: ReturnType<typeof vi.fn>;
 };
 
-/** Monte `demarrer()` sur un `#app` neuf, avec toutes ses dépendances injectées et aucun minuteur
+/** Monte `startScreen()` sur un `#app` neuf, avec toutes ses dépendances injectées et aucun minuteur
  *  réel. Rend de quoi pousser un état, simuler un silence et inspecter les appels de service. */
 export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}): Promise<Montage> {
   installerReseau(options.reseau ?? {});
@@ -183,9 +220,12 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
     return reponse(charge);
   });
 
-  await demarrer(racine, piece.nom, {
+  const abonnements: Montage['abonnements'] = [];
+  const chargerLottie = vi.fn(() => Promise.reject(new Error('Lottie loader not doubled')));
+
+  await startScreen(racine, piece.nom, {
     stockage: options.stockage ?? stockageAvecSession,
-    creerConnexion: () => ({
+    createConnection: options.createConnection ?? (() => ({
       connecter: () => Promise.resolve(),
       prete: () => Promise.resolve(),
       surChangement: (cb) => { emettre = cb; },
@@ -193,17 +233,19 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
       surSilence: (cb) => { silencer = cb; },
       listerTaches,
       envoyerCommande,
-      // Tâche 5 du plan 3b : aucun de ces tests ne pousse `home_desk_config_changed`, donc pas
-      // besoin de faire autre chose que satisfaire le type.
-      surEvenement: () => {},
-    }),
+      // Records every subscription, so that a test can push an event of a given command type
+      // (`diffuser`) exactly as the real `Connexion` routes it by subscription id.
+      abonner: (commande, cb) => { abonnements.push({ commande, cb }); },
+    })),
     // L'écran est fourni directement : ces tests montent un écran CONNU, ils n'ont rien à
     // apprendre du transport. Mais ils traversent quand même la coquille — écran d'attente,
     // résolution, délégation — donc chacun des 292 sites en est une épreuve de plus.
-    chargerEcran: async () => ({ ok: true, valeur: piece }),
+    chargerEcran: async () => ({ ok: true, value: piece }),
+    loadHouse: async () => ({ ok: true, value: options.house ?? [] }),
     intervalFn: intervalFn as any,
     minuteurFn: minuteurFn as any,
     maintenant: options.maintenant ?? (() => new Date(2026, 7, 1, 14, 0)),
+    chargerLottie: chargerLottie as any,
   });
   await vider();
 
@@ -223,6 +265,11 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
       await vider();
     },
     silence: (ms) => silencer(ms),
-    appelerService, minuteurFn, intervalFn, listerTaches, envoyerCommande,
+    appelerService, minuteurFn, intervalFn, listerTaches, envoyerCommande, abonnements,
+    chargerLottie,
+    diffuser: async (type, evenement) => {
+      for (const a of abonnements) if (a.commande.type === type) a.cb(evenement);
+      await vider();
+    },
   };
 }

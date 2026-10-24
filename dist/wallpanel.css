@@ -102,7 +102,7 @@
    Tâche 20 : les jetons M3 (générés, `jetons.css`) sont scopés à la classe `.m3`/`.sombre`, posée
    sur `racine` (`#app`, cf. `demarrage.ts`) — `html`/`body`, ses ANCÊTRES, n'y ont jamais accès :
    une propriété personnalisée CSS hérite uniquement vers les descendants, jamais vers un ancêtre.
-   `demarrer()` pose donc désormais les deux mêmes classes en plus sur `<html>` (jamais en les
+   `startScreen()` pose donc désormais les deux mêmes classes en plus sur `<html>` (jamais en les
    retirant de `racine` : purement additif, cf. son commentaire), en miroir de celles de `racine`
    à chaque redessin — ce qui rend `--md-surface` visible ici aussi. `var(--md-surface, #14181a)` :
    le même gris neutre et sombre qu'avant reste le repli (avant l'exécution de ce script, ou s'il
@@ -111,8 +111,12 @@
    sans jamais pouvoir remontrer de blanc. */
 /* Tâche 18 (2026-08-03) — `height: 100%` SUR LES TROIS NIVEAUX, ET PLUS AUCUNE UNITÉ DE VIEWPORT.
    Ce qui a été mesuré, en lecture seule, sur l'API d'administration Fully (`?cmd=deviceInfo`) :
-   les trois tablettes n'ont PAS le même moteur. Cuisine (192.168.0.159) et salon (192.168.0.218)
-   rendent en Chrome 100.0.4896.127 ; le bureau (192.168.0.138), lui, en Chrome 119.0.6045.194.
+   les trois tablettes n'ont PAS le même moteur de rendu : deux d'entre elles rendent en Chrome
+   100.0.4896.127, la troisième en Chrome 119.0.6045.194 (mesuré le 2026-08-03). Les IP qui
+   identifiaient chaque tablette ont été retirées le 2026-09-14 — `app/` est la SOURCE dont
+   `dist/` est bâti, et `dist/` est livré par `git archive HEAD` (plan 3c, tâche 5, gardé par
+   `tests/test_portabilite_app.py`). Le tableau « quelle tablette porte quel moteur » vit
+   désormais dans le dossier de production, pas dans le dépôt.
    `dvh` n'existe qu'à partir de Chrome 108 : sur DEUX écrans sur trois, le `height: 100dvh` que
    `#app` déclarait seul depuis la tâche 11 était une déclaration invalide, JETÉE au parsing.
    `height` retombait à `auto`, `#app` prenait la hauteur de son contenu, et `.xl
@@ -333,6 +337,16 @@ body {
      déborderait du cadre de 150,5 px de la tuile au lieu d'y rester tenu dedans. */
   overflow: hidden; }
 .commande.actif { background: var(--mvt-fond-actif); color: var(--md-on-tertiary-container); }
+/* `Bouton.haute`: the tile covers the two rows of its column (64 + 10 + 64 px), without an extra
+   row — `ordreCommandes` has already counted it two places. `grid-row: 1 / span 2` and not a
+   plain `span 2`: placed explicitly, it goes before the other tiles, which fill the other column;
+   auto-placed, a tall tile arriving third would open a third row. Icon and label grow with it:
+   it is a target aimed at from across the room. */
+.commande.haute { grid-row: 1 / span 2; height: auto; flex-direction: column;
+  align-items: flex-start; justify-content: center; gap: 10px; padding: 0 18px; }
+.commande.haute > svg { width: 40px; height: 40px; }
+.commande.haute .t { font-size: 20px; }
+.commande.haute .s { font-size: 14px; }
 /* L'`overflow: hidden` de `.commande` ci-dessus ne SUFFIT PAS : la boîte interne est un enfant de
    flex, donc `min-width: auto`, donc elle refuse de descendre sous la largeur min-content de son
    `.s` en `nowrap`. Le libellé le plus long réellement rendu ici — « Petit-déjeuner
@@ -371,102 +385,7 @@ body {
   border-radius: var(--sh-xl); padding: 11px 16px; display: flex; align-items: center; gap: 13px; }
 .alerte .t { font-size: 11px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; }
 .alerte .v { font-size: 15px; font-weight: 600; line-height: 1.3; margin-top: 2px; }
-/* Carte média (2026-08-02). Même rayon, même padding, même structure `.t`/`.v` que `.demain` et
-   `.alerte` — règle 1 de cohérence : seule la SURFACE change, jamais la forme. `position:
-   relative` porte la couche d'affiche et la bande de progression, toutes deux en fond, donc
-   toutes deux à coût de hauteur NUL. Hauteur totale visée : 153 px (padding 8 + étiquette 15 +
-   titre 2 lignes 38 + sous-titre 16 + gouttière 6 + rangée 62 + padding 8).
-   Correctif important (revue tâche 6) : ce total n'était qu'une intention, jamais imposé — sans
-   sous-titre (`sousTitre` vaut `''` pour toute source qui n'expose ni `media_series_title` ni
-   `media_artist`, cf. `media.ts`) et avec un titre d'une seule ligne, le bloc perdait le budget
-   qu'il est censé garantir, violant « la hauteur de la carte média ne dépend jamais de son
-   contenu ». `min-height` fixe un plancher à 153px, qui est aussi le PLAFOND réel (le titre est
-   borné à 2 lignes par `.v.deux-lignes`, le sous-titre à 1 par `white-space: nowrap`) : la
-   hauteur est donc constante, jamais seulement minorée.
-   Tâche 13 (2026-08-03), MESURÉ et non déduit : `box-sizing` vaut `content-box` par défaut dans
-   ce projet (aucune remise à zéro globale dans ce fichier), donc `min-height: 153px` s'appliquait
-   à la BOÎTE DE CONTENU et les 16px de padding s'ajoutaient par-dessus — 169px réels, alors que
-   le décompte du commentaire ci-dessus compte explicitement les deux paddings DANS ses 153px.
-   Ces 16px de trop faisaient déborder les modes `media` et `cinema` de 9px du cadre de 585px,
-   relevés par le contrôle de budget par mode de `outils/verifier-rendu.mjs`. `border-box` rend au
-   `min-height` le sens que son commentaire lui prête depuis le début, sans rien sacrifier de la
-   carte (le contenu réel — 132,8px — reste sous les 137px que le plancher laisse alors). */
-.media { position: relative; overflow: hidden; padding: 8px 16px; min-height: 153px;
-  box-sizing: border-box;
-  border-radius: var(--sh-xl); background: var(--md-primary-container);
-  color: var(--md-on-primary-container); display: flex; flex-direction: column; gap: 6px; }
-.media .t { font-size: 11px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; }
-.media .v { font-size: 15px; font-weight: 600; line-height: 1.26; }
-/* Deux lignes maximum, jamais une : les titres YouTube sont longs (71 caractères relevés) et un
-   titre coupé à la première ligne ne dit plus rien. `-webkit-line-clamp` est compris par le
-   WebView Chromium de ces tablettes. */
-.media .v.deux-lignes { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-  overflow: hidden; }
-.media-sous { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden;
-  text-overflow: ellipsis; }
-.media-texte, .media-rangee { position: relative; z-index: 1; }
-/* L'affiche : couche de fond en `cover`, SOUS un voile UNI (jamais un dégradé, jamais un flou —
-   c'est le dégradé sur grande surface qui fait du banding sur ces dalles 6 bits).
-   `.34` EST CALIBRÉE depuis la tâche 13 (le commentaire qui disait encore « valeur de départ, pas
-   encore calibrée » datait de la tâche 6, avant que la carte ne soit rendue nulle part).
-   `outils/verifier-rendu.mjs` échantillonne les pixels RÉELLEMENT peints sous chaque zone de
-   texte, sur trois affiches de luminosités différentes : le pire cas est l'affiche TRÈS CLAIRE en
-   mode cinéma (palette sombre forcée, donc texte blanc par-dessus), mesuré à 5,45:1 pour 5:1
-   exigés — 0,45 point de marge, soit ~9 %. Le voile relâché à `.60` tombe, lui, sous le seuil :
-   c'est la contre-épreuve permanente d'`autoTestPeint` (`--auto-test`), qui prouve que ce
-   contrôle sait rougir. Marge mince mais MESURÉE à chaque exécution : toute augmentation de cette
-   opacité doit être repassée sous l'outil, jamais estimée. */
-.media-affiche { position: absolute; inset: 0; z-index: 0; background-size: cover;
-  background-position: center; opacity: .34; }
-/* Correctif critique (revue tâche 6) : le fond change avec l'affiche mais la COULEUR DE TEXTE
-   de repos (`--md-on-primary-container`, blanc) ne suit pas — sur `--md-surface-container-highest`
-   (clair) ou `--md-surface-container-low` (sombre), ça tombe à ~1,5:1/~1,2:1, très sous le seuil
-   global de 5:1. `--md-on-surface` (le texte fait pour ces surfaces neutres, cf. `jetons.css`)
-   redonne 12,4:1 en clair et 16,8:1 en sombre — vérifié avant/après par calcul WCAG, cf. rapport. */
-.media.avec-affiche { background: var(--md-surface-container-highest); color: var(--md-on-surface); }
-.sombre .media.avec-affiche { background: var(--md-surface-container-low); color: var(--md-on-surface); }
-/* La progression : bande de 4 px sur le bord bas, en couche de fond — exactement le même
-   mécanisme que `.commande.jauge`, donc AUCUNE hauteur ajoutée. */
-.media::after {
-  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; z-index: 2;
-  background: linear-gradient(to right, var(--md-tertiary) calc(var(--progression, 0) * 100%), transparent 0);
-  pointer-events: none;
-}
-/* Correctif important (revue tâche 6) : largeur réellement disponible dans `.media-rangee` =
-   343 − 32 (padding `.corps`) − 32 (padding `.media`) = 279px. Le contenu déclaré (3 boutons de
-   62px + 2 gouttières de 8px + la gouttière de 10px + un rail de 90px) faisait 302px — 23px
-   d'excédent que le `flex-shrink` par défaut absorbait en écrasant TOUT (boutons compris, jusqu'à
-   ~57px, sous la cible tactile de 62px), et le rail rétrécissait sans que son dégradé (fixé à
-   90px) ne suive, désynchronisant le remplissage visible du calcul `ev.clientX / r.width`. Les
-   boutons de transport sont maintenant `flex: none` (jamais en dessous de 62px) ; `.media-volume`
-   absorbe tout le reste (`flex: 1`), et c'est en son sein le rail, seul enfant flexible, qui en
-   hérite — son dégradé suit `100%` de sa largeur RÉELLE au lieu d'un `90px` figé, donc le calcul
-   au doigt reste toujours exact quel que soit le nombre de boutons affichés à sa gauche. */
-.media-rangee { display: flex; align-items: center; gap: 10px; height: 62px; }
-.media-transport { display: flex; align-items: center; gap: 8px; flex: none; }
-/* 62 px : la cible minimale du projet, non négociable — un bouton de transport n'y échappe pas.
-   `flex: none` : jamais rétréci par le `flex-shrink` par défaut, cf. commentaire ci-dessus. */
-.media-bouton { width: 62px; height: 62px; flex: none; border-radius: var(--sh-full);
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(0, 0, 0, .18); color: inherit; position: relative; }
-.sombre .media-bouton { background: rgba(255, 255, 255, .16); }
-.media-volume { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
-  justify-content: flex-end; }
-/* Rail : occupe tout ce que `.media-volume` lui laisse (`flex: 1`, cf. commentaire de
-   `.media-rangee` ci-dessus), jamais une largeur fixe — c'est ce qui garde son dégradé
-   (`100% 6px`) synchronisé avec la largeur réellement rendue, donc avec le calcul du doigt.
-   `min-width` : plancher sous lequel la cible deviendrait trop étroite pour rester utilisable
-   (cas extrême, un seul bouton de transport affiché — rare, cf. `rendu/media.ts`). Zone de
-   contact étendue à 62 px de haut par le padding, alors que le trait visible n'en fait que 6 — la
-   cible respecte la règle sans que le dessin ne s'alourdisse. */
-.media-rail { flex: 1; min-width: 56px; height: 62px; display: flex; align-items: center;
-  background: linear-gradient(to right, currentColor calc(var(--niveau, 0) * 100%), transparent 0)
-              center / 100% 6px no-repeat;
-  touch-action: none; }
-.media-pas { width: 44px; height: 62px; flex: none; display: flex; align-items: center;
-  justify-content: center;
-  font-size: 22px; font-weight: 600; border-radius: var(--sh-l); background: rgba(0, 0, 0, .18); }
-.sombre .media-pas { background: rgba(255, 255, 255, .16); }
+/* The media card lives in `media.css` since 2026-10-24 (redesign, piste C). */
 /* Tâche 9 : même gabarit que .alerte/.media (padding, border-radius, structure .t/.v) — il les
    remplace, jamais en plus (cf. demarrage.ts), pour que la hauteur totale de l'écran ne bouge
    pas selon qu'il est affiché ou non. Couleur error-container comme .alerte : une connexion
@@ -495,6 +414,10 @@ body {
   min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden; }
 .synthese .ecart { color: var(--md-error); font-weight: 700; }
+/* The reduced synthèse (2026-10-24, spec 2026-10-23 "Place à l'écran"): one line, same clamp, when
+   the budget needs the room for the media card (`arrangement`, `screen-budget.ts`). Its height is
+   `hauteurs.syntheseReduite`, measured by `outils/mesurer-carte-media.mjs`. */
+.synthese.reduite .synthese-texte { -webkit-line-clamp: 1; }
 .xl { margin-top: auto; height: 62px; border-radius: var(--sh-full); background: var(--md-primary);
   color: var(--md-on-primary); display: flex; align-items: center; justify-content: center;
   gap: 10px; font-size: 16px; font-weight: 600; transition: border-radius .2s var(--ressort); }
@@ -530,29 +453,13 @@ body {
    parent, y compris pendant qu'il change lui-même au contact (bloc suivant) — aucune règle
    dupliquée. Coût : une opacité et un rayon sur une couche déjà composée séparément par le moteur
    de rendu ; ni l'un ni l'autre ne force de recalcul de mise en page (dalle/mémoire limitées). */
-/* Défaut relevé en revue (rapport de tâche 13) : la carte média (`.media`, réglable au glissement
-   depuis la tâche 13) n'avait jamais rejoint ce groupe — elle réagissait donc au glissement (la
-   jauge) sans jamais donner le moindre accusé de réception visuel au simple CONTACT, contrairement
-   à toutes les autres tuiles à jauge (`.commande.jauge`, `.tuile.jauge`). Rejoint le groupe ici,
-   tâche 18 : même traitement, aucune règle nouvelle.
-   Tâche 6 (2026-08-02) : `.media` en ressort — le bloc entier n'est plus tapable (la jauge de
-   volume plein cadre disparaît avec `descripteurMedia`, `jauge.ts`), seuls ses boutons le sont ;
-   un accusé de réception sur toute la carte mentirait sur ce qu'un contact y déclenche. Ce sont
-   `.media-bouton`/`.media-pas` qui rejoignent le groupe à sa place.
-   Correctif important (revue tâche 6) : `.media-rail` n'avait jamais rejoint ce groupe non plus —
-   au contact, rien ne bougeait à l'écran avant le retour d'état de Home Assistant (contrairement
-   aux boutons, qui ont eux cet overlay depuis le paragraphe ci-dessus). Le rétroactif optimiste
-   sur `--niveau` (cf. `rendu/media.ts`) déplace déjà le remplissage immédiatement ; cet overlay
-   ajoute l'accusé de réception au CONTACT lui-même, même principe que pour les boutons. */
-.ambiance, .commande, .xl, .tuile, .media-bouton, .media-pas, .media-rail { position: relative; }
-.ambiance::after, .commande::after, .xl::after, .tuile::after,
-.media-bouton::after, .media-pas::after, .media-rail::after {
+.ambiance, .commande, .xl, .tuile { position: relative; }
+.ambiance::after, .commande::after, .xl::after, .tuile::after {
   content: ''; position: absolute; inset: 0; border-radius: inherit;
   background: currentColor; opacity: 0; pointer-events: none;
   transition: opacity .2s var(--ressort);
 }
-.ambiance:active::after, .commande:active::after, .xl:active::after, .tuile:active::after,
-.media-bouton:active::after, .media-pas:active::after, .media-rail:active::after {
+.ambiance:active::after, .commande:active::after, .xl:active::after, .tuile:active::after {
   opacity: .1; transition: none;
 }
 
@@ -836,9 +743,11 @@ body {
 .mn-bouton { height: 62px; min-width: 62px; border-radius: var(--sh-xl);
   background: var(--md-surface-container-high); display: flex; align-items: center;
   justify-content: center; font-size: 15px; font-weight: 600; }
-/* `.mn-reglage` partage la même rangée d'actions (`− 5 / durée / + 5`) que la forme solo :
-   même règle, pas de duplication. */
-.mn-solo .mn-actions, .mn-reglage .mn-actions { display: flex; gap: 8px; justify-content: center;
+/* `.mn-pas` (`− 5 / − 1 / + 1 / + 5`) is the same row in the solo form and in the setting screen:
+   one rule, no duplication. Four 62 px targets and three gutters make 272 px, in a 311 px column
+   (343 − 2 × 16): the row fits, which is why the duration of the setting screen and the controls
+   of the solo form (`.mn-actions`) live on rows of their own. */
+.mn-pas, .mn-solo .mn-actions { display: flex; gap: 8px; justify-content: center;
   align-items: center; }
 .mn-solo .mn-grand { text-align: center; }
 .mn-nouveau { height: 62px; display: flex; align-items: center; justify-content: center; gap: 6px;
@@ -919,7 +828,7 @@ body {
 /* Le calque des sorties (2026-08-06). Les clones y sont posés en absolu à la place exacte qu'ils
    occupaient : la mise en page réelle, elle, s'est déjà refermée. C'est ce qui garantit que la
    hauteur du cadre 343 × 585 ne bouge jamais pendant une sortie. Aucun contact : un clone n'est
-   pas un bouton. Sous le survol DeLorean, qui passe par-dessus tout. */
+   pas un bouton. */
 #mvt-fantomes { position: absolute; inset: 0; pointer-events: none; z-index: 5; overflow: hidden; }
 /* Le calque de FOND, et le seul à vivre SOUS le contenu : il ne porte que la vue sortante d'une
    traversée, qui doit rester visible derrière l'écran qui arrive. Tous les autres fantômes (tuiles,
@@ -932,179 +841,6 @@ body {
    couche générée est postérieure aux enfants réels dans l'ordre de peinture (même z-index:auto),
    donc les couvrirait pendant son fondu de 200 ms sans ce z-index explicite. */
 .commande > * { position: relative; z-index: 1; }
-/* Clin d'œil DeLorean (2026-08-02) : six secondes, puis plus rien. `pointer-events: none` — il
-   ne vole jamais un contact à ce qu'il recouvre. Aucun dégradé (dalle 6 bits) : deux aplats.
-   `forwards` + `opacity: 0` en fin de course : le survol reste dans le DOM le temps que
-   `demarrage.ts` le retire, sans jamais rester visible. */
-/* Afficheurs à segments — DSEG de Keshikan, licence SIL Open Font License. DSEG7 pour les
-   chiffres (sept segments), DSEG14 pour les lettres (quatorze) : la géométrie des vrais
-   afficheurs LED des années 80, celle du tableau de bord du film. Servies en fichier et NON en
-   data-URI : intégrées au CSS, leurs 11 ko partiraient sur CHAQUE chargement de page, y compris
-   en cuisine et au bureau, qui ne jouent jamais la scène. */
-@font-face {
-  font-family: "DSEG7";
-  src: url(/local/wallpanel/assets/DSEG7Classic-Bold.woff2) format("woff2");
-  font-weight: 700; font-display: swap;
-}
-@font-face {
-  font-family: "DSEG14";
-  src: url(/local/wallpanel/assets/DSEG14Classic-Bold.woff2) format("woff2");
-  font-weight: 700; font-display: swap;
-}
-
-/* La scène DeLorean (2026-08-21). Elle se pose PAR-DESSUS l'écran sans rien déplacer : la hauteur
-   totale ne bouge pas, aucun bloc n'est remplacé. `--delorean-duree` est posée par
-   `rendu/delorean.ts` depuis `DUREES_DELOREAN` — les durées ne sont écrites qu'à un seul endroit,
-   sinon la sortie du voile se déclencherait avant ou après la fin de la scène, sans erreur et
-   sans test qui rougisse (même piège que `--mvt-palette`, plus haut). */
-.delorean { position: fixed; inset: 0; z-index: 50; pointer-events: none; }
-
-/* Le voile noir n'est pas décoratif : l'écran est CLAIR, un effet lumineux n'y ressortirait pas.
-   Entrée et sortie sont à durée FIXE (220 ms / 300 ms) : elles ne s'étirent pas avec la scène. */
-.delorean-voile {
-  position: absolute; inset: 0; background: #000; opacity: 0; will-change: transform;
-  animation:
-    delorean-entree 220ms cubic-bezier(.16, .9, .3, 1) both,
-    delorean-sortie 300ms cubic-bezier(.5, 0, .75, 0) forwards calc(var(--delorean-duree) - 300ms);
-}
-@keyframes delorean-entree {
-  0% { opacity: 1; transform: scaleY(.014); }
-  100% { opacity: 1; transform: scaleY(1); }
-}
-@keyframes delorean-sortie {
-  0% { opacity: 1; transform: scaleY(1); }
-  82% { opacity: 1; transform: scaleY(.014); }
-  100% { opacity: 0; transform: scaleY(.014); }
-}
-
-/* Le flash qui couvre chacune des deux coupes. Deux images à peine : l'œil ne le lit pas comme un
-   effet, seulement comme une transition propre. */
-.delorean-coupe {
-  position: absolute; inset: 0; background: #dcebff; opacity: 0;
-  animation:
-    delorean-flash 190ms ease-out both,
-    delorean-flash 240ms ease-out forwards calc(var(--delorean-duree) - 300ms);
-}
-@keyframes delorean-flash { 0% { opacity: .5; } 100% { opacity: 0; } }
-
-/* Tout contenu s'éteint à 91 % de la scène, AVANT que le voile ne se rétracte : sinon la traînée
-   de feu resterait visible par-dessus l'écran clair pendant la transition de sortie. */
-@keyframes delorean-paraitre {
-  0% { opacity: 0; }
-  6% { opacity: 1; }
-  80% { opacity: 1; }
-  91% { opacity: 0; }
-  100% { opacity: 0; }
-}
-
-/* 22 h 04 — deux frappes séparées d'une seconde et demie. */
-.delorean-eclair {
-  position: absolute; top: -6%; left: 50%; width: 78%; transform: translateX(-50%);
-  mix-blend-mode: screen; opacity: 0;
-  animation: delorean-frappe var(--delorean-duree) linear both;
-}
-@keyframes delorean-frappe {
-  0%, 14% { opacity: 0; }
-  15% { opacity: 1; }
-  18% { opacity: .1; }
-  20% { opacity: .95; }
-  24%, 46% { opacity: 0; }
-  47% { opacity: 1; }
-  52% { opacity: .15; }
-  55% { opacity: .8; }
-  62%, 100% { opacity: 0; }
-}
-.delorean-flash {
-  position: absolute; inset: 0; background: #eaf4ff; opacity: 0;
-  animation: delorean-tonnerre var(--delorean-duree) linear both;
-}
-@keyframes delorean-tonnerre {
-  0%, 14% { opacity: 0; }
-  15.5% { opacity: .75; }
-  19%, 46.5% { opacity: 0; }
-  47.5% { opacity: .55; }
-  51%, 100% { opacity: 0; }
-}
-
-/* 01 h 21 — la traînée reste plaquée au bas de la dalle : c'est le sol, la voiture vient de
-   passer. La caler plus haut la faisait flotter. */
-.delorean-feu {
-  position: absolute; left: 0; bottom: 0; width: 100%; display: block; opacity: 0;
-  animation: delorean-paraitre var(--delorean-duree) ease-out both;
-}
-.delorean-compteur {
-  position: absolute; left: 0; right: 0; top: 27%; text-align: center; opacity: 0;
-  animation: delorean-allumer var(--delorean-duree) linear both;
-}
-@keyframes delorean-allumer {
-  0% { opacity: 0; }
-  4% { opacity: 1; }
-  74% { opacity: 1; }
-  80%, 100% { opacity: 0; }
-}
-.delorean-nombre {
-  display: block; position: relative; font-family: "DSEG7", monospace; font-weight: 700;
-  font-size: 76px; line-height: 1; color: #ffb000;
-  text-shadow: 0 0 26px rgba(255, 176, 0, .65), 0 0 6px rgba(255, 120, 0, .9);
-}
-/* Les deux « 8 » éteints, derrière : c'est ce détail qui distingue un afficheur d'un texte. */
-.delorean-nombre::before {
-  content: "88"; position: absolute; inset: 0; color: rgba(255, 176, 0, .13); text-shadow: none;
-}
-.delorean-unite {
-  display: block; font-family: "DSEG14", monospace; font-weight: 700; font-size: 17px;
-  letter-spacing: .16em; margin-top: 14px; color: #ffc94a;
-  text-shadow: 0 0 16px rgba(255, 176, 0, .5);
-}
-.delorean-bleu {
-  position: absolute; inset: 0; opacity: 0;
-  background: radial-gradient(ellipse 60% 34% at 50% 52%,
-    rgba(160, 230, 255, .95), rgba(60, 150, 255, .35) 45%, transparent 72%);
-  animation: delorean-depart var(--delorean-duree) ease-out both;
-}
-@keyframes delorean-depart {
-  0%, 74% { opacity: 0; }
-  80% { opacity: 1; }
-  92%, 100% { opacity: 0; }
-}
-
-/* 21 octobre et 5 novembre — le flux capacitor tient le tiers haut, les cadrans le bas ; les deux
-   ne se croisent jamais, quelle que soit la hauteur des afficheurs. */
-.delorean-flux {
-  position: absolute; left: 50%; top: 18px; width: 264px; transform: translateX(-50%); opacity: 0;
-  animation: delorean-paraitre var(--delorean-duree) ease-out both;
-}
-.delorean-circuits {
-  position: absolute; left: 14px; right: 14px; bottom: 22px; opacity: 0;
-  display: flex; flex-direction: column; gap: 9px;
-  animation: delorean-monter var(--delorean-duree) ease-out both;
-}
-@keyframes delorean-monter {
-  0%, 12% { opacity: 0; }
-  26% { opacity: 1; }
-  74% { opacity: 1; }
-  84%, 100% { opacity: 0; }
-}
-.delorean-rangee {
-  display: flex; flex-direction: column; gap: 5px; padding: 11px 10px 12px;
-  border-radius: 4px; background: #080604; border: 1px solid rgba(255, 255, 255, .08);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
-}
-.delorean-etiquette { font-size: 8px; font-weight: 600; letter-spacing: .19em; color: #7c6a57; }
-.delorean-valeur { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
-.delorean-mois, .delorean-num { position: relative; font-weight: 700; font-size: 20px; line-height: 1; }
-.delorean-mois { font-family: "DSEG14", monospace; }
-.delorean-num { font-family: "DSEG7", monospace; }
-.delorean-num::before {
-  content: attr(data-fantome); position: absolute; left: 0; top: 0; opacity: .14; text-shadow: none;
-}
-.delorean-rangee.destination .delorean-valeur { color: #ff453a; text-shadow: 0 0 13px rgba(255, 69, 58, .55); }
-.delorean-rangee.present .delorean-valeur { color: #3dd68c; text-shadow: 0 0 13px rgba(61, 214, 140, .5); }
-.delorean-rangee.depart .delorean-valeur { color: #ffb000; text-shadow: 0 0 13px rgba(255, 176, 0, .45); }
-/* Tâche 8 (moteur de mouvement) : la neutralisation sous `prefers-reduced-motion`/`?mouvement=`
-   n'est plus une règle CSS scopée `.mvt-aucun .delorean` (la classe n'existe plus) mais un refus
-   dans `demarrage.ts` (`survol()`, `niveauInitial !== 'aucun'`) — le survol n'est alors même plus
-   rendu, plutôt que rendu-et-masqué : rien à peindre du tout plutôt qu'un aplat invisible animé. */
 /* Fondu de palette (2026-08-06) — L'UNIQUE animation de couleur de l'application, et elle est
    bornée dans le temps : `demarrage.ts` pose cette classe (via `Moteur.basculerPalette`), bascule
    `.sombre`, puis la RETIRE 600 ms plus tard (`PALETTE_MS`, `grammaire.ts`). Posée en permanence,
@@ -1206,3 +942,206 @@ body {
    le MÊME geste à deux appuis, il ne doit pas changer d'apparence selon la vue. */
 .recette-actions > .armee { background: var(--md-error-container); color: var(--md-on-error-container); }
 .recette-actions > .inactif { opacity: 0.4; }
+
+/* The media card (`rendu/media.ts`), redesigned on 2026-10-24 (spec 2026-10-23, "piste C").
+   Moved out of `base.css` with every `.media*` rule.
+
+   COLOURS. Each colour is a `--mc-*` custom property set on `.media` ONLY when the poster's tones
+   are ready (`tones.ts`, `rendu/poster-sampler.ts`); each `var()` below falls back on the theme,
+   which is the pending / unreadable / no-poster card. Never a gradient on any surface here: a
+   gradient bands on the 6-bit panels of the Fire 7 tablets. Every surface is solid — discs,
+   bars, text plates — and the poster itself is shown untouched: no veil, no reduced opacity.
+
+   HEIGHT. 8 px of vertical padding, not 12 (task 9, 2026-10-24): at 12 the card measured
+   270.8 px, and the office and kitchen screens (Ambiance row dropped, synthèse reduced) needed
+   590 px for two controls — 5 px over the 585 px frame. The spec lets the padding give way
+   first; `hauteurs.blocMedia` (`contrat/budget.json`) is the height measured after it. */
+.media { position: relative; overflow: hidden; isolation: isolate; box-sizing: border-box;
+  padding: 8px 16px; border-radius: var(--sh-xl);
+  background: var(--md-primary-container); color: var(--mc-text, var(--md-on-primary-container));
+  display: flex; flex-direction: column; gap: 8px; }
+/* The poster: a `cover` background layer UNDER the content (`z-index: -1` inside the stacking
+   context `isolation` opens), never an <img> in the flow. Its pixels are what
+   `poster-sampler.ts` measures under the text boxes: the layer must stay exactly the card's
+   border box, so no inset, no transform. */
+.media-affiche { position: absolute; inset: 0; z-index: -1; background-size: cover;
+  background-position: center; }
+
+/* LINE HEIGHTS. Every text line of the card has an explicit line-height, never `normal`: `normal`
+   takes the metrics of every font a line uses, so a title in a script Roboto lacks (CJK, Arabic…)
+   falls back on a font with a taller ascent and descent and grows the card past the 585 px frame
+   (final review, 2026-10-24: +28 px in CJK). With a fixed line-height the card is as tall in any
+   script, which is what `hauteurs.blocMedia` (`contrat/budget.json`) can promise.
+   The label is ONE line whatever the room's name: cut with an ellipsis, never wrapped. */
+.media .t { font-size: 11px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase;
+  line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* `overflow-wrap: anywhere`: a single word longer than the card (a URL, a file name) wraps
+   instead of being clipped at the right edge. */
+.media .v { font-size: 15px; font-weight: 600; line-height: 1.26; overflow-wrap: anywhere; }
+/* Two lines at most, never one: YouTube titles are long (71 characters seen) and a title cut at
+   the first line says nothing any more. `-webkit-line-clamp` is understood by the Chromium
+   WebView of these tablets. */
+.media .v.deux-lignes { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; }
+.media-sous { font-size: 12px; font-weight: 500; line-height: 1.2; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; }
+
+/* The text plate (spec, "Fond de texte conditionnel"): a solid, palette-tinted background fitted
+   to the text, painted only when the text alone cannot reach 5:1 over the poster. Its padding is
+   ALWAYS there — only its background changes — so the plate never moves the layout, and the
+   boxes `boot/media-tones.ts` measures are the same with and without it. The negative margin
+   keeps the text itself aligned with the discs below. */
+.media .plaque { display: block; width: fit-content; max-width: calc(100% + 12px);
+  box-sizing: border-box; padding: 1px 6px; margin-inline: -6px; border-radius: 6px;
+  background: var(--mc-plate, transparent); }
+
+/* Progress: an 8 px bar with a visible track, elapsed time left, remaining time right. The fill
+   is a child sized by `--progression` (set on `.media`, moved by the one-second tick), never a
+   gradient stop. */
+.media-barre { height: 8px; border-radius: 4px; overflow: hidden;
+  background: var(--mc-secondary, var(--md-surface-container-highest)); }
+.media-barre-plein { height: 100%; width: calc(var(--progression, 0) * 100%); border-radius: 4px;
+  background: var(--mc-primary, var(--md-primary)); }
+.media-temps { display: flex; justify-content: space-between; margin-top: 4px;
+  font-size: 12px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+
+/* Buttons: 62 px solid discs, the project's minimum touch target. The disc colour comes from the
+   palette, so the icon's contrast never depends on the poster. Play/pause is the primary disc. */
+.media-bouton, .media-pas { position: relative; width: 62px; height: 62px; flex: none;
+  box-sizing: border-box; border-radius: var(--sh-full);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--mc-secondary, var(--md-surface-container-highest));
+  color: var(--mc-on-secondary, var(--md-on-surface)); }
+.media-bouton.principal { background: var(--mc-primary, var(--md-primary));
+  color: var(--mc-on-primary, var(--md-on-primary)); }
+.media-bouton svg { width: 28px; height: 28px; }
+/* Same touch feedback as `.ambiance`/`.commande`/`.xl`/`.tuile` (`base.css`): `currentColor` at
+   10 % on a pseudo-element, so the card itself never reacts (`:active` also matches ancestors). */
+.media-bouton::after, .media-pas::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: currentColor; opacity: 0; pointer-events: none;
+  transition: opacity .2s var(--ressort);
+}
+.media-bouton:active::after, .media-pas:active::after { opacity: .1; transition: none; }
+
+/* Transport: three fixed columns, so play/pause stays centred and previous/next keep their
+   edge whichever of them the player supports (no dead button is ever drawn in their place). */
+.media-transport, .media-volume { display: grid; grid-template-columns: 62px 1fr 62px;
+  align-items: center; column-gap: 8px; }
+.media-precedent { grid-column: 1; }
+.media-pause, .media-lecture { grid-column: 2; justify-self: center; }
+.media-suivant { grid-column: 3; }
+
+/* Volume: `−` and `+` discs, the level written large over a thin gauge. A press repeats while
+   held (`rendu/media-volume.ts`): `touch-action: none` keeps the browser from turning a held
+   finger into a scroll and cancelling the pointer. */
+.media-pas { font-size: 30px; font-weight: 600; touch-action: none; }
+.media-niveau { min-width: 0; }
+.media .media-niveau-texte { margin-inline: auto; font-size: 24px; font-weight: 700;
+  line-height: 1.2; font-variant-numeric: tabular-nums; }
+.media-jauge { height: 6px; border-radius: 3px; margin: 4px 12px 0; overflow: hidden;
+  background: var(--mc-secondary, var(--md-surface-container-highest)); }
+.media-jauge-plein { height: 100%; width: calc(var(--niveau, 0) * 100%); border-radius: 3px;
+  background: var(--mc-primary, var(--md-primary)); }
+
+/* The pantry view (`#garde-manger`, rendu/pantry-*.ts). Its own file: base.css is already past
+   the size of one concern. The lists reuse `.corps`, `.taches-liste`, `.ligne-tache` and `.xl`
+   from base.css, so their 64 px rows and the height budget of tests/taches.test.ts hold here too;
+   only what is specific to the pantry lives below. Sheet rows are 64 px as well: the budget of
+   tests/pantry-render.test.ts depends on it. */
+
+/* A location with nothing in it, or "À consommer vite (0)": greyed by colour, never by opacity
+   (project rule: no text under .75), and no touch feedback — it does nothing. */
+.ligne-tache.inactif { background: var(--md-surface-container-low); color: var(--md-on-surface-variant); }
+.ligne-tache.inactif::after { content: none; }
+
+/* "Suite › (N)": a navigation row, not an item. */
+.ligne-tache.suite { background: var(--md-secondary-container); color: var(--md-on-secondary-container); }
+
+/* Best-before dates: past in the error tone; soon (home-stock's own list) in the warm tertiary
+   tone — the palette has no orange, and tertiary is its warm accent. */
+.ligne-tache .perime { color: var(--md-error); font-weight: 700; }
+.ligne-tache .bientot { color: var(--md-tertiary); font-weight: 700; }
+
+/* The label line carries the banner of the last consumption, which names a product: one line,
+   always — a second one would push the Back button out of the 585 px (12 px of slack measured in
+   Chromium on 2026-09-28). */
+.garde-manger .etiquette { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.pantry-fiche { display: flex; flex-direction: column; gap: 8px; }
+.pantry-rangee { height: 64px; display: flex; gap: 8px; min-width: 0; }
+
+.pantry-entete { flex-direction: column; justify-content: center; padding: 0 15px;
+  border-radius: var(--sh-xl); background: var(--md-surface-container-low); color: var(--md-on-surface); }
+.pantry-entete .t { font-size: 16px; font-weight: 600; line-height: 1.2;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pantry-entete .s { font-size: 12px; font-weight: 500; color: var(--md-on-surface-variant);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.pantry-fraction, .pantry-moins, .pantry-plus, .pantry-reason {
+  position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; border-radius: var(--sh-xl);
+  background: var(--md-surface-container-high); color: var(--md-on-surface);
+  font-size: 18px; font-weight: 600; transition: background .3s, border-radius .2s var(--ressort); }
+.pantry-moins, .pantry-plus { flex: 0 0 64px; font-size: 26px; }
+.pantry-fraction.choisie { background: var(--md-primary); color: var(--md-on-primary); }
+
+.pantry-live { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center;
+  text-align: center; font-size: 14px; font-weight: 600; line-height: 1.2; }
+
+.pantry-reason .t { font-size: 16px; font-weight: 600; }
+.pantry-reason .s { font-size: 11px; font-weight: 500; }
+.pantry-reason.principal { flex: 2; background: var(--md-primary); color: var(--md-on-primary); }
+/* Armed: the error tone of an armed task or of "Terminer" — the same two-press gesture must look
+   the same in every view. */
+.pantry-reason.armee { background: var(--md-error-container); color: var(--md-on-error-container); }
+/* Offline, sending, or locked to an unresolved send: the same greyed-out control as
+   `.recette-actions > .inactif`. */
+.pantry-reason.inactif, .pantry-fraction.inactif, .pantry-moins.inactif, .pantry-plus.inactif { opacity: 0.4; }
+
+/* Touch feedback, same overlay as the buttons of base.css. */
+.pantry-fraction::after, .pantry-moins::after, .pantry-plus::after, .pantry-reason::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: currentColor; opacity: 0; pointer-events: none; transition: opacity .2s var(--ressort); }
+.pantry-fraction:active::after, .pantry-moins:active::after, .pantry-plus:active::after,
+.pantry-reason:not(.inactif):active::after { opacity: .1; transition: none; }
+.pantry-reason.inactif::after, .pantry-fraction.inactif::after, .pantry-moins.inactif::after,
+.pantry-plus.inactif::after { content: none; }
+
+/* The vacuum choice (`#aspirer`, rendu/vacuum-choice.ts). Its own file, like pantry.css: base.css
+   is already past the size of one concern. Layout is `.corps`; chips and the big button are the
+   timer setting's `.mn-etiquette`/`.mn-nouveau`, with their 62 px targets and touch layer. Only
+   what is specific to this view lives below. */
+
+.asp-choix > .mn-nom { font-size: 20px; font-weight: 700; text-align: center; }
+.asp-titre { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--md-on-surface-variant); text-align: center; margin-top: 6px; }
+.asp-info { font-size: 15px; text-align: center; color: var(--md-on-surface-variant); }
+.asp-erreur { color: var(--md-error); font-weight: 600; }
+
+/* The order a room was tapped in is the order it is cleaned in: shown once there are two. */
+.asp-rang { margin-left: 8px; min-width: 22px; height: 22px; border-radius: var(--sh-full);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 13px;
+  background: var(--md-on-primary); color: var(--md-primary); }
+
+/* "Lancer" with nothing chosen does nothing: greyed by colour (no text under .75 opacity), and
+   no touch feedback — a tile that acknowledges an action that does not happen is a dead button. */
+.asp-choix .mn-nouveau.inactif { background: var(--md-surface-container-low);
+  color: var(--md-on-surface-variant); }
+.asp-choix .mn-nouveau.inactif::after { content: none; }
+.asp-choix [data-action="lancer"]:not(.inactif) { background: var(--md-primary);
+  color: var(--md-on-primary); }
+
+/* The animation pushed by Home Assistant (`rendu/animation.ts`): above every view, never a
+   target of the touch — the first touch is caught in capture on `#app` (`boot/animation.ts`),
+   so the layer itself lets pointers through. Plain black for the veil, not a palette token: it
+   frames a film, whatever the time of day. */
+/* The host is a child of `#app`, a flex column: `display: contents` keeps it out of that layout
+   (no box, no gap) while its fixed overlay still paints over everything. */
+.animation-hote { display: contents; }
+.animation {
+  position: fixed; inset: 0; z-index: 50; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+}
+.animation-noir { background: #000; }
+.animation-media { width: 100%; height: 100%; object-fit: contain; }

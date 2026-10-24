@@ -12,11 +12,11 @@
 // `ECRANS.salon` (`extrasMaison: []`) pour rester inchangés en substance ; deux nouveautés :
 // un test qui prouve que l'extra cuisine n'apparaît QUE pour la cuisine, et le budget de hauteur
 // recalculé sur la pièce la plus chargée plutôt que sur `TOUTE_LA_MAISON` seule.
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render } from 'lit';
 import { Etat } from '../src/etat';
 import { ECRANS } from '../src/ecran';
-import { rendreMaison, brancherAppuiMaison, TOUTE_LA_MAISON } from '../src/rendu/maison';
+import { rendreMaison, brancherAppuiMaison, TOUTE_LA_MAISON, ASPIRATEUR_GENERIQUE } from '../src/rendu/maison';
 
 const ev = (id: string, etat: string, attributes: Record<string, unknown> = {}) =>
   ({ entity_id: id, state: etat, attributes });
@@ -290,5 +290,37 @@ describe('substitution de la tuile aspirateur par pièce (tâche 12)', () => {
       expect(bouton.service).toEqual(['vacuum', 'start']);
       expect(bouton.cible).toBeUndefined();
     }
+  });
+});
+
+// Plan 3c, tâche 1 : la comparaison qui décide si `piece.aspirateurMaison` remplace l'entrée
+// commune se faisait par VALEUR (`b.entite === 'vacuum.aspirateur_cuisine'`), un second endroit
+// qui recopiait le même fait que la table `TOUTE_LA_MAISON` à quinze lignes de distance. Depuis
+// que `aspirateurMaison` se saisit depuis Home Assistant, la table peut changer d'aspirateur sans
+// que cette comparaison le sache — et la tuile saisie cesserait de remplacer quoi que ce soit, en
+// silence. `ASPIRATEUR_GENERIQUE` est désormais comparée par IDENTITÉ, jamais par sa valeur.
+describe('aspirateurMaison : la substitution est nommée, pas devinée', () => {
+  const entiteOrigine = ASPIRATEUR_GENERIQUE.entite;
+  afterEach(() => { ASPIRATEUR_GENERIQUE.entite = entiteOrigine; });
+
+  it("l'entrée générique est bien DANS la table commune", () => {
+    expect(TOUTE_LA_MAISON).toContain(ASPIRATEUR_GENERIQUE);
+  });
+
+  it('remplace l’entrée générique même si celle-ci change d’entité', () => {
+    // LA mutation que ce test existe pour attraper : une comparaison écrite
+    // `b.entite === 'vacuum.aspirateur_cuisine'` passe le test du dessus et
+    // TOMBE ici, parce que la table a bougé et pas la comparaison.
+    ASPIRATEUR_GENERIQUE.entite = 'vacuum.un_autre_appareil';
+    const piece = { ...ECRANS.salon, aspirateurMaison: {
+      libelle: 'Aspirer ici', icone: 'aspirateur',
+      entite: 'vacuum.local', service: ['vacuum', 'start'] as [string, string],
+    } };
+    const etat = new Etat();
+    etat.appliquer(ev('vacuum.local', 'docked'));
+    const div = document.createElement('div');
+    render(rendreMaison(etat, piece), div);
+    expect(div.innerHTML).toContain('Aspirer ici');
+    expect(div.innerHTML).not.toContain('>Aspirateur<');
   });
 });

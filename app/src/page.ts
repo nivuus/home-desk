@@ -1,53 +1,52 @@
-/** Quel écran cette page doit-elle montrer ?
+/** Which screen should this page show?
  *
- *  Séparé d'`index.ts` parce qu'`index.ts` s'exécute À L'IMPORT : l'importer, c'est le lancer.
- *  Une décision à trois branches dont l'une est TEMPORAIRE mérite mieux qu'un espoir. */
+ *  Separate from `index.ts` because `index.ts` runs ON IMPORT: importing it means launching it.
+ *  A three-branch decision, one of which is TEMPORARY, deserves better than a hope. */
 import { ECRANS } from './ecran';
-import { demarrer as demarrerHA, demarrerAvecEcran as demarrerLitteral } from './demarrage';
+import { startScreen as startScreenHA, startWithScreen as startWithLiteral } from './demarrage';
 
 export type DependancesPage = {
-  demarrer: (racine: HTMLElement, nomEcran: string) => Promise<void>;
-  demarrerAvecEcran: (racine: HTMLElement, piece: (typeof ECRANS)[keyof typeof ECRANS]) => Promise<void>;
+  startScreen: (racine: HTMLElement, nomEcran: string) => Promise<void>;
+  startWithScreen: (racine: HTMLElement, piece: (typeof ECRANS)[keyof typeof ECRANS]) => Promise<void>;
 };
 
-/** Résout l'écran et démarre, dans cet ordre de priorité :
+/** Resolves the screen and starts, in this order of priority:
  *
- *  1. **`?ecran=<nom>`** → le transport websocket. C'est le chemin définitif. Le paramètre porte
- *     le `nom` de l'écran (« Cuisine »), que le composant apparie EXACTEMENT — jamais la clé de
- *     `ECRANS` (« cuisine »). Il gagne sur `data-piece` : pendant la migration, une page
- *     historique repointée porte les deux, et si le littéral gagnait, repointer une tablette ne
- *     changerait rien.
+ *  1. **`?ecran=<nom>`** → the websocket transport. This is the final path. The parameter carries
+ *     the screen's `nom` ("Cuisine"), which the component matches EXACTLY — never the `ECRANS`
+ *     key ("cuisine"). It wins over `data-piece`: during the migration, a repointed legacy page
+ *     carries both, and if the literal won, repointing a tablet would change nothing.
  *
- *  2. **`data-piece=<clé>` → `ECRANS[clé]`** — ⚠️ **BRANCHE DE TRANSITION, posée le 2026-09-13,
- *     à RETIRER à l'étape 8 de la mise en production (plan 3c), dans le même commit que les
- *     littéraux, l'outil d'export et les trois pages historiques.**
+ *  2. **`data-piece=<key>` → `ECRANS[key]`** — ⚠️ **TRANSITION BRANCH, added on 2026-09-13,
+ *     to be REMOVED at step 8 of the production rollout (plan 3c), in the same commit as the
+ *     literals, the export tool and the three legacy pages.**
  *
- *     Elle existe pour une raison précise et mesurée : `hooks/install.py:107` remplace
- *     `www/wallpanel/` EN ENTIER et atomiquement (`replace_tree`), et les trois pages historiques
- *     chargent le MÊME `wallpanel.js`. Déposer le nouveau bundle bascule donc les trois tablettes
- *     d'un coup, quelle que soit leur URL — la granularité du retour arrière est le BUNDLE, pas
- *     la tablette. Sans cette branche, les étapes 5, 6 et 7 de la mise en production n'ont AUCUN
- *     retour arrière et la bascule devient unique.
+ *     It exists for a precise and measured reason: `hooks/install.py:107` replaces
+ *     `www/wallpanel/` ENTIRELY and atomically (`replace_tree`), and the three legacy pages load
+ *     the SAME `wallpanel.js`. Dropping in the new bundle therefore switches all three tablets
+ *     at once, whatever their URL — the rollback granularity is the BUNDLE, not the tablet.
+ *     Without this branch, steps 5, 6 and 7 of the production rollout have NO rollback and the
+ *     switch becomes one-shot.
  *
- *     Avec elle, remettre l'ancienne `startURL` fait charger la page historique, qui prend ce
- *     chemin-ci, qui lit le littéral : le comportement d'avant, octet pour octet, puisque c'est
- *     littéralement le même code.
+ *     With it, restoring the old `startURL` loads the legacy page, which takes this path, which
+ *     reads the literal: the previous behaviour, byte for byte, since it is literally the same
+ *     code.
  *
- *  3. **Rien** → la première dégradation : la liste des écrans configurés, tapable.
+ *  3. **Nothing** → the first degradation: the list of configured screens, tappable.
  */
-export function demarrerPage(
+export function startPage(
   racine: HTMLElement, href: string, deps: Partial<DependancesPage> = {},
 ): Promise<void> {
-  const demarrer = deps.demarrer ?? demarrerHA;
-  const demarrerAvecEcran = deps.demarrerAvecEcran ?? demarrerLitteral;
+  const startScreen = deps.startScreen ?? startScreenHA;
+  const startWithScreen = deps.startWithScreen ?? startWithLiteral;
 
   const nom = new URL(href).searchParams.get('ecran');
-  if (nom) return demarrer(racine, nom);
+  if (nom) return startScreen(racine, nom);
 
-  // --- BRANCHE DE TRANSITION, à retirer à l'étape 8 du plan 3c ---
+  // --- TRANSITION BRANCH, to be removed at step 8 of plan 3c ---
   const cle = racine.dataset.piece as keyof typeof ECRANS | undefined;
-  if (cle && cle in ECRANS) return demarrerAvecEcran(racine, ECRANS[cle]);
-  // --- fin de la branche de transition ---
+  if (cle && cle in ECRANS) return startWithScreen(racine, ECRANS[cle]);
+  // --- end of the transition branch ---
 
-  return demarrer(racine, '');
+  return startScreen(racine, '');
 }

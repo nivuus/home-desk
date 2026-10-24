@@ -30,7 +30,7 @@ export const CAPTEUR_REPAS = 'sensor.home_stock_next_meal';
  *  cochés — et le compte est ce qu'on lit de loin, ce qu'un `binary_sensor` ne saurait dire. */
 export const LISTE_DLC = 'todo.home_stock_expirations';
 
-export type RepasSuivant = {
+export type NextMeal = {
   /** « Dîner », « Demain, déjeuner », « Lundi, dîner ». */
   etiquette: string;
   /** Nom de la recette, du produit ou texte de la note — l'état du capteur, tel quel. */
@@ -61,7 +61,7 @@ function entier(v: unknown): number | null {
  *  `undefined` couvre DEUX situations que rien ne distingue à l'écran : le composant est muet
  *  (`unavailable`) et le planning est vide (état vide). Les deux sont ordinaires sur cette
  *  installation, et les deux appellent le même repli — `rendreEntretien` prend la place. */
-export function repasSuivant(etat: Etat, maintenant: Date): RepasSuivant | undefined {
+export function nextMeal(etat: Etat, maintenant: Date): NextMeal | undefined {
   if (!etat.estUtilisable(CAPTEUR_REPAS)) return undefined;
   const e = etat.lire(CAPTEUR_REPAS)!;
   const a = e.attributs ?? {};

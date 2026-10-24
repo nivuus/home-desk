@@ -49,7 +49,7 @@ export function etatVise(actuel: string, service?: [string, string]): string {
   return actuel;
 }
 
-export function creerAppui(
+export function createPress(
   etat: Etat, cx: ConnexionAppelable, minuteur: typeof setTimeout,
   // Tâche 9, ronde de correction 1 (retour du coordinateur, IMPORTANT) : sans ce garde, un appui
   // sur une commande — au premier chef « Serrure » dans la vue « Toute la maison », l'écran qui
@@ -89,7 +89,8 @@ export function creerAppui(
     // fonction manque ; l'ouvrir mènerait à une sous-vue vide, ce qui serait un
     // cul-de-sac de plus, pas une information. Placé avant `vue`/`lien`/`service`
     // : c'est le seul point de passage de tout appui.
-    if (b.absenceNommee !== undefined && !etat.estUtilisable(b.entite)) return;
+    // Inert only while REALLY absent (see `Etat.isPresent`): `unknown` is a present entity.
+    if (b.absenceNommee !== undefined && !etat.isPresent(b.entite)) return;
 
     if (b.vue) { location.hash = b.vue; return; }
 

@@ -15,7 +15,7 @@ const anniv: Evenement = { resume: 'Anniversaire de Julie', debut: '2026-08-02T0
 const bientot: Evenement = { resume: 'Dentiste', debut: '2026-08-02T20:30:00', estAnniversaire: false };
 const loin: Evenement = { resume: 'Réunion', debut: '2026-08-03T09:00:00', estAnniversaire: false };
 
-// Revue tâche 12 : ces deux fonctions vivaient dans la fermeture de `demarrer()`, donc
+// Revue tâche 12 : ces deux fonctions vivaient dans la fermeture de `startScreen()`, donc
 // inatteignables par un test alors qu'elles sont pures — et c'est `estCeJour` qui porte le filtre
 // dont dépend « un anniversaire de demain ne s'affiche jamais Aujourd'hui ».
 describe('jourDe / estCeJour', () => {

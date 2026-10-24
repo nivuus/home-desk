@@ -3,7 +3,7 @@ ne connait pas."""
 from homeassistant.helpers import entity_registry as er
 
 from custom_components.home_desk.registre import (
-    avertissement_entites_inconnues, entites_dans, entites_inconnues,
+    avertissement_entites_inconnues, entities_in, entites_inconnues,
 )
 
 
@@ -84,7 +84,7 @@ async def test_avertissement_porte_la_phrase_traduite_ET_la_liste(hass, entree):
 
 
 # ---------------------------------------------------------------------------
-# `entites_dans` : descend dans la VALEUR et dans le SOUS-SCHEMA du contrat,
+# `entities_in` : descend dans la VALEUR et dans le SOUS-SCHEMA du contrat,
 # EN PARALLELE (ronde de correction 2) -- jamais la FORME d'une chaine
 # (defaut A, ronde 1), jamais un ENSEMBLE DE NOMS deconnecte du CHEMIN
 # (reserve 1, ronde 1) : `nom` est une entite dans `minuteurs[]`, du texte
@@ -100,7 +100,7 @@ def test_entites_dans_reconnait_les_deux_champs_entite_d_une_tuile():
         "libelle": "tv.salon", "icone": "bulb",
         "entite": "light.salon", "cible": "switch.garage",
     }
-    assert set(entites_dans(candidat, "commandes")) == {"light.salon", "switch.garage"}
+    assert set(entities_in(candidat, "commandes")) == {"light.salon", "switch.garage"}
 
 
 def test_entites_dans_LE_TEST_DE_LA_COLLISION_nom_entite_ou_texte_libre():
@@ -115,10 +115,10 @@ def test_entites_dans_LE_TEST_DE_LA_COLLISION_nom_entite_ou_texte_libre():
         "titre": ["sensor.nexiste_pas"],
         "sousTitre": [], "affiche": [], "progression": [], "transport": [], "volume": [],
     }
-    assert entites_dans(source, "sources") == ["sensor.nexiste_pas"]
+    assert entities_in(source, "sources") == ["sensor.nexiste_pas"]
 
     minuteur = {"timer": "timer.cuisine", "nom": "input_text.minuteur_nom"}
-    assert set(entites_dans(minuteur, "minuteurs")) == {
+    assert set(entities_in(minuteur, "minuteurs")) == {
         "timer.cuisine", "input_text.minuteur_nom",
     }
 
@@ -132,19 +132,19 @@ def test_entites_dans_descend_dans_allumee_un_objet_imbrique_de_source():
         "progression": [], "transport": [], "volume": [],
         "allumee": {"entite": "input_boolean.presence", "etats": ["on", "playing"]},
     }
-    assert entites_dans(source, "sources") == ["input_boolean.presence"]
+    assert entities_in(source, "sources") == ["input_boolean.presence"]
 
 
 def test_entites_dans_pour_une_section_a_element_nu_traite_la_valeur_comme_l_entite():
     """`ouvrants`/`listesTachesExtra` : leur `items` EST `$ref: entite` --
     l'element nu (une chaine SANS cle autour) est donc collecte SANS cas
     particulier, la MEME descente que pour un dict."""
-    assert entites_dans("binary_sensor.porte", "ouvrants") == ["binary_sensor.porte"]
-    assert entites_dans("todo.taches", "listesTachesExtra") == ["todo.taches"]
+    assert entities_in("binary_sensor.porte", "ouvrants") == ["binary_sensor.porte"]
+    assert entities_in("todo.taches", "listesTachesExtra") == ["todo.taches"]
 
 
 def test_entites_dans_une_chaine_nue_hors_d_une_section_a_entite_ne_rend_rien():
     """Le pendant negatif : `etiquettesMinuteur` a aussi un element NU, mais
     son `items` est `{"type": "string"}` au contrat -- jamais une entite,
     meme si la chaine EN A LA FORME."""
-    assert entites_dans("light.salon", "etiquettesMinuteur") == []
+    assert entities_in("light.salon", "etiquettesMinuteur") == []

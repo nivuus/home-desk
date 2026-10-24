@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 //
-// Tâche 13 : distinction appui/glissement (`creerGeste`). Ce fichier prouve, sur `geste()` isolé
-// (comme `tests/interaction.test.ts` prouve `creerAppui` isolé) :
+// Tâche 13 : distinction appui/glissement (`createGesture`). Ce fichier prouve, sur `geste()` isolé
+// (comme `tests/interaction.test.ts` prouve `createPress` isolé) :
 //   1. une tuile sans jauge garde le comportement d'origine (bascule immédiate) ;
-//   2. le mode hors ligne bloque le geste de la même façon que `creerAppui` bloque l'appui ;
+//   2. le mode hors ligne bloque le geste de la même façon que `createPress` bloque l'appui ;
 //   3. sous le seuil de déplacement, un geste reste un appui, déclenché au RELÂCHEMENT ;
 //   4. au-delà du seuil, la bascule est annulée et un réglage part, avec un envoi final garanti ;
 //   5. le débit d'appels de service est limité pendant le glissement, sans jamais poser de
@@ -12,7 +12,7 @@
 //   7. `pointercancel` ne conclut ni la bascule ni le réglage.
 import { describe, it, expect, vi } from 'vitest';
 import { Etat } from '../src/etat';
-import { creerGeste, SEUIL_PX, DELAI_SECOURS_MS } from '../src/geste';
+import { createGesture, SEUIL_PX, DELAI_SECOURS_MS } from '../src/geste';
 
 const ev = (id: string, etat: string, attributes: Record<string, unknown> = {}) =>
   ({ entity_id: id, state: etat, attributes });
@@ -24,7 +24,7 @@ const ev = (id: string, etat: string, attributes: Record<string, unknown> = {}) 
  *  un vrai Chromium). Largeur 160px, cohérente avec une tuile `.commande`/`.tuile` réelle.
  *  `setPointerCapture`/`releasePointerCapture` : absentes de jsdom (vérifié directement) —
  *  ajoutées ici comme espions pour prouver leur usage (règle du brief : « utilise la capture de
- *  pointeur »), sans quoi `creerGeste` s'appuierait silencieusement sur son repli `?.()`. */
+ *  pointeur »), sans quoi `createGesture` s'appuierait silencieusement sur son repli `?.()`. */
 function tuile(): HTMLElement & { setPointerCapture: ReturnType<typeof vi.fn>; releasePointerCapture: ReturnType<typeof vi.fn> } {
   const el = document.createElement('div') as any;
   el.getBoundingClientRect = () => ({ left: 0, right: 160, width: 160, top: 0, bottom: 64, height: 64, x: 0, y: 0, toJSON() {} });
@@ -38,13 +38,13 @@ const descendre = (el: HTMLElement, x: number, y = 0) =>
   ({ currentTarget: el, clientX: x, clientY: y, pointerId: 7 }) as unknown as PointerEvent;
 const lacher = () => new PointerEvent('pointerup', { pointerId: 7, bubbles: true });
 
-describe('creerGeste — tuile sans jauge : comportement d origine, inchangé', () => {
+describe('createGesture — tuile sans jauge : comportement d origine, inchangé', () => {
   it('bascule immédiatement, avant même un pointerup — aucun risque pour les tuiles sans jauge', () => {
     const etat = new Etat();
     etat.appliquer(ev('lock.aqara_smart_lock_u200_lite', 'locked'));
     const cx = { appelerService: vi.fn() };
     const surBascule = vi.fn();
-    const geste = creerGeste(etat, cx, () => false);
+    const geste = createGesture(etat, cx, () => false);
     const el = tuile();
 
     geste(descendre(el, 10), 'lock.aqara_smart_lock_u200_lite', surBascule);
@@ -54,13 +54,13 @@ describe('creerGeste — tuile sans jauge : comportement d origine, inchangé', 
   });
 });
 
-describe('creerGeste — hors ligne : bloqué comme creerAppui, pas seulement l appui', () => {
+describe('createGesture — hors ligne : bloqué comme createPress, pas seulement l appui', () => {
   it('une entité à jauge, hors ligne : ni bascule ni réglage, aucun listener armé', () => {
     const etat = new Etat();
     etat.appliquer(ev('light.lumiere_salon', 'off', { supported_color_modes: ['hs'] }));
     const cx = { appelerService: vi.fn() };
     const surBascule = vi.fn();
-    const geste = creerGeste(etat, cx, () => true);   // hors ligne
+    const geste = createGesture(etat, cx, () => true);   // hors ligne
     const el = tuile();
 
     geste(descendre(el, 10), 'light.lumiere_salon', surBascule);
@@ -75,13 +75,13 @@ describe('creerGeste — hors ligne : bloqué comme creerAppui, pas seulement l 
   });
 });
 
-describe('creerGeste — sous le seuil : un appui, déclenché au relâchement', () => {
+describe('createGesture — sous le seuil : un appui, déclenché au relâchement', () => {
   it('pointerdown puis pointerup sans mouvement : bascule au relâchement, pas au contact', () => {
     const etat = new Etat();
     etat.appliquer(ev('light.lumiere_salon', 'off', { supported_color_modes: ['hs'] }));
     const cx = { appelerService: vi.fn() };
     const surBascule = vi.fn();
-    const geste = creerGeste(etat, cx, () => false);
+    const geste = createGesture(etat, cx, () => false);
     const el = tuile();
 
     geste(descendre(el, 10), 'light.lumiere_salon', surBascule);
@@ -97,7 +97,7 @@ describe('creerGeste — sous le seuil : un appui, déclenché au relâchement',
     etat.appliquer(ev('light.lumiere_salon', 'off', { supported_color_modes: ['hs'] }));
     const cx = { appelerService: vi.fn() };
     const surBascule = vi.fn();
-    const geste = creerGeste(etat, cx, () => false);
+    const geste = createGesture(etat, cx, () => false);
     const el = tuile();
 
     geste(descendre(el, 10), 'light.lumiere_salon', surBascule);
@@ -109,13 +109,13 @@ describe('creerGeste — sous le seuil : un appui, déclenché au relâchement',
   });
 });
 
-describe('creerGeste — au-delà du seuil : réglage, bascule annulée', () => {
+describe('createGesture — au-delà du seuil : réglage, bascule annulée', () => {
   it('un déplacement au-delà du seuil annule la bascule et envoie la valeur finale au relâchement', () => {
     const etat = new Etat();
     etat.appliquer(ev('light.lumiere_salon', 'off', { supported_color_modes: ['hs'] }));
     const cx = { appelerService: vi.fn() };
     const surBascule = vi.fn();
-    const geste = creerGeste(etat, cx, () => false);
+    const geste = createGesture(etat, cx, () => false);
     const el = tuile();
 
     geste(descendre(el, 0), 'light.lumiere_salon', surBascule);
@@ -135,7 +135,7 @@ describe('creerGeste — au-delà du seuil : réglage, bascule annulée', () => 
     etat.appliquer(ev('light.lumiere_salon', 'off', { supported_color_modes: ['hs'] }));
     const cx = { appelerService: vi.fn() };
     const surBascule = vi.fn();
-    const geste = creerGeste(etat, cx, () => false);
+    const geste = createGesture(etat, cx, () => false);
     const el = tuile();
 
     geste(descendre(el, 0), 'light.lumiere_salon', surBascule);
@@ -152,7 +152,7 @@ describe('creerGeste — au-delà du seuil : réglage, bascule annulée', () => 
     etat.appliquer(ev('climate.radiateur', 'heat', { temperature: 19 }));
     const cx = { appelerService: vi.fn() };
     const surBascule = vi.fn();   // jamais appelé pour climate (pas de service de bascule)
-    const geste = creerGeste(etat, cx, () => false);
+    const geste = createGesture(etat, cx, () => false);
     const el = tuile();
 
     geste(descendre(el, 0), 'climate.radiateur', surBascule);
@@ -172,7 +172,7 @@ describe('creerGeste — au-delà du seuil : réglage, bascule annulée', () => 
     const etat = new Etat();
     etat.appliquer(ev('cover.rideau_salon', 'open', { current_position: 87, supported_features: 15 }));
     const cx = { appelerService: vi.fn() };
-    const geste = creerGeste(etat, cx, () => false);
+    const geste = createGesture(etat, cx, () => false);
     const el = tuile();
 
     geste(descendre(el, 80), 'cover.rideau_salon', vi.fn());
@@ -192,11 +192,11 @@ describe('creerGeste — au-delà du seuil : réglage, bascule annulée', () => 
   // `media_player.*` retombe donc désormais dans le cas « tuile sans jauge » ci-dessus.
 });
 
-describe('creerGeste — capture de pointeur', () => {
+describe('createGesture — capture de pointeur', () => {
   it('capture le pointeur au contact, le relâche à la fin du geste', () => {
     const etat = new Etat();
     etat.appliquer(ev('light.lumiere_salon', 'off', { supported_color_modes: ['hs'] }));
-    const geste = creerGeste(etat, { appelerService: vi.fn() }, () => false);
+    const geste = createGesture(etat, { appelerService: vi.fn() }, () => false);
     const el = tuile();
 
     geste(descendre(el, 0), 'light.lumiere_salon', vi.fn());
@@ -207,13 +207,13 @@ describe('creerGeste — capture de pointeur', () => {
   });
 });
 
-describe('creerGeste — pointercancel : ni bascule ni réglage', () => {
+describe('createGesture — pointercancel : ni bascule ni réglage', () => {
   it('un pointercancel après avoir dépassé le seuil n envoie rien', () => {
     const etat = new Etat();
     etat.appliquer(ev('light.lumiere_salon', 'off', { supported_color_modes: ['hs'] }));
     const cx = { appelerService: vi.fn() };
     const surBascule = vi.fn();
-    const geste = creerGeste(etat, cx, () => false);
+    const geste = createGesture(etat, cx, () => false);
     const el = tuile();
 
     geste(descendre(el, 0), 'light.lumiere_salon', surBascule);
@@ -228,7 +228,7 @@ describe('creerGeste — pointercancel : ni bascule ni réglage', () => {
     const etat = new Etat();
     etat.appliquer(ev('light.lumiere_salon', 'off', { supported_color_modes: ['hs'] }));
     const surBascule = vi.fn();
-    const geste = creerGeste(etat, { appelerService: vi.fn() }, () => false);
+    const geste = createGesture(etat, { appelerService: vi.fn() }, () => false);
     const el = tuile();
 
     geste(descendre(el, 0), 'light.lumiere_salon', surBascule);
@@ -243,13 +243,13 @@ describe('creerGeste — pointercancel : ni bascule ni réglage', () => {
 // long. » Horloge injectée (`maintenant`) plutôt qu'un vrai minuteur : le débit est limité par
 // COMPARAISON D'HORODATAGES dans `geste.ts`, jamais par un `setTimeout` — ce test le prouve des
 // deux côtés (peu d'appels malgré beaucoup de mouvements, ET zéro minuteur créé).
-describe('creerGeste — débit d appels de service pendant un glissement long', () => {
+describe('createGesture — débit d appels de service pendant un glissement long', () => {
   it('throttle les appels intermédiaires, mais garantit toujours l envoi final au relâchement', () => {
     const etat = new Etat();
     etat.appliquer(ev('light.lumiere_salon', 'off', { supported_color_modes: ['hs'] }));
     const cx = { appelerService: vi.fn() };
     let horloge = 0;
-    const geste = creerGeste(etat, cx, () => false, () => horloge);
+    const geste = createGesture(etat, cx, () => false, () => horloge);
     const el = tuile();
 
     geste(descendre(el, 0), 'light.lumiere_salon', vi.fn());
@@ -273,7 +273,7 @@ describe('creerGeste — débit d appels de service pendant un glissement long',
     etat.appliquer(ev('light.lumiere_salon', 'off', { supported_color_modes: ['hs'] }));
     const cx = { appelerService: vi.fn() };
     let horloge = 0;
-    const geste = creerGeste(etat, cx, () => false, () => horloge);
+    const geste = createGesture(etat, cx, () => false, () => horloge);
     const el = tuile();
 
     geste(descendre(el, 0), 'light.lumiere_salon', vi.fn());
@@ -296,7 +296,7 @@ describe('creerGeste — débit d appels de service pendant un glissement long',
       const etat = new Etat();
       etat.appliquer(ev('light.lumiere_salon', 'off', { supported_color_modes: ['hs'] }));
       const cx = { appelerService: vi.fn() };
-      const geste = creerGeste(etat, cx, () => false);   // horloge par défaut (Date.now, hors fake timers)
+      const geste = createGesture(etat, cx, () => false);   // horloge par défaut (Date.now, hors fake timers)
       const el = tuile();
 
       geste(descendre(el, 0), 'light.lumiere_salon', vi.fn());
@@ -313,19 +313,19 @@ describe('creerGeste — débit d appels de service pendant un glissement long',
 });
 
 // Ronde de correction 4 (relecture de rattrapage, 2026-08-02) : le relecteur a montré qu'un
-// booléen `gesteEnCours` unique, partagé par toute l'application (`creerGeste` n'est instancié
+// booléen `gesteEnCours` unique, partagé par toute l'application (`createGesture` n'est instancié
 // qu'une fois, `demarrage.ts`), fige TOUTES les jauges dès qu'UNE SEULE tuile ne reçoit jamais son
 // relâchement (doigt sorti par le bord, évènement perdu, page redessinée pendant le mouvement).
 // Ces tests prouvent le remède : verrou par tuile ET par pointeur (une tuile bloquée n'en bloque
 // pas d'autres), plus un minuteur de secours qui libère même la tuile bloquée toute seule, sans
 // jamais accumuler de minuteur.
-describe('creerGeste — verrou par tuile, plus un booléen global (ronde de correction 4)', () => {
+describe('createGesture — verrou par tuile, plus un booléen global (ronde de correction 4)', () => {
   it('un geste jamais relâché sur une tuile ne bloque pas le pointerdown d une AUTRE tuile', () => {
     const etat = new Etat();
     etat.appliquer(ev('light.lumiere_salon', 'off', { supported_color_modes: ['hs'] }));
     etat.appliquer(ev('light.lumiere_cuisine', 'off', { supported_color_modes: ['hs'] }));
     const cx = { appelerService: vi.fn() };
-    const geste = creerGeste(etat, cx, () => false);
+    const geste = createGesture(etat, cx, () => false);
     const elSalon = tuile();
     const elCuisine = tuile();
 
@@ -352,7 +352,7 @@ describe('creerGeste — verrou par tuile, plus un booléen global (ronde de cor
     etat.appliquer(ev('light.lumiere_salon', 'off', { supported_color_modes: ['hs'] }));
     const cx = { appelerService: vi.fn() };
     const surBascule = vi.fn();
-    const geste = creerGeste(etat, cx, () => false);
+    const geste = createGesture(etat, cx, () => false);
     const el = tuile();
 
     geste(descendre(el, 10), 'light.lumiere_salon', surBascule);
@@ -371,7 +371,7 @@ describe('creerGeste — verrou par tuile, plus un booléen global (ronde de cor
       const etat = new Etat();
       etat.appliquer(ev('light.lumiere_salon', 'off', { supported_color_modes: ['hs'] }));
       const cx = { appelerService: vi.fn() };
-      const geste = creerGeste(etat, cx, () => false);
+      const geste = createGesture(etat, cx, () => false);
       const el = tuile();
       const avant = vi.getTimerCount();
 
@@ -392,7 +392,7 @@ describe('creerGeste — verrou par tuile, plus un booléen global (ronde de cor
       etat.appliquer(ev('light.lumiere_salon', 'off', { supported_color_modes: ['hs'] }));
       const cx = { appelerService: vi.fn() };
       const surBascule = vi.fn();
-      const geste = creerGeste(etat, cx, () => false);
+      const geste = createGesture(etat, cx, () => false);
       const el = tuile();
       const avant = vi.getTimerCount();
 
@@ -423,9 +423,9 @@ describe('creerGeste — verrou par tuile, plus un booléen global (ronde de cor
 // injecté via CDP dans `glisserAvecFantome`). Un verrou composé avec le pointerId ne bloque pas ce
 // fantôme : il ouvrait son propre geste concurrent, avec son propre point de référence, qui
 // écrasait ensuite la valeur envoyée par le geste réel. Ce test reproduit ce scénario précis au
-// niveau unitaire (`creerGeste` isolé), pour que la régression ne dépende plus seulement du
+// niveau unitaire (`createGesture` isolé), pour que la régression ne dépende plus seulement du
 // garde-fou tactile (Chromium/CDP, plus lent, pas lancé par `npm test`).
-describe('creerGeste — contact fantôme à identifiant de pointeur différent, ronde de correction 5', () => {
+describe('createGesture — contact fantôme à identifiant de pointeur différent, ronde de correction 5', () => {
   it('un pointerdown supplémentaire à IDENTIFIANT DE POINTEUR DIFFÉRENT sur la même tuile, geste déjà en cours, est ignoré (ne réarme pas le point de référence, n appelle pas surBascule)', () => {
     const etat = new Etat();
     etat.appliquer(ev('light.lumiere_salon', 'off', { supported_color_modes: ['hs'] }));
@@ -433,7 +433,7 @@ describe('creerGeste — contact fantôme à identifiant de pointeur différent,
     // Horloge figée (jamais un minuteur) : rend l'assertion sur le NOMBRE d'appels déterministe,
     // même patron que les tests de débit ci-dessus (`let horloge = 0`).
     let horloge = 0;
-    const geste = creerGeste(etat, cx, () => false, () => horloge);
+    const geste = createGesture(etat, cx, () => false, () => horloge);
     const el = tuile();
 
     // Contact réel : pointerId 7, comme partout ailleurs dans ce fichier.
@@ -471,13 +471,13 @@ describe('creerGeste — contact fantôme à identifiant de pointeur différent,
 // l'illusion d'un réancrage. Ce test reproduit l'exemple mesuré par le relecteur : une
 // automatisation (l'éclairage adaptatif de cette maison) change la lampe ENTRE le contact et le
 // franchissement du seuil.
-describe('creerGeste — réancrage sur l état RÉEL au franchissement du seuil (pas l état du contact)', () => {
+describe('createGesture — réancrage sur l état RÉEL au franchissement du seuil (pas l état du contact)', () => {
   it('une automatisation qui change la lampe avant le franchissement du seuil : le glissement part de la valeur ACTUELLE', () => {
     const etat = new Etat();
     // Contact initial : lampe à 20 % (51/255).
     etat.appliquer(ev('light.lumiere_salon', 'on', { brightness: 51, supported_color_modes: ['hs'] }));
     const cx = { appelerService: vi.fn() };
-    const geste = creerGeste(etat, cx, () => false);
+    const geste = createGesture(etat, cx, () => false);
     const el = tuile();
 
     geste(descendre(el, 0), 'light.lumiere_salon', vi.fn());

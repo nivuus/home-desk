@@ -39,8 +39,7 @@
     "modulateur": {
       "options": {
         "invites": "Guests",
-        "chaleur": "Heat",
-        "delorean": "DeLorean"
+        "chaleur": "Heat"
       }
     }
   },
@@ -63,8 +62,7 @@
             "hauteurUtile": "Usable height (px)",
             "temperature": "Temperature sensor",
             "note": "Note",
-            "aspirateur": "Vacuum",
-            "delorean": "DeLorean"
+            "aspirateur": "Vacuum"
           }
         },
         "reconfigure": {
@@ -82,7 +80,8 @@
             "etiquettesMinuteur": "Timer labels",
             "listesTachesExtra": "Extra task lists",
             "agencement": "Blocks and modes",
-            "voiture": "Car"
+            "voiture": "Car",
+            "aspirateur_maison": "Room vacuum"
           }
         },
         "identite": {
@@ -93,8 +92,7 @@
             "hauteurUtile": "Usable height (px)",
             "temperature": "Temperature sensor",
             "note": "Note",
-            "aspirateur": "Vacuum",
-            "delorean": "DeLorean"
+            "aspirateur": "Vacuum"
           }
         },
         "commandes": {
@@ -117,6 +115,7 @@
             "lien": "Link",
             "vue": "View (#anchor)",
             "epingle": "Pinned",
+            "haute": "Tall (two rows)",
             "absenceNommee": "Label shown when the entity is absent",
             "note": "Note",
             "geste": "Action"
@@ -142,6 +141,7 @@
             "lien": "Link",
             "vue": "View (#anchor)",
             "epingle": "Pinned",
+            "haute": "Tall (two rows)",
             "absenceNommee": "Label shown when the entity is absent",
             "note": "Note",
             "geste": "Action"
@@ -167,6 +167,7 @@
             "lien": "Link",
             "vue": "View (#anchor)",
             "epingle": "Pinned",
+            "haute": "Tall (two rows)",
             "absenceNommee": "Label shown when the entity is absent",
             "note": "Note",
             "geste": "Action"
@@ -237,6 +238,7 @@
           "description": "Fill in only the entities this source uses; leave the other fields empty.",
           "data": {
             "nom": "Name",
+            "piece": "Room",
             "titre": "Title entities",
             "sousTitre": "Subtitle entities",
             "affiche": "Cover art entities",
@@ -306,6 +308,17 @@
             "arreterClim": "Stop air conditioning",
             "note": "Note"
           }
+        },
+        "aspirateur_maison": {
+          "title": "Room vacuum",
+          "description": "Replaces the generic \"Vacuum\" tile of the \"Whole house\" view with a device specific to this room. Check \"No room vacuum\" to go back to the generic tile.{entites_inconnues}",
+          "data": {
+            "sans_aspirateur_maison": "No room vacuum",
+            "libelle": "Label", "icone": "Icon", "entite": "Entity", "cible": "Target",
+            "service_domaine": "Service — domain", "service_action": "Service — action",
+            "lien": "Link", "vue": "View", "epingle": "Pinned", "haute": "Tall (two rows)",
+            "absenceNommee": "Text when the entity is unavailable", "note": "Note"
+          }
         }
       },
       "error": {
@@ -337,6 +350,64 @@
       "create_entry": {
         "default": "The screen has been created.{entites_inconnues}"
       }
+    },
+    "maison": {
+      "entry_type": "House",
+      "initiate_flow": {
+        "user": "House media sources"
+      },
+      "step": {
+        "sources": {
+          "title": "House media sources",
+          "description": "The sources shared by every tablet. Choose an existing source to edit, move or delete it, or tick \"Add\" for a new one.{entites_inconnues}",
+          "data": {
+            "choix": "Existing source",
+            "nouveau": "Add a new source"
+          }
+        },
+        "sources_element": {
+          "title": "House media source",
+          "description": "The room this source plays in is required. Fill in only the entities this source uses; leave the other fields empty.",
+          "data": {
+            "nom": "Name",
+            "piece": "Room",
+            "titre": "Title entities",
+            "sousTitre": "Subtitle entities",
+            "affiche": "Cover art entities",
+            "progression": "Progress entities",
+            "transport": "Transport entities",
+            "volume": "Volume entities",
+            "allumee_entite": "\"On\" entity (optional)",
+            "allumee_etats": "\"On\" states, comma-separated",
+            "note": "Note",
+            "geste": "Action"
+          }
+        }
+      },
+      "error": {
+        "champ_vide": "This field cannot be empty.",
+        "champ_invalide": "This field is not valid.",
+        "champ_requis": "This field must be filled in.",
+        "champ_format_invalide": "This field does not match the expected format.",
+        "champ_type_invalide": "This field does not have the expected type.",
+        "champ_trop_court": "This field is too short.",
+        "champ_valeur_non_autorisee": "This value is not allowed for this field.",
+        "champ_inconnu": "This field is not recognized.",
+        "champ_valeur_figee": "This field can only take a single value.",
+        "champ_trop_peu_d_elements": "This field does not have enough items.",
+        "champ_trop_d_elements": "This field has too many items.",
+        "champ_doublon": "This field contains a duplicate.",
+        "champ_element_requis": "This list must contain a value the screen requires (\"Commands\" for zones, \"Default\" for modes).",
+        "selection_manquante": "Check \"Add\" for a new item; if the list isn't empty, you can also pick an existing one.",
+        "allumee_incomplet": "Fill in both the \"on\" entity and its states, or clear them both.",
+        "maison_deviendrait_invalide": "This change would make the house source list invalid: it was not saved."
+      },
+      "abort": {
+        "already_configured": "The house is already configured: edit its sources from the existing subentry."
+      },
+      "create_entry": {
+        "default": "The house media sources were created. Reconfigure this subentry to add some."
+      }
     }
   },
   "avertissements": {
@@ -350,6 +421,28 @@
     "importer": {
       "name": "Import screens",
       "description": "Reads config/home_desk_ecrans.yaml back and replaces every configured screen with its content. Validates the whole file before writing anything: a single invalid screen or a duplicate name refuses the entire import, nothing is changed."
+    },
+    "jouer_animation": {
+      "name": "Play an animation",
+      "description": "Plays a video, an animated image or a Lottie animation over the screen of the named tablets, then hands the screen back. Refused without sending anything if a screen is unknown, the file is missing or its type cannot be played.",
+      "fields": {
+        "ecrans": {
+          "name": "Screens",
+          "description": "Names of the screens (the \"nom\" field of each screen) that play the animation. Each name must match the screen's name exactly, case included: \"Salon\" is not \"salon\"."
+        },
+        "media": {
+          "name": "Media",
+          "description": "The video or image to play. Lottie files (.json, .lottie) are not listed by Home Assistant's media browser: put them in the media folder and name them in YAML by their media-source id."
+        },
+        "duree": {
+          "name": "Duration",
+          "description": "Playback duration in seconds, 120 at most. Without it, a video or a Lottie plays once to its end; an animated image requires a duration."
+        },
+        "fond": {
+          "name": "Background",
+          "description": "\"noir\" (black) hides the screen behind the animation, \"transparent\" leaves it visible."
+        }
+      }
     }
   }
 }

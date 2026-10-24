@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { chargerEcran, listerEcrans } from '../src/configuration';
+import { chargerEcran, listerEcrans, loadHouse } from '../src/configuration';
 import { RefusHA } from '../src/connexion';
 
 /** Un transport doublé : rend ce qu'on lui dit, ou lève le refus qu'on lui donne. */
@@ -9,16 +9,16 @@ function transport(reponse: (p: Record<string, unknown>) => unknown) {
 
 describe('chargerEcran — la commande envoyée', () => {
   it('envoie home_desk/ecran avec le nom, et rien d autre', async () => {
-    const cx = transport(() => ({ nom: 'cuisine', version: 1 }));
+    const cx = transport(() => ({ nom: 'cuisine', version: 2 }));
     await chargerEcran(cx, 'cuisine');
     expect(cx.envoyerCommande).toHaveBeenCalledTimes(1);
     expect(cx.envoyerCommande).toHaveBeenCalledWith({ type: 'home_desk/ecran', nom: 'cuisine' });
   });
 
   it('rend l écran tel que HA l a résolu et validé', async () => {
-    const ecran = { nom: 'cuisine', version: 1, hauteurUtile: 585 };
+    const ecran = { nom: 'cuisine', version: 2, hauteurUtile: 585 };
     const cx = transport(() => ecran);
-    expect(await chargerEcran(cx, 'cuisine')).toEqual({ ok: true, valeur: ecran });
+    expect(await chargerEcran(cx, 'cuisine')).toEqual({ ok: true, value: ecran });
   });
 });
 
@@ -66,7 +66,7 @@ describe('listerEcrans', () => {
     // renommable indépendamment par le geste générique de HA) sont DEUX champs distincts.
     const liste = [{ nom: 'salon', titre: 'Salon' }, { nom: 'cuisine', titre: 'Cuisine' }];
     const cx = transport(() => liste);
-    expect(await listerEcrans(cx)).toEqual({ ok: true, valeur: liste });
+    expect(await listerEcrans(cx)).toEqual({ ok: true, value: liste });
     expect(cx.envoyerCommande).toHaveBeenCalledWith({ type: 'home_desk/ecrans' });
   });
 
@@ -75,7 +75,7 @@ describe('listerEcrans', () => {
     // injoignable » : la première dit où aller configurer, la seconde parle de réseau. Les
     // confondre remplacerait un conseil juste par un conseil faux.
     const cx = transport(() => []);
-    expect(await listerEcrans(cx)).toEqual({ ok: true, valeur: [] });
+    expect(await listerEcrans(cx)).toEqual({ ok: true, value: [] });
   });
 
   it('signale l intégration absente quand HA ne connaît pas la commande', async () => {
@@ -86,5 +86,35 @@ describe('listerEcrans', () => {
   it('ignore une réponse qui n est pas un tableau plutôt que de la propager', async () => {
     const cx = transport(() => ({ pas: 'un tableau' }));
     expect(await listerEcrans(cx)).toEqual({ ok: false, panne: 'corrompu' });
+  });
+});
+
+describe('loadHouse', () => {
+  const tv = { nom: 'TV', piece: 'Chambre', titre: ['media_player.tv'], sousTitre: [], affiche: [],
+               progression: [], transport: [], volume: [] };
+
+  it('sends home_desk/maison and returns the source list', async () => {
+    const cx = transport(() => ({ sources: [tv] }));
+    expect(await loadHouse(cx)).toEqual({ ok: true, value: [tv] });
+    expect(cx.envoyerCommande).toHaveBeenCalledWith({ type: 'home_desk/maison' });
+  });
+
+  it('loadHouse maps unknown_command to an empty list', async () => {
+    // An integration older than the shared house list: the tablet still works, it just has
+    // nothing to follow elsewhere.
+    const cx = transport(() => { throw new RefusHA('unknown_command', 'Unknown command.'); });
+    expect(await loadHouse(cx)).toEqual({ ok: true, value: [] });
+  });
+
+  it('maps any other refusal like chargerEcran does', async () => {
+    const cx = transport(() => { throw new RefusHA('ecran_corrompu', 'x'); });
+    expect(await loadHouse(cx)).toEqual({ ok: false, panne: 'corrompu' });
+    const lost = transport(() => { throw new Error('websocket closed'); });
+    expect(await loadHouse(lost)).toEqual({ ok: false, panne: 'reseau' });
+  });
+
+  it('reports an answer without a sources array as corrupt', async () => {
+    expect(await loadHouse(transport(() => ({ sources: 'no' })))).toEqual({ ok: false, panne: 'corrompu' });
+    expect(await loadHouse(transport(() => undefined))).toEqual({ ok: false, panne: 'corrompu' });
   });
 });

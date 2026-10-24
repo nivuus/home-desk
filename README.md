@@ -52,8 +52,53 @@ git. Deux services les font voyager vers un fichier versionnable,
   des écrans configurés par son contenu. **Atomique** : tous les écrans du
   fichier sont validés avant qu'un seul ne soit écrit — un import partiel
   laisserait la configuration dans un état que personne n'a voulu.
-  `importer` est aussi le point d'entrée d'une future migration des écrans
-  aujourd'hui en dur dans `app/src/ecran.ts` vers cette intégration.
+  `importer` n'accepte que les fichiers de **version 2** : un écran qui
+  porte une autre `version`, ou encore une forme de la version 1, refuse
+  l'import entier (un écran sans `version` est pris pour la version 2).
+  Ce n'est pas un chemin de migration : les écrans déjà enregistrés en
+  version 1 sont réécrits en version 2 **au chargement** de l'intégration
+  (`migration.py`), sans passer par lui.
+
+### `home_desk.jouer_animation`
+
+Joue une vidéo, une image animée ou une animation Lottie par-dessus l'écran
+des tablettes nommées, puis rend la main à l'écran. Ouvert aux
+non-administrateurs : il est fait pour les automations et les tableaux de
+bord de la maison, et n'écrit rien.
+
+- **`ecrans`** — les noms des écrans, **exacts, majuscules comprises** :
+  `Salon` n'est pas `salon`. Un seul nom inconnu refuse l'appel entier.
+- **`media`** — un identifiant `media-source://...`, ce que produit le
+  sélecteur de média de Home Assistant.
+- **`duree`** — en secondes, **120 au plus**, envoyée à la milliseconde.
+  Sans elle, une vidéo ou un Lottie joue une fois jusqu'à sa fin ; une
+  **image animée l'exige** (elle n'a pas de fin détectable).
+- **`fond`** — `noir` (par défaut) ou `transparent`.
+
+Tout est vérifié **avant** le moindre envoi : écran inconnu, fichier absent,
+type illisible, durée hors bornes, et rien ne part. L'animation n'est pas
+mise en file : une tablette **hors ligne** au moment de l'appel ne la
+rejouera **jamais** en revenant.
+
+```yaml
+action: home_desk.jouer_animation
+data:
+  ecrans: [Salon]
+  media:
+    media_content_id: media-source://media_source/local/animations/sonnette.lottie
+    media_content_type: application/zip+dotlottie
+  duree: 8
+  fond: transparent
+```
+
+**Limite : les fichiers Lottie ne passent pas par l'interface.** Le
+navigateur de médias et l'envoi de fichiers de Home Assistant ne
+connaissent que l'audio, la vidéo et l'image : un `.json` ou un `.lottie`
+n'y est ni proposé ni téléversable. Il faut le **copier à la main** dans le
+dossier de médias (la source `local`, `config/media/` par défaut), puis le nommer
+dans le YAML par son identifiant
+`media-source://media_source/local/<chemin>` — le sélecteur de l'éditeur
+d'actions ne le trouvera pas.
 
 ### Ce que ça coûte — les régressions nommées, franchement
 

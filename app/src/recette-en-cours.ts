@@ -14,7 +14,7 @@ export const PEREMPTION_MS = 4 * 3_600_000;
 
 export type EtatRecette = { uid: string; page: number; majLe: number };
 
-export function lireRecette(
+export function readRecipeProgress(
   stockage: Pick<Storage, 'getItem'>, maintenantMs: number,
 ): EtatRecette | undefined {
   try {
@@ -31,10 +31,10 @@ export function lireRecette(
   }
 }
 
-export function ecrireRecette(stockage: Pick<Storage, 'setItem'>, e: EtatRecette): void {
+export function writeRecipeProgress(stockage: Pick<Storage, 'setItem'>, e: EtatRecette): void {
   try { stockage.setItem(CLE_RECETTE, JSON.stringify(e)); } catch { /* stockage plein/refusé */ }
 }
 
-export function effacerRecette(stockage: Pick<Storage, 'removeItem'>): void {
+export function clearRecipeProgress(stockage: Pick<Storage, 'removeItem'>): void {
   try { stockage.removeItem(CLE_RECETTE); } catch { /* idem */ }
 }

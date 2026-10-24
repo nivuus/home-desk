@@ -1,4 +1,4 @@
-"""Le miroir Python du budget de hauteur rend-il le meme verdict que `modes.ts` ?
+"""Le miroir Python du budget de hauteur rend-il le meme verdict que `screen-budget.ts` ?
 
 Ce fichier et app/tests/cas-budget.test.ts lisent le MEME contrat/cas-budget.json.
 C'est toute la garantie : deux implementations, un seul jeu de cas.
@@ -10,7 +10,7 @@ import pathlib
 import pytest
 
 from custom_components.home_desk import budget as _module_budget
-from custom_components.home_desk.budget import CHEMIN_BUDGET, combien, verifier_budget
+from custom_components.home_desk.budget import CHEMIN_BUDGET, arrangement, combien, check_budget
 
 CORPUS = json.loads(
     (pathlib.Path(__file__).resolve().parents[2] / "contrat" / "cas-budget.json")
@@ -18,18 +18,24 @@ CORPUS = json.loads(
 
 
 @pytest.mark.parametrize("cas", CORPUS["cas"], ids=lambda c: (
-    f"{c['mode']}-ambiance={c['rangeeAmbiance']}-"
+    f"{c['mode']}-ambiance={c['rangeeAmbiance']}{'-reduite' if c.get('syntheseReduite') else ''}-"
     f"zones={','.join(c['zones']) if c['zones'] else 'defaut'}-{c['hauteurUtile']}px"))
 def test_le_corpus_rend_le_meme_verdict(cas):
     nom = (f"{cas['mode']}/ambiance={cas['rangeeAmbiance']}/"
            f"zones={cas['zones']}/{cas['hauteurUtile']}px")
-    rendu_commandes = combien(cas["mode"], cas["rangeeAmbiance"], cas["hauteurUtile"], cas["zones"])
+    rendu_commandes = combien(cas["mode"], cas["rangeeAmbiance"], cas["hauteurUtile"], cas["zones"],
+                              synthese_reduite=cas.get("syntheseReduite", False))
     assert rendu_commandes == cas["commandes"], (
         f"{nom} : combien() rend {rendu_commandes}, le corpus attend {cas['commandes']}")
-    rendu_debordement = verifier_budget(cas["mode"], cas["rangeeAmbiance"], cas["hauteurUtile"], cas["zones"])
+    rendu_debordement = check_budget(cas["mode"], cas["rangeeAmbiance"], cas["hauteurUtile"], cas["zones"])
     assert rendu_debordement == cas["debordement"], (
         f"{nom} : verifier_budget() rend {rendu_debordement}, "
         f"le corpus attend {cas['debordement']}")
+    if "arrangement" in cas:
+        rendu_arrangement = arrangement(cas["mode"], cas["rangeeAmbiance"], cas["hauteurUtile"],
+                                        cas["zones"])
+        assert rendu_arrangement == cas["arrangement"], (
+            f"{nom} : arrangement() rend {rendu_arrangement}, le corpus attend {cas['arrangement']}")
 
 
 def test_le_corpus_n_est_pas_vide():

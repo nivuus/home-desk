@@ -4,11 +4,12 @@ import { render, type TemplateResult } from 'lit';
 import { lireMarques, positionReelle } from '../src/mouvement/marques';
 import { comparer } from '../src/mouvement/diff';
 import { Etat } from '../src/etat';
-import { rendreRepasSuivant, rendreEntretien, rendreProchainRdv } from '../src/rendu/defaut';
+import { renderNextMeal, rendreEntretien, rendreProchainRdv } from '../src/rendu/defaut';
 import { rendreMenage, rendreAeration } from '../src/rendu/modes';
 import { rendreBandeau } from '../src/rendu/bandeau';
 import { rendreCarteMedia } from '../src/rendu/media';
 import type { SourceResolue } from '../src/media';
+import type { ToneState } from '../src/rendu/poster-sampler';
 
 // `moteurDeTest` (plus bas) attache sa `racine` à `document.body` — nécessaire pour que le double
 // de rendu se comporte comme un vrai `#app`. Sans ce nettoyage, les `racine` de tous les tests
@@ -852,9 +853,9 @@ describe('data-mvt des blocs de mode — une clé par genre (ronde de correction
       const [decl] = lireMarques(div).keys();
       cles.add(decl);
     };
-    // Lot 6 : `rendreRepasSuivant` a changé de SOURCE (`sensor.home_stock_next_meal`) — même bloc,
+    // Lot 6 : `renderNextMeal` a changé de SOURCE (`sensor.home_stock_next_meal`) — même bloc,
     // même clé `bloc:repas`, ce que ce test vérifie justement. Rien d'autre ne change ici.
-    releve(rendreRepasSuivant({ etiquette: 'Dîner', plat: 'Riz', mealId: 1, recetteId: null,
+    releve(renderNextMeal({ etiquette: 'Dîner', plat: 'Riz', mealId: 1, recetteId: null,
                                 manquants: 0 })!);
     releve(rendreEntretien([{ uid: '1', texte: 'Filtre à changer' }])!);
     releve(rendreProchainRdv(
@@ -1156,8 +1157,12 @@ describe('creerMoteur — croisement d\'affiche média', () => {
 /** Un `SourceResolue` minimal pour ces tests : un seul champ varie d'un appel à l'autre (`titre`),
  *  `affiche` optionnel — c'est la présence ou l'absence de ce champ qui décide si `rendu/media.ts`
  *  pose un `.media-affiche` (fond CSS `background-image`) dans le gabarit. */
+/** Tones ready: the only state in which the card paints its poster layer (2026-10-24). */
+const PRETES: ToneState = { status: 'ready', tones: { text: '#000000', primary: '#303030',
+  onPrimary: '#ffffff', secondary: '#e0e0e0', onSecondary: '#000000', worstContrast: 21 } };
+
 function sourceMedia(titre: string, affiche?: string): SourceResolue {
-  return { nom: 'Musique', joue: true, allumee: true, titre, sousTitre: '', affiche };
+  return { nom: 'Musique', joue: true, active: true, allumee: true, titre, sousTitre: '', affiche };
 }
 
 /** Monte un moteur qui rend par `lit` RÉEL (aucune option `rendre` injectée) — voir le commentaire
@@ -1186,9 +1191,9 @@ describe('creerMoteur — croisement d\'affiche média, avec lit RÉEL (verrouil
       () => {
         const { racine, moteur, appels } = moteurReel();
 
-        moteur.peindre(rendreCarteMedia(sourceMedia('Weird Fishes')));
+        moteur.peindre(rendreCarteMedia(sourceMedia('Weird Fishes'), 0, PRETES));
         const avant = racine.querySelector('.media');
-        moteur.peindre(rendreCarteMedia(sourceMedia('Nude')));
+        moteur.peindre(rendreCarteMedia(sourceMedia('Nude'), 0, PRETES));
         const apres = racine.querySelector('.media');
         // La preuve de contexte, sans laquelle ce describe ne testerait rien de plus que le test
         // au double `innerHTML` ci-dessus : `lit` a bien réutilisé le MÊME nœud, donc `apres.el`
@@ -1217,8 +1222,8 @@ describe('creerMoteur — l\'affiche est attendue, mais pas indéfiniment', () =
       const { racine, moteur, appels } = moteurReel({
         decoder: () => new Promise<void>((r) => { decoder = r; }),
       });
-      moteur.peindre(rendreCarteMedia(sourceMedia('a', '/aff-a.jpg')));
-      moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg')));
+      moteur.peindre(rendreCarteMedia(sourceMedia('a', '/aff-a.jpg'), 0, PRETES));
+      moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg'), 0, PRETES));
       // I5 (revue finale) — LE CONTRAT A CHANGÉ ICI, et le nouveau est plus exigeant que
       // l'ancien. `expect(appels).toEqual([])` disait « rien ne bouge » ; c'était vrai du moteur,
       // et faux de l'écran : `lit` avait DÉJÀ peint le nouveau morceau au moment où la mutation
@@ -1243,8 +1248,8 @@ describe('creerMoteur — l\'affiche est attendue, mais pas indéfiniment', () =
       decoder: () => new Promise<void>(() => {}),
       minuteurFn: ((cb: () => void, ms: number) => { differes.push({ cb, ms }); return 0; }) as any,
     });
-    moteur.peindre(rendreCarteMedia(sourceMedia('a', '/aff-a.jpg')));
-    moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg')));
+    moteur.peindre(rendreCarteMedia(sourceMedia('a', '/aff-a.jpg'), 0, PRETES));
+    moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg'), 0, PRETES));
     // Le masque (I5) compte pour une animation dès la peinture : c'est bien un croisement DE PLUS
     // qu'on attend ici, jamais « au moins une animation », qui serait vrai sans rien croiser.
     expect(appels).toHaveLength(1);
@@ -1258,8 +1263,8 @@ describe('creerMoteur — l\'affiche est attendue, mais pas indéfiniment', () =
     const { moteur, appels } = moteurReel({
       decoder: () => Promise.reject(new Error('échec de décodage')),
     });
-    moteur.peindre(rendreCarteMedia(sourceMedia('a', '/aff-a.jpg')));
-    moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg')));
+    moteur.peindre(rendreCarteMedia(sourceMedia('a', '/aff-a.jpg'), 0, PRETES));
+    moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg'), 0, PRETES));
     await Promise.resolve(); await Promise.resolve();
     // Idem : au-delà du masque posé dès la peinture (I5), donc un croisement réellement joué.
     expect(appels.length).toBeGreaterThan(1);
@@ -1270,8 +1275,8 @@ describe('creerMoteur — l\'affiche est attendue, mais pas indéfiniment', () =
     const { moteur } = moteurReel({
       decoder: (img) => { src = img.src; return new Promise<void>(() => {}); },
     });
-    moteur.peindre(rendreCarteMedia(sourceMedia('a')));  // pas d'affiche au départ
-    moteur.peindre(rendreCarteMedia(sourceMedia('b', '/local/wallpanel/essai-affiche-claire.png')));
+    moteur.peindre(rendreCarteMedia(sourceMedia('a'), 0, PRETES));  // pas d'affiche au départ
+    moteur.peindre(rendreCarteMedia(sourceMedia('b', '/local/wallpanel/essai-affiche-claire.png'), 0, PRETES));
     expect(src).toContain('/local/wallpanel/essai-affiche-claire.png');
   });
 });
@@ -1287,9 +1292,9 @@ describe('creerMoteur — deux croisements de bloc média rapprochés', () => {
       const { moteur, appels } = moteurReel({
         decoder: () => new Promise<void>((r) => { decodeurs.push(r); }),
       });
-      moteur.peindre(rendreCarteMedia(sourceMedia('a', '/aff-a.jpg')));
-      moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg')));   // 1re mutation
-      moteur.peindre(rendreCarteMedia(sourceMedia('c', '/aff-c.jpg')));   // 2e, avant que la 1re ait croisé
+      moteur.peindre(rendreCarteMedia(sourceMedia('a', '/aff-a.jpg'), 0, PRETES));
+      moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg'), 0, PRETES));   // 1re mutation
+      moteur.peindre(rendreCarteMedia(sourceMedia('c', '/aff-c.jpg'), 0, PRETES));   // 2e, avant que la 1re ait croisé
       // I5 (revue finale) : chaque mutation pose son masque dès la peinture — deux masques, et
       // RIEN d'autre. Le décompte remplace l'ancien `toEqual([])`, qui ne pouvait plus tenir sans
       // renoncer au masque ; ce qu'il vérifiait — aucun croisement joué — est ci-dessous.
@@ -1326,9 +1331,9 @@ describe('creerMoteur — deux croisements de bloc média rapprochés', () => {
           return { finished: new Promise(() => {}), cancel: () => annules.push(mien) } as any;
         },
       });
-      moteur.peindre(rendreCarteMedia(sourceMedia('a', '/aff-a.jpg')));
-      moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg')));   // masque n° 0
-      moteur.peindre(rendreCarteMedia(sourceMedia('c', '/aff-c.jpg')));   // masque n° 1
+      moteur.peindre(rendreCarteMedia(sourceMedia('a', '/aff-a.jpg'), 0, PRETES));
+      moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg'), 0, PRETES));   // masque n° 0
+      moteur.peindre(rendreCarteMedia(sourceMedia('c', '/aff-c.jpg'), 0, PRETES));   // masque n° 1
       expect(posees).toHaveLength(2);
       // Le premier masque, et lui seul : le second tient toujours le bloc invisible en attendant
       // l'affiche de « c ».
@@ -1354,9 +1359,9 @@ describe('creerMoteur — deux croisements de bloc média rapprochés', () => {
         return { finished: new Promise(() => {}), cancel: () => annules.push(mien) } as any;
       },
     });
-    moteur.peindre(rendreCarteMedia(sourceMedia('a', '/aff-a.jpg')));
-    moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg')));   // masque n° 0, en attente
-    moteur.peindre(rendreCarteMedia(sourceMedia('c')));                 // SANS affiche : croise net
+    moteur.peindre(rendreCarteMedia(sourceMedia('a', '/aff-a.jpg'), 0, PRETES));
+    moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg'), 0, PRETES));   // masque n° 0, en attente
+    moteur.peindre(rendreCarteMedia(sourceMedia('c'), 0, PRETES));                 // SANS affiche : croise net
 
     // Le croisement de « c » est parti tout de suite (fantôme + fondu d'entrée), donc le masque
     // de « b » n'a plus rien à masquer : il doit être tombé.

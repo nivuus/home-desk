@@ -8,8 +8,8 @@ import { render } from 'lit';
 import { rendreTaches, brancherCochageTaches } from '../src/rendu/taches';
 import { MAX_LIGNES_TACHES, type TacheAffichee } from '../src/cochage';
 
-const tache = (uid: string, texte = `Tâche ${uid}`, liste = 'Entretien'): TacheAffichee =>
-  ({ entite: 'todo.maintenance', uid, texte, liste });
+const tache = (uid: string, texte = `Tâche ${uid}`, list = 'Entretien'): TacheAffichee =>
+  ({ entite: 'todo.maintenance', uid, texte, list });
 
 describe('rendreTaches', () => {
   it('liste vide et aucun reste : affiche "Aucune tache", aucune ligne', () => {

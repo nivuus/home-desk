@@ -12,7 +12,7 @@ from homeassistant import data_entry_flow
 from homeassistant.helpers import entity_registry as er
 
 from conftest import VOITURE_COMPLETE, _creer_ecran, _init_reconfigure
-from custom_components.home_desk.const import ERREUR_CHAMP_REQUIS
+from custom_components.home_desk.const import ERROR_FIELD_REQUIRED
 
 
 async def test_voiture_complete_est_persistee_avec_ses_sept_champs(hass, entree):
@@ -40,7 +40,7 @@ async def test_voiture_incomplete_est_refusee_et_ne_persiste_rien(hass, entree):
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], incomplete)
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["clim"] == ERREUR_CHAMP_REQUIS
+    assert resultat["errors"]["clim"] == ERROR_FIELD_REQUIRED
     subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
     assert "voiture" not in subentry.data, "un refus ne doit RIEN persister"
 

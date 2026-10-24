@@ -8,7 +8,7 @@ un step qui persiste doit garder l'ecran ENTIER valide »), distinct de
 « agencement/voiture, le remplissage de champs et ses deux regles
 hors-schema » qui reste la-bas.
 
-Ces quatre tests exercent `garde_ecran.verifier_ecran_complet` (invoque
+Ces quatre tests exercent `garde_ecran.check_complete_screen` (invoque
 par `garde_ecran.persister_si_valide`, LE site d'ecriture unique) SUR LE
 FLOW REEL -- son MECANISME est teste directement dans
 `test_garde_ecran.py`, ici la preuve DE BOUT EN BOUT."""
@@ -19,9 +19,9 @@ from homeassistant import data_entry_flow
 
 from conftest import ELEMENTS_VALIDES, VOITURE_COMPLETE, _creer_ecran, _geste, _init_reconfigure
 from custom_components.home_desk.const import (
-    ACTION_SUPPRIMER,
-    ERREUR_ECRAN_DEVIENDRAIT_INVALIDE,
-    SOUS_ENTREE_ECRAN,
+    ACTION_DELETE,
+    ERROR_SCREEN_WOULD_BECOME_INVALID,
+    SUBENTRY_SCREEN,
 )
 
 CHEMIN_TRADUCTIONS = (
@@ -33,7 +33,7 @@ async def test_agencement_mode_minuteur_sans_slot_est_refuse_ecran_de_la_cuisine
     """L'agencement REEL de la cuisine (`app/src/ecran.ts:543`) : mode
     "minuteur" choisi alors qu'aucun slot de minuteur n'existe encore.
     `schema.AGENCEMENT` seul ne le voit pas (il ne voit que l'agencement) ;
-    seul `garde_ecran.verifier_ecran_complet`, sur l'ECRAN COMPLET, le
+    seul `garde_ecran.check_complete_screen`, sur l'ECRAN COMPLET, le
     peut."""
     subentry_id = await _creer_ecran(hass, entree)
     flow = await _init_reconfigure(hass, entree, subentry_id)
@@ -42,7 +42,7 @@ async def test_agencement_mode_minuteur_sans_slot_est_refuse_ecran_de_la_cuisine
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {"zones": ["commandes"], "modes": ["defaut", "minuteur"]})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["base"] == ERREUR_ECRAN_DEVIENDRAIT_INVALIDE
+    assert resultat["errors"]["base"] == ERROR_SCREEN_WOULD_BECOME_INVALID
     # Ronde 2 de relecture (point 3) : libelle traduit ("Timers"), pas
     # l'identifiant brut ("minuteurs") — l'utilisateur EST dans
     # "agencement" ici, "minuteurs" (la section MANQUANTE) reste la
@@ -64,7 +64,7 @@ async def test_agencement_blocDefaut_voiture_sans_objet_est_refuse_ecran_du_salo
         {"zones": ["commandes"], "modes": ["defaut"], "blocDefaut": "voiture"},
     )
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["base"] == ERREUR_ECRAN_DEVIENDRAIT_INVALIDE
+    assert resultat["errors"]["base"] == ERROR_SCREEN_WOULD_BECOME_INVALID
     # Ronde 2 de relecture (point 3) : libelle traduit ("Car"), pas
     # l'identifiant brut ("voiture").
     assert resultat["description_placeholders"]["section"] == "Car"
@@ -97,7 +97,7 @@ async def test_retirer_la_voiture_alors_que_blocDefaut_l_exige_encore_est_refuse
     resultat = await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {"sans_voiture": True})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["base"] == ERREUR_ECRAN_DEVIENDRAIT_INVALIDE
+    assert resultat["errors"]["base"] == ERROR_SCREEN_WOULD_BECOME_INVALID
     # Ronde 2 de relecture (point 3) : nomme desormais "Blocks and modes"
     # (le libelle EN d'"agencement"), jamais "voiture" — la section ou
     # l'utilisateur se trouve DEJA (il vient d'y essayer le retrait),
@@ -118,14 +118,14 @@ async def test_retirer_la_voiture_alors_que_blocDefaut_l_exige_encore_est_refuse
     # rejoue REELLEMENT la substitution HA (`str.format`) sur les DEUX
     # gabarits et on lit le texte final, mot pour mot.
     en = json.loads((CHEMIN_TRADUCTIONS / "en.json").read_text(encoding="utf-8"))
-    gabarit_en = en["config_subentries"][SOUS_ENTREE_ECRAN]["error"][ERREUR_ECRAN_DEVIENDRAIT_INVALIDE]
+    gabarit_en = en["config_subentries"][SUBENTRY_SCREEN]["error"][ERROR_SCREEN_WOULD_BECOME_INVALID]
     rendu_en = gabarit_en.format(section=resultat["description_placeholders"]["section"])
     assert "Blocks and modes" in rendu_en
     assert "Voiture" not in rendu_en and "Car" not in rendu_en
     assert "Minuteurs" not in rendu_en and "Timers" not in rendu_en
 
     fr = json.loads((CHEMIN_TRADUCTIONS / "fr.json").read_text(encoding="utf-8"))
-    gabarit_fr = fr["config_subentries"][SOUS_ENTREE_ECRAN]["error"][ERREUR_ECRAN_DEVIENDRAIT_INVALIDE]
+    gabarit_fr = fr["config_subentries"][SUBENTRY_SCREEN]["error"][ERROR_SCREEN_WOULD_BECOME_INVALID]
     rendu_fr = gabarit_fr.format(section="Blocs et modes")
     assert "Blocs et modes" in rendu_fr
     assert "Voiture" not in rendu_fr
@@ -136,7 +136,7 @@ async def test_supprimer_le_dernier_minuteur_alors_que_le_mode_minuteur_est_acti
     hass, entree
 ):
     """Ronde 2 de relecture, point 1 : le rapport de la ronde 1 NOMMAIT ce
-    scenario (docstring de `_persister_si_valide`, listes.py) sans jamais
+    scenario (docstring de `_persister_si_valide`, list_sections.py) sans jamais
     l'exercer de bout en bout — seul son PENDANT (ajouter le mode sans
     slot, `test_agencement_mode_minuteur_sans_slot_est_refuse_ecran_de_la_
     cuisine`) l'etait. Ici : un slot EXISTE, le mode "minuteur" est deja
@@ -154,10 +154,10 @@ async def test_supprimer_le_dernier_minuteur_alors_que_le_mode_minuteur_est_acti
     `ConfigSubentry` (un dataclass gele que `async_update_subentry`
     lui-meme degele de la meme facon), sans jamais nommer une des quatre
     portes d'ecriture documentees par HA. Mesure : remplacer le corps de
-    `_persister_si_valide` (listes.py) par exactement cet appel laisse LE
+    `_persister_si_valide` (list_sections.py) par exactement cet appel laisse LE
     TEST AST VERT — seul CE test-ci tombe (`KeyError: 'base'`, plus aucune
     erreur posee), et seulement PARCE QUE ce scenario precis persiste par
-    la voie `listes.py` que la mutation modifiait. Ce n'est plus un
+    la voie `list_sections.py` que la mutation modifiait. Ce n'est plus un
     accident : c'est le remede EN CONNAISSANCE DE CAUSE a une limite
     structurelle documentee ailleurs, pas une proprete fortuite qu'un
     futur remaniement pourrait faire disparaitre sans que personne s'en
@@ -178,9 +178,9 @@ async def test_supprimer_le_dernier_minuteur_alors_que_le_mode_minuteur_est_acti
         flow["flow_id"], {"zones": ["commandes"], "modes": ["defaut", "minuteur"]})
     assert resultat["type"] is data_entry_flow.FlowResultType.MENU, resultat.get("errors")
 
-    resultat = await _geste(hass, "minuteurs", 0, ACTION_SUPPRIMER)
+    resultat = await _geste(hass, "minuteurs", 0, ACTION_DELETE)
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["base"] == ERREUR_ECRAN_DEVIENDRAIT_INVALIDE
+    assert resultat["errors"]["base"] == ERROR_SCREEN_WOULD_BECOME_INVALID
     assert resultat["description_placeholders"]["section"] == "Blocks and modes"
 
     entry = hass.config_entries.async_get_entry(entree.entry_id)

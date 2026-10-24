@@ -98,17 +98,19 @@ def test_la_version_du_contrat_est_celle_que_le_composant_reconnait():
     ecrit a la main dans schema.py) -- `VERSION_SCHEMA` est maintenant
     DERIVEE du contrat (comme `HAUTEUR_MIN`/`HAUTEUR_MAX`) et couplee a
     `VERSION_CONFIG` par une assertion a l'import. Ce test epingle la
-    valeur par un LITTERAL (`1`), et prouve que la contrainte est encore
+    valeur par un LITTERAL (`2` depuis la migration du 2026-09-28, qui
+    retire DeLorean -- `1` avant), et prouve que la contrainte est encore
     REELLEMENT appliquee -- une regression qui la retirerait
     (`_const(VERSION_SCHEMA)` -> `vol.Any(int)`) laisserait n'importe
     quelle version passer, invisible sans ce test fonctionnel."""
-    assert _module_schema.VERSION_CONFIG == 1
-    assert _module_schema.VERSION_SCHEMA == 1
+    assert _module_schema.VERSION_CONFIG == 2
+    assert _module_schema.VERSION_SCHEMA == 2
 
-    with pytest.raises(vol.Invalid):
-        valider({**CORPUS["minimal"], "version": 2})
+    for version_refusee in (1, 3):
+        with pytest.raises(vol.Invalid):
+            valider({**CORPUS["minimal"], "version": version_refusee})
 
-    valider({**CORPUS["minimal"], "version": 1})
+    valider({**CORPUS["minimal"], "version": 2})
 
 
 def test_zones_modes_modulateurs_blocdefaut_sont_des_listes_ordonnees_selon_le_contrat():
@@ -125,7 +127,7 @@ def test_zones_modes_modulateurs_blocdefaut_sont_des_listes_ordonnees_selon_le_c
         "alerte", "recette", "minuteur", "menage", "cinema", "media", "aeration",
         "voiture", "defaut",
     ]
-    assert _module_schema.MODULATEURS == ["invites", "chaleur", "delorean"]
+    assert _module_schema.MODULATEURS == ["invites", "chaleur"]
     for valeurs in (
         _module_schema.ZONES, _module_schema.BLOC_DEFAUT,
         _module_schema.MODES, _module_schema.MODULATEURS,
@@ -176,6 +178,22 @@ def test_modulateurs_sont_normalises_en_ensemble_trie():
     reordonnancement sans effet (le rendu, `CONDITIONS_MODULATEURS.ts`,
     ne lit jamais l'ordre)."""
     valide = _module_schema.AGENCEMENT(
-        {**_AGENCEMENT_MINIMAL, "modulateurs": ["delorean", "chaleur", "invites"]}
+        {**_AGENCEMENT_MINIMAL, "modulateurs": ["invites", "chaleur"]}
     )
-    assert valide["modulateurs"] == ["chaleur", "delorean", "invites"]
+    assert valide["modulateurs"] == ["chaleur", "invites"]
+
+
+def test_delorean_n_existe_plus_dans_le_contrat():
+    """Version 2 (spec 2026-09-28, section 4): the hardcoded DeLorean scenes
+    are gone, replaced by animations launched from Home Assistant. Both
+    traces are REFUSED, never silently ignored: a screen that still carries
+    one was written for version 1 and must go through the migration."""
+    with pytest.raises(vol.Invalid) as capture:
+        valider({**CORPUS["minimal"], "delorean": True})
+    assert motif(capture.value) == ": additionalProperties"
+
+    with pytest.raises(vol.Invalid):
+        _module_schema.AGENCEMENT({**_AGENCEMENT_MINIMAL, "modulateurs": ["delorean"]})
+    with pytest.raises(vol.Invalid):
+        valider({**CORPUS["minimal"], "agencement": {
+            **_AGENCEMENT_MINIMAL, "modulateurs": ["chaleur", "delorean"]}})

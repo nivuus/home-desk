@@ -2,7 +2,7 @@
 ce module (le chemin de creation en masse pour `home_desk.importer`,
 services.py), teste directement sans passer par le service HA -- meme
 MECANISME, meme doctrine que `test_garde_ecran.py` pour
-`verifier_ecran_complet`.
+`check_complete_screen`.
 
 Scinde de `test_garde_ecran.py` en relecture finale de branche (deuxieme
 ronde) : ce dernier depassait les 500 lignes une fois les deux tests
@@ -15,7 +15,13 @@ l'ancien fichier."""
 import voluptuous as vol
 import pytest
 
+from types import SimpleNamespace
+
 from custom_components.home_desk import garde_ecran
+
+# An entry with no subentry yet: `importer_ecrans` keeps the subentries of other
+# types it finds there, so the fake must carry the field.
+_ENTREE_VIDE = SimpleNamespace(subentries={})
 
 
 def test_importer_ecrans_valide_tout_avant_d_ecrire_quoi_que_ce_soit():
@@ -43,7 +49,7 @@ def test_importer_ecrans_valide_tout_avant_d_ecrire_quoi_que_ce_soit():
     ]
 
     with pytest.raises(vol.Invalid):
-        garde_ecran.importer_ecrans(hass=_HassFactice(), entry=object(), ecrans=ecrans)
+        garde_ecran.importer_ecrans(hass=_HassFactice(), entry=_ENTREE_VIDE, ecrans=ecrans, maison=None)
 
 
 def test_importer_ecrans_ecrit_en_UNE_SEULE_FOIS():
@@ -88,7 +94,7 @@ def test_importer_ecrans_ecrit_en_UNE_SEULE_FOIS():
         }),
     ]
 
-    garde_ecran.importer_ecrans(hass=_HassFactice(), entry=object(), ecrans=ecrans)
+    garde_ecran.importer_ecrans(hass=_HassFactice(), entry=_ENTREE_VIDE, ecrans=ecrans, maison=None)
 
     appels = _HassFactice.config_entries.appels
     assert len(appels) == 1, f"attendu UNE seule ecriture, obtenu {len(appels)}"
@@ -98,8 +104,8 @@ def test_importer_ecrans_ecrit_en_UNE_SEULE_FOIS():
 
 def test_importer_ecrans_persiste_la_valeur_VALIDEE_pas_le_brut_normalise():
     """Relecture finale de branche (deuxieme ronde) : `importer_ecrans`
-    appelait `schema.valider(donnees)` puis JETAIT sa valeur de retour,
-    persistant `donnees` (le brut, seulement normalise `version`/`nom` par
+    appelait `schema.valider(screen_data)` puis JETAIT sa valeur de retour,
+    persistant `screen_data` (le brut, seulement normalise `version`/`nom` par
     CE module) -- jamais la version que `schema.valider` valide ET
     NORMALISE (`_trie()` sur `modulateurs`, schema.py). Mesure : un import
     dont `modulateurs` n'est pas trie ecrivait ce desordre tel quel dans
@@ -127,16 +133,16 @@ def test_importer_ecrans_persiste_la_valeur_VALIDEE_pas_le_brut_normalise():
             "synthese": [], "sources": [], "ouvrants": [],
             "agencement": {
                 "zones": ["commandes"], "modes": ["defaut"],
-                "modulateurs": ["delorean", "chaleur", "invites"],
+                "modulateurs": ["invites", "chaleur"],
             },
         }),
     ]
 
-    garde_ecran.importer_ecrans(hass=_HassFactice(), entry=object(), ecrans=ecrans)
+    garde_ecran.importer_ecrans(hass=_HassFactice(), entry=_ENTREE_VIDE, ecrans=ecrans, maison=None)
 
     appels = _HassFactice.config_entries.appels
     (sous_entree,) = appels[0][2]["subentries"].values()
-    assert sous_entree.data["agencement"]["modulateurs"] == ["chaleur", "delorean", "invites"], (
+    assert sous_entree.data["agencement"]["modulateurs"] == ["chaleur", "invites"], (
         "importer_ecrans doit persister modulateurs TRIE (la valeur que "
         "schema.valider rend), pas l'ordre brut soumis dans le fichier")
 
@@ -148,7 +154,7 @@ def test_importer_ecrans_persiste_le_nom_STRIPPE_pas_le_brut():
     (test_services_import_refus.py) ne garde que le calcul des DOUBLONS
     (deux ecrans "Salon"/"Salon " ensemble). Une mutation qui stripperait
     `nom` pour CE calcul seul, en persistant le `nom` BRUT ensuite
-    (`ecrans_normalises.append((titre, {**donnees, "nom": brut}))`, par
+    (`ecrans_normalises.append((titre, {**screen_data, "nom": brut}))`, par
     exemple), laissait cette suite-la verte : un SEUL ecran nomme "Salon "
     n'a pas de doublon a detecter, et rien ne verifiait la valeur
     REELLEMENT persistee. Sans ce test, un tel ecran deviendrait
@@ -172,7 +178,7 @@ def test_importer_ecrans_persiste_le_nom_STRIPPE_pas_le_brut():
         }),
     ]
 
-    garde_ecran.importer_ecrans(hass=_HassFactice(), entry=object(), ecrans=ecrans)
+    garde_ecran.importer_ecrans(hass=_HassFactice(), entry=_ENTREE_VIDE, ecrans=ecrans, maison=None)
 
     appels = _HassFactice.config_entries.appels
     (sous_entree,) = appels[0][2]["subentries"].values()

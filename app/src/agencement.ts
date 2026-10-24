@@ -61,9 +61,9 @@ export type Agencement = {
    *  ce test de présence : le salon le porte maintenant explicitement (`'voiture'`), à côté de son
    *  objet `voiture` (`ecran.ts`) toujours nécessaire comme DONNÉE (les six entités à lire).
    *  - `'voiture'` (salon) : `rendreVoiture` (`rendu/voiture.ts`), bloc plus haut que la normale
-   *    (2 commandes au lieu de 4, cf. `combien`, `modes.ts`).
-   *  - `'repas'` (cuisine) : `rendreRepasSuivant` (`rendu/defaut.ts`), le repas suivant lu dans les
-   *    attributs de `sensor.home_stock_next_meal` (cf. `src/garde-manger.ts`).
+   *    (2 commandes au lieu de 4, cf. `combien`, `screen-budget.ts`).
+   *  - `'repas'` (kitchen): `renderNextMeal` (`rendu/defaut.ts`), the next meal read from the
+   *    attributes of `sensor.home_stock_next_meal` (see `src/garde-manger.ts`).
    *  - `'agenda'` (bureau) : `rendreProchainRdv` (`rendu/defaut.ts`), le prochain rendez-vous du
    *    jour.
    *  Absent → aucun bloc par défaut (n'arrive à aucune des trois pièces déclarées aujourd'hui).
@@ -89,7 +89,7 @@ export const AGENCEMENT_DEFAUT: Agencement = {
   zones: ['ambiances', 'commandes', 'blocCentral', 'synthese'],
   modes: ['alerte', 'recette', 'minuteur', 'menage', 'cinema', 'media', 'aeration',
           'voiture', 'defaut'],
-  modulateurs: ['invites', 'chaleur', 'delorean'],
+  modulateurs: ['invites', 'chaleur'],
 };
 
 /** L'agencement d'un écran, COMPLÉTÉ. Une SEULE façon d'y accéder : aucun appelant ne doit

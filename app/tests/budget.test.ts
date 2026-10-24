@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { combien, ordreCommandes, verifierBudget, BUDGET, type ContexteModes } from '../src/modes';
+import { ordreCommandes, type ContexteModes } from '../src/modes';
+import { arrangement, combien, verifierBudget, BUDGET } from '../src/screen-budget';
 import { ECRANS } from '../src/ecran';
 import { resoudreAgencement, AGENCEMENT_DEFAUT, type Zone } from '../src/agencement';
 import { CALME } from './contextes';
@@ -32,11 +33,21 @@ const CALME_VOITURE: ContexteModes = { ...CALME, blocDefaut: 'voiture' };
  *  `rangeeAmbiance` y vaut toujours `true` en pratique (cf. `demarrage.ts`, et le test
  *  d'inatteignabilité plus bas). Cette ligne reste néanmoins dans la table : `combien` est une
  *  fonction pure, testée sur tout son domaine, pas seulement sur ce que la maison déclare
- *  aujourd'hui. */
+ *  aujourd'hui.
+ *
+ *  2026-10-11: `blocMinuteur` is 215 px since the solo timer gained its row of steps, hence
+ *  542 px, 567 px and 18 px instead of 533, 558 and 27 above. Both verdicts hold.
+ *
+ *  2026-10-24 (task 9 of the media card redesign): FOUR rows move, `media` and `cinema`, to 0.
+ *  The redesigned card is `blocMedia` (264 px measured, `modesABlocMedia`), no longer `blocHaut`
+ *  (153 px): in the FULL composition — which is all `combien` prices — not one row of controls
+ *  fits under it any more (687 px with the Ambiance row, 590 px without). What those screens
+ *  actually show is `arrangement`'s answer, the owner's ladder (reduced synthèse, then no Ambiance
+ *  row), pinned below in `l'echelle de la carte media`. `voiture` keeps `blocHaut` and its 2/4. */
 const ATTENDU: [string, boolean, number][] = [
   ['minuteur', true, 0], ['minuteur', false, 2],
-  ['media', true, 2], ['cinema', true, 2], ['voiture', true, 2],
-  ['media', false, 4], ['cinema', false, 4], ['voiture', false, 4],
+  ['media', true, 0], ['cinema', true, 0], ['voiture', true, 2],
+  ['media', false, 0], ['cinema', false, 0], ['voiture', false, 4],
   ['defaut', true, 4], ['defaut', false, 4],
   ['alerte', true, 4], ['recette', true, 4], ['menage', true, 4], ['aeration', true, 4],
 ];
@@ -73,7 +84,8 @@ describe('contrat/budget.json', () => {
  *  rendent le meme ecran au budget de reference. */
 describe('hauteurUtile', () => {
   it('rend exactement la table historique pour 585 px', () => {
-    expect(combien('media', true, 585)).toBe(2);
+    // 2026-10-24: the media screen's 2 now comes from the ladder, not from the full composition.
+    expect(arrangement('media', true, 585).commandes).toBe(2);
     expect(combien('defaut', true, 585)).toBe(4);
     expect(combien('minuteur', true, 585)).toBe(0);
   });
@@ -86,8 +98,10 @@ describe('hauteurUtile', () => {
   it('retombe sur les deux nombres declares par le contrat, au budget de reference', () => {
     const H = BUDGET.hauteurUtileParDefaut;
     expect(combien('defaut', true, H)).toBe(BUDGET.commandesParDefaut);
-    expect(combien('media', true, H)).toBe(BUDGET.commandesSousBlocHaut);
-    expect(combien('media', false, H)).toBe(BUDGET.commandesParDefaut);
+    expect(combien('voiture', true, H)).toBe(BUDGET.commandesSousBlocHaut);
+    expect(combien('voiture', false, H)).toBe(BUDGET.commandesParDefaut);
+    // 2026-10-24: `commandesSousBlocHaut` is also the ladder's target (`arrangement`).
+    expect(arrangement('media', true, H).commandes).toBe(BUDGET.commandesSousBlocHaut);
   });
 
   /** Relecture de la tache 4 : ce test etait DEGENERE. Il posait `court = 585 - 64 * 2` = 457, ou
@@ -165,25 +179,26 @@ describe('hauteurUtile', () => {
   });
 });
 
-/** 2026-09-12, plan 2, tache 5 : `blocMinuteur` (206 px, `contrat/budget.json`) devient un bloc
- *  central comme les autres — `coutEcran` (`modes.ts`) le facture au mode `minuteur` via
+/** 2026-09-12, plan 2, tache 5 : `blocMinuteur` (215 px depuis le 2026-10-11, 206 avant ;
+ *  `contrat/budget.json`) devient un bloc
+ *  central comme les autres — `coutEcran` (`screen-budget.ts`) le facture au mode `minuteur` via
  *  `modesABlocMinuteur`, et `combien` a perdu le court-circuit qui rendait 0 SANS jamais calculer
  *  ce cout. Les quatre valeurs ci-dessous sont calculees a la main contre `coutEcran`, pas
  *  copiees du brief de la tache — chacune est verifiee independamment par un test qui affirme un
  *  CHIFFRE EXACT, jamais une absence de levee ni une inegalite vague (cf. la relecture de la
  *  tache 4 : `not.toThrow()` et `toBeGreaterThan(0)` laissent passer un calcul faux). */
 describe('le mode minuteur paie son cout comme les autres', () => {
-  /** 585 px, rangee d'ambiance : 121 + 24 + 32 + 206 + 9 + 72 + 62 + 4x8 = 558, reste 27 px —
+  /** 585 px, rangee d'ambiance : 121 + 24 + 32 + 215 + 9 + 72 + 62 + 4x8 = 567, reste 18 px —
    *  moins que les 64 px d'une rangee de commandes. 0 commande, IDENTIQUE a avant cette tache :
    *  seule la ligne `['minuteur', false, …]` de la table de verite bougeait (cf. plus haut). */
   it('rend 0 commande a 585 px avec rangee d ambiance, par calcul et non par court-circuit', () => {
     expect(combien('minuteur', true, 585)).toBe(0);
   });
 
-  /** Sans rangee d'ambiance, la ligne qui bouge : 121 + 24 + 32 + 206 + 62 + 2x8 = 461 (zero
-   *  rangee, 3 enfants). Une rangee de commandes ajoute un 4e enfant et sa gouttiere : 461 + 64 +
-   *  8 = 533 px — sous les 585, ca tient. Deux rangees : 533 + 64 + 10 (gouttiere de grille) =
-   *  607 px — ca deborde. 2 commandes, donc : c'est ce que `combien('minuteur', false, 585)`
+  /** Sans rangee d'ambiance, la ligne qui bouge : 121 + 24 + 32 + 215 + 62 + 2x8 = 470 (zero
+   *  rangee, 3 enfants). Une rangee de commandes ajoute un 4e enfant et sa gouttiere : 470 + 64 +
+   *  8 = 542 px — sous les 585, ca tient. Deux rangees : 542 + 64 + 10 (gouttiere de grille) =
+   *  616 px — ca deborde. 2 commandes, donc : c'est ce que `combien('minuteur', false, 585)`
    *  rendait a tort a 0 avant cette tache, uniquement parce que le court-circuit ne calculait
    *  jamais rien. */
   it('rend 2 commandes a 585 px sans rangee d ambiance : rien ne l empechait, sauf l exception', () => {
@@ -192,25 +207,28 @@ describe('le mode minuteur paie son cout comme les autres', () => {
 
   /** Un ecran assez haut pour financer une rangee sous le bloc minuteur EN RENDRAIT deux tuiles —
    *  la preuve que le 0 de 585 px est une CONSEQUENCE du budget, pas une regle fixee pour ce mode.
-   *  630 px pour une rangee (121+24+32+206+9+72+62+5x8+64 = 630, la 5e gouttiere venant du 6e
-   *  enfant qu'ajoute la rangee) : c'est EXACTEMENT la mesure
-   *  historique `mesures.ecranModeMinuteur` de `contrat/budget.json` (« liste seule, 45 px au-dela
-   *  du budget », relevee le 2026-08-03, TROIS SEMAINES avant que ce modele de calcul existe, et
-   *  sur laquelle rien n'a ete calibre depuis). Le modele et la mesure se confirment mutuellement. */
-  it('rend 2 commandes des que le budget finance une rangee (630 px, la mesure historique)', () => {
-    expect(combien('minuteur', true, 630)).toBe(2);
-    expect(BUDGET.mesures.ecranModeMinuteur.px).toBe(630);
+   *  639 px pour une rangee (121+24+32+215+9+72+62+5x8+64 = 639, la 5e gouttiere venant du 6e
+   *  enfant qu'ajoute la rangee). La mesure historique `mesures.ecranModeMinuteur` de
+   *  `contrat/budget.json` (« liste seule, 45 px au-dela du budget », relevee le 2026-08-03, TROIS
+   *  SEMAINES avant que ce modele de calcul existe) vaut 630 : EXACTEMENT ce modele avec le bloc de
+   *  la LISTE (206 px), le seul qui existait alors. Les 9 px d'ecart sont ceux que la forme solo a
+   *  gagnes le 2026-10-11 (ses pas ± 1 sur leur propre rangee) — le modele et la mesure se
+   *  confirment toujours, a la forme mesuree pres. */
+  it('rend 2 commandes des que le budget finance une rangee (639 px, la mesure historique + 9)', () => {
+    expect(combien('minuteur', true, 638)).toBe(0);
+    expect(combien('minuteur', true, 639)).toBe(2);
+    expect(BUDGET.mesures.ecranModeMinuteur.px + (BUDGET.hauteurs.blocMinuteur - 206)).toBe(639);
   });
 
   /** verifierBudget chiffre desormais le debordement reel du mode minuteur — c'est le point de la
    *  tache : avant, `verifierBudget('minuteur', true, 585)` rendait 0 pour un ecran qui aurait pu
    *  deborder sans que la fonction ne puisse jamais le dire, faute de facturer le bon bloc. */
-  it('verifierBudget rend 0 a 585 px (558 px consommes, l ecran tient)', () => {
+  it('verifierBudget rend 0 a 585 px (567 px consommes, l ecran tient)', () => {
     expect(verifierBudget('minuteur', true, 585)).toBe(0);
   });
 
-  it('verifierBudget chiffre le debordement exact a 500 px (558 - 500)', () => {
-    expect(verifierBudget('minuteur', true, 500)).toBe(58);
+  it('verifierBudget chiffre le debordement exact a 500 px (567 - 500)', () => {
+    expect(verifierBudget('minuteur', true, 500)).toBe(67);
   });
 });
 
@@ -254,8 +272,8 @@ describe('coutEcran compte les zones que l agencement demande, et elles seules',
 
   /** SANS `blocCentral` : 4 enfants, somme 62 + 32 + 9 + 72 = 175.
    *      121 + 24 + 175 + 8 x 3 = 344   (92 px de moins : 84 de blocDefaut + 8 de gouttière)
-   *  C'est la zone la plus chère : sous `minuteur` (blocMinuteur, 206 px) l'écart monterait à
-   *  214 px de débordement fantôme. */
+   *  C'est la zone la plus chère : sous `minuteur` (blocMinuteur, 215 px) l'écart monterait à
+   *  223 px de débordement fantôme. */
   it('ne facture pas le bloc central quand la zone est absente', () => {
     const sansBloc: Zone[] = ['ambiances', 'commandes', 'synthese'];
     expect(verifierBudget('defaut', true, 100, sansBloc)).toBe(244);
@@ -322,5 +340,53 @@ describe('minuteur et rangeeAmbiance : ce que la donnee garantit', () => {
     const porteurs = Object.values(ECRANS)
       .filter((e) => resoudreAgencement(e).modes.includes('minuteur'));
     expect(porteurs.length).toBeGreaterThan(0);
+  });
+});
+
+/** 2026-10-24, spec 2026-10-23 "Place à l'écran": the owner's order, on the measured heights
+ *  (`blocMedia` 264 px, `syntheseReduite` 24 px, `outils/mesurer-carte-media.mjs`). The BUDGET
+ *  decides through `combien`, never a list of rooms: these tests name screen SHAPES (with or
+ *  without an Ambiance row), and the last one walks the three declared screens end to end. */
+describe('l echelle de la carte media', () => {
+  it('forme du salon (sans rangee Ambiance) : la synthese reduite suffit, deux commandes', () => {
+    expect(arrangement('media', false, 585))
+      .toEqual({ rangeeAmbiance: false, syntheseReduite: true, commandes: 2 });
+  });
+
+  it('forme du bureau et de la cuisine : synthese reduite ET plus de rangee Ambiance', () => {
+    expect(arrangement('media', true, 585))
+      .toEqual({ rangeeAmbiance: false, syntheseReduite: true, commandes: 2 });
+    expect(arrangement('cinema', true, 585))
+      .toEqual({ rangeeAmbiance: false, syntheseReduite: true, commandes: 2 });
+  });
+
+  it('un ecran qui a la place garde sa rangee Ambiance', () => {
+    expect(arrangement('media', true, 680))
+      .toEqual({ rangeeAmbiance: true, syntheseReduite: true, commandes: 2 });
+    expect(arrangement('media', true, 688))
+      .toEqual({ rangeeAmbiance: true, syntheseReduite: false, commandes: 2 });
+  });
+
+  it('voiture et defaut ne passent jamais par l echelle', () => {
+    expect(arrangement('voiture', true, 500))
+      .toEqual({ rangeeAmbiance: true, syntheseReduite: false, commandes: 0 });
+    expect(arrangement('defaut', true, 585))
+      .toEqual({ rangeeAmbiance: true, syntheseReduite: false, commandes: 4 });
+  });
+
+  it('verifierBudget chiffre le dernier echelon pour les modes de la carte media', () => {
+    // 121 + 24 + (62 + 264 + 24) + 8 x 2 = 511 px at zero rows, Ambiance row dropped.
+    expect(verifierBudget('media', true, 500)).toBe(11);
+    expect(verifierBudget('media', true, 511)).toBe(0);
+  });
+
+  it('ordreCommandes coupe selon l echelle, sur les trois ecrans declares', () => {
+    for (const [nom, ecran] of Object.entries(ECRANS)) {
+      const ctx: ContexteModes = {
+        ...CALME, sourceJoue: true,
+        rangeeAmbiance: ecran.ambiances.length > 0 || (ecran.minuteurs?.length ?? 0) > 0,
+      };
+      expect(ordreCommandes(ecran.commandes, ctx), nom).toHaveLength(2);
+    }
   });
 });

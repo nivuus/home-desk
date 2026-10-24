@@ -1,249 +1,302 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { render } from 'lit';
-import { rendreCarteMedia, urlSure } from '../src/rendu/media';
+import { rendreCarteMedia, urlSure, brancherMedia, writeProgress, formatMediaTime }
+  from '../src/rendu/media';
+import { sourceKey } from '../src/media-choice';
 import type { SourceResolue } from '../src/media';
+import type { ToneState } from '../src/rendu/poster-sampler';
+import type { CardTones } from '../src/tones';
+import { PENDING_MS } from '../src/rendu/media-volume';
 
 const BASE: SourceResolue = {
-  // `allumee` (revue tâche 12) : la carte ne s'en sert pas — c'est `demarrage.ts` qui arbitre
-  // quelle source occupe le bloc — mais le champ fait partie du type résolu.
-  nom: 'Télévision', joue: true, allumee: true,
+  nom: 'Télévision', piece: 'Chambre', joue: true, active: true, allumee: true,
   titre: 'Les trois Mousquetaires', sousTitre: 'Ash vs Evil Dead',
-  affiche: '/api/media_player_proxy/plex?token=abc',
-  // Revue tâche 15 (I1) : sans `majLe`, aucun rattrapage — la carte se pose exactement sur la
-  // position brute, comme avant. C'est le cas de référence des tests ci-dessous.
+  affiche: '/api/vignette?url=abc',
+  // Without `majLe`, no catch-up: the card sits exactly on the raw position.
   progression: { position: 300, duree: 1200, avance: true },
   transport: { entite: 'media_player.tv', peutPause: true, peutLecture: true, peutPrecedent: true,
                peutSuivant: true, enLecture: true },
   volume: { entite: 'media_player.philips', niveau: 0.4, parPas: false },
 };
 
+const TONES: CardTones = {
+  text: '#101010', primary: '#303030', onPrimary: '#fafafa', secondary: '#e0e0e0',
+  onSecondary: '#101010', worstContrast: 7,
+};
+const READY: ToneState = { status: 'ready', tones: TONES };
+const PENDING: ToneState = { status: 'pending' };
+
 let hote: HTMLElement;
 beforeEach(() => { hote = document.createElement('div'); document.body.appendChild(hote); });
 
-function rendre(s: SourceResolue) {
-  render(rendreCarteMedia(s), hote);
-  return hote.querySelector('.media')!;
+function rendre(s: SourceResolue, tones: ToneState = READY, remote = false, maintenantMs = 0) {
+  render(rendreCarteMedia(s, maintenantMs, tones, remote), hote);
+  return hote.querySelector<HTMLElement>('.media')!;
 }
 
-describe('carte média', () => {
-  it('pose l\'affiche en couche de fond, jamais en <img> dans le flux', () => {
+describe('media card — layout', () => {
+  it('label names the room of a remote source', () => {
+    expect(rendre(BASE).querySelector('.t')!.textContent).toBe('EN COURS · Chambre');
+  });
+
+  it('label is EN COURS alone without a room', () => {
+    expect(rendre({ ...BASE, piece: undefined }).querySelector('.t')!.textContent).toBe('EN COURS');
+  });
+
+  it('keeps the two-line clamp on the title', () => {
+    expect(rendre(BASE).querySelector('.v')!.classList.contains('deux-lignes')).toBe(true);
+  });
+
+  it('keeps the zone and the motion key of the block', () => {
     const c = rendre(BASE);
-    const couche = c.querySelector('.media-affiche') as HTMLElement;
-    expect(couche.style.backgroundImage).toContain('/api/media_player_proxy/plex?token=abc');
+    expect(c.dataset.zone).toBe('blocCentral');
+    expect(c.dataset.mvt).toBe('bloc:media');
+    expect(c.dataset.mvtEtat).toBe('Les trois Mousquetaires');
+  });
+
+  it('no progress row without progression', () => {
+    const c = rendre({ ...BASE, progression: undefined });
+    expect(c.querySelector('.media-progression')).toBeNull();
+    expect(c.querySelector('.media-ecoule')).toBeNull();
+  });
+
+  it('no transport row without transport', () => {
+    expect(rendre({ ...BASE, transport: undefined }).querySelector('.media-transport')).toBeNull();
+  });
+
+  it('no transport row when the player can do nothing of what the row offers', () => {
+    const c = rendre({ ...BASE, transport: { ...BASE.transport!, enLecture: false,
+      peutLecture: false, peutPrecedent: false, peutSuivant: false } });
+    expect(c.querySelector('.media-transport')).toBeNull();
+  });
+
+  it('shows the three transport buttons, play/pause as the primary disc', () => {
+    const boutons = Array.from(rendre(BASE).querySelectorAll('.media-bouton'));
+    expect(boutons.map((b) => b.getAttribute('data-mvt')))
+      .toEqual(['detail:tr-precedent', 'detail:tr-pause', 'detail:tr-suivant']);
+    expect(boutons.map((b) => b.classList.contains('principal'))).toEqual([false, true, false]);
+  });
+
+  it('no dead button: no play when the player cannot play', () => {
+    const c = rendre({ ...BASE, transport: { ...BASE.transport!, enLecture: false, peutLecture: false } });
+    expect(c.querySelectorAll('.media-bouton').length).toBe(2);
+  });
+
+  it('no volume row without volume', () => {
+    expect(rendre({ ...BASE, volume: undefined }).querySelector('.media-volume')).toBeNull();
+  });
+
+  it('no volume row for a settable player that publishes no level', () => {
+    // Stepping from an unknown level would invent one.
+    const c = rendre({ ...BASE, volume: { entite: 'media_player.philips', parPas: false } });
+    expect(c.querySelector('.media-volume')).toBeNull();
+  });
+
+  it('step-only volume shows no level', () => {
+    const c = rendre({ ...BASE, volume: { entite: 'media_player.tv', parPas: true } });
+    expect(c.querySelector('.media-niveau')).toBeNull();
+    expect(c.querySelector('.media-jauge')).toBeNull();
+    expect(Array.from(c.querySelectorAll('.media-pas')).map((p) => p.getAttribute('data-mvt')))
+      .toEqual(['detail:volume-moins', 'detail:volume-plus']);
+  });
+
+  it('a known level is written large over its gauge', () => {
+    const c = rendre(BASE);
+    expect(c.querySelector('.media-niveau-texte')!.textContent).toBe('40 %');
+    expect(c.querySelector<HTMLElement>('.media-volume')!.style.getPropertyValue('--niveau')).toBe('0.4');
+  });
+
+  it('every text carries a tone box', () => {
+    const boites = Array.from(rendre(BASE).querySelectorAll('[data-tone-box]'))
+      .map((e) => e.className.split(' ')[0]);
+    expect(boites).toEqual(['t', 'v', 'media-sous', 'media-ecoule', 'media-reste', 'media-niveau-texte']);
+  });
+
+  it('the plate is always there, on every text box', () => {
+    for (const tones of [READY, PENDING]) {
+      for (const el of Array.from(rendre(BASE, tones).querySelectorAll('[data-tone-box]'))) {
+        expect(el.classList.contains('plaque')).toBe(true);
+      }
+    }
+  });
+});
+
+describe('media card — any script', () => {
+  it('label, title and subtitle take their direction from their own text', () => {
+    // An Arabic or Hebrew title must read right to left, a Latin one left to right, whatever the
+    // page's language: `dir="auto"` on each text, never a direction set in code.
+    const card = rendre({ ...BASE, titre: 'أغنية', sousTitre: 'فيروز', piece: 'غرفة' });
+    for (const sel of ['.t', '.v', '.media-sous']) {
+      expect(card.querySelector(sel)?.getAttribute('dir'), sel).toBe('auto');
+    }
+  });
+});
+
+describe('media card — poster tones', () => {
+  it('poster layer only when tones are ready', () => {
+    expect(rendre(BASE, READY).querySelector('.media-affiche')).not.toBeNull();
+    expect(rendre(BASE, PENDING).querySelector('.media-affiche')).toBeNull();
+    expect(rendre(BASE, { status: 'unreadable' }).querySelector('.media-affiche')).toBeNull();
+    expect(rendre(BASE, { status: 'failed' }).querySelector('.media-affiche')).toBeNull();
+    expect(rendre({ ...BASE, affiche: undefined }, READY).querySelector('.media-affiche')).toBeNull();
+  });
+
+  it('the poster is a background layer, never an <img>', () => {
+    const c = rendre(BASE);
+    expect((c.querySelector('.media-affiche') as HTMLElement).style.backgroundImage)
+      .toContain('/api/vignette?url=abc');
     expect(c.querySelector('img')).toBeNull();
   });
 
-  it('n\'a aucune couche d\'affiche quand la source n\'en fournit pas', () => {
-    const c = rendre({ ...BASE, affiche: undefined });
-    expect(c.querySelector('.media-affiche')).toBeNull();
+  it('the tones drive the colours; none are set without them', () => {
+    const c = rendre(BASE, READY);
+    expect(c.style.getPropertyValue('--mc-text')).toBe('#101010');
+    expect(c.style.getPropertyValue('--mc-primary')).toBe('#303030');
+    expect(c.style.getPropertyValue('--mc-on-secondary')).toBe('#101010');
+    const sans = rendre(BASE, PENDING);
+    expect(sans.style.getPropertyValue('--mc-text')).toBe('');
+    expect(sans.style.getPropertyValue('--mc-primary')).toBe('');
   });
 
-  it('garde la même structure avec et sans affiche', () => {
-    // Règle 1 de cohérence : même gabarit, seule la SURFACE change. Une structure qui diverge
-    // ferait bouger la hauteur du bloc selon la source, ce que le budget interdit.
-    const avec = rendre(BASE).querySelectorAll('.t, .v, .media-transport, .media-volume').length;
-    // `innerHTML = ''` casserait le suivi interne de lit (les marqueurs du `ChildPart` seraient
-    // éjectés du DOM sans que lit le sache) : un second hôte frais, pas un nettoyage manuel du
-    // premier, exactement comme `beforeEach` ci-dessus.
-    hote = document.createElement('div'); document.body.appendChild(hote);
-    const sans = rendre({ ...BASE, affiche: undefined }).querySelectorAll('.t, .v, .media-transport, .media-volume').length;
-    expect(sans).toBe(avec);
+  it('plate background only when tones carry a plate', () => {
+    expect(rendre(BASE, READY).style.getPropertyValue('--mc-plate')).toBe('');
+    const c = rendre(BASE, { status: 'ready', tones: { ...TONES, plate: '#eeeeee' } });
+    expect(c.style.getPropertyValue('--mc-plate')).toBe('#eeeeee');
   });
 
-  // Correctif important (revue tâche 6) : c'est l'absence de cette variation (sous-titre présent
-  // ou non) qui a laissé passer une carte dont la hauteur dépendait du contenu (`.media` sans
-  // `min-height`, cf. `base.css`) — aucun test ne faisait jamais varier `sousTitre`. Même principe
-  // que le test d'affiche ci-dessus : le squelette structurel ne bouge jamais, seule la SURFACE
-  // (ici, la présence de `.media-sous`) change.
-  it('garde la même structure avec et sans sous-titre', () => {
-    const avec = rendre(BASE).querySelectorAll('.t, .v, .media-transport, .media-volume').length;
-    hote = document.createElement('div'); document.body.appendChild(hote);
-    const sans = rendre({ ...BASE, sousTitre: '' }).querySelectorAll('.t, .v, .media-transport, .media-volume').length;
-    expect(sans).toBe(avec);
+  it('the plate rule reads --mc-plate and is transparent by default, the padding unconditional', () => {
+    const css = readFileSync(join(process.cwd(), 'src/styles/media.css'), 'utf8');
+    const regle = /\.media \.plaque\s*\{([^}]*)\}/.exec(css);
+    expect(regle, '.media .plaque rule').not.toBeNull();
+    expect(regle![1]).toMatch(/background:\s*var\(--mc-plate,\s*transparent\)/);
+    expect(regle![1]).toMatch(/padding:/);
   });
 
-  it('affiche les trois boutons de transport quand la source les déclare', () => {
+  it('no gradient, no opacity on the poster, no veil', () => {
+    const css = readFileSync(join(process.cwd(), 'src/styles/media.css'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(css).not.toMatch(/gradient\(/);
+    const affiche = /\.media-affiche\s*\{([^}]*)\}/.exec(css)![1];
+    expect(affiche).not.toMatch(/opacity/);
+  });
+
+  it('every .media rule left base.css', () => {
+    const css = readFileSync(join(process.cwd(), 'src/styles/base.css'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(css).not.toMatch(/\.media[\s.:,{-]/);
+  });
+});
+
+describe('media card — progress', () => {
+  it('remaining time is written with a minus sign', () => {
     const c = rendre(BASE);
-    expect(c.querySelectorAll('.media-bouton').length).toBe(3);
+    expect(c.querySelector('.media-ecoule')!.textContent).toBe('5:00');
+    expect(c.querySelector('.media-reste')!.textContent).toBe('−15:00');
   });
 
-  it('n\'affiche aucun bouton mort : pas de précédent/suivant si non déclarés', () => {
-    const c = rendre({ ...BASE, transport: { ...BASE.transport!, peutPrecedent: false, peutSuivant: false } });
-    expect(c.querySelectorAll('.media-bouton').length).toBe(1);
+  it('formats m:ss, and h:mm:ss beyond an hour', () => {
+    expect(formatMediaTime(0)).toBe('0:00');
+    expect(formatMediaTime(71.9)).toBe('1:11');
+    expect(formatMediaTime(3599)).toBe('59:59');
+    expect(formatMediaTime(3600)).toBe('1:00:00');
+    expect(formatMediaTime(3725)).toBe('1:02:05');
   });
 
-  // Correctif mineur (revue tâche 6) : PAUSE et PLAY sont deux bits `supported_features`
-  // distincts (cf. `media.ts`) — un lecteur peut déclarer l'un sans l'autre. Avant ce correctif,
-  // le rendu affichait un bouton « lecture » dès que `peutPause` était vrai, quel que soit
-  // `peutLecture` : exactement le bouton mort que cette tâche existe pour empêcher.
-  it('n\'affiche aucun bouton mort : pas de lecture à l\'arrêt si peutLecture est faux', () => {
-    const c = rendre({
-      ...BASE,
-      transport: { ...BASE.transport!, enLecture: false, peutLecture: false },
-    });
-    // Un seul bouton de transport reste possible ici (précédent OU suivant seraient en plus,
-    // mais aucun bouton central lecture/pause) : ni pause (on n'est plus en lecture), ni lecture
-    // (non supporté).
-    expect(c.querySelectorAll('.media-bouton').length).toBe(2);   // précédent + suivant, pas de central
+  it('the first paint already catches up with the time since HA read the position', () => {
+    const c = rendre({ ...BASE, progression: { position: 300, duree: 1200, majLe: 1_000_000, avance: true } },
+      READY, false, 1_000_000 + 300_000);
+    expect(c.style.getPropertyValue('--progression')).toBe('0.5');
+    expect(c.querySelector('.media-ecoule')!.textContent).toBe('10:00');
   });
 
-  it('rend un rail quand le niveau est connu', () => {
+  it('elapsed and remaining follow the progress tick', () => {
     const c = rendre(BASE);
-    expect(c.querySelector('.media-rail')).not.toBeNull();
-    expect(c.querySelectorAll('.media-pas').length).toBe(0);
+    const ancre = { secondes: 300, duree: 1200, avance: true, ancreMs: 10_000 };
+    writeProgress(c, ancre, 10_000 + 61_000, true);
+    expect(c.style.getPropertyValue('--progression')).toBe(String(361 / 1200));
+    expect(c.querySelector('.media-ecoule')!.textContent).toBe('6:01');
+    expect(c.querySelector('.media-reste')!.textContent).toBe('−13:59');
+    // lit still owns the text node: the next render (new position from HA) rewrites it.
+    render(rendreCarteMedia({ ...BASE, progression: { position: 400, duree: 1200, avance: true } },
+      0, READY), hote);
+    expect(c.querySelector('.media-ecoule')!.textContent).toBe('6:40');
   });
 
-  it('rend deux boutons par pas quand le niveau est inconnu', () => {
-    const c = rendre({ ...BASE, volume: { entite: 'media_player.tv', niveau: undefined, parPas: true } });
-    expect(c.querySelector('.media-rail')).toBeNull();
-    expect(c.querySelectorAll('.media-pas').length).toBe(2);
-  });
-
-  it('la progression est une couche de fond, jamais un élément qui ajoute de la hauteur', () => {
-    const c = rendre(BASE) as HTMLElement;
+  it('the tick can write the times without moving the rail', () => {
+    const c = rendre(BASE);
+    writeProgress(c, { secondes: 300, duree: 1200, avance: true, ancreMs: 0 }, 61_000, false);
     expect(c.style.getPropertyValue('--progression')).toBe('0.25');
-    // Correctif mineur (revue tâche 6) : la bande de progression est peinte par `.media::after`
-    // (règle CSS pure, `base.css`) — aucune classe DOM ne lui correspond ni n'a jamais existé
-    // pour elle. `querySelector('.media-progression')` ne pouvait donc jamais être vrai, quelle
-    // que soit la justesse du rendu. La seule affirmation vérifiable ici est celle du dessus
-    // (`--progression`, ce que `.media::after` lit) ; le reste (aucun élément ajouté) est déjà
-    // couvert par « garde la même structure avec et sans affiche ».
+    expect(c.querySelector('.media-ecoule')!.textContent).toBe('6:01');
+  });
+});
+
+describe('media card — actions', () => {
+  it('pause on a remote source pins it', () => {
+    const act = vi.fn();
+    const pin = vi.fn();
+    brancherMedia(act, pin);
+    const c = rendre(BASE, READY, true);
+    c.querySelector('[data-mvt="detail:tr-pause"]')!.dispatchEvent(new Event('pointerdown'));
+    expect(pin).toHaveBeenCalledWith(sourceKey(BASE));
+    expect(act).toHaveBeenCalledWith('media_player', 'media_pause', 'media_player.tv');
   });
 
-  // Revue tâche 15, constat I1 : le spec exige DEUX FOIS un rail « qui avance réellement,
-  // décompté côté navigateur entre deux mises à jour de `media_position` ». Le rendu calculait
-  // `position / duree` et ne lisait jamais `media_position_updated_at` — le rail se posait sur
-  // une position que Home Assistant ne republie pas, donc restait immobile entre deux redessins.
-  it('rattrape le temps écoulé depuis le relevé de HA dès le premier coup de peinture', () => {
-    render(rendreCarteMedia(
-      { ...BASE, progression: { position: 300, duree: 1200, majLe: 1_000_000, avance: true } },
-      1_000_000 + 300_000,   // HA a relevé « 300 s » il y a cinq minutes
-    ), hote);
-    // 300 + 300 = 600 s sur 1200 : la moitié, pas le quart.
-    expect((hote.querySelector('.media') as HTMLElement).style.getPropertyValue('--progression'))
-      .toBe('0.5');
+  it('pause on an own source pins nothing', () => {
+    const pin = vi.fn();
+    brancherMedia(vi.fn(), pin);
+    const c = rendre(BASE, READY, false);
+    c.querySelector('[data-mvt="detail:tr-pause"]')!.dispatchEvent(new Event('pointerdown'));
+    expect(pin).not.toHaveBeenCalled();
   });
 
-  it('ne rattrape rien quand le lecteur est en pause', () => {
-    render(rendreCarteMedia(
-      { ...BASE, progression: { position: 300, duree: 1200, majLe: 1_000_000, avance: false } },
-      1_000_000 + 300_000,
-    ), hote);
-    expect((hote.querySelector('.media') as HTMLElement).style.getPropertyValue('--progression'))
-      .toBe('0.25');
-  });
-
-  // Revue tâche 15, mineur M3 — INJECTION CSS. `entity_picture` vient de Home Assistant (donc,
-  // au bout de la chaîne, d'une intégration tierce ou d'un nom de fichier) et atterrissait tel
-  // quel dans `style="background-image:url('…')"`. `lit` n'échappe rien dans un attribut : une
-  // apostrophe refermait la chaîne et laissait écrire n'importe quelle déclaration derrière.
-  describe('urlSure (durcissement de l\'affiche)', () => {
-    it('neutralise les caractères qui referment url(\'…\')', () => {
-      for (const c of ["'", '"', '(', ')']) {
-        expect(urlSure(`/a${c}b.png`), c).not.toContain(c);
-      }
-    });
-
-    it('n\'abîme pas une URL normale, ni une URL déjà percent-encodée', () => {
-      expect(urlSure('/api/media_player_proxy/plex?token=abc&x=1'))
-        .toBe('/api/media_player_proxy/plex?token=abc&x=1');
-      expect(urlSure('/local/Mon%20affiche.png')).toBe('/local/Mon%20affiche.png');
-    });
-
-    it('l\'attribut rendu ne peut plus sortir de sa déclaration CSS', () => {
-      const c = rendre({ ...BASE, affiche: "/x.png');opacity:0;--y:('" });
-      const couche = c.querySelector('.media-affiche') as HTMLElement;
-      // Le texte « opacity:0 » est toujours là — mais À L'INTÉRIEUR de la chaîne d'URL, donc
-      // comme des caractères d'URL et non comme une déclaration. C'est le MOTEUR CSS qui tranche,
-      // pas une recherche de sous-chaîne : `style.opacity` reste vide, et l'attribut ne porte
-      // toujours qu'une seule déclaration.
-      expect(couche.style.opacity).toBe('');
-      expect(couche.style.length, `déclarations : ${couche.getAttribute('style')}`).toBe(1);
-      expect(couche.style.backgroundImage).not.toBe('');
-    });
-  });
-
-  // Tâche 7 (mouvement, 2026-08-22) : couverture — sous-titre, boutons de transport et volume
-  // portent chacun une marque, pour que le moteur (`src/mouvement/moteur.ts`) anime leur
-  // apparition/disparition plutôt que de les faire sauter sec. `.media` (`bloc:media`) est déjà
-  // marqué depuis la tâche 6 (mutation de contenu) — non retesté ici.
-  describe('marques de mouvement', () => {
-    it('le sous-titre porte sa marque', () => {
-      const c = rendre(BASE);
-      expect(c.querySelector('.media-sous')?.getAttribute('data-mvt')).toBe('detail:media-sous');
-    });
-
-    it('chaque bouton de transport est marqué par son action, jamais par son rang', () => {
-      const c = rendre(BASE);
-      const boutons = Array.from(c.querySelectorAll('.media-bouton'));
-      // BASE : précédent, pause (en lecture), suivant, dans cet ordre.
-      expect(boutons.map((b) => b.getAttribute('data-mvt')))
-        .toEqual(['detail:tr-precedent', 'detail:tr-pause', 'detail:tr-suivant']);
-    });
-
-    it('le rail de volume porte sa marque quand le niveau est connu', () => {
-      const c = rendre(BASE);
-      expect(c.querySelector('.media-rail')?.getAttribute('data-mvt')).toBe('detail:volume-rail');
-    });
-
-    it('les deux boutons de pas portent chacun leur marque, − puis +', () => {
-      const c = rendre({ ...BASE, volume: { entite: 'media_player.tv', niveau: undefined, parPas: true } });
-      const pas = Array.from(c.querySelectorAll('.media-pas'));
-      expect(pas.map((p) => p.getAttribute('data-mvt')))
-        .toEqual(['detail:volume-moins', 'detail:volume-plus']);
-    });
-  });
-
-  it('coupe le titre à deux lignes, jamais à une', () => {
-    const titre = rendre(BASE).querySelector('.v') as HTMLElement;
-    expect(titre.classList.contains('deux-lignes')).toBe(true);
-  });
-
-  it('garde l\'étiquette EN COURS, comme .demain et .alerte', () => {
-    expect(rendre(BASE).querySelector('.t')!.textContent).toBe('EN COURS');
-  });
-
-  // Correctif important (revue tâche 6) : recrée le garde-fou supprimé de `tests/corps.test.ts`
-  // (« .media partage désormais la couche d'état (:active) de .ambiance/.commande/.xl/.tuile »),
-  // qui existait parce qu'une revue antérieure avait trouvé exactement ce défaut (rapport de
-  // tâche 13) — sa suppression était correcte dans la lettre (`.media` en est sorti), mais il
-  // fallait le PORTER sur `.media-bouton`/`.media-pas`/`.media-rail`, qui l'ont remplacé dans ce
-  // groupe (cf. `base.css`, le rail rejoint le groupe dans le même correctif que le retour
-  // optimiste de `--niveau`, ci-dessous). « Vérifié, pas supposé » : lu directement dans
-  // `base.css`, comme les tests de gabarit CSS de `tests/corps.test.ts`, pas déduit du rendu
-  // (jsdom ne peint jamais `:active`).
-  it('.media-bouton, .media-pas et .media-rail partagent la couche d\'état (:active) de .ambiance/.commande/.xl/.tuile', () => {
-    const css = readFileSync(join(process.cwd(), 'src/styles/base.css'), 'utf8');
-    // Les trois règles du groupe (position, overlay, opacité au contact) doivent toutes les trois
-    // citer les trois classes — un défaut qui n'en toucherait qu'une laisserait un overlay sans
-    // opacité (ou l'inverse), silencieusement.
-    const rePosition = /\.ambiance,\s*\.commande,\s*\.xl,\s*\.tuile,\s*\.media-bouton,\s*\.media-pas,\s*\.media-rail\s*\{\s*position:\s*relative;\s*\}/;
-    const reOverlay = /\.ambiance::after,\s*\.commande::after,\s*\.xl::after,\s*\.tuile::after,\s*\n\.media-bouton::after,\s*\.media-pas::after,\s*\.media-rail::after\s*\{/;
-    const reActif = /\.tuile:active::after,\s*\n\.media-bouton:active::after,\s*\.media-pas:active::after,\s*\.media-rail:active::after\s*\{/;
-    expect(css, 'la règle `position: relative` du groupe devrait citer .media-bouton/.media-pas/.media-rail').toMatch(rePosition);
-    expect(css, 'la règle `::after` (overlay) du groupe devrait citer .media-bouton/.media-pas/.media-rail').toMatch(reOverlay);
-    expect(css, 'la règle `:active::after` (opacité au contact) du groupe devrait citer .media-bouton/.media-pas/.media-rail').toMatch(reActif);
-  });
-
-  // Correctif important (revue tâche 6) : `rendreCarteMedia` n'écoutait que `pointerdown` sans
-  // jamais écrire `--niveau` — au contact, rien ne bougeait à l'écran avant le retour d'état de
-  // Home Assistant. Même principe de retour optimiste que le reste du projet (cf. `interaction.ts`,
-  // `geste.ts`) : `pointerdown` seul suffit ici (pas de suivi de glissement complet, le brief ne le
-  // prévoyait pas) — le doigt pose une valeur, l'appel de service suit.
-  it('le rail écrit --niveau immédiatement au contact, avant même le retour de Home Assistant', () => {
+  it('+ sets the volume 5 % higher and shows it at once', () => {
+    vi.useFakeTimers();
+    const act = vi.fn();
+    brancherMedia(act, vi.fn(), () => rendre(BASE));
     const c = rendre(BASE);
-    const rail = c.querySelector('.media-rail') as HTMLElement;
-    // jsdom ne met jamais en page : `getBoundingClientRect()` y rend toujours des zéros. Le
-    // calcul de fraction (`(clientX - r.left) / r.width`) est donc invérifiable ici — seule
-    // l'ÉCRITURE immédiate de `--niveau` au contact (avant l'appel de service) est testable sans
-    // navigateur réel, et c'est précisément ce que ce correctif garantit.
-    expect(rail.style.getPropertyValue('--niveau')).toBe('0.4');   // valeur initiale de BASE.volume
-    rail.dispatchEvent(new PointerEvent('pointerdown', { clientX: 10, bubbles: true }));
-    // La valeur a pu changer (elle dépend de la position du contact, invérifiable en jsdom), mais
-    // la propriété doit avoir été réécrite SUR L'ÉLÉMENT, en direct, sans attendre un re-rendu.
-    expect(rail.style.getPropertyValue('--niveau')).not.toBe('');
+    const plus = c.querySelector('[data-mvt="detail:volume-plus"]')!;
+    plus.dispatchEvent(new Event('pointerdown'));
+    plus.dispatchEvent(new Event('pointerup'));
+    expect(act).toHaveBeenCalledWith('media_player', 'volume_set', 'media_player.philips',
+      { volume_level: 0.45 });
+    expect(c.querySelector('.media-niveau-texte')!.textContent).toBe('45 %');
+    expect(c.querySelector<HTMLElement>('.media-volume')!.style.getPropertyValue('--niveau')).toBe('0.45');
+    // A second press steps from the optimistic level, not from the stale HA one.
+    plus.dispatchEvent(new Event('pointerdown'));
+    plus.dispatchEvent(new Event('pointerup'));
+    expect(act).toHaveBeenLastCalledWith('media_player', 'volume_set', 'media_player.philips',
+      { volume_level: 0.5 });
+    vi.advanceTimersByTime(PENDING_MS);   // let the optimistic level expire for the other tests
+    vi.useRealTimers();
+  });
+
+  it('step-only volume calls volume_up / volume_down', () => {
+    const act = vi.fn();
+    brancherMedia(act, vi.fn());
+    const c = rendre({ ...BASE, volume: { entite: 'media_player.tv', parPas: true } });
+    c.querySelector('[data-mvt="detail:volume-moins"]')!.dispatchEvent(new Event('pointerdown'));
+    expect(act).toHaveBeenCalledWith('media_player', 'volume_down', 'media_player.tv');
+  });
+});
+
+describe('urlSure (poster hardening)', () => {
+  it('neutralises the characters that close url(\'…\')', () => {
+    for (const c of ["'", '"', '(', ')']) expect(urlSure(`/a${c}b.png`), c).not.toContain(c);
+  });
+
+  it('leaves a normal URL and an already percent-encoded one alone', () => {
+    expect(urlSure('/api/media_player_proxy/plex?token=abc&x=1'))
+      .toBe('/api/media_player_proxy/plex?token=abc&x=1');
+    expect(urlSure('/local/Mon%20affiche.png')).toBe('/local/Mon%20affiche.png');
+  });
+
+  it('the rendered attribute cannot leave its CSS declaration', () => {
+    const couche = rendre({ ...BASE, affiche: "/x.png');opacity:0;--y:('" })
+      .querySelector('.media-affiche') as HTMLElement;
+    expect(couche.style.opacity).toBe('');
+    expect(couche.style.length, `declarations: ${couche.getAttribute('style')}`).toBe(1);
   });
 });

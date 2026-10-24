@@ -569,12 +569,14 @@ Expected: succès, et le `?v=` des pages de `config/www/wallpanel/` est incréme
 
 La WebView Fully peut continuer à servir l'ancien bundle. Pour chaque pièce (`salon`, `bureau`, `cuisine`), appuyer les deux boutons **dans cet ordre**, en laissant ~3 s entre les deux.
 
-Les identifiants HA sont dans `/opt/nivuus/HomeAssistant/data/.mcp.json` (clés `HA_URL` et `HA_TOKEN`) :
+Les identifiants HA sont dans le `.mcp.json` du répertoire de données de l'instance Home Assistant
+(clés `HA_URL` et `HA_TOKEN`) — son emplacement dépend de l'installation, comme pour
+`NIVUUS_HA_DATA` (cf. `outils/verifier-rendu.mjs`) ; renseignez-le ci-dessous :
 
 ```bash
-/bin/bash -c '
-HA_URL=$(python3 -c "import json;print(json.load(open(\"/opt/nivuus/HomeAssistant/data/.mcp.json\"))[\"mcpServers\"][\"homeassistant\"][\"env\"][\"HA_URL\"])")
-HA_TOKEN=$(python3 -c "import json;print(json.load(open(\"/opt/nivuus/HomeAssistant/data/.mcp.json\"))[\"mcpServers\"][\"homeassistant\"][\"env\"][\"HA_TOKEN\"])")
+NIVUUS_HA_DATA=<répertoire de données HA, contient .mcp.json> /bin/bash -c '
+HA_URL=$(python3 -c "import json;print(json.load(open(\"$NIVUUS_HA_DATA/.mcp.json\"))[\"mcpServers\"][\"homeassistant\"][\"env\"][\"HA_URL\"])")
+HA_TOKEN=$(python3 -c "import json;print(json.load(open(\"$NIVUUS_HA_DATA/.mcp.json\"))[\"mcpServers\"][\"homeassistant\"][\"env\"][\"HA_TOKEN\"])")
 for p in salon bureau cuisine; do
   for b in vider_le_cache_du_navigateur load_start_url; do
     curl -s -X POST "$HA_URL/api/services/button/press" \
@@ -589,7 +591,7 @@ Si le chemin des clés dans `.mcp.json` diffère, le lire d'abord plutôt que de
 
 - [ ] **Step 5: Contrôle visuel de NUIT**
 
-Lire `image.tablette_salon_capture_d_ecran` (ou `http://192.168.0.218:2323/?cmd=getScreenshot&password=1234`, qui fonctionne même écran éteint).
+Lire `image.tablette_salon_capture_d_ecran` (ou l'API d'administration Fully Kiosk de la tablette salon — `cmd=getScreenshot`, avec le mot de passe Fully Kiosk de la tablette en paramètre `password` —, qui fonctionne même écran éteint. L'IP de la tablette et ce mot de passe, qui figuraient ici en clair, ont été retirés le 2026-09-14 ; considérez le mot de passe exposé et changez-le sur les trois tablettes).
 
 Vérifier : les pieds des deux colonnes s'alignent ; les trois températures sont cyan ; l'icône météo ne l'est pas ; la date tient sur une ligne.
 

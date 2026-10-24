@@ -6,11 +6,11 @@
  *  affiche déjà ces mêmes compteurs (« 4 tâches d'entretien »...) — le propriétaire touche ce
  *  qu'il vient de lire.
  *
- *  Cocher est destructif du point de vue de l'utilisateur (une tâche cochée par erreur disparaît
- *  de sa liste sans qu'il sache laquelle) : chaque ligne exige DEUX appuis — le premier arme une
- *  confirmation visuelle (« Toucher pour confirmer »), le second (dans la fenêtre, cf.
- *  `creerArmement` dans `cochage.ts`) coche réellement — jamais un appui long, contrainte non
- *  négociable du propriétaire sur ces dalles. */
+ *  Checking off is destructive from the user's point of view (a task checked off by mistake
+ *  disappears from their list without them knowing which one): each row demands TWO presses —
+ *  the first arms a visual confirmation ("Toucher pour confirmer"), the second (within the
+ *  window, see `createArming` in `cochage.ts`) really checks it off — never a long press, a
+ *  non-negotiable constraint of the owner on these panels. */
 import { html, type TemplateResult } from 'lit';
 import { icone } from './icones';
 import type { TacheAffichee } from '../cochage';
@@ -36,7 +36,7 @@ export function rendreTaches(
                @pointerdown=${() => cocher(t.entite, t.uid)}>
             ${icone(armee ? 'coche' : 'case')}
             <div><div class="t">${t.texte}</div>
-              <div class="s">${armee ? 'Toucher pour confirmer' : t.liste}</div></div>
+              <div class="s">${armee ? 'Toucher pour confirmer' : t.list}</div></div>
           </div>`;
         })}
         <!-- Contrairement à TOUTE_LA_MAISON (tableau fixe), une liste todo.* n'est pas bornée à la

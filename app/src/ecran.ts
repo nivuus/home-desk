@@ -44,6 +44,12 @@ export type Bouton = {
    *  INERTE : `interaction.ts` ignore l'appui tant que l'entité est muette. */
   absenceNommee?: string;
   epingle?: true;
+  /** The tile spans the two rows of its column in the commands grid, for a command that must be
+   *  hit without aiming (the living-room door, by the entrance). It costs two places in the cut
+   *  of `ordreCommandes` (`modes.ts`), never a row: on a mode with a single row it renders at
+   *  normal height. Honoured by the commands grid only — an ambiance or "whole house" tile
+   *  ignores it, exactly like `epingle`. */
+  haute?: true;
   /** Cf. la docstring du même champ sur `Ecran`. */
   note?: string;
 };
@@ -163,13 +169,6 @@ export type Ecran = {
    *  laisserait `rendreVoiture` appelée sur `undefined`, donc l'appelant (`demarrage.ts`) garde
    *  malgré tout la garde `piece.voiture &&`, défensive plutôt que redondante. */
   voiture?: Voiture;
-  /** La scène DeLorean joue-t-elle sur cet écran ? Salon seulement (décision du propriétaire,
-   *  2026-08-21) : le modèle réduit est posé là, la voiture s'anime et l'écran juste à côté
-   *  bascule au même instant. Déclaré ici plutôt que testé sur `nom` dans `demarrage.ts` — un
-   *  test sur le nom obligerait à rouvrir le rendu pour déplacer la voiture de pièce, et les
-   *  doubles de test devraient connaître un nom de pièce réel pour rien. Absent ailleurs : la
-   *  cuisine et le bureau ne jouent rien et restent utilisables pendant les quatre rendez-vous. */
-  delorean?: true;
   /** Pourquoi cet écran est réglé comme il l'est. Jamais rendu ; présent dans le formulaire
    *  qui l'édite (plan 3) et dans l'export YAML, où il redevient un commentaire. Ce champ est
    *  la seule chose qui empêchera les ~300 lignes de raisonnement daté de ce fichier de
@@ -190,7 +189,7 @@ export type Ecran = {
   agencement?: Agencement;
 };
 
-export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {
+export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {   // policy: allow-long-file — this literal leaves at step 8 of plan 3c
   salon: {
     nom: 'Salon',
     temperature: 'sensor.capteur_humain_temperature',
@@ -219,7 +218,7 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {
       // qu'on règle ; les lumières restent à un appui dans « Toute la maison »).
       { libelle: 'Porte', icone: 'porte', entite: 'lock.aqara_smart_lock_u200_lite',
         service: ['script', 'turn_on'], cible: 'script.serrure_tap_ouvrir_ou_verrouiller',
-        epingle: true },
+        epingle: true, haute: true },
       // Épinglé depuis le 2026-08-29, à la demande du propriétaire (« il faudrait que rideau, et
       // ouverture/fermeture porte soient tout le temps affichés »). Avant cette date, la tuile
       // était DÉCLARÉE mais jamais rendue : le salon vivait en mode `voiture`, à deux places, et
@@ -294,7 +293,6 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {
     ],
     extrasMaison: [],
     listesTachesExtra: [],
-    delorean: true,
     voiture: {
       batterie: 'sensor.peugeot_e208_batterie_niveau',
       autonomie: 'sensor.peugeot_e208_batterie_autonomie',
@@ -310,10 +308,9 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {
       // sont retirés de la liste plutôt que laissés à une condition qui ne peut pas se déclencher.
       // Déclarer ce que l'écran fait est plus lisible que déduire ce qu'il ne fait pas.
       modes: ['alerte', 'menage', 'cinema', 'media', 'aeration', 'voiture', 'defaut'],
-      modulateurs: ['invites', 'chaleur', 'delorean'],
+      modulateurs: ['invites', 'chaleur'],
       blocDefaut: 'voiture',
-      note: 'Écran d\'entrée. La voiture occupe le bloc central, et la scène DeLorean joue ici '
-          + 'seulement : le modèle réduit est posé à côté.',
+      note: 'Écran d\'entrée. La voiture occupe le bloc central.',
     },
   },
   bureau: {
@@ -325,7 +322,7 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {
       { libelle: 'Éteindre', icone: 'film', entite: 'light.bureau', service: ['light', 'turn_off'] },
     ],
     // Tâche 19 (2026-08-03, choix du propriétaire) : QUATRE commandes, contre deux jusqu'ici.
-    // `combien()` (`modes.ts`) en affiche quatre en mode `defaut` : avec deux déclarées, le bureau
+    // `combien()` (`screen-budget.ts`) en affiche quatre en mode `defaut` : avec deux déclarées, le bureau
     // ne rendait qu'une seule rangée là où le salon en rend deux, d'où ~93 px de vide au milieu de
     // l'écran (mesuré tâche 18 — 74 px de rangée plus la gouttière de 10 px, moins ce que la
     // colonne se resserre). La rangée manquante est le remède retenu ; ni `combien()` ni le clamp
@@ -383,8 +380,8 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {
     listesTachesExtra: [],
     agencement: {
       zones: ['ambiances', 'commandes', 'blocCentral', 'synthese'],
-      // Ni minuteur, ni recette, ni voiture, ni DeLorean. `aeration` retiré aussi : `ouvrants`
-      // est vide, la condition ne peut pas se déclencher.
+      // No timer, no recipe, no car. `aeration` removed too: `ouvrants`
+      // is empty, the condition cannot fire.
       modes: ['alerte', 'menage', 'cinema', 'media', 'defaut'],
       modulateurs: ['invites', 'chaleur'],
       // Tâche 14 (2026-08-03, blocs par défaut) : le prochain rendez-vous du jour
@@ -449,12 +446,12 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {
       // d'une tablette à l'autre.
       { libelle: 'Rideau', icone: 'rideau', entite: 'cover.rideau_cuisine',
         service: ['script', 'turn_on'], cible: 'script.toggle_rideau_cuisine' },
-      // Lot 6 : `vue: '#taches'` est le seul enrichissement FONCTIONNEL de cette tâche. Jusqu'ici
-      // la tuile affichait un compte sur lequel on ne pouvait rien faire, et la vue « Tâches » ne
-      // s'atteignait qu'en touchant la ligne de synthèse. Une navigation interne ne coûte aucun
-      // appel HA et supprime un cul-de-sac.
-      { libelle: 'Courses', icone: 'list', entite: 'todo.home_stock_shopping', vue: '#taches',
-        absenceNommee: 'Garde-manger non installé' },
+      // Garde-manger (spec 2026-09-28) takes the place of the "Courses" tile, at the same grid slot.
+      // It opens the pantry view, where a batch is taken out of stock, fully or partly, eaten,
+      // thrown away or expired; its `entite` is the list of batches to eat soon, read by that view.
+      // Shopping stays reachable from the Tasks view, as one of the room's extra task lists.
+      { libelle: 'Garde-manger', icone: 'jar', entite: 'todo.home_stock_expirations',
+        vue: '#garde-manger', absenceNommee: 'Garde-manger non installé' },
       // Tâche 8 bis : demande explicite du propriétaire, jamais rendue accessible jusqu'ici.
       // Ouvre la vue `#recette` de l'app. `entite` est l'indicateur de disponibilité déjà exploité
       // par le masquage générique de `rendu/corps.ts` : `home_stock` non chargé (entrée absente,
@@ -496,20 +493,20 @@ export const ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran> = {
       // une sixième ferait tomber l'une des existantes selon l'ordre de déclaration, une
       // information qui disparaîtrait en silence.
       //
-      // `todo.` et pas `binary_sensor.` : l'état d'une entité `todo` est le NOMBRE d'éléments non
-      // cochés, et le compte est ce qu'on lit de loin. Bonus mécanique décisif : `listesTachesPiece`
-      // (`cochage.ts`) collecte automatiquement toute entrée de `synthese` en `todo.` — déclarer
-      // cette ligne suffit à faire apparaître les lots qui périment dans la vue « Tâches »,
-      // cochables en deux appuis, sans une ligne de plus. Et cocher y veut dire MANGÉ, ce qui est le
-      // geste juste devant un frigo.
+      // `todo.` rather than `binary_sensor.`: the state of a `todo` entity is the NUMBER of items
+      // not checked off, and a count is what one reads from afar. `roomTodoLists` (`cochage.ts`)
+      // collects every `todo.` entry of `synthese` into the Tasks view; since the pantry screen
+      // (spec 2026-09-28) the kitchen opts out with `horsTaches`, like the living room: a batch is
+      // taken out of stock in the pantry view, with its quantity and reason — checking it off here
+      // emptied it whole, with no reason at all.
       //
-      // Déclarée APRÈS `todo.maintenance` : c'est ce qui range la DLC entre l'entretien et les
-      // courses dans la vue « Tâches ». Une DLC passe avant une course — l'une a une échéance.
+      // Declared AFTER `todo.maintenance`: the summary line shows its gaps in declaration order,
+      // and a best-before date comes before a purchase — one has a deadline, the other does not.
       //
       // Jamais une ALERTE : `alertes.ts` exige un écart *anormal* ET *traitable en quelques minutes
       // depuis la maison*. Une DLC échoue aux deux, elle dure des jours.
       { entite: 'todo.home_stock_expirations', operateur: '>', valeur: 0,
-        texte: '{etat} produit{s} à consommer', perso: true },
+        texte: '{etat} produit{s} à consommer', perso: true, horsTaches: true },
     ],
     // Arbitrage du coordinateur (tâche 8 bis) : le scanner n'a de sens qu'en cuisine, donc
     // ni dans `TOUTE_LA_MAISON` (partagée par les 3 tablettes — le salon n'a rien à scanner) ni

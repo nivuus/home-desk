@@ -26,7 +26,7 @@ export const CAPTEURS_MOUVEMENT = [
  *  l'alerte se replie immédiatement plutôt que de rester bloquée au premier plan faute de preuve
  *  de mouvement (cf. `etat.appliquer`, qui horodate `changeLe` lui-même — HA ne le fournit pas
  *  ici sous une forme exploitable). */
-export function dernierMouvement(etat: Etat): number {
+export function lastMotion(etat: Etat): number {
   let plusRecent = 0;
   for (const id of CAPTEURS_MOUVEMENT) {
     if (!etat.estUtilisable(id)) continue;
