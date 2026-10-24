@@ -87,7 +87,9 @@ function slot(b: CardButton | undefined): TemplateResult {
     @pointerup=${p.onpointerup} @pointercancel=${p.onpointercancel}>${icone(b.icon)}</div>`;
 }
 
-export function renderCardFrame(f: CardFrame): TemplateResult {
+/** `position`: the stack's dots (`rendu/stack.ts`), drawn at the end of the label row so the
+ *  card stays 311 × 264 whatever the stack holds — a row under the card would bill its height. */
+export function renderCardFrame(f: CardFrame, position?: TemplateResult): TemplateResult {
   const bg = f.background;
   // The picture only once its tones are ready: pending or unreadable, the card keeps the theme
   // colours, same layout.
@@ -103,7 +105,9 @@ export function renderCardFrame(f: CardFrame): TemplateResult {
       : ''}
     <div class="entete">
       <!-- dir="auto": each text takes its direction from its own first strong character. -->
-      <div class="etiquette plaque" dir="auto" data-tone-box>${f.label}</div>
+      <div class="ligne-etiquette">
+        <div class="etiquette plaque" dir="auto" data-tone-box>${f.label}</div>${position ?? ''}
+      </div>
       <div class="titre deux-lignes plaque" dir="auto" data-tone-box>${f.title}</div>
       ${f.subtitle
         ? html`<div class="sous-titre plaque" dir="auto" data-tone-box

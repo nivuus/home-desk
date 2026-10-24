@@ -1030,12 +1030,21 @@ body {
 .disque.appuye:not(.inerte)::after { opacity: .1; transition: none; }
 
 /* THE STACK. The displayed card takes horizontal moves for the swipe and leaves vertical ones to
-   the page; the dots sit under it, the current one elongated. Flat dots, no shadow. */
+   the page. Its dots sit inside the card, at the end of the label row (a row under the card would
+   add to the 264 px the budget bills): a solid pill in the disc pair, so the dots keep the icons'
+   4.5:1 on any picture (`verifier-carte-media.mjs`), the current one elongated. The pill is never
+   taller than the label line (11 px × 1.2 + the plate's 2 px). Flat: no shadow, no gradient. */
 .pile > .carte { touch-action: pan-y; }
-.pile .points { display: flex; justify-content: center; gap: 6px; height: 6px; margin-top: 8px; }
-.pile .points > span { width: 6px; height: 6px; border-radius: var(--sh-full);
-  background: var(--md-outline-variant); transition: width .18s ease-out; }
-.pile .points > span.courant { width: 18px; background: var(--md-on-surface-variant); }
+.carte .ligne-etiquette { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.carte .ligne-etiquette .etiquette { flex: 0 1 auto; min-width: 0; }
+.carte .points { flex: none; margin-inline-start: auto; display: flex; align-items: center;
+  gap: 4px; height: 12px; padding: 0 4px; box-sizing: border-box; border-radius: var(--sh-full);
+  background: var(--mc-secondary, var(--c-disque, var(--md-surface-container-highest))); }
+.carte .points > span { width: 4px; height: 4px; border-radius: var(--sh-full);
+  background: var(--mc-on-secondary, var(--c-icone, var(--md-on-surface)));
+  transition: width .18s ease-out; }
+.carte .points > span.courant { width: 12px; }
+
 /* An inert button: a muted SOLID pair, the same on any background, never an opacity — an
    opacity would let the image show through the disc and drop its icon under 4.5:1. The pair is
    contrast-tested by `tests/card-backgrounds.test.ts`. */

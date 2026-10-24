@@ -21,6 +21,15 @@ describe('renderStack', () => {
     render(renderStack([F1, F2], 1), hote); expect(hote.querySelectorAll('.points > *')[1].classList.contains('courant')).toBe(true);
   });
 
+  it('the dots live inside the card, on the label row: the block stays the card alone', () => {
+    render(renderStack([F1, F2, F3], 0), hote);
+    expect(Array.from(hote.querySelector('.pile')!.children).map((c) => c.className.trim()))
+      .toEqual([expect.stringMatching(/^carte\b/)]);
+    const row = hote.querySelector('.carte .entete .ligne-etiquette')!;
+    expect(row.querySelector('.etiquette')).not.toBeNull();
+    expect(row.querySelector('.points')).not.toBeNull();
+  });
+
   it('only the displayed card is in the DOM', () => {
     render(renderStack([F1, F2, F3], 1), hote);
     const cards = hote.querySelectorAll('.carte');

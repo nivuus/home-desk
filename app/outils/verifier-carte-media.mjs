@@ -20,6 +20,10 @@
  *  3. no element of the card below the frame (585 px), and none outside the card itself: the
  *     card is a fixed 311 × 264 frame (`cards.css`) that clips, so a content too tall no longer
  *     grows the card past the frame — it is cut, or squeezed out of the middle zone.
+ *  4. in a stack (`renderStack`, more than one card): the block is exactly `blocCarte` tall —
+ *     the dots live inside the card and add nothing under it —, the dots' pill is solid with
+ *     dots ≥ 4.5:1 against it (the icons' rule: it sits on the picture), and the pill overlaps
+ *     no disc and no text box.
  *
  *  `mesurerCarteMedia` runs on any page that shows the card (the live pages of
  *  `verifier-rendu.mjs`, or the in-memory fixtures below); `autoTestCarteMedia` proves the check
@@ -100,7 +104,24 @@ function relever(frameBottom) {
       return r.top < m.top - 0.5 || r.bottom > m.bottom + 0.5;
     }) : []),
   ].map(name);
+  const pile = card.closest('.pile');
+  const pill = card.querySelector('.points');
+  let stack = null;
+  if (pile) {
+    const p = pill?.getBoundingClientRect();
+    const hit = (r) => p !== undefined && r.left < p.right && p.left < r.right && r.top < p.bottom && p.top < r.bottom;
+    const inCard = p !== undefined && p.left >= c.left - 0.5 && p.right <= c.right + 0.5
+      && p.top >= c.top - 0.5 && p.bottom <= c.bottom + 0.5;
+    stack = {
+      height: pile.getBoundingClientRect().height,
+      pill: pill ? { fill: getComputedStyle(pill).backgroundColor, opacity: opacity(pill), inCard,
+        dots: [...pill.children].map((d) => getComputedStyle(d).backgroundColor) } : null,
+      overlaps: pill ? [...card.querySelectorAll('.disque, [data-tone-box]')]
+        .filter((el) => hit(el.getBoundingClientRect())).map(name) : [],
+    };
+  }
   return {
+    stack,
     clip: { x: Math.max(0, Math.floor(c.left)), y: Math.max(0, Math.floor(c.top)),
       width: Math.ceil(Math.min(c.right, innerWidth) - Math.max(0, Math.floor(c.left))),
       height: Math.ceil(Math.min(c.bottom, innerHeight) - Math.max(0, Math.floor(c.top))) },
@@ -175,6 +196,15 @@ export async function mesurerCarteMedia(page, frameBottom = HEIGHT) {
     })),
     overflow: r.overflow,
     unfit: r.unfit,
+    stack: r.stack && {
+      height: round2(r.stack.height),
+      overlaps: r.stack.overlaps,
+      pill: r.stack.pill && {
+        solid: (rgba(r.stack.pill.fill)[3] ?? 1) === 1 && r.stack.pill.opacity === 1,
+        inCard: r.stack.pill.inCard,
+        ratio: round2(Math.min(...r.stack.pill.dots.map((d) => ratioCss(r.stack.pill.fill, d)))),
+      },
+    },
   };
 }
 
@@ -198,6 +228,17 @@ export function jugerCarte(m) {
   }
   if (m.overflow.length) faults.push(`below the ${HEIGHT} px frame: ${m.overflow.join(', ')}`);
   if (m.unfit.length) faults.push(`does not fit the card: ${m.unfit.join(', ')}`);
+  if (m.stack) {
+    const st = m.stack;
+    if (Math.abs(st.height - BLOC_CARTE) > 0.5) faults.push(`stack block ${st.height} px, not ${BLOC_CARTE}`);
+    if (!st.pill) faults.push('stack without its dots');
+    else {
+      if (!st.pill.inCard) faults.push('dots outside the card');
+      if (!st.pill.solid) faults.push('dots pill not solid');
+      if (st.pill.ratio < ICON_CONTRAST_MIN) faults.push(`dots contrast under ${ICON_CONTRAST_MIN}:1 (${st.pill.ratio}:1)`);
+    }
+    if (st.overlaps.length) faults.push(`dots overlap: ${st.overlaps.join(', ')}`);
+  }
   return { ok: faults.length === 0, reason: faults.join(' ; ') };
 }
 
@@ -229,7 +270,8 @@ async function bundleFixture() {
 import { render } from 'lit';
 import { Etat } from './etat';
 import { resoudreSource, CAP } from './media';
-import { rendreCarteMedia } from './rendu/media';
+import { rendreCarteMedia, mediaFrame } from './rendu/media';
+import { renderStack } from './rendu/stack';
 import { measureCard } from './boot/card-tones';
 import { computeTones, browserSampler } from './rendu/poster-sampler';
 const P = 'media_player.verifier_carte';
@@ -243,7 +285,11 @@ const TEXTS = {
     title: '夜に駆ける — 二行に収まらないほど長い曲名をここに書いて、カードの高さを確かめる',
     artist: '坂本龍一と東京フィルハーモニー交響楽団' },
 };
-window.__poser = async (poster, { withoutPlate = false, script = 'latin', top = 0, css = '' } = {}) => {
+/** \`stack\` cards in all: the media card first, then plain solid ones (\`renderStack\`). */
+const OTHERS = (n) => Array.from({ length: n - 1 }, (_, i) => ({ key: 'essai:' + i, label: 'ESSAI',
+  title: 'Carte ' + i, middle: '', buttons: [undefined, undefined, undefined],
+  background: { kind: 'solid', token: 'neutral' } }));
+window.__poser = async (poster, { withoutPlate = false, script = 'latin', top = 0, css = '', stack = 1 } = {}) => {
   const t = TEXTS[script];
   const etat = new Etat();
   etat.appliquer({ entity_id: P, state: 'playing', attributes: {
@@ -257,12 +303,15 @@ window.__poser = async (poster, { withoutPlate = false, script = 'latin', top = 
   const app = document.getElementById('app');
   app.style.paddingTop = top + 'px';
   const now = Date.now();
-  render(rendreCarteMedia(s, now, { status: 'pending' }, true), app);
+  const draw = (tones) => (stack > 1
+    ? renderStack([mediaFrame(s, now, tones, true), ...OTHERS(stack)], 0)
+    : rendreCarteMedia(s, now, tones, true));
+  render(draw({ status: 'pending' }), app);
   const spec = measureCard(app.querySelector('.media'));
   const state = await computeTones(s.affiche, spec, browserSampler, location.origin);
   if (state.status !== 'ready') throw new Error('poster tones: ' + state.status);
   const tones = withoutPlate ? { status: 'ready', tones: { ...state.tones, plate: undefined } } : state;
-  render(rendreCarteMedia(s, now, tones, true), app);
+  render(draw(tones), app);
 };
 `;
   const out = await build({
@@ -301,6 +350,21 @@ const CASES = [
   { poster: 'moyenne', options: { script: 'cjk', top: HEIGHT - BLOC_CARTE, css: LINE_HEIGHT_NORMAL },
     expected: (j) => !j.ok && /does not fit the card/.test(j.reason),
     what: 'COUNTER-PROOF: the same card with line-height normal and a wrapping label must not fit' },
+  ...['claire', 'sombre', 'rayures'].map((poster) => ({
+    poster, options: { stack: 3 }, expected: pass,
+    what: `stack of 3 on "${poster}": ${BLOC_CARTE} px block, solid dots that overlap nothing` })),
+  { poster: 'moyenne', options: { script: 'cjk', top: HEIGHT - BLOC_CARTE, stack: 16 },
+    expected: pass,
+    what: 'stack of 16 (the widest dots) with a CJK card at the frame bottom: still fits' },
+  { poster: 'moyenne', options: { stack: 3, css: '.pile::after { content: ""; display: block; height: 14px; }' },
+    expected: (j) => !j.ok && /stack block/.test(j.reason),
+    what: 'COUNTER-PROOF: a 14 px row under the card (dots outside it) must be flagged' },
+  { poster: 'moyenne', options: { stack: 3, css: '.carte .points { position: absolute; left: 140px; bottom: 30px; }' },
+    expected: (j) => !j.ok && /dots overlap/.test(j.reason),
+    what: 'COUNTER-PROOF: dots laid over the action buttons must be flagged' },
+  { poster: 'moyenne', options: { stack: 3, css: '.carte .points > span { background: var(--mc-secondary) !important; }' },
+    expected: (j) => !j.ok && /dots contrast under/.test(j.reason),
+    what: 'COUNTER-PROOF: dots the colour of their pill must be flagged' },
   { poster: 'moyenne', options: { css: '.media .bouton { background: rgba(20, 20, 20, .6) !important; }' },
     expected: (j) => !j.ok && /disc not solid/.test(j.reason),
     what: 'COUNTER-PROOF: a translucent disc must be flagged' },
@@ -350,7 +414,8 @@ export async function autoTestCarteMedia(nav) {
     return 1;
   }
   console.log('Media card auto-test passed: the five posters pass on their computed tones, the '
-    + 'stripes only through their plate, a CJK card fits its budget, and the plate-less stripes, '
+    + 'stripes only through their plate, a CJK card fits its budget, a stack keeps it with solid '
+    + 'dots, and a row under the card, overlapping or low-contrast dots, the plate-less stripes, '
     + 'the line-height-normal card, the translucent disc, the see-through disc and the low-contrast icon are flagged.');
   return 0;
 }

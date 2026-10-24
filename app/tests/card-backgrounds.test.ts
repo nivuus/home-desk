@@ -52,6 +52,16 @@ describe('solid card backgrounds', () => {
     for (const m of inertRules) expect(m[2], m[1].trim()).not.toMatch(/(^|[;\s])opacity:/);
   });
 
+  it('the stack dots wear the disc pair, so every background keeps them at the icons\' 4.5:1', () => {
+    // Solid tokens: the pair tested above; images: their tones (`verifier-carte-media.mjs`, rule 4).
+    const rule = (sel: string) => new RegExp(`${sel.replace(/[.>]/g, (c) => `\\${c}`)}\\s*\\{([^}]*)\\}`).exec(css)![1];
+    const disc = rule('.disque');
+    const fill = /background:\s*([^;]+);/.exec(disc)![1];
+    const ink = /color:\s*([^;]+);/.exec(disc)![1];
+    expect(rule('.carte .points')).toContain(`background: ${fill};`);
+    expect(rule('.carte .points > span')).toContain(`background: ${ink};`);
+  });
+
   it('no gradient anywhere in the card sheet', () => {
     expect(css).not.toMatch(/gradient\(/);
   });

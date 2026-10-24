@@ -17,7 +17,7 @@ import type { SourceResolue } from '../media';
 import { sourceKey } from '../media-choice';
 import { ancrerProgression, fractionAncree, secondesAncrees, type Ancre } from '../progression';
 import type { ToneState } from './poster-sampler';
-import { renderCardFrame, type CardButton } from './card-frame';
+import { renderCardFrame, type CardButton, type CardFrame } from './card-frame';
 import { S } from '../cards/strings';
 import { writeTime } from './minuteur';
 import { volumeRow } from './media-volume';
@@ -117,6 +117,13 @@ function progressRow(a: Ancre | null): TemplateResult | '' {
 }
 
 export function rendreCarteMedia(
+  s: SourceResolue, maintenantMs: number, tones: ToneState, remote = false,
+): TemplateResult {
+  return renderCardFrame(mediaFrame(s, maintenantMs, tones, remote));
+}
+
+/** The media card as a stack frame (`rendu/stack.ts`); `rendreCarteMedia` draws it alone. */
+export function mediaFrame(
   s: SourceResolue,
   // The wall clock, passed in and never read implicitly: it catches up with the time elapsed
   // since Home Assistant read `media_position`, so that the FIRST paint is already right; the
@@ -125,13 +132,13 @@ export function rendreCarteMedia(
   tones: ToneState,
   /** The source plays in another room (`pickSource`): pausing it pins it. */
   remote = false,
-): TemplateResult {
+): CardFrame {
   // Anchored at monotonic 0: the render takes both clocks at the same instant.
   const ancre = ancrerProgression(s.progression, maintenantMs, 0);
   // The whole block is keyed `bloc:media`: a new track is a CONTENT CHANGE under the same key
   // (a mutation the engine crosses), never an exit plus an entry. `data-mvt-etat` carries the
   // title, folded back on `s.nom` for a player that publishes no metadata.
-  return renderCardFrame({
+  return {
     key: `media:${sourceKey(s)}`,
     className: 'media',
     label: s.piece ? `${S.mediaPlaying}${S.separator}${s.piece}` : S.mediaPlaying,
@@ -142,5 +149,5 @@ export function rendreCarteMedia(
     background: s.affiche !== undefined ? { kind: 'image', url: s.affiche } : { kind: 'theme' },
     tones,
     motion: { block: 'bloc:media', state: s.titre || s.nom, subtitle: 'detail:media-sous' },
-  });
+  };
 }
