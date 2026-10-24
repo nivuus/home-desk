@@ -3,7 +3,8 @@
  *  Home Assistant: `src/` bundled by esbuild with the stylesheets of `src/index.ts`, viewport
  *  343 × 585, the system's fallback font (DejaVu Sans here, wider than Roboto: conservative).
  *
- *  1. Every card (timer, recipe, media, cinema, vacuum, car, airing, printer, pets, plants, treadmill, air, ink, meal, pantry, alarm), built from
+ *  1. Every `CardType` of `src/stack/types.ts` (read from the source: one without a fixture is a
+ *     fault), built from
  *     fixture states by the app's own `collectStack`/`frameCard`, shown in turn in its stack, in
  *     two variants (each card in its other state: the late timer, the car to plug in, the
  *     stuck robot, other posters, each print state over two variants) × three scripts (Latin, CJK, Arabic, with titles and room
@@ -35,14 +36,14 @@ import {
   attendreCarteTeintee, bundlePage, jugerCarte, mesurerCarte, resumerCarte, servirPage,
   STYLESHEET_IMPORTS, BLOC_CARTE, HEIGHT, WIDTH,
 } from './card-check.mjs';
+import { cardTypes } from './pile-types.mjs';
 import { MUTANTS, SCENARIOS, mutationPlugin, runScenario } from './pile-touches.mjs';
 
 const ORIGIN = 'http://verifier-pile.test';
 const SCRIPTS = ['latin', 'cjk', 'arabe'];
 const VARIANTS = ['a', 'b'];
-/** The card types: a stack missing one of them is a fixture that no longer reaches a card. */
-const BATCH = ['recette', 'minuteur', 'media', 'cinema', 'aspirateur', 'voiture', 'aeration', 'imprimante',
-  'animaux', 'plantes', 'tapis', 'air', 'encre', 'repas', 'garde-manger', 'alarme'];
+/** Every `CardType` of the source: a stack missing one of them is a fixture that no longer reaches a card. */
+const BATCH = cardTypes();
 const TEXT_BOXES = '[data-tone-box], .milieu *';
 
 const COUNTER_PROOFS = {

@@ -213,7 +213,10 @@ suivantes par une convention de dépôt, sans filet automatique :
 - **Pile de cartes** (détail : `docs/claude/pile-de-cartes.md`) : rangs, prise
   de place, retour à 60 s, budget par genre de bloc, cadre et jetons, glissement,
   « plus tard », ajout d'un type de carte ; contrôle de rendu
-  `app/outils/verifier-pile.mjs`.
+  `app/outils/verifier-pile.mjs` (échoue si un `CardType` n'a pas de fixture). Les
+  16 types, leurs rangs, les rôles d'appareils, l'ordre de fusion : même fichier.
+  Exemple `maison.appareils` (validé par `make test-composant`) :
+  `docs/claude/pile-de-cartes-appareils.example.yaml`.
 - **Teintes de la carte média** : `app/src/tones.ts`,
   `app/src/rendu/poster-sampler.ts`, `app/src/boot/card-tones.ts`; contrôle de
   rendu `app/outils/verifier-carte-media.mjs`.

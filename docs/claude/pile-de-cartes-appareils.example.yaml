@@ -1,0 +1,87 @@
+# Example `maison:` block for the card stack: one `appareils` entry per appliance type.
+# Every entity id below is a placeholder; replace each with an entity of your own house.
+# Paste the block into the YAML export of the screens (key `maison:` next to `ecrans:`).
+# `tests/composant/test_exemple_appareils.py` validates this file against the contract
+# (`contrat/maison.schema.json`) and fails if a type is missing or a role is wrong.
+#
+# `piece`: a room name, or "maison" for an appliance shown on every tablet. A "maison"
+# appliance only shows while its card waits for a gesture (rank 2): that is useful for the
+# printer, vacuum, car and pets, and pointless for air, alarme, encre, plantes and tapis
+# (their cards are never rank 2), so those are given a room here.
+# Roles marked (required) must be present; any role the contract does not list for the type
+# is refused. `seuil` is required for `air` and `encre`, optional for `plantes`, forbidden
+# for every other type.
+maison:
+  sources: []
+  appareils:
+    - type: imprimante
+      piece: maison
+      entites:
+        etat: sensor.example_printer_status          # (required)
+        progression: sensor.example_printer_progress # (required)
+        finTache: sensor.example_printer_end_time
+        couche: sensor.example_printer_layer
+        couchesTotal: sensor.example_printer_layers_total
+        tache: sensor.example_printer_task
+        couverture: image.example_printer_cover
+        camera: camera.example_printer
+        pause: button.example_printer_pause          # button.* only
+        reprise: button.example_printer_resume
+        arret: button.example_printer_stop
+        erreur: binary_sensor.example_printer_error
+        ams: [sensor.example_printer_slot_1, sensor.example_printer_slot_2]  # at most 4
+    - type: aspirateur
+      piece: maison
+      entites:
+        aspirateur: vacuum.example_robot             # (required)
+        plan: image.example_robot_map
+        erreur: sensor.example_robot_error
+    - type: voiture
+      piece: maison
+      entites:
+        batterie: sensor.example_car_battery         # (required)
+        branchee: binary_sensor.example_car_plugged  # (required)
+        enCharge: binary_sensor.example_car_charging
+        autonomie: sensor.example_car_range
+        limite: number.example_car_charge_limit
+        finCharge: sensor.example_car_charge_end
+        demarrerCharge: switch.example_car_charge_start
+        arreterCharge: switch.example_car_charge_stop
+    - type: animaux
+      piece: Kitchen
+      entites:                                       # at least one of the four problems
+        fontaineVide: binary_sensor.example_fountain_empty
+        filtre: binary_sensor.example_fountain_filter
+        panneFontaine: binary_sensor.example_fountain_fault
+        panneDistributeur: binary_sensor.example_feeder_fault
+        joursFiltre: sensor.example_fountain_filter_days
+        nourrir: number.example_feeder_portions
+    - type: plantes
+      piece: Living room
+      seuil: 30                                      # optional: moisture below which to water
+      entites:
+        sondes: [sensor.example_plant_a_moisture, sensor.example_plant_b_moisture]  # (required)
+        habitude: input_boolean.example_plants_watered
+    - type: tapis
+      piece: Office
+      entites:
+        vitesse: sensor.example_treadmill_speed      # (required)
+        pas: sensor.example_treadmill_steps
+        distance: sensor.example_treadmill_distance
+        reglageVitesse: number.example_treadmill_target_speed
+        arret: button.example_treadmill_stop
+    - type: air
+      piece: Living room
+      seuil: 35                                      # (required) PM2.5 above which air is bad
+      entites:
+        pm25: sensor.example_air_pm25                # (required)
+        purificateur: fan.example_air_purifier       # (required)
+    - type: alarme
+      piece: Hall
+      entites:
+        zones: [alarm_control_panel.example_zone_a, alarm_control_panel.example_zone_b]  # (required)
+    - type: encre
+      piece: Office
+      seuil: 15                                      # (required) level (%) below which to warn
+      entites:
+        niveaux: [sensor.example_ink_black, sensor.example_ink_cyan]  # (required)

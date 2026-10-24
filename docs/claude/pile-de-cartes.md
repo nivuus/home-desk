@@ -1,134 +1,211 @@
-# Pile de cartes (lot 1)
+# Card stack
 
-Spec : `docs/superpowers/specs/2026-10-24-pile-de-cartes-design.md`. Ce fichier dit
-où vit chaque règle dans le code, pas pourquoi elle a été choisie.
+Spec (French, binding): `docs/superpowers/specs/2026-10-24-pile-de-cartes-design.md`. This file
+says where each rule lives in the code, not why it was chosen. Example configuration:
+`docs/claude/pile-de-cartes-appareils.example.yaml`.
 
-## Le modèle
+## Card types
 
-- **Rangs** (`app/src/stack/types.ts`, attribués par le `detect` de chaque carte) :
-  0 recette ouverte · 1 minuteur · 2 attend un geste (aspirateur bloqué ou en pause,
-  voiture à brancher, aération, impression terminée, échouée ou en erreur) · 3
-  musique/film (`media`, `cinema`) · 4 tourne tout seul (aspirateur qui passe, charge,
-  impression en cours ou en pause) · 5 rappels doux (lot 3).
-- **Ordre dans un rang** (`stack/order.ts`) : la position du mode de la carte
-  (`MODE_OF`) dans `agencement.modes` ; un type absent finit son rang ; tri stable.
-- **Collecte** (`stack/collect.ts`) : chaque module de `app/src/cards/` détecte ses
-  cartes, les clés « plus tard » sont retirées, puis `orderStack`. `alerte` reste hors
-  pile et prend le bloc, minuteur compris (`boot/home.ts`).
-- **Carte affichée** (`stack/follow.ts`, pur) : une carte plus prioritaire ne prend la
-  place qu'à son **apparition** ; une carte déjà là attend. Après `RETURN_MS` =
-  60 000 ms sans toucher, retour à la tête (`boot/home-stack.ts`, jeton
-  `jetonRetourPile`).
-- **La grille de commandes suit la carte de tête**, jamais la carte affichée
-  (`stackHead` dans `boot/home.ts`) : glisser ne réordonne jamais les commandes.
-- Pile vide : le bloc par défaut de l'écran revient (`agencement.blocDefaut`).
+`CardType` (`app/src/stack/types.ts`) has **16** members. Each is drawn by a module of
+`app/src/cards/` registered in `MODULES` (`stack/collect.ts`); its `detect(f, s)` gives the card's
+stable key (`${type}:${main entity}`) and its rank. The condition is the one the code tests.
 
-## Budget par genre de bloc
+| Type | Rank | Source | Condition |
+|---|---|---|---|
+| `recette` | 0 | screen | a recipe is in progress (`recetteUid`) |
+| `minuteur` | 1 | screen | the most urgent timer of the room, running or paused |
+| `aeration` | 2 | screen | an opening of the room is open and `CONDITIONS.aeration` holds (heating on, or rain) |
+| `aspirateur` | 2 or 4 | screen + house | state `error` or `paused` = 2; `cleaning` or `returning` = 4; otherwise no card |
+| `voiture` | 2 or 4 | screen + house | charging (`enCharge` is `on`) = 4; unplugged AND battery under `limite` = 2 (no `limite` declared: never "to plug in") |
+| `imprimante` | 2 or 4 | house | `print_status`: `running`/`prepare`/`slicing`/`pause` = 4; `finish`/`failed` = 2 until the next job; `erreur` `on` = 2; `idle`, `init`, `offline`, unreadable = no card |
+| `animaux` | 2 | house | at least one of `fontaineVide`, `filtre`, `panneFontaine`, `panneDistributeur` is `on` |
+| `media` | 3 | screen | the source the tablet follows (its own, else what plays elsewhere) |
+| `cinema` | 3 | screen | a source whose screen is on; a source that is both is one `cinema` card |
+| `tapis` | 4 | house | `vitesse` reads above zero |
+| `plantes` | 5 | house | a probe reads strictly under its threshold (its own `soil_warning`, else the appliance's `seuil`; neither: not judged) |
+| `air` | 5 | house | `pm25` strictly above `seuil` |
+| `alarme` | 5 | house | a zone is `armed_home`, `armed_away`, `armed_night`, `armed_vacation` or `armed_custom_bypass` |
+| `encre` | 5 | house | a cartridge level strictly under `seuil` |
+| `repas` | 5 | screen | the hour before the next planned meal, on a screen that declares the recipe view |
+| `garde-manger` | 5 | screen | a batch nears its date or a product runs short, on a screen that declares `#garde-manger` |
 
-`app/src/screen-budget.ts` (jumeau `custom_components/home_desk/budget.py`, corpus
-`contrat/cas-budget.json`) reçoit un genre de bloc, jamais un mode :
+Ranks: 0 recipe open, 1 timer, 2 waits for a gesture, 3 music or film, 4 runs on its own,
+5 soft reminders. `alerte` stays outside the stack and takes the whole block, timer included
+(`boot/home.ts`).
 
-| Genre | Hauteur | Quand |
-|---|---|---|
-| `carte` | 264 px (`blocCarte`) | la pile n'est pas vide ; seul genre qui descend l'échelle (synthèse réduite, puis sans rangée Ambiance) |
-| `haut` | 153 px | pile vide, bloc voiture |
-| `defaut` | 84 px | pile vide, repas ou agenda |
+## Appliance roles per type
 
-Un bloc empilé fait exactement 264 px : les points sont **dans** la carte.
+Copied from `contrat/maison.schema.json` (`$defs/appareil`, one `if/then` branch per type); the
+contract is the only place the table lives, `appliances.py` builds its mirror from it. A role not
+listed for its type is refused. List roles are arrays of entity ids, all others one entity id.
+`piece` is a room name or `maison`.
 
-## Le cadre de carte
+| Type | Required | Optional | `seuil` |
+|---|---|---|---|
+| `imprimante` | `etat`, `progression` | `finTache`, `couche`, `couchesTotal`, `tache`, `couverture`, `camera`, `pause`\*, `reprise`\*, `arret`\*, `erreur`, `ams` (list, at most 4) | forbidden |
+| `aspirateur` | `aspirateur` | `plan`, `erreur` | forbidden |
+| `voiture` | `batterie`, `branchee` | `enCharge`, `autonomie`, `limite`, `finCharge`, `demarrerCharge`, `arreterCharge` | forbidden |
+| `animaux` | at least one of `fontaineVide`, `filtre`, `panneFontaine`, `panneDistributeur` (all `binary_sensor`) | `joursFiltre` (`sensor`), `nourrir` (`number`/`input_number`) | forbidden |
+| `plantes` | `sondes` (list) | `habitude` | optional |
+| `tapis` | `vitesse` (`sensor`) | `pas`, `distance` (`sensor`), `reglageVitesse` (`number`/`input_number`), `arret`\* | forbidden |
+| `air` | `pm25` (`sensor`), `purificateur` (`fan`) | none | **required** |
+| `alarme` | `zones` (list of `alarm_control_panel`) | none | forbidden |
+| `encre` | `niveaux` (list of `sensor`) | none | **required** |
 
-`app/src/rendu/card-frame.ts` + `app/src/styles/cards.css`. 311 × 264, rayon 28 ;
-en-tête : étiquette (11 px, majuscules, une ligne), titre (15 px, deux lignes
-max), sous-titre facultatif ; zone milieu à la carte ; trois places de boutons
-ronds de 62 px, icône seule, le central primaire. Une place sans action réelle
-reste vide (`.vide`) ; un bouton `inert` garde sa place sans rien lier.
+\* `button.*` only (`$defs/entiteBouton`): the card presses it with `button.press`.
 
-- Fonds : `image` (l'image du sujet, intacte, couleurs tirées par
-  `poster-sampler.ts`, plaque opaque seulement où le texte n'atteint pas 5:1),
-  `solid` (un jeton), `theme`. Jamais de dégradé, jamais de voile.
-- Les 7 jetons unis (`SOLID_TOKENS`) : `neutral`, `timer`, `timer-late`,
-  `charging`, `plug-in`, `air-bad`, `calm` ; chacun a six rôles
-  `--carte-<jeton>-{fond,texte,icone,disque,primaire,sur-primaire}`.
-- Points de la pile (`rendu/stack.ts`) : une pastille pleine au bout de la
-  rangée d'étiquette, seulement s'il y a plus d'une carte.
-- Textes venus de HA : `dir="auto"`, hauteurs de ligne explicites, ellipse.
-- **Langue** : les chaînes des cartes (`app/src/cards/strings.ts`) sont en
-  français seulement, comme le reste de l'interface ; il manque une table de
-  chaînes indexée par locale. Nombres, durées et heures passent déjà par `Intl`.
+`recette`, `minuteur`, `media`, `cinema`, `aeration`, `repas` and `garde-manger` have no appliance:
+they read the screen. `aspirateur` and `voiture` read both.
 
-## Glissement et appui (`app/src/stack/swipe.ts`)
+## Merge order
 
-- `attachSwipe` sur `.pile`, jamais sur `.carte` (lit réécrit son `style`).
-  Le seuil est `SEUIL_PX` de `geste.ts` ; geste vertical laissé à la page (`pan-y`).
-- **Un contact par carte** : un second `pointerdown` (le fantôme de la WebView,
-  ou un second doigt) est arrêté en phase de capture pendant un geste.
-- `cardPress` : retour `.appuye` au contact, **action au relâcher** si le doigt a
-  bougé de moins de `SEUIL_PX` ; un glissement parti d'un bouton (pas de volume
-  compris) ne le déclenche pas. Option `hold` : répétition tenue
-  (`hold-repeat.ts`). L'état d'appui vit par élément (`WeakMap`) et survit à un
-  rendu.
+`cardEntities` (`stack/appliances.ts`) builds the entities of one card type for a screen:
+
+1. Every declaration of the same card key is merged, field by field: the **screen's own** first
+   (the most specific), then the **room's** appliances (`piece` equals the screen's `nom`
+   exactly), then the **house's** (`piece` = `maison`). Earlier declarations win; later ones only
+   fill what is undeclared.
+2. Only then is the rank computed, on the merged shape: a house appliance is judged by the rank
+   its merged card would have.
+
+Room names compare as configured, in any script. A role the contract requires and an adapter
+cannot find throws (`requiredRole`): a corrupt house, never a silent card.
+
+## House-wide appliances
+
+An appliance with `piece: maison` shows on every tablet, but **only while its merged card is
+rank 2** (`appliancesFor`). So it fits cards that wait for a gesture: a finished or failed
+print, a stuck or paused robot, a car to plug in, an empty fountain. A house-wide `tapis`
+(rank 4) or `plantes`, `air`, `alarme`, `encre` (rank 5) never shows; give those a room. An
+appliance of the screen's own room shows at any rank.
+
+## Absent roles
+
+A role whose entity is missing from the states, `unavailable` or `unknown` (or not a number
+where one is read) is **absent**:
+
+- a reading: its line is omitted, and it does not count toward a card's condition (a probe or
+  cartridge that cannot be read is not judged; an unreadable `etat` or `aspirateur` gives no card);
+- a button: its place stays empty (`.vide`), never a dead button. Left, centre and right keep
+  their position;
+- a stepper bound (`reglageVitesse` without `step`, `min` or `max`): both slots stay empty
+  rather than a step of ours.
 
 ## « Plus tard »
 
-Masque une carte **2 h sur toutes les tablettes**. L'état vit dans l'intégration :
-`custom_components/home_desk/plus_tard.py`, un `Store`
-(`.storage/home_desk.plus_tard`), à l'échelle de la maison, jamais une écriture
-de configuration (ne passe pas par `garde_ecran.py`). Commandes websocket
-`home_desk/plus_tard` et `home_desk/plus_tard/abonner`. La tablette
-(`stack/snooze.ts`) suit l'ensemble poussé et fait aussi expirer chaque clé à son
-échéance sur **sa propre horloge**. Bouton : `laterButton` (`cards/actions.ts`),
-sur la carte aération.
+Hides a card for **2 h on every tablet**. The state lives in the integration, not in a browser:
+`custom_components/home_desk/plus_tard.py`, a Home Assistant `Store` (`.storage/home_desk.plus_tard`),
+house-wide, `SNOOZE_S = 7200` in `const.py`. It is not a config write and does not go through
+`garde_ecran.py`. WebSocket commands `home_desk/plus_tard` (a card key) and
+`home_desk/plus_tard/abonner` (the active set, pushed on every change and expiry). The tablet
+(`stack/snooze.ts`) follows the pushed set and also expires each key at its end on **its own
+clock**, so a silent subscription cannot keep a card hidden. `collectStack` removes snoozed keys
+before ordering. Button: `laterButton` (`cards/actions.ts`).
 
-## Voiture : champs du formulaire
+## Ordering and the displayed card
 
-`CHAMPS_VOITURE` (sept obligatoires) et `CHAMPS_VOITURE_OPTIONNELS`
-(`custom_components/home_desk/objets.py`) : `limite` (`number`/`input_number`),
-`finCharge` (`sensor` horodatage), `demarrerCharge`, `arreterCharge`,
-`boutonLimite` (`button` seulement, pressés par `button.press`). Tout champ du
-contrat doit être dans le formulaire, sinon l'enregistrer l'efface. Sans `limite`,
-jamais « à brancher ».
+- **Order** (`stack/order.ts`): by rank, then by the position of the card's mode (`MODE_OF`:
+  `recette`, `minuteur`, `media`, `cinema`, `aspirateur` = `menage`, `aeration`, `voiture`) in
+  `agencement.modes`; a type with no mode, or whose mode is not listed, ends its rank; stable.
+- **Displayed card** (`stack/follow.ts`, pure): a higher-priority card takes the place only at
+  its **appearance**; one already there waits. After `RETURN_MS` = 60 000 ms without a touch the
+  stack returns to its head (`boot/home-stack.ts`).
+- **The command grid follows the head card**, never the displayed one (`stackHead`,
+  `boot/home.ts`): swiping never reorders the commands.
+- Empty stack: the screen's default block returns (`agencement.blocDefaut`).
 
-## Imprimante 3D (`app/src/cards/printer.ts`)
+## Swipe and dots
 
-Appareil de la maison seulement (aucune source d'écran). Table des états tirée de
-ha-bambulab (sources citées en tête du module) : `print_status` `running`/`prepare`/
-`slicing`/`pause` → rang 4, `finish`/`failed` → rang 2 jusqu'au travail suivant (rien
-ne dit « plateau retiré »), `print_error` à `on` pendant un travail → rang 2 (filament
-épuisé compris) ; `idle`, `init`, `offline`, illisible → aucune carte. Boutons
-`pause`/`reprise`/`arret` : `button.*` seulement (`$defs/entiteBouton` du contrat
-maison), vides quand l'intégration les rend `unavailable`. Caméra : tenue, elle
-couvre la carte (`CardFrame.overlay`, `cards/printer-camera.ts`, `hold.fire` de
-`cardPress`) ; un glissement la masque au seuil (`onEnd` au désarmement) ; au plus
-5 s (`DELAI_SECOURS_MS`). Bobines AMS : `cards/printer-spools.ts`, `styles/printer.css`.
+- `attachSwipe` (`stack/swipe.ts`) sits on `.pile`, never on `.carte` (lit rewrites its `style`).
+  The threshold is `SEUIL_PX` of `geste.ts`; vertical gestures are left to the page (`pan-y`).
+  No wrap: at either end the card moves a quarter of the finger and snaps back (180 ms slide).
+- **One contact per card**: a second `pointerdown` (the WebView's phantom, or a second finger)
+  is stopped in the capture phase during a gesture.
+- `cardPress`: `.appuye` on contact, **action on release** if the finger moved less than
+  `SEUIL_PX`; a swipe that starts on a button (volume steppers included) does not fire it. The
+  `hold` option repeats while held (`hold-repeat.ts`). Press state lives per element (`WeakMap`).
+- **Dots** (`rendu/stack.ts`): one per card, the current one elongated, inside the card at the end
+  of the label row, only when the stack holds more than one card (`data-cards` on `.pile`).
 
-## Ajouter un type de carte
+## Height budget per block kind
 
-1. `CardType` (`stack/types.ts`) ; son mode dans `MODE_OF` (`stack/order.ts`) s'il en a un.
-2. `app/src/cards/<carte>.ts` : `detect(f, s)` (clé stable `${type}:${entité}`,
-   rang) et `frame(card, f, s)` → `CardFrame` ; chaînes dans `cards/strings.ts`.
-3. L'enregistrer dans `MODULES` (`stack/collect.ts`).
-4. Tests vitest sur fixtures (`app/tests/card-aides.ts`), jamais d'entité réelle.
-5. L'ajouter au contrôle de rendu : la fixture de `app/outils/pile-fixture.js`
-   (l'imprimante : `pile-fixture-printer.js`) et la liste `BATCH` de `verifier-pile.mjs`.
+`app/src/screen-budget.ts` (twin `custom_components/home_desk/budget.py`, corpus
+`contrat/cas-budget.json`) takes a block kind, never a mode:
 
-## Lancer les contrôles
+| Kind | Height | When |
+|---|---|---|
+| `carte` | 264 px (`blocCarte`) | the stack is not empty; the only kind that steps down the scale |
+| `haut` | 153 px | empty stack, car block |
+| `defaut` | 84 px | empty stack, meal or agenda |
+
+A stacked block is exactly 264 px: the dots are inside the card.
+
+## Card frame
+
+`app/src/rendu/card-frame.ts` + `app/src/styles/cards.css`. 311 x 264, radius 28; header: label
+(11 px, upper case, one line), title (15 px, two lines at most), optional subtitle; a middle zone;
+three round 62 px buttons, icon only, the centre one primary. A place with no real action stays
+empty.
+
+- Backgrounds: `image` (the subject's picture, intact; colours from `poster-sampler.ts`; an
+  opaque plate only where text would fall under 5:1), `solid` (a token), `theme`. Never a
+  gradient or a veil.
+- The 7 solid tokens (`SOLID_TOKENS`): `neutral`, `timer`, `timer-late`, `charging`, `plug-in`,
+  `air-bad`, `calm`; each has six roles `--carte-<token>-{fond,texte,icone,disque,primaire,sur-primaire}`.
+- Text from HA: `dir="auto"`, explicit line heights, one-line ellipsis.
+- **Language**: card strings (`app/src/cards/strings.ts`) are French only, like the rest of the
+  interface; a locale-indexed string table is missing. Numbers, durations and times already go
+  through `Intl`.
+
+## Car form fields
+
+`CHAMPS_VOITURE` (seven required) and `CHAMPS_VOITURE_OPTIONNELS`
+(`custom_components/home_desk/objets.py`): `limite` (`number`/`input_number`), `finCharge`
+(timestamp `sensor`), `demarrerCharge`, `arreterCharge`, `boutonLimite` (`button` only, pressed by
+`button.press`). Every contract field must be in the form, or saving erases it.
+
+## 3D printer (`app/src/cards/printer.ts`)
+
+House appliance only (no screen source). State table from ha-bambulab (sources cited at the head
+of the module). `finish`/`failed` stay rank 2 until the next job (nothing says "plate removed");
+`print_error` `on` during a job is rank 2 (filament runout included). Buttons `pause`/`reprise`/
+`arret` are `button.*`, empty when the integration reports them `unavailable`. Camera: held, it
+covers the card (`CardFrame.overlay`, `cards/printer-camera.ts`); a swipe hides it at the
+threshold; at most 5 s (`DELAI_SECOURS_MS`). AMS spools: `cards/printer-spools.ts`,
+`styles/printer.css`.
+
+## Adding a card type
+
+1. Add it to `CardType` (`stack/types.ts`) and, if it has one, its mode to `MODE_OF` (`stack/order.ts`).
+2. `app/src/cards/<card>.ts`: `detect(f, s)` (stable key, rank) and `frame(card, f, s)`; strings
+   in `cards/strings.ts`. Appliance types read through `cardEntities`.
+3. Register it in `MODULES` (`stack/collect.ts`).
+4. vitest tests on fixtures (`app/tests/card-aides.ts`), never a real entity.
+5. Add a fixture to `app/outils/pile-fixture*.js`. `verifier-pile.mjs` reads the list of types
+   from `types.ts` (`outils/pile-types.mjs`) and **fails** if a type has no card in the fixture.
+6. An appliance type also needs a branch in `contrat/maison.schema.json` (then `make contrat`),
+   its mirror cases in `contrat/cas-maison.json`, and an entry in the example YAML (a test fails
+   otherwise).
+
+## Running the checks
 
 ```bash
-cd app && node outils/verifier-pile.mjs          # 0 faute attendue, sortie 0
-node outils/verifier-pile.mjs --contre-epreuve   # carte de 300 px : DOIT échouer
-# autres contre-épreuves : =points, =contraste, =sans-points, =points-dehors,
-# =carte-seule, =trois-lignes, =bobines, =bobine-active ;
-# mutants de swipe.ts : --mutant=lock|threshold|contact|hold-end — chacun DOIT échouer
+cd app && node outils/verifier-pile.mjs          # expect 0 faults, exit 0
+node outils/verifier-pile.mjs --contre-epreuve   # cards forced to 300 px: MUST fail
+# other counter-proofs, each MUST fail: =points, =contraste, =sans-points, =points-dehors,
+# =carte-seule, =trois-lignes, =bobines, =bobine-active
+# swipe.ts mutants, each MUST fail: --mutant=lock|threshold|contact|hold-end
 ```
 
-Hors Home Assistant : `src/` empaqueté par esbuild, Chromium réel 343 × 585,
-police de repli du système. Mesures partagées avec la carte média :
-`outils/card-check.mjs`. Les gestes sont de vrais points tactiles (CDP). La règle des
-points lit le nombre de cartes que la pile déclare (`data-cards` sur `.pile`,
-`renderStack`) : plusieurs cartes exigent un point chacune, une seule les interdit — sur
-les pages réelles de `verifier-rendu.mjs` comme ici.
+Outside Home Assistant: `src/` bundled by esbuild, real Chromium 343 x 585, the system's
+fallback font. For every `CardType` of the source, in two variants and three scripts (Latin,
+CJK, Arabic), it checks 311 x 264, two-line titles, nothing past 585 px, worst-pixel contrast
+(5:1 text, 4.5:1 icons and dots), the dots rule; then real CDP touches (`pile-touches.mjs`).
+Measures are shared with the media card (`outils/card-check.mjs`).
 
-**À lancer par le propriétaire, sur le HA réel** : `verifier-rendu.mjs` et
-`mesurer-hauteurs.mjs` (mis à jour à la tâche 6, seulement vérifiés en syntaxe :
-ils exigent la page servie par HA et son jeton).
+The example appliances are checked by `make test-composant`
+(`tests/composant/test_exemple_appareils.py`): the YAML is read by the importer's parser and
+validated by `schema.validate_house`, and must show one entry per appliance type.
+
+**To run by the owner on the real HA**: `verifier-rendu.mjs` and `mesurer-hauteurs.mjs` (syntax
+checked only; they need the page served by HA and its token).
