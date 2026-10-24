@@ -7,16 +7,22 @@
  *  `demarrerClim`/`arreterClim`. They are documented here, not in `ecran.ts`: a comment there
  *  shifts the comment registry (`outils/verdicts-commentaires.tsv`, keyed by line).
  *
+ *  The car comes from the screen (`piece.voiture`) and from the house appliances
+ *  (`stack/appliances.ts`), merged into one card per battery. The appliance declares no climate
+ *  and no limit button: those places stay empty for a car only the house declares.
+ *
  *  The climate button keeps the optimistic flight of the car block (`rendu/voiture.ts`): the car
  *  answers one to three minutes late, and a second order in flight would contradict the first. */
 import { html } from 'lit';
 import type { Frame } from '../boot/frame';
 import type { ScreenState } from '../boot/state';
+import type { Appareil } from '../configuration';
 import type { Voiture } from '../ecran';
 import type { Etat } from '../etat';
 import type { CardButton, CardFrame } from '../rendu/card-frame';
 import { actionsVoiture } from '../rendu/voiture';
-import type { Card } from '../stack/types';
+import { cardEntities, requiredRole, role } from '../stack/appliances';
+import type { Card, Rank } from '../stack/types';
 import { cardAct } from './actions';
 import { clockTime, kilometres, numberOf, percent } from './format';
 import { S } from './strings';
@@ -29,17 +35,50 @@ const value = (etat: Etat, id: string | undefined): number | null =>
 const is = (etat: Etat, id: string, state: 'on' | 'off'): boolean =>
   etat.estUtilisable(id) && etat.lire(id)!.etat === state;
 
-function charging(etat: Etat, v: Voiture): boolean { return is(etat, v.enCharge, 'on'); }
+/** A car as the card reads it: the battery and the plug, everything else optional. `clim` is the
+ *  screen's alone (its button drives the screen's car block, `rendu/voiture.ts`). */
+type Car = { batterie: string; branchee: string } & Partial<Pick<Voiture, 'enCharge' | 'autonomie'
+  | 'limite' | 'finCharge' | 'demarrerCharge' | 'arreterCharge' | 'boutonLimite' | 'clim'>>;
 
-export function detect(_f: Frame, s: ScreenState): Card[] {
-  const v = s.piece.voiture;
-  if (v === undefined) return [];
-  const key = `${TYPE}:${v.batterie}`;
-  if (charging(s.etat, v)) return [{ key, type: TYPE, rank: 4 }];
+const OPTIONAL_ROLES = ['enCharge', 'autonomie', 'limite', 'finCharge', 'demarrerCharge', 'arreterCharge'] as const;
+
+function adapt(a: Appareil): Car {
+  const car: Car = { batterie: requiredRole(a, 'batterie'), branchee: requiredRole(a, 'branchee') };
+  for (const r of OPTIONAL_ROLES) {
+    const id = role(a, r);
+    if (id !== undefined) car[r] = id;
+  }
+  return car;
+}
+
+/** The screen's car in the card's shape: the climate's start/stop buttons and the note stay with
+ *  the car block. */
+function own(v: Voiture | undefined): Car | undefined {
+  if (v === undefined) return undefined;
+  const { demarrerClim: _on, arreterClim: _off, note: _note, ...car } = v;
+  return car;
+}
+
+const keyOf = (v: Car): string => `${TYPE}:${v.batterie}`;
+
+function charging(etat: Etat, v: Car): boolean { return v.enCharge !== undefined && is(etat, v.enCharge, 'on'); }
+
+function rankOf(s: ScreenState, v: Car): Rank | null {
+  if (charging(s.etat, v)) return 4;
   const level = value(s.etat, v.batterie);
   const limit = value(s.etat, v.limite);
   const toPlug = is(s.etat, v.branchee, 'off') && level !== null && limit !== null && level < limit;
-  return toPlug ? [{ key, type: TYPE, rank: 2 }] : [];
+  return toPlug ? 2 : null;
+}
+
+const cars = (s: ScreenState): Car[] =>
+  cardEntities(s, { type: TYPE, own: own(s.piece.voiture), adapt, key: keyOf, rank: rankOf });
+
+export function detect(_f: Frame, s: ScreenState): Card[] {
+  return cars(s).flatMap((v) => {
+    const rank = rankOf(s, v);
+    return rank === null ? [] : [{ key: keyOf(v), type: TYPE, rank }];
+  });
 }
 
 /** A button pressing `id`, or an empty place when the entity is not declared. */
@@ -54,13 +93,13 @@ function endTime(etat: Etat, id: string | undefined): string | undefined {
 }
 
 export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
-  const v = s.piece.voiture;
-  if (v === undefined || card.key !== `${TYPE}:${v.batterie}`) throw new Error(`car card: no car for ${card.key}`);
+  const v = cars(s).find((c) => keyOf(c) === card.key);
+  if (v === undefined) throw new Error(`car card: no car for ${card.key}`);
   const on = charging(s.etat, v);
   const level = value(s.etat, v.batterie);
   const range = value(s.etat, v.autonomie);
   const limit = value(s.etat, v.limite);
-  const climOn = is(s.etat, v.clim, 'on');
+  const climOn = v.clim !== undefined && is(s.etat, v.clim, 'on');
   const end = on ? endTime(s.etat, v.finCharge) : undefined;
   return {
     key: card.key,
@@ -76,7 +115,7 @@ export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
       press(v.boutonLimite, { icon: 'batterie', label: S.carLimit }),
       on ? press(v.arreterCharge, { icon: 'stop', label: S.carStop, primary: true })
         : press(v.demarrerCharge, { icon: 'lecture', label: S.carStart, primary: true }),
-      {
+      v.clim === undefined ? undefined : {
         icon: 'clim', label: climOn ? S.carClimStop : S.carClimStart,
         act: () => actionsVoiture().clim(!climOn),
         // An order in flight: the press would contradict it. Kept in place, bound to nothing.

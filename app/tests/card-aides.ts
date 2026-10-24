@@ -7,6 +7,7 @@ import type { VueMinuteur } from '../src/minuteur';
 import type { SourceResolue } from '../src/media';
 import type { Ecran } from '../src/ecran';
 import { Etat } from '../src/etat';
+import { EMPTY_HOUSE } from '../src/configuration';
 
 /** 2026-08-01 14:00 local, the instant every fixture frame is painted at. */
 export const T0 = new Date(2026, 7, 1, 14, 0).getTime();
@@ -22,7 +23,7 @@ export function frameWith(over: Partial<Frame> & { timers?: VueMinuteur[] } = {}
 }
 
 export const screenWith = (over: Record<string, unknown> = {}): ScreenState =>
-  ({ recetteUid: null, platRecette: '', pageRecette: 0, pageSourceIndex: [], measuredCard: null,
+  ({ recetteUid: null, platRecette: '', pageRecette: 0, pageSourceIndex: [], measuredCard: null, house: EMPTY_HOUSE,
      ...over }) as unknown as ScreenState;
 
 export const running = (timer: string, restantS: number, slot = 0, nom = ''): VueMinuteur =>
