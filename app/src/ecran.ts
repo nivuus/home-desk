@@ -65,6 +65,15 @@ export type Voiture = {
   clim: string;
   demarrerClim: string;
   arreterClim: string;
+  /** Card-stack plan (2026-10-24): the car card. All optional entity ids; a missing one leaves
+   *  its button's place empty. `limite`: the charge limit (a number); without it the car is never
+   *  "to plug in". `finCharge`: the charge's end time (a timestamp sensor). The three buttons
+   *  are `button.*` entities, pressed like `demarrerClim`/`arreterClim`. */
+  limite?: string;
+  finCharge?: string;
+  demarrerCharge?: string;
+  arreterCharge?: string;
+  boutonLimite?: string;
   /** Cf. la docstring du même champ sur `Ecran`. */
   note?: string;
 };

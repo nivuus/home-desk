@@ -18,4 +18,24 @@ export const S = {
   recipeFallback: 'Recette',
   recipeOpen: 'Rouvrir la recette',
   step: (n: number, total: number) => `Étape ${n}/${total}`,
+  vacuum: 'Aspirateur',
+  /** Vacuum states as Home Assistant names them; an unknown state falls back on `vacuumBusy`. */
+  vacuumStates: { cleaning: 'En cours', returning: 'Retour', paused: 'En pause', error: 'Bloqué' } as Record<string, string>,
+  vacuumBusy: 'En marche',
+  vacuumBase: 'Retour à la base',
+  vacuumRooms: 'Choisir les pièces',
+  car: 'Voiture',
+  carCharging: 'En charge',
+  carPlugIn: 'À brancher',
+  carLimit: 'Limite de charge',
+  carStart: 'Démarrer la charge',
+  carStop: 'Arrêter la charge',
+  carClimStart: 'Lancer la clim',
+  carClimStop: 'Arrêter la clim',
+  /** The end time and the limit, already formatted with `Intl` by the caller. */
+  chargeEnds: (time: string) => `Fin à ${time}`,
+  chargeLimit: (pct: string) => `Limite ${pct}`,
+  airing: 'À faire',
+  /** How long it has been open, already formatted with `Intl` by the caller. */
+  openSince: (duration: string) => `Ouvert depuis ${duration}`,
 } as const;

@@ -48,6 +48,11 @@
         "clim": { "$ref": "#/$defs/entite" },
         "demarrerClim": { "$ref": "#/$defs/entite" },
         "arreterClim": { "$ref": "#/$defs/entite" },
+        "limite": { "$ref": "#/$defs/entite" },
+        "finCharge": { "$ref": "#/$defs/entite" },
+        "demarrerCharge": { "$ref": "#/$defs/entite" },
+        "arreterCharge": { "$ref": "#/$defs/entite" },
+        "boutonLimite": { "$ref": "#/$defs/entite" },
         "note": { "type": "string" }
       }
     },
@@ -120,6 +125,7 @@
           "enum": [
             "agenda",
             "aspirateur",
+            "batterie",
             "book",
             "bulb",
             "case",

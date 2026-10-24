@@ -48,6 +48,8 @@ export const CHEMINS: Record<string, TemplateResult> = {
   // tracé proposé par la tâche 3 (cercle + aiguilles), délibérément non ajouté alors — son seul
   // appelant, `tuileMinuteur`, arrive avec ce fichier (cf. `rendu/minuteur.ts`).
   croix: svg`<path d="M6 6l12 12M18 6L6 18"/>`,
+  // The car's charge limit: a battery, a line at its limit.
+  batterie: svg`<rect x="6.5" y="5" width="11" height="16" rx="2.4"/><path d="M10 3h4M9.5 10h5"/>`,
   stop: svg`<rect x="6.5" y="6.5" width="11" height="11" rx="2.4"/>`,
   plus: svg`<path d="M12 5v14M5 12h14"/>`,
   minuteur: svg`<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/>`,

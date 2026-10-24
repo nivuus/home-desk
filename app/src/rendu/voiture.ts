@@ -17,6 +17,8 @@ export type EnVolClim = 'demarrage' | 'arret' | null;
 
 let actions = { clim(_start: boolean) {} };
 export function brancherVoiture(a: typeof actions) { actions = a; }
+/** The wired actions, read at press time (`cards/car.ts`). */
+export const actionsVoiture = (): typeof actions => actions;
 
 /** Un nombre publié par la voiture, ou `null`. Jamais une valeur inventée : une donnée absente
  *  disparaît de l'écran plutôt que de s'afficher à zéro — un « 0 % » faux sur une voiture
