@@ -12,7 +12,6 @@ import type { ContexteModes } from '../src/modes';
  *  le champ qu'il exerce, pour qu'un échec désigne sans ambiguïté la règle fautive. */
 export const CALME: ContexteModes = {
   alerte: false,
-  aspirateurEnMarche: false,
   ecranAllume: false,
   sourceJoue: false,
   ouvrantOuvertDepuisMs: 0,

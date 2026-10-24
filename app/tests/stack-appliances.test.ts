@@ -106,6 +106,13 @@ describe('the vacuum map', () => {
     expect(cards.map((c) => c.key)).toEqual([`aspirateur:${ROBOT}`]);
     expect(frameCard(cards[0], frameWith(), s).background).toEqual({ kind: 'image', url: '/m.png' });
   });
+  it('a room appliance and a house one on the same robot union their roles at any rank', () => {
+    const s = screen('Kitchen', { [ROBOT]: 'cleaning', [MAP]: ['idle', { entity_picture: '/m.png' }] },
+      [vacuumAt('Kitchen'), vacuumAt('maison', { plan: MAP })]);
+    const cards = collectStack(frameWith(), s);
+    expect(cards.map((c) => c.key)).toEqual([`aspirateur:${ROBOT}`]);
+    expect(frameCard(cards[0], frameWith(), s).background).toEqual({ kind: 'image', url: '/m.png' });
+  });
 });
 
 describe('the house car', () => {

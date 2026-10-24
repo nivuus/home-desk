@@ -48,14 +48,14 @@ describe('modePrincipal', () => {
   });
 
   it('une alerte prime sur tout le reste', () => {
-    expect(modePrincipal({ ...CALME, alerte: true, aspirateurEnMarche: true, ecranAllume: true }))
+    expect(modePrincipal({ ...CALME, alerte: true, ecranAllume: true }))
       .toBe('alerte');
   });
 
   // Card-stack plan, task 6 (2026-10-24): the timer, the recipe, the vacuum, the media and the
   // airing are stack cards (`stack/collect.ts`); they never take the block as a mode again.
   it('a mode that became a card never takes the block', () => {
-    for (const sur of [{ minuteurEnCours: true }, { recetteEnCours: true }, { aspirateurEnMarche: true },
+    for (const sur of [{ minuteurEnCours: true }, { recetteEnCours: true },
       { ecranAllume: true }, { sourceJoue: true },
       { ouvrantOuvertDepuisMs: 11 * 60_000, chauffageEnMarche: true }]) {
       expect(modePrincipal(ctx(sur)), JSON.stringify(sur)).toBe('defaut');
@@ -474,7 +474,7 @@ describe('modePrincipal — la hierarchie devient une liste', () => {
     expect(modePrincipal(ctx({ alerte: true, blocDefaut: 'voiture', modes: inverse }))).toBe('voiture');
   });
 
-  it('CONDITIONS couvre les neuf modes', () => {
-    expect(Object.keys(CONDITIONS).sort()).toEqual([...AGENCEMENT_DEFAUT.modes].sort());
+  it('CONDITIONS covers every mode but menage, which only orders the vacuum card', () => {
+    expect(Object.keys(CONDITIONS).sort()).toEqual(AGENCEMENT_DEFAUT.modes.filter((m) => m !== 'menage').sort());
   });
 });

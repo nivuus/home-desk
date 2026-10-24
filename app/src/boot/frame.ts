@@ -86,9 +86,6 @@ export function computeFrame(s: ScreenState): Frame {
 
   const ctx: ContexteModes = {
     alerte: alerte !== null,
-    aspirateurEnMarche: piece.aspirateur !== undefined
-      && etat.estUtilisable(piece.aspirateur)
-      && ['cleaning', 'returning', 'error'].includes(etat.lire(piece.aspirateur)!.etat),
     ecranAllume,
     // What the card follows, own or remote (spec 2026-10-23): music in the bedroom puts the
     // living-room tablet in `media` mode too.

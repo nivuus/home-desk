@@ -52,7 +52,7 @@ export function afterStackPaint(s: ScreenState, f: Frame): void {
   s.ancreProgression = card.type === 'media' || card.type === 'cinema'
     ? ancrerProgression(sourceOf(card, f).progression, f.maintenantMs, horlogeMonotone())
     : null;
-  if (frame.background.kind === 'image') afterCardPaint(s, frame.background.url);
+  if (frame.background.kind === 'image') afterCardPaint(s, frame.key, frame.background.url, frame.tones);
   else s.measuredCard = null;
 }
 

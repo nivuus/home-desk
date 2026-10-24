@@ -2,7 +2,7 @@
  *  tablet follows (own, else what plays elsewhere). Both draw the existing media card
  *  (`mediaFrame`); only the key differs. A source that is both is a single `cinema` card. */
 import type { Frame } from '../boot/frame';
-import { tonesToPaint } from '../boot/card-tones';
+import { imageToPaint } from '../boot/card-tones';
 import type { ScreenState } from '../boot/state';
 import type { SourceResolue } from '../media';
 import { sourceKey } from '../media-choice';
@@ -35,5 +35,8 @@ export function frame(card: Card, f: Frame, s: ScreenState): CardFrame {
   const src = sourceOf(card, f);
   // Pausing a source of another room pins it; only the followed card can be that source.
   const remote = card.type !== 'cinema' && f.media.remote;
-  return { ...mediaFrame(src, f.maintenantMs, tonesToPaint(src, s.measuredCard), remote), key: card.key };
+  // A poster goes through the shared image path: a new track keeps the old poster until its own
+  // is read. No poster: the theme card `mediaFrame` draws.
+  const image = src.affiche === undefined ? undefined : imageToPaint(card.key, src.affiche, s.measuredCard);
+  return { ...mediaFrame(src, f.maintenantMs, image?.tones ?? { status: 'pending' }, remote), ...image, key: card.key };
 }

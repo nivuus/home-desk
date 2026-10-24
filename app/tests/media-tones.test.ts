@@ -9,7 +9,7 @@ vi.mock('../src/rendu/poster-sampler', async (original) => ({
   tonesFor,
 }));
 
-const { tonesToPaint, measureCard, afterCardPaint } = await import('../src/boot/card-tones');
+const { imageToPaint, measureCard, afterCardPaint } = await import('../src/boot/card-tones');
 
 const SOURCE = { nom: 'Musique', titre: 'Nude', affiche: '/api/vignette?url=a' } as SourceResolue;
 const SPEC = { w: 311, h: 260, boxes: [{ x: 16, y: 12, w: 80, h: 15 }] };
@@ -47,19 +47,62 @@ function screen(c: HTMLElement | null) {
 beforeEach(() => { tonesFor.mockReset(); });
 afterEach(() => { document.body.innerHTML = ''; });
 
-describe('tonesToPaint', () => {
-  it('pending, without asking, until the card was measured for this very poster', () => {
-    expect(tonesToPaint(SOURCE, null).status).toBe('pending');
-    expect(tonesToPaint(SOURCE, { url: '/api/vignette?url=other', spec: SPEC }).status).toBe('pending');
-    expect(tonesToPaint({ ...SOURCE, affiche: undefined }, { url: SOURCE.affiche!, spec: SPEC }).status)
-      .toBe('pending');
+const KEY = 'media:music';
+const OLD = '/api/vignette?url=old';
+const NEW = '/api/vignette?url=new';
+/** `tonesFor` answering per URL, as the cache would. */
+const byUrl = (m: Record<string, unknown>) => tonesFor.mockImplementation((url: string) => m[url] ?? { status: 'pending' });
+
+describe('imageToPaint', () => {
+  it('pending, without asking, until this very card was measured', () => {
+    expect(imageToPaint(KEY, NEW, null)).toEqual({ background: { kind: 'image', url: NEW }, tones: { status: 'pending' } });
+    // Another card's measurement never lends its image: the vacuum card never shows a poster.
+    expect(imageToPaint('aspirateur:r', NEW, { key: KEY, url: OLD, spec: SPEC }).tones.status).toBe('pending');
     expect(tonesFor).not.toHaveBeenCalled();
   });
 
-  it('asks the sampler with the measured card for the same poster', () => {
+  it('asks the sampler with the measured card for the same image', () => {
     tonesFor.mockReturnValue(READY);
-    expect(tonesToPaint(SOURCE, { url: SOURCE.affiche!, spec: SPEC })).toBe(READY);
-    expect(tonesFor).toHaveBeenCalledWith(SOURCE.affiche, SPEC);
+    expect(imageToPaint(KEY, NEW, { key: KEY, url: NEW, spec: SPEC }))
+      .toEqual({ background: { kind: 'image', url: NEW }, tones: READY });
+    expect(tonesFor).toHaveBeenCalledWith(NEW, SPEC);
+  });
+
+  // A camera token rotates every 5 minutes, a track changes its poster: the card keeps the image it
+  // shows, with its tones, while the new one is read — never a theme frame in between.
+  it('a new image still being read keeps the old image and its tones', () => {
+    const old = { status: 'ready', tones: { text: '#old' } };
+    byUrl({ [OLD]: old });
+    expect(imageToPaint(KEY, NEW, { key: KEY, url: OLD, spec: SPEC }))
+      .toEqual({ background: { kind: 'image', url: OLD }, tones: old });
+    // The new reading was started by this very paint, with the card's boxes.
+    expect(tonesFor).toHaveBeenCalledWith(NEW, SPEC);
+  });
+
+  it('swaps once the new reading is ready, and that paint asks no second one', () => {
+    const fresh = { status: 'ready', tones: { text: '#new' } };
+    byUrl({ [OLD]: READY, [NEW]: fresh });
+    const painted = imageToPaint(KEY, NEW, { key: KEY, url: OLD, spec: SPEC });
+    expect(painted).toEqual({ background: { kind: 'image', url: NEW }, tones: fresh });
+    const { s, minuteurFn } = screen(card());
+    s.measuredCard = { key: KEY, url: OLD, spec: SPEC };
+    afterCardPaint(s, KEY, NEW, painted.tones);
+    expect(s.measuredCard).toEqual({ key: KEY, url: NEW, spec: SPEC });
+    expect(minuteurFn).not.toHaveBeenCalled();
+  });
+
+  it('a new image that cannot be read paints the theme card, as before', () => {
+    for (const status of ['failed', 'unreadable']) {
+      byUrl({ [OLD]: READY, [NEW]: { status } });
+      expect(imageToPaint(KEY, NEW, { key: KEY, url: OLD, spec: SPEC }))
+        .toEqual({ background: { kind: 'image', url: NEW }, tones: { status } });
+    }
+  });
+
+  it('an old image the cache no longer holds ready: pending on the new one', () => {
+    byUrl({});
+    expect(imageToPaint(KEY, NEW, { key: KEY, url: OLD, spec: SPEC }))
+      .toEqual({ background: { kind: 'image', url: NEW }, tones: { status: 'pending' } });
   });
 });
 
@@ -84,8 +127,8 @@ describe('afterCardPaint', () => {
     const c = card();
     lay(c, { w: 0, h: 0, parent: null });
     const { s } = screen(c);
-    s.measuredCard = { url: SOURCE.affiche!, spec: SPEC };
-    afterCardPaint(s, SOURCE.affiche!);
+    s.measuredCard = { key: KEY, url: SOURCE.affiche!, spec: SPEC };
+    afterCardPaint(s, KEY, SOURCE.affiche!, { status: 'pending' });
     expect(tonesFor).not.toHaveBeenCalled();
     expect(s.measuredCard).toBeNull();
   });
@@ -93,8 +136,8 @@ describe('afterCardPaint', () => {
   it('a new measurement asks for the tones; a miss waits for onTonesReady', () => {
     tonesFor.mockReturnValue({ status: 'pending' });
     const { s, minuteurFn } = screen(card());
-    afterCardPaint(s, SOURCE.affiche!);
-    expect(s.measuredCard).toEqual({ url: SOURCE.affiche, spec: SPEC });
+    afterCardPaint(s, KEY, SOURCE.affiche!, { status: 'pending' });
+    expect(s.measuredCard).toEqual({ key: KEY, url: SOURCE.affiche, spec: SPEC });
     expect(tonesFor).toHaveBeenCalledWith(SOURCE.affiche, SPEC);
     expect(minuteurFn).not.toHaveBeenCalled();
   });
@@ -102,7 +145,7 @@ describe('afterCardPaint', () => {
   it('a cache hit schedules exactly one redraw', () => {
     tonesFor.mockReturnValue(READY);
     const { s, minuteurFn } = screen(card());
-    afterCardPaint(s, SOURCE.affiche!);
+    afterCardPaint(s, KEY, SOURCE.affiche!, { status: 'pending' });
     expect(minuteurFn).toHaveBeenCalledTimes(1);
     expect(minuteurFn).toHaveBeenCalledWith(s.dessiner, 0);
   });
@@ -110,9 +153,9 @@ describe('afterCardPaint', () => {
   it('the same measurement again does nothing: no paint loop', () => {
     tonesFor.mockReturnValue(READY);
     const { s, minuteurFn } = screen(card());
-    afterCardPaint(s, SOURCE.affiche!);
-    afterCardPaint(s, SOURCE.affiche!);
-    afterCardPaint(s, SOURCE.affiche!);
+    afterCardPaint(s, KEY, SOURCE.affiche!, { status: 'pending' });
+    afterCardPaint(s, KEY, SOURCE.affiche!, { status: 'pending' });
+    afterCardPaint(s, KEY, SOURCE.affiche!, { status: 'pending' });
     expect(tonesFor).toHaveBeenCalledTimes(1);
     expect(minuteurFn).toHaveBeenCalledTimes(1);
   });
@@ -120,8 +163,8 @@ describe('afterCardPaint', () => {
   it('a new poster on the same layout is measured again', () => {
     tonesFor.mockReturnValue({ status: 'pending' });
     const { s } = screen(card());
-    afterCardPaint(s, SOURCE.affiche!);
-    afterCardPaint(s, '/api/vignette?url=b');
+    afterCardPaint(s, KEY, SOURCE.affiche!, { status: 'pending' });
+    afterCardPaint(s, KEY, '/api/vignette?url=b', { status: 'pending' });
     expect(s.measuredCard!.url).toBe('/api/vignette?url=b');
     expect(tonesFor).toHaveBeenCalledTimes(2);
   });

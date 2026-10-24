@@ -47,22 +47,26 @@ export type CardSource<E> = {
   rank: (s: ScreenState, e: E) => Rank | null;
 };
 
-/** The entities of every card of one type this screen shows, one per card key. The screen's own
- *  declaration wins field by field — it is the more specific one — and the appliances fill what it
- *  leaves out. A house appliance's rank is read on that merged shape, the one its card would
- *  have. */
+/** The entities of every card of one type this screen shows, one per card key. Every declaration
+ *  of a key is merged first — the screen's own wins field by field, being the more specific, then
+ *  the room's appliances, then the house's — and only then is the card's visibility decided, on
+ *  that merged shape: the rank a house appliance is judged by is the one its card would have. */
 export function cardEntities<E extends object>(s: ScreenState, src: CardSource<E>): E[] {
+  const room = s.piece.nom;
+  const candidates = s.house.appareils
+    .filter((a) => a.type === src.type && (a.piece === room || a.piece === WHOLE_HOUSE))
+    // Stable: the room's appliances before the house's, each kept in its declared order.
+    .sort((a, b) => Number(a.piece === WHOLE_HOUSE) - Number(b.piece === WHOLE_HOUSE));
   const byKey = new Map<string, E>();
-  if (src.own !== undefined) byKey.set(src.key(src.own), src.own);
-  const merged = (a: Appareil): E => {
-    const e = src.adapt(a);
-    const known = byKey.get(src.key(e));
-    return known === undefined ? e : union(known, e);
+  const declare = (e: E): void => {
+    const k = src.key(e);
+    const known = byKey.get(k);
+    byKey.set(k, known === undefined ? e : union(known, e));
   };
-  const ofType = s.house.appareils.filter((a) => a.type === src.type);
-  for (const a of appliancesFor(ofType, s.piece.nom, (x) => src.rank(s, merged(x)))) {
-    const e = merged(a);
-    byKey.set(src.key(e), e);
-  }
-  return [...byKey.values()];
+  if (src.own !== undefined) declare(src.own);
+  for (const a of candidates) declare(src.adapt(a));
+  const shown = new Set(appliancesFor(candidates, room, (a) => src.rank(s, byKey.get(src.key(src.adapt(a)))!))
+    .map((a) => src.key(src.adapt(a))));
+  if (src.own !== undefined) shown.add(src.key(src.own));
+  return [...byKey].filter(([k]) => shown.has(k)).map(([, e]) => e);
 }

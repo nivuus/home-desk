@@ -20,10 +20,13 @@ import type { CardType } from './stack/types';
 export type ModePrincipal =
   'alerte' | 'recette' | 'minuteur' | 'menage' | 'cinema' | 'media' | 'aeration' | 'voiture' | 'defaut';
 export type Modulateur = 'invites' | 'chaleur';
+/** The modes that keep a condition. `menage` has none any more: it only orders the vacuum card
+ *  in its rank (`stack/order.ts`), and that card decides from the screen's and the house's robots
+ *  (`cards/vacuum.ts`). */
+export type ModeConditionne = Exclude<ModePrincipal, 'menage'>;
 
 export type ContexteModes = {
   alerte: boolean;
-  aspirateurEnMarche: boolean;
   /** L'écran de télévision est allumé — indépendant de « quelque chose joue ». */
   ecranAllume: boolean;
   sourceJoue: boolean;
@@ -110,7 +113,7 @@ function chaleurActive(c: ContexteModes): boolean {
  *  tablettes était exactement ça — un générateur de dashboards Lovelace, mort le 2026-08-02.
  *
  *  `defaut` rend `true` : c'est le repli, et c'est pour ça que l'agencement exige sa présence. */
-export const CONDITIONS: Record<ModePrincipal, (c: ContexteModes) => boolean> = {
+export const CONDITIONS: Record<ModeConditionne, (c: ContexteModes) => boolean> = {
   alerte: (c) => c.alerte,
   // Priorité 2 par défaut, devant le minuteur : pendant une cuisson, l'écran doit pouvoir ramener
   // à l'étape en cours. Le décompte du minuteur le plus urgent est repris dans la carte recette
@@ -120,7 +123,6 @@ export const CONDITIONS: Record<ModePrincipal, (c: ContexteModes) => boolean> = 
   // n'en a pas. Le mode ne dure que le temps du minuteur et rend la main de lui-même dès que les
   // trois helpers sont au repos.
   minuteur: (c) => c.minuteurEnCours,
-  menage: (c) => c.aspirateurEnMarche,
   cinema: (c) => c.ecranAllume,
   media: (c) => c.sourceJoue,
   // `aeration` n'est PAS une alerte et ne le redevient pas : `alertes.ts` a délibérément retiré la
@@ -141,12 +143,13 @@ export const CONDITIONS: Record<ModePrincipal, (c: ContexteModes) => boolean> = 
  *  the alert, which stays outside the stack and takes the whole block, and the two default blocks
  *  shown when the stack is empty. Every other mode became a card (`stack/collect.ts`); its
  *  condition stays in `CONDITIONS` for the card that reads it (`cards/airing.ts`). */
-const MODES_DU_BLOC: ReadonlySet<ModePrincipal> = new Set(['alerte', 'voiture', 'defaut']);
+const MODES_DU_BLOC: readonly ModePrincipal[] = ['alerte', 'voiture', 'defaut'] satisfies ModeConditionne[];
+const duBloc = (m: ModePrincipal): m is ModeConditionne => MODES_DU_BLOC.includes(m);
 
 /** The first ACTIVE block mode whose condition holds, in the screen's declared order
  *  (`agencement.ts`): `alerte`, `voiture` or `defaut`, never a mode that became a card. */
 export function modePrincipal(c: ContexteModes): ModePrincipal {
-  const actifs = (c.modes ?? AGENCEMENT_DEFAUT.modes).filter((m) => MODES_DU_BLOC.has(m));
+  const actifs = (c.modes ?? AGENCEMENT_DEFAUT.modes).filter(duBloc);
   return actifs.find((m) => CONDITIONS[m](c)) ?? 'defaut';
 }
 

@@ -69,7 +69,7 @@ beforeEach(() => { hote = document.createElement('div'); document.body.appendChi
  *  défaut). Point de départ commun à tous les tests de rangées ci-dessous, chacun n'y changeant
  *  que le champ qu'il exerce (`{ ...CTX_CALME, … }`). */
 const CTX_CALME: ContexteModes = {
-  alerte: false, aspirateurEnMarche: false, ecranAllume: false, sourceJoue: false,
+  alerte: false, ecranAllume: false, sourceJoue: false,
   ouvrantOuvertDepuisMs: 0, chauffageEnMarche: false, ilPleut: false, serrureDeverrouillee: false,
   temperatureExterieure: 18, soleilLeve: true, modeInvites: false,
   // Tâche 7 alimentera ce champ pour de bon (branchement de `listerMinuteurs`) ; ici, contexte

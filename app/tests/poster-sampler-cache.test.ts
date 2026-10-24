@@ -22,7 +22,7 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
 afterEach(() => { vi.restoreAllMocks(); });
 
 describe('tone cache', () => {
-  // `tonesToPaint` (`boot/card-tones.ts`) asks on every paint: a load still running must not be
+  // `imageToPaint` (`boot/card-tones.ts`) asks on every paint: a load still running must not be
   // started a second time.
   it('repeated calls for one poster while it loads start one load', () => {
     const sampler = vi.fn<Sampler>(() => new Promise(() => {}));
@@ -51,6 +51,20 @@ describe('tone cache', () => {
     expect(cache.tonesFor(URL_A, { ...CARD, h: 279, boxes: [{ x: 16, y: 12, w: 279, h: 38 }] }).status)
       .toBe('ready');
     expect(sampler).toHaveBeenCalledTimes(1);
+  });
+
+  // A camera token rotation, or a track change, reads a third poster: the one evicted must be the
+  // least recently painted, never the one still on screen while the new one is read.
+  it('the poster painted last is kept when a new one is read', async () => {
+    const sampler = vi.fn<Sampler>(async () => flatPoster());
+    const cache = createToneCache(sampler, () => ORIGIN);
+    cache.tonesFor(URL_A, CARD);
+    cache.tonesFor('/api/vignette?url=b', CARD);
+    await settle();
+    expect(cache.tonesFor(URL_A, CARD).status).toBe('ready');   // A back on screen
+    cache.tonesFor('/api/vignette?url=c', CARD);                // a third poster is read
+    expect(cache.tonesFor(URL_A, CARD).status).toBe('ready');
+    expect(sampler).toHaveBeenCalledTimes(3);
   });
 
   it('an unexpected sampler error is recorded as failed, logged, and not retried', async () => {

@@ -9,7 +9,7 @@
 import { html } from 'lit';
 import type { Frame } from '../boot/frame';
 import type { ScreenState } from '../boot/state';
-import { tonesToPaint } from '../boot/card-tones';
+import { imageToPaint } from '../boot/card-tones';
 import { openVacuumChoice } from '../boot/vacuum';
 import type { Appareil } from '../configuration';
 import type { CardFrame } from '../rendu/card-frame';
@@ -91,7 +91,7 @@ export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
       { icon: 'list', label: S.vacuumRooms, act: () => openVacuumChoice(s, id) },
     ],
     ...(map !== undefined
-      ? { background: { kind: 'image', url: map }, tones: tonesToPaint({ affiche: map }, s.measuredCard) }
+      ? imageToPaint(card.key, map, s.measuredCard)
       : { background: { kind: 'solid', token: 'neutral' } }),
     motion: { block: 'bloc:menage' },
   };

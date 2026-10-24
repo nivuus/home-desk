@@ -87,7 +87,7 @@ window.__poser = (cle, parPas, bandeau, texte) => {
   }
   const source = resoudreSource(etat, { ...DECL, piece: t.piece });
   const ctx = {
-    alerte: false, aspirateurEnMarche: false, ecranAllume: false, sourceJoue: true,
+    alerte: false, ecranAllume: false, sourceJoue: true,
     ouvrantOuvertDepuisMs: 0, chauffageEnMarche: false, ilPleut: false,
     serrureDeverrouillee: false, temperatureExterieure: 15, soleilLeve: true, modeInvites: false,
     minuteurEnCours: false, recetteEnCours: false,

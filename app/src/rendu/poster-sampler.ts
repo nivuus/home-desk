@@ -184,6 +184,9 @@ export function createToneCache(sampler: Sampler, origin: () => string) {
     tonesFor(url: string, card: CardSpec): ToneState {
       const entry = entries.get(url);
       if (entry === undefined) { start(url); return { status: 'pending' }; }
+      // Most recently painted last: eviction takes the oldest painted, never the one on screen.
+      entries.delete(url);
+      entries.set(url, entry);
       if (entry.status !== 'ready') return { status: entry.status };
       const key = cacheKey(url, card);
       if (entry.last?.key !== key) {
