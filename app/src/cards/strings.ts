@@ -83,4 +83,6 @@ export const S = {
   airMotor: (speed: string) => `Moteur ${speed}`,
   ink: "Niveaux d'encre",
   inkLabel: 'ENCRE BASSE',
+  /** More cartridges than the card has room for, the count already formatted with `Intl`. */
+  inkMore: (n: string) => `et ${n} autres`,
 } as const;

@@ -2,14 +2,14 @@
  *  state is drawn in every script — treadmill `a`: mid-range target with both steps, steps and
  *  distance; `b`: at its top speed (the faster slot empty), no steps, no stop button — air `a`:
  *  the purifier on with its favourite mode and motor speed; `b`: off, no favourite preset, no
- *  motor speed — ink `a`: five levels (more than the card has bars for); `b`: two, one unreadable.
+ *  motor speed — ink `a`: six levels (one more than the card has bars for, the one under the threshold last: the subtitle counts it); `b`: two, one unreadable.
  *  Names from Home Assistant are too long on purpose, in the three scripts. Invented ids only. */
 
 const NAMES = {
   latin: ['Cartouche noire grande capacité de l’imprimante du bureau', 'Cartouche cyan', 'Cartouche magenta du tiroir',
-    'Cartouche jaune', 'Cartouche photo gris'],
-  cjk: ['事務室のプリンターの大容量ブラックインクカートリッジ', 'シアン', 'マゼンタのインク', 'イエロー', 'フォトグレー'],
-  arabe: ['خرطوشة الحبر الأسود كبيرة السعة لطابعة المكتب', 'سماوي', 'أرجواني', 'أصفر', 'رمادي للصور'],
+    'Cartouche jaune', 'Cartouche photo gris', 'Cartouche gris clair'],
+  cjk: ['事務室のプリンターの大容量ブラックインクカートリッジ', 'シアン', 'マゼンタのインク', 'イエロー', 'フォトグレー', 'ライトグレー'],
+  arabe: ['خرطوشة الحبر الأسود كبيرة السعة لطابعة المكتب', 'سماوي', 'أرجواني', 'أصفر', 'رمادي للصور', 'رمادي فاتح'],
 };
 
 export function sensors(script, variant, room, ev) {
@@ -31,7 +31,7 @@ export function sensors(script, variant, room, ev) {
   ev(air.purificateur, a ? 'on' : 'off', a ? { preset_modes: ['Auto', 'Silent', 'Favorite'], percentage: 60 }
     : { preset_modes: ['Auto', 'Silent'] });
 
-  const levels = a ? ['85', '12', '60', '40', '9'] : ['70', 'unavailable'];
+  const levels = a ? ['85', '60', '40', '70', '90', '9'] : ['70', 'unavailable'];
   const niveaux = levels.map((v, i) => {
     const id = `sensor.pile_ink_${i}`;
     ev(id, v, { friendly_name: names[i], unit_of_measurement: '%' });

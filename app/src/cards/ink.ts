@@ -55,7 +55,8 @@ export function detect(_f: Frame, s: ScreenState): Card[] {
   });
 }
 
-/** The bars shown: all of them, or the `MAX_BARS` lowest in declared order. */
+/** The bars shown: all of them, or the `MAX_BARS` lowest in declared order (a cartridge under the
+ *  threshold is never the one hidden; the card says how many are). */
 function shown(all: Level[]): Level[] {
   if (all.length <= MAX_BARS) return all;
   const kept = new Set([...all].sort((a, b) => a.value - b.value).slice(0, MAX_BARS));
@@ -65,11 +66,14 @@ function shown(all: Level[]): Level[] {
 export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
   const i = inks(s).find((x) => keyOf(x) === card.key);
   if (i === undefined) throw new Error(`ink card: no appliance for ${card.key}`);
+  const all = levels(s, i);
+  const hidden = all.length - MAX_BARS;
   return {
     key: card.key,
     label: S.inkLabel,
     title: S.ink,
-    middle: html`<div class="encre-barres">${shown(levels(s, i)).map((l) => gaugeRow(nameOf(s.etat, l.id), l.value))}</div>`,
+    ...(hidden > 0 ? { subtitle: S.inkMore(new Intl.NumberFormat().format(hidden)) } : {}),
+    middle: html`<div class="encre-barres">${shown(all).map((l) => gaugeRow(nameOf(s.etat, l.id), l.value))}</div>`,
     buttons: [undefined, laterButton(s, card.key), undefined],
     background: { kind: 'solid', token: 'neutral' },
     motion: { block: 'bloc:encre' },

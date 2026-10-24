@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'lit';
 import { detect, frame } from '../src/cards/ink';
 import { wireCardActions } from '../src/cards/actions';
+import { S } from '../src/cards/strings';
 import type { Appareil } from '../src/configuration';
 import type { Frame } from '../src/boot/frame';
 import type { ScreenState } from '../src/boot/state';
@@ -79,6 +80,18 @@ describe('ink card — frame', () => {
     const b = bars(ink({ levels: ['90', '10', '80', '20', '5', '70'], names: [...NAMES, 'Gray'] }));
     expect(b).toHaveLength(5);
     expect(b.map((x) => x.querySelector('[dir="auto"]')!.textContent)).toEqual(['Cyan', 'Magenta', 'Yellow', 'Photo', 'Gray']);
+  });
+  it('hidden cartridges are counted in the subtitle, and the lowest are never the hidden ones', () => {
+    const six = frame(CARD, ...two(ink({ levels: ['90', '10', '80', '20', '70', '5'], names: [...NAMES, 'Gray'] })));
+    expect(six.subtitle).toBe(S.inkMore(new Intl.NumberFormat().format(1)));
+    const hote = document.createElement('div');
+    render(six.middle, hote);
+    const names = Array.from(hote.querySelectorAll('[dir="auto"]')).map((n) => n.textContent);
+    expect(names).toContain('Gray');
+    expect(names).not.toContain('Black');
+  });
+  it('no subtitle while every cartridge has its bar', () => {
+    expect(frame(CARD, ...two(ink({ levels: ['90', '10', '80', '20', '70'] }))).subtitle).toBeUndefined();
   });
   it('only the central button, which is later', () => {
     const fr = frame(CARD, ...two(ink()));

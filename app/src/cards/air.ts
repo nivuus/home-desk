@@ -10,7 +10,7 @@
  *  Background: the card exists only above the threshold, so it is always `air-bad`. The
  *  integration offers no air-quality level on the fan entity (docs: home-assistant.io
  *  /integrations/xiaomi_miio, 2026-10-24 — AQI is a separate monitor entity), so the colour is not
- *  graded by level and `air-good` has no caller.
+ *  graded by level.
  *
  *  Favourite: `fan.set_preset_mode` with the preset the entity itself lists. `xiaomi_miio` names
  *  it `Favorite` (same docs: "Auto, Silent, Favorite"); when `preset_modes` has no such entry the

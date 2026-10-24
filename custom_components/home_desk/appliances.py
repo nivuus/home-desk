@@ -60,8 +60,8 @@ def _patterned_entities(defs: dict) -> dict[str, Callable]:
 
 def _patterned_lists(defs: dict, patterned: dict[str, Callable]) -> dict[str, Callable]:
     """Every `$defs/liste*` other than `listeEntites`: an array whose items are
-    one patterned `entite*`. Keyed by the `$ref` a role uses, taking the same
-    `minItems`/`maxItems` beside it."""
+    one patterned `entite*`. Maps the `$ref` a role uses to the validator of an
+    ITEM; the role's own `minItems`/`maxItems` bound the array (`_role`)."""
     refs = {}
     for name, schema in defs.items():
         if not name.startswith("liste") or name == "listeEntites":
@@ -70,35 +70,29 @@ def _patterned_lists(defs: dict, patterned: dict[str, Callable]) -> dict[str, Ca
         if set(schema) - {"description"} != {"type", "items"} or schema["type"] != "array" \
                 or set(schema["items"]) != {"$ref"} or item not in patterned:
             raise _unsupported(f"$defs/{name}", schema)
-        refs[f"#/$defs/{name}"] = _ListOf(patterned[item])
+        refs[f"#/$defs/{name}"] = patterned[item]
     return refs
 
 
-class _ListOf:
-    """The item validator of a patterned list; `_role` adds the bounds."""
-
-    def __init__(self, item: Callable) -> None:
-        self.item = item
-
-
-def _role(name: str, role_schema: dict, entity: Callable, patterned: dict[str, Callable]) -> Callable:
+def _role(name: str, role_schema: dict, entity: Callable, patterned: dict[str, Callable],
+          lists: dict[str, Callable]) -> Callable:
     """A role is one entity id (`$ref` to `entite`), one entity id of a
     constrained domain (`$ref` to a patterned `entite*`) or a list of entity
     ids (`$ref` to `listeEntites`, with optional `minItems`/`maxItems`)."""
     ref = role_schema.get("$ref")
     if ref == _ENTITY_REF and set(role_schema) == {"$ref"}:
         return entity
-    found = patterned.get(ref)
-    if isinstance(found, _ListOf) and set(role_schema) <= {"$ref", "minItems", "maxItems"}:
-        return _array(found.item, role_schema.get("minItems", 0), role_schema.get("maxItems"))
-    if found is not None and not isinstance(found, _ListOf) and set(role_schema) == {"$ref"}:
-        return found
+    if ref in patterned and set(role_schema) == {"$ref"}:
+        return patterned[ref]
+    if ref in lists and set(role_schema) <= {"$ref", "minItems", "maxItems"}:
+        return _array(lists[ref], role_schema.get("minItems", 0), role_schema.get("maxItems"))
     if ref == _LIST_REF and set(role_schema) <= {"$ref", "minItems", "maxItems"}:
         return _array(entity, role_schema.get("minItems", 0), role_schema.get("maxItems"))
     raise _unsupported(f"role {name!r}", role_schema)
 
 
-def _entities(type_name: str, schema: dict, entity: Callable, patterned: dict[str, Callable]) -> Callable:
+def _entities(type_name: str, schema: dict, entity: Callable, patterned: dict[str, Callable],
+              lists: dict[str, Callable]) -> Callable:
     """The `entites` object of one branch: its roles, closed to any other."""
     if not set(schema) <= {"required", "anyOf", "additionalProperties", "properties"}:
         raise _unsupported(f"entites of {type_name!r}", sorted(schema))
@@ -108,7 +102,7 @@ def _entities(type_name: str, schema: dict, entity: Callable, patterned: dict[st
     shape = vol.Schema(
         {
             (vol.Required(name) if name in required else vol.Optional(name)):
-                _role(name, role_schema, entity, patterned)
+                _role(name, role_schema, entity, patterned, lists)
             for name, role_schema in schema["properties"].items()
         },
         extra=vol.PREVENT_EXTRA,
@@ -123,7 +117,8 @@ def _entities(type_name: str, schema: dict, entity: Callable, patterned: dict[st
     return vol.All(shape, _any_required(groups))
 
 
-def _branch(branch: dict, entity: Callable, patterned: dict[str, Callable]) -> tuple[str, Callable]:
+def _branch(branch: dict, entity: Callable, patterned: dict[str, Callable],
+            lists: dict[str, Callable]) -> tuple[str, Callable]:
     """One `{if: {type: const}, then: {...}}`: the type it names and the
     validator of an item of that type."""
     type_name = branch["if"]["properties"]["type"]["const"]
@@ -142,7 +137,7 @@ def _branch(branch: dict, entity: Callable, patterned: dict[str, Callable]) -> t
         raise _unsupported(f"branch {type_name!r}", "a threshold neither required, forbidden nor optional")
     threshold = (_present(_THRESHOLD) if "required" in then
                  else _absent(_THRESHOLD) if "not" in then else None)
-    entities = _entities(type_name, then["properties"]["entites"], entity, patterned)
+    entities = _entities(type_name, then["properties"]["entites"], entity, patterned, lists)
     item = vol.Schema(
         {
             vol.Required("type"): object,
@@ -162,8 +157,8 @@ def appliance_validator(defs: dict, entity: Callable) -> Callable:
     props = appareil["properties"]
     types = props["type"]["enum"]
     patterned = _patterned_entities(defs)
-    patterned.update(_patterned_lists(defs, patterned))
-    branches = dict(_branch(b, entity, patterned) for b in appareil["allOf"])
+    lists = _patterned_lists(defs, patterned)
+    branches = dict(_branch(b, entity, patterned, lists) for b in appareil["allOf"])
     if sorted(branches) != sorted(types):
         raise _unsupported("the type branches", sorted(set(branches) ^ set(types)))
     shared = vol.Schema(
