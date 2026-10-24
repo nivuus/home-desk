@@ -145,3 +145,11 @@
 
   --carte-inerte-disque: #d8dee0; --carte-inerte-icone: #4b5457;
 }
+
+/* TIMER AND RECIPE MIDDLES. Explicit line heights, one line, ellipsis: the countdown is digits
+   in any script, the step line comes from our own strings. */
+.carte .timer-decompte { font-size: 56px; font-weight: 700; line-height: 64px; white-space: nowrap;
+  font-variant-numeric: tabular-nums; }
+.carte .timer-autres { font-size: 15px; font-weight: 600; line-height: 20px; }
+.carte .recette-etape { font-size: 20px; font-weight: 700; line-height: 26px; overflow: hidden;
+  white-space: nowrap; text-overflow: ellipsis; }

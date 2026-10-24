@@ -28,6 +28,7 @@ import { estCeJour, heureCourte, type Evenement } from '../agenda';
 import { formaterRestant } from '../minuteur';
 import type { NextMeal } from '../garde-manger';
 import { icone } from './icones';
+import { S } from '../cards/strings';
 
 /** Cuisine : le repas SUIVANT, lu dans les attributs de `sensor.home_stock_next_meal`
  *  (`nextMeal`, `src/garde-manger.ts`). `.t` porte l'étiquette du créneau, `.v` le plat sur
@@ -66,16 +67,20 @@ export function renderNextMeal(r: NextMeal | undefined): TemplateResult | undefi
  *  lui : une ligne de plus ferait grandir le bloc, donc coûterait une commande de la grille
  *  (`combien`, `screen-budget.ts`). Aucun doublon avec la tuile « Minuteur », qui n'affiche que son libellé
  *  (`tuileMinuteur`, `rendu/minuteur.ts`). */
-export function rendreRecetteReduite(
-  v: { etape: number; total: number; plat: string; restantS?: number },
-): TemplateResult {
-  const decompte = v.restantS === undefined ? '' : ` · ${formaterRestant(v.restantS)}`;
+export type EtapeRecette = { etape: number; total: number; restantS?: number };
+/** `Étape 2/4 · 05:00`: shared by this block and the recipe card (`cards/recipe.ts`). */
+export function ligneEtape(v: EtapeRecette): string {
+  const decompte = v.restantS === undefined ? '' : `${S.separator}${formaterRestant(v.restantS)}`;
+  return `${S.step(v.etape, v.total)}${decompte}`;
+}
+
+export function rendreRecetteReduite(v: EtapeRecette & { plat: string }): TemplateResult {
   return html`
     <div class="mode-bloc" data-zone="blocCentral" data-mvt="bloc:recette"
          @pointerdown=${() => { location.hash = '#recette'; }}>
       ${icone('book')}
       <div class="mode-texte">
-        <div class="t">Étape ${v.etape}/${v.total}${decompte}</div>
+        <div class="t">${ligneEtape(v)}</div>
         <div class="v deux-lignes">${v.plat}</div>
       </div>
     </div>`;

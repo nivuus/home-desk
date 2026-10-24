@@ -29,6 +29,8 @@ const INERTE: ActionsMinuteur = {
 
 let actions: ActionsMinuteur = INERTE;
 export function brancherMinuteur(a: ActionsMinuteur) { actions = a; }
+/** The wired actions, read at press time: a card built before the wiring still acts on it. */
+export const actionsMinuteur = (): ActionsMinuteur => actions;
 
 /** Le libellé d'une ligne : son nom, ou son rang à défaut. Jamais une chaîne vide, qui laisserait
  *  une colonne inexplicablement blanche au mur.
@@ -40,7 +42,7 @@ export function brancherMinuteur(a: ActionsMinuteur) { actions = a; }
  *  en place pour un NOM personnalisé anormalement long (jamais garanti court), mais le repli, lui,
  *  n'a aucune raison de risquer sa propre troncature : un identifiant plus court n'invente rien,
  *  il tient. */
-function libelle(v: VueMinuteur): string {
+export function libelle(v: VueMinuteur): string {
   return v.nom !== '' ? v.nom : `N° ${v.slot + 1}`;
 }
 

@@ -9,4 +9,13 @@ export const S = {
   pause: 'Pause',
   play: 'Lecture',
   next: 'Piste suivante',
+  timer: 'MINUTEUR',
+  timerAddMinute: 'Ajouter une minute',
+  timerStop: 'Arrêter le minuteur',
+  /** The ring time, already formatted with `Intl` by the caller. */
+  rings: (time: string) => `Sonne à ${time}`,
+  recipe: 'RECETTE',
+  recipeFallback: 'Recette',
+  recipeOpen: 'Rouvrir la recette',
+  step: (n: number, total: number) => `Étape ${n}/${total}`,
 } as const;
