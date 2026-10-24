@@ -5,8 +5,8 @@
  *  (at least one is required): `fontaineVide` the fountain has no water, `filtre` its filter is to
  *  be changed, `panneFontaine` and `panneDistributeur` a fault. `joursFiltre` is a `sensor`, the
  *  days of filter life left, shown on the filter line while it is not negative; `nourrir` a
- *  `number` or `input_number` (called with its own domain's `set_value`) whose `min` is one
- *  portion, the smallest the feeder accepts, so the card never invents a quantity.
+ *  `number` or `input_number` (called with its own domain's `set_value`) whose positive `min`,
+ *  or else positive `step`, is one portion, so the card never invents a quantity.
  *
  *  A role that is missing, `unavailable` or `unknown` is absent: no line, and a feed slot that
  *  stays empty rather than a button that cannot act. "Done" has no Home Assistant action to run (a
@@ -78,10 +78,20 @@ function line(s: ScreenState, p: Pets, r: Problem) {
     ? html`${sep}<span dir="auto">${name}</span>` : ''}</div>`;
 }
 
-/** One portion: the entity's own `min`. Without a number there, there is no feeding to offer. */
+/** One portion: the entity's own `min` when it is positive, else its `step` when that is. A `min`
+ *  of 0 would set no food at all, so without a positive one of the two there is no feeding to
+ *  offer, and the slot stays empty. */
+function portionOf(s: ScreenState, id: string): number | null {
+  for (const attribute of ['min', 'step']) {
+    const n = numberOf(attributeOf(s.etat, id, attribute));
+    if (n !== null && n > 0) return n;
+  }
+  return null;
+}
+
 function feedButton(s: ScreenState, id: string | undefined): CardButton | undefined {
   if (id === undefined || stateOf(s.etat, id) === undefined) return undefined;
-  const portion = numberOf(attributeOf(s.etat, id, 'min'));
+  const portion = portionOf(s, id);
   if (portion === null) return undefined;
   return { icon: 'gamelle', label: S.petsFeed, act: () => cardAct(id.split('.')[0], 'set_value', id, { value: portion }) };
 }

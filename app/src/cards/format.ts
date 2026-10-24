@@ -6,10 +6,17 @@ const unit = (u: string, display: 'short' | 'long' = 'short') =>
 export const percent = (n: number): string => unit('percent').format(n);
 export const kilometres = (n: number): string => unit('kilometer').format(n);
 
-/** A duration in whole minutes under an hour, in whole hours beyond. */
+/** A duration rounded to the minute: minutes under an hour, hours and minutes beyond ("1 hour,
+ *  59 minutes", never "1 hour"). Not `Intl.DurationFormat`: Chromium shipped it in 129
+ *  and the tablets' WebView is 119. Each unit is the locale's own, joined by the locale's unit
+ *  list (`Intl.ListFormat`, `type: 'unit'`), which is what DurationFormat does too. */
 export function duration(ms: number): string {
-  const minutes = Math.max(0, Math.round(ms / 60_000));
-  return minutes < 60 ? unit('minute', 'long').format(minutes) : unit('hour', 'long').format(Math.floor(minutes / 60));
+  const total = Math.max(0, Math.round(ms / 60_000));
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  if (hours === 0) return unit('minute', 'long').format(minutes);
+  const parts = [unit('hour', 'long').format(hours), ...(minutes > 0 ? [unit('minute', 'long').format(minutes)] : [])];
+  return new Intl.ListFormat(undefined, { type: 'unit', style: 'long' }).format(parts);
 }
 
 export const clockTime = (ms: number): string =>

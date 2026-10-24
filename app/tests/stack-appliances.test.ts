@@ -66,6 +66,15 @@ describe('house appliances in the stack', () => {
     expect(keys(s)).toEqual([`aspirateur:${ROBOT}`]);
   });
 
+  it('the room-plus-house pattern: every state in its room, only the stuck one elsewhere', () => {
+    // The example YAML's vacuum: declared in its room, and once more in `maison`.
+    const appareils = [vacuumAt('Kitchen', { plan: MAP }), vacuumAt('maison')];
+    expect(keys(screen('Kitchen', { [ROBOT]: 'cleaning' }, appareils))).toEqual([`aspirateur:${ROBOT}`]);
+    expect(keys(screen('Office', { [ROBOT]: 'cleaning' }, appareils))).toEqual([]);
+    expect(keys(screen('Kitchen', { [ROBOT]: 'error' }, appareils))).toEqual([`aspirateur:${ROBOT}`]);
+    expect(keys(screen('Office', { [ROBOT]: 'error' }, appareils))).toEqual([`aspirateur:${ROBOT}`]);
+  });
+
   it('no appliance, no card, no error', () => {
     expect(keys(screen('Kitchen', {}, []))).toEqual([]);
     // Declared, every role missing from Home Assistant or unavailable: still no card, no error.

@@ -76,6 +76,21 @@ describe('vacuum card — frame', () => {
     expect(hote.textContent).not.toContain('Kitchen');
   });
 
+  it('stuck: the error role says why, in the robot\'s own words; otherwise it says nothing', () => {
+    const ERR = 'sensor.robot_error';
+    const at = (state: string, error: string) => {
+      const etat = etatWith({ [ROBOT]: [state, { friendly_name: 'Robot' }], [ERR]: error });
+      const house = { sources: [], appareils: [{ type: 'aspirateur' as const, piece: 'Kitchen',
+        entites: { aspirateur: ROBOT, erreur: ERR } }] };
+      return frame(CARD, frameWith(), screenWith({ etat, house, piece: pieceWith({ nom: 'Kitchen' }),
+        vacuum: newVacuumState() }));
+    };
+    expect(at('error', 'Wheel stuck').subtitle).toBe('Wheel stuck');
+    expect(at('cleaning', 'No error').subtitle).toBeUndefined();
+    expect(at('error', 'unavailable').subtitle).toBeUndefined();
+    expect(at('error', '').subtitle).toBeUndefined();
+  });
+
   it('a battery the robot does not publish is left out, never shown as zero', () => {
     const [f, s] = vac('cleaning', { battery_level: undefined });
     const hote = document.createElement('div');

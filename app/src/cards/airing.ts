@@ -3,7 +3,8 @@
  *  second copy of it. Not an alert (`alertes.ts` took windows out of that rank on purpose): a
  *  `neutral` background, never the error red.
  *
- *  Its one button, in the centre, is "later": the window itself is closed by hand. */
+ *  Its one button, in the centre, is "later": the window itself is closed by hand. One card per
+ *  room, keyed by the room: which openings are open changes under it, and a "later" must not. */
 import { html } from 'lit';
 import type { Frame } from '../boot/frame';
 import type { ScreenState } from '../boot/state';
@@ -17,12 +18,12 @@ import { S } from './strings';
 
 const TYPE = 'aeration';
 
-/** « Porte balcon (S) Ouverture » → « Porte balcon ». The room code in brackets and the sensor
- *  suffix are the installer's vocabulary; a name in any other language is left as it is. Falls
- *  back on the entity id, never an empty string. */
+/** The opening's name without its room code in brackets (« Porte balcon (S) » → « Porte
+ *  balcon »): the card already stands in that room. No word is ever stripped — a name reads as
+ *  the owner gave it, in any language. Falls back on the entity id, never an empty string. */
 function openingName(etat: Etat, id: string): string {
   const raw = String(etat.lire(id)?.attributs['friendly_name'] ?? '');
-  const clean = raw.replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s*Ouverture\s*$/i, '').trim();
+  const clean = raw.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
   return clean || id;
 }
 
@@ -34,9 +35,8 @@ function openOnes(s: ScreenState): string[] {
 }
 
 export function detect(f: Frame, s: ScreenState): Card[] {
-  const first = openOnes(s)[0];
-  return first !== undefined && CONDITIONS.aeration(f.ctx)
-    ? [{ key: `${TYPE}:${first}`, type: TYPE, rank: 2 }] : [];
+  return openOnes(s).length > 0 && CONDITIONS.aeration(f.ctx)
+    ? [{ key: `${TYPE}:${s.piece.nom}`, type: TYPE, rank: 2 }] : [];
 }
 
 export function frame(card: Card, f: Frame, s: ScreenState): CardFrame {

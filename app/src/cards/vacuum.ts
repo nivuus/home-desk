@@ -5,7 +5,12 @@
  *  The robot comes from the screen (`piece.aspirateur`) and from the house appliances
  *  (`stack/appliances.ts`), merged into one card per robot. The background is the picture of the
  *  robot's map camera (`plan`) when one is declared and publishes one, `neutral` otherwise. The
- *  remaining time is not shown: the robots publish none to Home Assistant. */
+ *  remaining time is not shown: the robots publish none to Home Assistant.
+ *
+ *  `erreur` is Valetudo's `Error` sensor (`backend/lib/mqtt/status/StatusStateMqttHandle.js`,
+ *  read 2026-10-24 at 5f26145): its state is the robot's error message while the robot is in
+ *  `error`, "No error" otherwise. So it is read only while stuck, as the subtitle, in the
+ *  robot's own words. */
 import { html } from 'lit';
 import type { Frame } from '../boot/frame';
 import type { ScreenState } from '../boot/state';
@@ -23,11 +28,13 @@ const TYPE = 'aspirateur';
 const RANKS: Record<string, 2 | 4> = { cleaning: 4, returning: 4, error: 2, paused: 2 };
 
 /** A robot as the card reads it: the robot itself and, optionally, its map camera. */
-type Robot = { aspirateur: string; plan?: string };
+type Robot = { aspirateur: string; plan?: string; erreur?: string };
 
 const adapt = (a: Appareil): Robot => {
   const plan = role(a, 'plan');
-  return { aspirateur: requiredRole(a, 'aspirateur'), ...(plan !== undefined ? { plan } : {}) };
+  const erreur = role(a, 'erreur');
+  return { aspirateur: requiredRole(a, 'aspirateur'), ...(plan !== undefined ? { plan } : {}),
+    ...(erreur !== undefined ? { erreur } : {}) };
 };
 
 function rankOf(s: ScreenState, r: Robot): Rank | null {
@@ -54,6 +61,13 @@ function mapPicture(s: ScreenState, plan: string | undefined): string | undefine
   return typeof url === 'string' && url !== '' ? url : undefined;
 }
 
+/** Why the robot is stuck, when it is and its error sensor says so. */
+function errorText(s: ScreenState, r: Robot, state: string): string | undefined {
+  if (state !== 'error' || r.erreur === undefined || !s.etat.estUtilisable(r.erreur)) return undefined;
+  const text = s.etat.lire(r.erreur)!.etat;
+  return text !== '' ? text : undefined;
+}
+
 /** The rooms this tablet launched the robot on, in their order, when the choice is still known. */
 function chosenRooms(s: ScreenState, id: string): string[] {
   const robot = s.vacuum.robots.find((r) => r.entite === id);
@@ -74,10 +88,12 @@ export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
   const rooms = chosenRooms(s, id);
   const running = e.etat === 'cleaning' || e.etat === 'returning';
   const map = mapPicture(s, robot.plan);
+  const error = errorText(s, robot, e.etat);
   return {
     key: card.key,
     label: S.vacuumStates[e.etat] ?? S.vacuumBusy,
     title: String(e.attributs['friendly_name'] ?? '') || S.vacuum,
+    ...(error !== undefined ? { subtitle: error } : {}),
     middle: html`${battery !== null ? html`<div class="carte-chiffre">${percent(battery)}</div>` : ''}
       ${rooms.length ? html`<div class="carte-ligne" dir="auto">${rooms.join(S.separator)}</div>` : ''}`,
     buttons: [

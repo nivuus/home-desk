@@ -18,7 +18,7 @@ const CARD = { key: `animaux:${R.fontaineVide}`, type: 'animaux', rank: 2 } as c
 
 type Opts = {
   on?: (keyof typeof R)[]; sans?: (keyof typeof R)[]; states?: Record<string, string>; min?: unknown;
-  room?: string; name?: string; nourrir?: string;
+  step?: unknown; room?: string; name?: string; nourrir?: string;
 };
 
 /** A pets appliance of the room `Office`; the roles in `on` raise their problem. */
@@ -34,7 +34,8 @@ function pets(o: Opts = {}): [Frame, ScreenState, ReturnType<typeof vi.fn>] {
     [R.panneFontaine]: [on.includes('panneFontaine') ? 'on' : 'off', attrs('Fountain pump')],
     [R.panneDistributeur]: [on.includes('panneDistributeur') ? 'on' : 'off', attrs('Feeder')],
     [R.joursFiltre]: '3',
-    [feedId]: ['5', o.min === undefined ? { min: 20 } : o.min === null ? {} : { min: o.min }],
+    [feedId]: ['5', { ...(o.min === undefined ? { min: 20 } : o.min === null ? {} : { min: o.min }),
+      ...(o.step !== undefined ? { step: o.step } : {}) }],
     ...Object.fromEntries(Object.entries(o.states ?? {}).map(([k, v]) => [k, v])),
   });
   const envoyerCommande = vi.fn(async () => null);
@@ -124,6 +125,19 @@ describe('pets card — frame', () => {
       const b = frame(CARD, f, s).buttons;
       expect(b[0], String(min)).toBeUndefined();
       expect(b[1]).toBeDefined();
+    }
+  });
+  it('a min of 0 or below sets nothing: the step is the portion when it is positive', () => {
+    for (const min of [0, -5]) {
+      const [f, s] = pets({ on: ['fontaineVide'], min, step: 2 });
+      frame(CARD, f, s).buttons[0]!.act();
+      expect(agir).toHaveBeenLastCalledWith('number', 'set_value', R.nourrir, { value: 2 });
+    }
+  });
+  it('a min of 0 and no positive step: the feed slot stays empty, never a dead button', () => {
+    for (const step of [undefined, 0, -1, 'abc']) {
+      const [f, s] = pets({ on: ['fontaineVide'], min: 0, step });
+      expect(frame(CARD, f, s).buttons[0], String(step)).toBeUndefined();
     }
   });
   it('no feed role, or an unavailable one: the feed slot stays empty', () => {
