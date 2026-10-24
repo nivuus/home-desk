@@ -92,8 +92,6 @@ window.__poser = async (poster, { withoutPlate = false, script = 'latin', top = 
 }
 
 const pass = (j) => j.ok;
-/** A stack of more than one card: the rules hold AND the dots are there. */
-const passWithDots = (j, m) => j.ok && m.stack?.pill != null;
 /** What the card looked like before the final review (2026-10-24): `line-height: normal` on the
  *  label, subtitle and times, and a label that wraps. A fallback font grew it past its budget. */
 const LINE_HEIGHT_NORMAL = `.media .etiquette, .media .sous-titre, .media-temps { line-height: normal !important; }
@@ -116,10 +114,10 @@ const CASES = [
     expected: (j) => !j.ok && /does not fit the card/.test(j.reason),
     what: 'COUNTER-PROOF: the same card with line-height normal and a wrapping label must not fit' },
   ...['claire', 'sombre', 'rayures'].map((poster) => ({
-    poster, options: { stack: 3 }, expected: passWithDots,
+    poster, options: { stack: 3 }, expected: pass,
     what: `stack of 3 on "${poster}": ${BLOC_CARTE} px block, solid dots that overlap nothing` })),
   { poster: 'moyenne', options: { script: 'cjk', top: HEIGHT - BLOC_CARTE, stack: 16 },
-    expected: passWithDots,
+    expected: pass,
     what: 'stack of 16 (the widest dots) with a CJK card at the frame bottom: still fits' },
   { poster: 'moyenne', options: { stack: 3, css: '.pile::after { content: ""; display: block; height: 14px; }' },
     expected: (j) => !j.ok && /stack block/.test(j.reason),

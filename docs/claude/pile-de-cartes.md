@@ -103,13 +103,17 @@ jamais « à brancher ».
 ```bash
 cd app && node outils/verifier-pile.mjs          # 0 faute attendue, sortie 0
 node outils/verifier-pile.mjs --contre-epreuve   # carte de 300 px : DOIT échouer
-# autres contre-épreuves : =points, =contraste, =sans-points, =trois-lignes ;
+# autres contre-épreuves : =points, =contraste, =sans-points, =points-dehors,
+# =carte-seule, =trois-lignes ;
 # mutants de swipe.ts : --mutant=lock|threshold|contact — chacun DOIT échouer
 ```
 
 Hors Home Assistant : `src/` empaqueté par esbuild, Chromium réel 343 × 585,
 police de repli du système. Mesures partagées avec la carte média :
-`outils/card-check.mjs`. Les gestes sont de vrais points tactiles (CDP).
+`outils/card-check.mjs`. Les gestes sont de vrais points tactiles (CDP). La règle des
+points lit le nombre de cartes que la pile déclare (`data-cards` sur `.pile`,
+`renderStack`) : plusieurs cartes exigent un point chacune, une seule les interdit — sur
+les pages réelles de `verifier-rendu.mjs` comme ici.
 
 **À lancer par le propriétaire, sur le HA réel** : `verifier-rendu.mjs` et
 `mesurer-hauteurs.mjs` (mis à jour à la tâche 6, seulement vérifiés en syntaxe :

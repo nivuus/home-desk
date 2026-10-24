@@ -30,6 +30,13 @@ describe('renderStack', () => {
     expect(row.querySelector('.points')).not.toBeNull();
   });
 
+  it('the stack says how many cards it holds', () => {
+    render(renderStack([F1], 0), hote);
+    expect((hote.querySelector('.pile') as HTMLElement).dataset.cards).toBe('1');
+    render(renderStack([F1, F2, F3], 2), hote);
+    expect((hote.querySelector('.pile') as HTMLElement).dataset.cards).toBe('3');
+  });
+
   it('only the displayed card is in the DOM', () => {
     render(renderStack([F1, F2, F3], 1), hote);
     const cards = hote.querySelectorAll('.carte');

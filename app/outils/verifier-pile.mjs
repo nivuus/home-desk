@@ -18,7 +18,9 @@
  *    --contre-epreuve            every card forced to 300 px tall
  *    --contre-epreuve=points     the dots laid over the action buttons
  *    --contre-epreuve=contraste  dots the colour of their pill
- *    --contre-epreuve=sans-points  a stack that lost its dots
+ *    --contre-epreuve=sans-points  a stack that lost its dots (the pill removed from the DOM)
+ *    --contre-epreuve=points-dehors  the dots moved outside the card
+ *    --contre-epreuve=carte-seule  dots on a stack that declares one card
  *    --contre-epreuve=trois-lignes  titles clamped on three lines
  *    --mutant=lock|threshold|contact   a guard of `stack/swipe.ts` removed (touches only)
  *
@@ -44,7 +46,13 @@ const COUNTER_PROOFS = {
     what: 'the dots laid over the action buttons' },
   'trois-lignes': { css: '.carte .titre.deux-lignes { -webkit-line-clamp: 3 !important; }',
     what: 'titles clamped on three lines' },
-  'sans-points': { css: '.carte .points { display: none; }', what: 'a stack that lost its dots' },
+  // Removed from the DOM, not hidden: a hidden pill is still there, and outside the card.
+  'sans-points': { dom: () => document.querySelector('.carte .points')?.remove(),
+    what: 'a stack that lost its dots' },
+  'carte-seule': { dom: () => document.querySelector('.pile')?.setAttribute('data-cards', '1'),
+    what: 'dots on a stack that declares one card' },
+  'points-dehors': { css: '.carte .points { position: absolute; top: -30px; right: 0; }',
+    what: 'the dots moved outside the card' },
   contraste: { css: '.carte .points > span { background: '
     + 'var(--mc-secondary, var(--c-disque, var(--md-surface-container-highest))) !important; }',
   what: 'dots the colour of their pill' },
@@ -55,7 +63,7 @@ function option(name) {
   return arg === undefined ? undefined : (arg.split('=')[1] ?? '');
 }
 
-async function renderChecks(ctx, url, css) {
+async function renderChecks(ctx, url, { css, dom } = {}) {
   let count = 0;
   const sets = [...SCRIPTS.flatMap((s) => VARIANTS.map((v) => [s, v])), ...SCRIPTS.map((s) => [s, 'tokens'])];
   for (const [script, variant] of sets) {
@@ -70,13 +78,14 @@ async function renderChecks(ctx, url, css) {
     if (missing.length) return fault(`${script}/${variant}: the stack lacks ${missing.join(', ')} (${types.join(', ')})`);
     for (let i = 0; i < types.length; i++) {
       await page.evaluate((n) => window.__show(n), i);
+      if (dom) await page.evaluate(dom);
       const image = await page.evaluate(() => document.querySelector('.carte')?.classList.contains('media'));
       const tinted = !image || await attendreCarteTeintee(page, '.carte');
       const m = tinted ? await mesurerCarte(page, { selector: '.carte', textSelector: TEXT_BOXES }) : null;
       let j = tinted ? jugerCarte(m) : { ok: false, reason: 'the card never showed its picture' };
       const more = [];
-      // Every stack posed here holds several cards: its dots must be there.
-      if (m && !m.stack?.pill) more.push(`a stack of ${types.length} without its dots`);
+      // The count the stack declares is the one this fixture built (the dots rule reads it).
+      if (m && m.stack?.cards !== types.length) more.push(`stack declares ${m.stack?.cards} card(s), not ${types.length}`);
       if (m && Math.abs(m.size.bottom - bottom) > 0.5) more.push(`card bottom at ${m.size.bottom} px, not on the frame edge ${bottom}`);
       if (more.length) j = { ok: false, reason: [j.reason, ...more].filter(Boolean).join(' ; ') };
       const ok = j.ok && errors.length === 0;
@@ -136,7 +145,7 @@ async function main() {
     // A mutant changes the touch handling only: the renders would say nothing about it.
     if (!mutant) {
       console.log('Stack cards, painted (311 × 264, contrast, dots, the 585 px frame):');
-      renders = await renderChecks(ctx, url, proof?.css);
+      renders = await renderChecks(ctx, url, proof);
       if (renders < 0) return 1;
     }
     console.log('Card buttons under real touches (CDP touch points):');

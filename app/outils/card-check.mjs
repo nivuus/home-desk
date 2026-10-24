@@ -21,8 +21,9 @@
  *     zone outside that zone (the frame clips: a content too tall is cut, not grown).
  *  4. in a stack (`.pile`): the block is exactly `blocCarte` tall — the dots live inside the
  *     card —, the dots' pill is solid with dots ≥ 4.5:1 against it (the icons' rule: it may sit
- *     on a picture), and the pill overlaps no disc and no text box. A stack of one card has no
- *     dots: whether they must be there is the caller's to say (it knows the count). */
+ *     on a picture), and the pill overlaps no disc and no text box. The count comes from the
+ *     stack itself (`data-cards`, `renderStack`): several cards require one dot each, a single
+ *     card forbids the dots. */
 import { build } from 'esbuild';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -126,6 +127,8 @@ function relever({ frameBottom, selector, textSelector }) {
       && p.top >= c.top - 0.5 && p.bottom <= c.bottom + 0.5;
     stack = {
       height: pile.getBoundingClientRect().height,
+      // NaN when the stack does not say: a fault of its own, never a guess.
+      cards: Number.parseInt(pile.getAttribute('data-cards') ?? '', 10),
       pill: pill ? { fill: getComputedStyle(pill).backgroundColor, opacity: opacity(pill), inCard,
         dots: [...pill.children].map((d) => getComputedStyle(d).backgroundColor) } : null,
       overlaps: pill ? [...card.querySelectorAll('.disque, [data-tone-box], [data-measured-text]')]
@@ -219,8 +222,10 @@ export async function mesurerCarte(page, {
     unfit: r.unfit,
     stack: r.stack && {
       height: round2(r.stack.height),
+      cards: r.stack.cards,
       overlaps: r.stack.overlaps,
       pill: r.stack.pill && {
+        dots: r.stack.pill.dots.length,
         solid: (rgba(r.stack.pill.fill)[3] ?? 1) === 1 && r.stack.pill.opacity === 1,
         inCard: r.stack.pill.inCard,
         ratio: round2(Math.min(...r.stack.pill.dots.map((d) => ratioCss(r.stack.pill.fill, d)))),
@@ -256,7 +261,10 @@ export function jugerCarte(m) {
   if (m.stack) {
     const st = m.stack;
     if (Math.abs(st.height - BLOC_CARTE) > 0.5) faults.push(`stack block ${st.height} px, not ${BLOC_CARTE}`);
-    // A stack of one card has no dots (`renderStack`); only the caller knows how many it holds.
+    if (!(st.cards >= 1)) faults.push('stack without its card count (data-cards)');
+    else if (st.cards > 1 && !st.pill) faults.push(`a stack of ${st.cards} without its dots`);
+    else if (st.cards === 1 && st.pill) faults.push('dots on a stack of one card');
+    else if (st.pill && st.pill.dots !== st.cards) faults.push(`${st.pill.dots} dot(s) for ${st.cards} cards`);
     if (st.pill) {
       if (!st.pill.inCard) faults.push('dots outside the card');
       if (!st.pill.solid) faults.push('dots pill not solid');

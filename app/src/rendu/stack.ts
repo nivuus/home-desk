@@ -14,5 +14,7 @@ export function renderStack(frames: CardFrame[], displayedIndex: number): Templa
     ? html`<div class="points" aria-hidden="true">${frames.map((f, i) =>
         html`<span class=${i === displayedIndex ? 'courant' : ''} data-card=${f.key}></span>`)}</div>`
     : undefined;
-  return html`<div class="pile">${renderCardFrame(shown, dots)}</div>`;
+  // `data-cards`: how many cards the stack holds, the one fact the DOM cannot otherwise give (a
+  // single card is in it). The render checks read it to require the dots, or forbid them.
+  return html`<div class="pile" data-cards=${frames.length}>${renderCardFrame(shown, dots)}</div>`;
 }
