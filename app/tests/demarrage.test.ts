@@ -6,6 +6,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { startScreen, startWithScreen } from '../src/demarrage';
 import { niveauDemande } from '../src/mouvement';
+import { PALETTE_MS } from '../src/mouvement/grammaire';
 import { Connexion } from '../src/connexion';
 import type { Ecran } from '../src/screen-types';
 import type { EvenementEtat } from '../src/connexion';
@@ -159,6 +160,17 @@ describe('startScreen', () => {
     expect(bascules.mock.calls.filter(([classe]) => classe === 'sombre')).toEqual([]);
     expect(racine.classList.contains('sombre')).toBe(true);
     bascules.mockRestore();
+  });
+
+  // The palette fade's end goes through the screen's own timer, like every other timer of the
+  // screen: on the engine's default `setTimeout` it outlived the mounted screen and fired after
+  // the test environment was torn down (`document is not defined`).
+  it('the palette fade is timed by the screen timer, not a bare setTimeout', async () => {
+    const { racine, pousser, minuteurFn } = await monterDemarrage(ECRANS.salon);
+    await pousser('sun.sun', 'above_horizon');
+    await pousser('media_player.televiseur_salon_3', 'on');
+    expect(racine.classList.contains('fondu-palette')).toBe(true);
+    expect(minuteurFn.mock.calls.map(([, ms]) => ms)).toContain(PALETTE_MS);
   });
 
   // Ronde de correction 2 (CRITIQUE, récidive) : `createConnection` était appelé à chaque

@@ -148,7 +148,7 @@ export async function startWithScreen(
   );
   const s = new ScreenState(
     racine, piece, d, resoudreAgencement(piece), roomTodoLists(piece), niveauInitial,
-    creerMoteur(racine, { niveauInitial }), dessiner,   // policy: allow-fr — see the import
+    creerMoteur(racine, { niveauInitial, minuteurFn: d.minuteurFn }), dessiner,   // policy: allow-fr — see the import
   );
   s.house = house;
 
