@@ -35,7 +35,6 @@ from .validateurs import (
 
 _ENTITY_REF = "ecran.schema.json#/$defs/entite"
 _LIST_REF = "#/$defs/listeEntites"
-_BUTTON_REF = "#/$defs/entiteBouton"
 _THRESHOLD = "seuil"
 
 
@@ -46,29 +45,34 @@ def _unsupported(where: str, what: Any) -> ValueError:
         "extend the mirror before the contract")
 
 
-def _button_entity(defs: dict) -> Callable:
-    """`$defs/entiteBouton`: a string matching its `pattern`, nothing else."""
-    button = defs["entiteBouton"]
-    if set(button) - {"description"} != {"type", "pattern"} or button["type"] != "string":
-        raise _unsupported("$defs/entiteBouton", button)
-    return _string_pattern(re.compile(button["pattern"]))
+def _patterned_entities(defs: dict) -> dict[str, Callable]:
+    """Every `$defs/entite*` other than the screen's: a string matching its
+    `pattern`, nothing else. Keyed by the `$ref` a role uses."""
+    refs = {}
+    for name, schema in defs.items():
+        if not name.startswith("entite"):
+            continue
+        if set(schema) - {"description"} != {"type", "pattern"} or schema["type"] != "string":
+            raise _unsupported(f"$defs/{name}", schema)
+        refs[f"#/$defs/{name}"] = _string_pattern(re.compile(schema["pattern"]))
+    return refs
 
 
-def _role(name: str, role_schema: dict, entity: Callable, button: Callable) -> Callable:
-    """A role is one entity id (`$ref` to `entite`), one button entity id
-    (`$ref` to `entiteBouton`) or a list of entity ids (`$ref` to
-    `listeEntites`, with optional `minItems`/`maxItems` beside it)."""
+def _role(name: str, role_schema: dict, entity: Callable, patterned: dict[str, Callable]) -> Callable:
+    """A role is one entity id (`$ref` to `entite`), one entity id of a
+    constrained domain (`$ref` to a patterned `entite*`) or a list of entity
+    ids (`$ref` to `listeEntites`, with optional `minItems`/`maxItems`)."""
     ref = role_schema.get("$ref")
     if ref == _ENTITY_REF and set(role_schema) == {"$ref"}:
         return entity
-    if ref == _BUTTON_REF and set(role_schema) == {"$ref"}:
-        return button
+    if ref in patterned and set(role_schema) == {"$ref"}:
+        return patterned[ref]
     if ref == _LIST_REF and set(role_schema) <= {"$ref", "minItems", "maxItems"}:
         return _array(entity, role_schema.get("minItems", 0), role_schema.get("maxItems"))
     raise _unsupported(f"role {name!r}", role_schema)
 
 
-def _entities(type_name: str, schema: dict, entity: Callable, button: Callable) -> Callable:
+def _entities(type_name: str, schema: dict, entity: Callable, patterned: dict[str, Callable]) -> Callable:
     """The `entites` object of one branch: its roles, closed to any other."""
     if not set(schema) <= {"required", "anyOf", "additionalProperties", "properties"}:
         raise _unsupported(f"entites of {type_name!r}", sorted(schema))
@@ -78,7 +82,7 @@ def _entities(type_name: str, schema: dict, entity: Callable, button: Callable) 
     shape = vol.Schema(
         {
             (vol.Required(name) if name in required else vol.Optional(name)):
-                _role(name, role_schema, entity, button)
+                _role(name, role_schema, entity, patterned)
             for name, role_schema in schema["properties"].items()
         },
         extra=vol.PREVENT_EXTRA,
@@ -93,20 +97,26 @@ def _entities(type_name: str, schema: dict, entity: Callable, button: Callable) 
     return vol.All(shape, _any_required(groups))
 
 
-def _branch(branch: dict, entity: Callable, button: Callable) -> tuple[str, Callable]:
+def _branch(branch: dict, entity: Callable, patterned: dict[str, Callable]) -> tuple[str, Callable]:
     """One `{if: {type: const}, then: {...}}`: the type it names and the
     validator of an item of that type."""
     type_name = branch["if"]["properties"]["type"]["const"]
     then = branch["then"]
-    if not set(then) <= {"properties", "required", "not"} or set(then["properties"]) != {"entites"}:
+    if not set(then) <= {"properties", "required", "not"} or not set(then["properties"]) <= {"entites", _THRESHOLD}:
         raise _unsupported(f"branch {type_name!r}", sorted(then))
     if then.get("required", [_THRESHOLD]) != [_THRESHOLD] or then.get(
             "not", {"required": [_THRESHOLD]}) != {"required": [_THRESHOLD]}:
         raise _unsupported(f"branch {type_name!r}", then)
-    # Neither required nor forbidden: the threshold is optional (the plants card).
+    # Exactly one statement about the threshold per type: required, forbidden, or optional by
+    # `properties.seuil: true`. Saying nothing is a contract edit the mirror must not guess at.
+    optional = then["properties"].get(_THRESHOLD)
+    if optional not in (None, True) or "entites" not in then["properties"]:
+        raise _unsupported(f"branch {type_name!r}", then)
+    if ("required" in then) + ("not" in then) + (optional is True) != 1:
+        raise _unsupported(f"branch {type_name!r}", "a threshold neither required, forbidden nor optional")
     threshold = (_present(_THRESHOLD) if "required" in then
                  else _absent(_THRESHOLD) if "not" in then else None)
-    entities = _entities(type_name, then["properties"]["entites"], entity, button)
+    entities = _entities(type_name, then["properties"]["entites"], entity, patterned)
     item = vol.Schema(
         {
             vol.Required("type"): object,
@@ -125,8 +135,8 @@ def appliance_validator(defs: dict, entity: Callable) -> Callable:
     appareil = defs["appareil"]
     props = appareil["properties"]
     types = props["type"]["enum"]
-    button = _button_entity(defs)
-    branches = dict(_branch(b, entity, button) for b in appareil["allOf"])
+    patterned = _patterned_entities(defs)
+    branches = dict(_branch(b, entity, patterned) for b in appareil["allOf"])
     if sorted(branches) != sorted(types):
         raise _unsupported("the type branches", sorted(set(branches) ^ set(types)))
     shared = vol.Schema(

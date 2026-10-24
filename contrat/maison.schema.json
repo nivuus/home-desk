@@ -20,6 +20,21 @@
       "pattern": "^button\\.[a-z0-9_]+$",
       "description": "Un entity_id du domaine button : la carte le presse par button.press, et l'integration qui le fournit (ha-bambulab pour l'imprimante) n'expose ces actions qu'en boutons. Un script ou un interrupteur serait un bouton mort."
     },
+    "entiteProbleme": {
+      "type": "string",
+      "pattern": "^binary_sensor\\.[a-z0-9_]+$",
+      "description": "Un entity_id du domaine binary_sensor : un probleme (fontaine vide, filtre a changer, panne) est un etat `on`, et un capteur d'un autre domaine ne le dit jamais."
+    },
+    "entiteCapteur": {
+      "type": "string",
+      "pattern": "^sensor\\.[a-z0-9_]+$",
+      "description": "Un entity_id du domaine sensor : une mesure (les jours de filtre restants)."
+    },
+    "entiteReglage": {
+      "type": "string",
+      "pattern": "^(number|input_number)\\.[a-z0-9_]+$",
+      "description": "Un entity_id du domaine number ou input_number : la carte l'ecrit par `<domaine>.set_value`, avec l'attribut `min` de l'entite pour valeur."
+    },
     "appareil": {
       "type": "object",
       "description": "Un appareil de la maison. `piece` : le nom d'une piece, ou \"maison\" pour un appareil montre partout ; toute chaine non vide, comme la `piece` d'une source (aucune liste de pieces ne vit dans le contrat). `entites` : des roles vers des entity_id ; les roles requis et facultatifs dependent de `type`, une branche `if/then` par type ci-dessous, et un role inconnu de son type est refuse. Les roles listes (`ams`, `sondes`, `zones`, `niveaux`) sont des tableaux d'entity_id, tous les autres un seul entity_id. `seuil` est REQUIS pour `air` et `encre`, FACULTATIF pour `plantes` (l'humidite sous laquelle une sonde sans `soil_warning` appelle un arrosage) et INTERDIT ailleurs : un seuil ignore serait une valeur saisie pour rien.",
@@ -123,12 +138,12 @@
                 ],
                 "additionalProperties": false,
                 "properties": {
-                  "fontaineVide": {"$ref": "ecran.schema.json#/$defs/entite"},
-                  "filtre": {"$ref": "ecran.schema.json#/$defs/entite"},
-                  "panneFontaine": {"$ref": "ecran.schema.json#/$defs/entite"},
-                  "panneDistributeur": {"$ref": "ecran.schema.json#/$defs/entite"},
-                  "joursFiltre": {"$ref": "ecran.schema.json#/$defs/entite"},
-                  "nourrir": {"$ref": "ecran.schema.json#/$defs/entite"}
+                  "fontaineVide": {"$ref": "#/$defs/entiteProbleme"},
+                  "filtre": {"$ref": "#/$defs/entiteProbleme"},
+                  "panneFontaine": {"$ref": "#/$defs/entiteProbleme"},
+                  "panneDistributeur": {"$ref": "#/$defs/entiteProbleme"},
+                  "joursFiltre": {"$ref": "#/$defs/entiteCapteur"},
+                  "nourrir": {"$ref": "#/$defs/entiteReglage"}
                 }
               }
             },
@@ -146,7 +161,8 @@
                   "sondes": {"$ref": "#/$defs/listeEntites", "minItems": 1},
                   "habitude": {"$ref": "ecran.schema.json#/$defs/entite"}
                 }
-              }
+              },
+              "seuil": true
             }
           }
         },

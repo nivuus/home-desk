@@ -60,3 +60,26 @@ def test_the_appliance_mirror_refuses_a_contract_construct_it_does_not_follow():
     defs["appareil"]["allOf"].pop()
     with pytest.raises(ValueError, match="does not mirror"):
         appliance_validator(defs, schema.ENTITE)
+
+
+def test_the_threshold_of_each_type_is_derived_from_its_branch():
+    """Required, forbidden or explicitly optional (`properties.seuil: true`):
+    a branch that says nothing about it must stop the import, never be read
+    as optional."""
+    import copy
+
+    from custom_components.home_desk.appliances import appliance_validator
+
+    branches = {b["if"]["properties"]["type"]["const"]: b["then"]
+                for b in schema.MAISON_JSON["$defs"]["appareil"]["allOf"]}
+    assert "required" in branches["air"] and "required" in branches["encre"]
+    assert branches["plantes"]["properties"].get("seuil") is True
+    assert all("not" in then for name, then in branches.items()
+               if name not in ("air", "encre", "plantes"))
+
+    defs = copy.deepcopy(schema.MAISON_JSON["$defs"])
+    for branch in defs["appareil"]["allOf"]:
+        if branch["if"]["properties"]["type"]["const"] == "tapis":
+            del branch["then"]["not"]
+    with pytest.raises(ValueError, match="does not mirror"):
+        appliance_validator(defs, schema.ENTITE)

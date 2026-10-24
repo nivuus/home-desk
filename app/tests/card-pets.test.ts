@@ -18,12 +18,13 @@ const CARD = { key: `animaux:${R.fontaineVide}`, type: 'animaux', rank: 2 } as c
 
 type Opts = {
   on?: (keyof typeof R)[]; sans?: (keyof typeof R)[]; states?: Record<string, string>; min?: unknown;
-  room?: string; name?: string;
+  room?: string; name?: string; nourrir?: string;
 };
 
 /** A pets appliance of the room `Office`; the roles in `on` raise their problem. */
 function pets(o: Opts = {}): [Frame, ScreenState, ReturnType<typeof vi.fn>] {
-  const entites: Appareil['entites'] = { ...R };
+  const entites: Appareil['entites'] = { ...R, ...(o.nourrir !== undefined ? { nourrir: o.nourrir } : {}) };
+  const feedId = o.nourrir ?? R.nourrir;
   for (const k of o.sans ?? []) delete entites[k];
   const on = o.on ?? [];
   const attrs = (n: string) => ({ friendly_name: o.name ?? n });
@@ -33,7 +34,7 @@ function pets(o: Opts = {}): [Frame, ScreenState, ReturnType<typeof vi.fn>] {
     [R.panneFontaine]: [on.includes('panneFontaine') ? 'on' : 'off', attrs('Fountain pump')],
     [R.panneDistributeur]: [on.includes('panneDistributeur') ? 'on' : 'off', attrs('Feeder')],
     [R.joursFiltre]: '3',
-    [R.nourrir]: ['5', o.min === undefined ? { min: 20 } : o.min === null ? {} : { min: o.min }],
+    [feedId]: ['5', o.min === undefined ? { min: 20 } : o.min === null ? {} : { min: o.min }],
     ...Object.fromEntries(Object.entries(o.states ?? {}).map(([k, v]) => [k, v])),
   });
   const envoyerCommande = vi.fn(async () => null);
@@ -111,6 +112,11 @@ describe('pets card — frame', () => {
     const [f, s] = pets({ on: ['fontaineVide'], min: 35 });
     frame(CARD, f, s).buttons[0]!.act();
     expect(agir).toHaveBeenLastCalledWith('number', 'set_value', R.nourrir, { value: 35 });
+  });
+  it('the service comes from the domain of the entity: input_number too', () => {
+    const [f, s] = pets({ on: ['fontaineVide'], min: 7, nourrir: 'input_number.p_portion' });
+    frame(CARD, f, s).buttons[0]!.act();
+    expect(agir).toHaveBeenLastCalledWith('input_number', 'set_value', 'input_number.p_portion', { value: 7 });
   });
   it('no min, or a min that is not a number: the feed slot stays empty', () => {
     for (const min of [null, 'abc', '']) {

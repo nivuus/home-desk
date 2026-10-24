@@ -68,14 +68,18 @@ describe('house appliances in the stack', () => {
 
   it('no appliance, no card, no error', () => {
     expect(keys(screen('Kitchen', {}, []))).toEqual([]);
-    // Declared but unreadable, or a type whose card comes in a later batch.
-    const later: Appareil[] = [
+    // Declared, every role missing from Home Assistant or unavailable: still no card, no error.
+    const unreadable: Appareil[] = [
       { type: 'imprimante', piece: 'maison', entites: { etat: 'sensor.p', progression: 'sensor.q' } },
-      { type: 'tapis', piece: 'Kitchen', entites: { vitesse: 'sensor.x' } },
-      { type: 'air', piece: 'Kitchen', entites: { co2: 'sensor.c' }, seuil: 1000 },
+      { type: 'plantes', piece: 'Kitchen', entites: { sondes: ['sensor.missing'], habitude: 'input_boolean.missing' }, seuil: 30 },
+      { type: 'animaux', piece: 'Kitchen', entites: { fontaineVide: 'binary_sensor.e', filtre: 'binary_sensor.f',
+        panneFontaine: 'binary_sensor.g', panneDistributeur: 'binary_sensor.h', nourrir: 'number.n' } },
       vacuumAt('maison'),
     ];
-    expect(keys(screen('Kitchen', { 'sensor.p': 'printing' }, later))).toEqual([]);
+    const states = { 'sensor.p': 'unavailable', 'binary_sensor.e': 'unavailable', 'binary_sensor.f': 'unknown',
+      'binary_sensor.g': 'unavailable', 'binary_sensor.h': 'unavailable', 'number.n': 'unavailable',
+      [ROBOT]: 'unavailable' };
+    expect(keys(screen('Kitchen', states, unreadable))).toEqual([]);
   });
 });
 

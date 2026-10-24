@@ -1,11 +1,12 @@
 /** The pets card: the fountain and the feeder of the room, shown while one of them has a problem
  *  (rank 2, it waits for a gesture). The appliance exists only in the house (`stack/appliances.ts`).
  *
- *  Roles, each a binary sensor that is `on` while its problem lasts (`contrat/maison.schema.json`
- *  requires at least one): `fontaineVide` the fountain has no water, `filtre` its filter is to be
- *  changed, `panneFontaine` and `panneDistributeur` a fault. `joursFiltre` is the days of filter
- *  life left, shown on the filter line while it is not negative; `nourrir` a number entity whose
- *  `min` is one portion — the smallest the feeder accepts, so the card never invents a quantity.
+ *  Roles, each a `binary_sensor` (the contract enforces it) that is `on` while its problem lasts
+ *  (at least one is required): `fontaineVide` the fountain has no water, `filtre` its filter is to
+ *  be changed, `panneFontaine` and `panneDistributeur` a fault. `joursFiltre` is a `sensor`, the
+ *  days of filter life left, shown on the filter line while it is not negative; `nourrir` a
+ *  `number` or `input_number` (called with its own domain's `set_value`) whose `min` is one
+ *  portion, the smallest the feeder accepts, so the card never invents a quantity.
  *
  *  A role that is missing, `unavailable` or `unknown` is absent: no line, and a feed slot that
  *  stays empty rather than a button that cannot act. "Done" has no Home Assistant action to run (a
@@ -82,7 +83,7 @@ function feedButton(s: ScreenState, id: string | undefined): CardButton | undefi
   if (id === undefined || stateOf(s.etat, id) === undefined) return undefined;
   const portion = numberOf(attributeOf(s.etat, id, 'min'));
   if (portion === null) return undefined;
-  return { icon: 'gamelle', label: S.petsFeed, act: () => cardAct('number', 'set_value', id, { value: portion }) };
+  return { icon: 'gamelle', label: S.petsFeed, act: () => cardAct(id.split('.')[0], 'set_value', id, { value: portion }) };
 }
 
 export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {

@@ -60,7 +60,7 @@ export async function attendreCarteTeintee(page, selector = '.media', limitMs = 
     if (!url) return false;
     const img = new Image();
     img.src = url;
-    await img.decode();
+    await img.decode().catch(() => { throw new Error(`the card's picture failed to decode: ${url}`); });
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     return true;
   }, layer);

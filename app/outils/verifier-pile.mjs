@@ -165,8 +165,14 @@ async function main() {
     console.log(`\n${renders} card render(s) and ${touches} touch scenario(s): 0 faults.`);
     return 0;
   } finally {
-    await nav.close();
+    // A close that fails must not replace the error that got us here.
+    await nav.close().catch((e) => console.error(`warning: the browser did not close: ${e.message}`));
   }
 }
 
-process.exitCode = await main();
+// Every non-zero exit says why: an unexpected rejection (a navigation, a decode, a closed page)
+// is a fault with its message, not a bare stack trace a `FAULT` search would miss.
+process.exitCode = await main().catch((e) => {
+  fault(`unexpected error: ${e?.message ?? e}`);
+  return 1;
+});
