@@ -115,6 +115,8 @@ export const CHEMINS: Record<string, TemplateResult> = {
   // view — drawn on the same 24×24 grid, 1.9 stroke, no fill, rather than falling back on
   // `cloudy`.
   jar: svg`<path d="M8.5 3.5h7M7.5 6.5h9"/><path d="M7.5 6.5v12a2 2 0 0 0 2 2h5a2 2 0 0 0 2-2v-12"/><path d="M7.5 11.5h9"/>`,
+  // "Later" (card stack, task 7): a clock face with a curved arrow going on round it.
+  snooze: svg`<path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M17.66 2.5v3.84h-3.84"/><path d="M12 8v4l2.6 1.6"/>`,
 };
 
 export function icone(nom: string) {

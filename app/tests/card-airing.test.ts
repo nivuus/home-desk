@@ -55,8 +55,9 @@ describe('airing card — frame', () => {
     expect(fr.title).not.toContain('Window B');
   });
 
-  it('no button until "later" exists (task 7): three empty slots, never a dead one', () => {
+  it('one button, "later", in the centre; the sides stay empty, never a dead one', () => {
     const [f, s] = airing(AIRING);
-    expect(frame(detect(f, s)[0], f, s).buttons).toEqual([undefined, undefined, undefined]);
+    const [left, centre, right] = frame(detect(f, s)[0], f, s).buttons;
+    expect([left, centre?.icon, right]).toEqual([undefined, 'snooze', undefined]);
   });
 });

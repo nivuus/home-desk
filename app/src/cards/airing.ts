@@ -3,7 +3,7 @@
  *  second copy of it. Not an alert (`alertes.ts` took windows out of that rank on purpose): a
  *  `neutral` background, never the error red.
  *
- *  Its centre button is "later" (task 7 wires it); until then the three places stay empty. */
+ *  Its one button, in the centre, is "later": the window itself is closed by hand. */
 import { html } from 'lit';
 import type { Frame } from '../boot/frame';
 import type { ScreenState } from '../boot/state';
@@ -11,6 +11,7 @@ import type { Etat } from '../etat';
 import { CONDITIONS } from '../modes';
 import type { CardFrame } from '../rendu/card-frame';
 import type { Card } from '../stack/types';
+import { laterButton } from './actions';
 import { duration } from './format';
 import { S } from './strings';
 
@@ -47,7 +48,7 @@ export function frame(card: Card, f: Frame, s: ScreenState): CardFrame {
     label: S.airing,
     title: open.map((id) => openingName(s.etat, id)).join(S.separator),
     middle: html`<div class="carte-ligne">${S.openSince(duration(since))}</div>`,
-    buttons: [undefined, undefined, undefined],
+    buttons: [undefined, laterButton(s, card.key), undefined],
     background: { kind: 'solid', token: 'neutral' },
     motion: { block: 'bloc:aeration' },
   };

@@ -71,7 +71,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-from . import animations, aspirateurs, garde_ecran, migration, services, websocket
+from . import animations, aspirateurs, garde_ecran, migration, plus_tard, services, websocket
 from .const import DOMAIN, EVENEMENT_CHANGEMENT, SUBENTRY_HOUSE
 from .page import async_register_page
 
@@ -105,6 +105,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     websocket_api.async_register_command(hass, websocket.ws_animations)
     websocket_api.async_register_command(hass, aspirateurs.ws_aspirateurs)
     websocket_api.async_register_command(hass, aspirateurs.ws_aspirer)
+    websocket_api.async_register_command(hass, websocket.ws_plus_tard)
+    websocket_api.async_register_command(hass, websocket.ws_plus_tard_abonner)
+    await plus_tard.async_start(hass)
     services.async_setup_services(hass)
     animations.async_setup_service(hass)
 
@@ -200,7 +203,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     the websocket commands, which Home Assistant offers no way to remove
     (see websocket.py), `hass.services.async_remove` exists:
     `services.async_unload_services` makes use of it, symmetrical to
-    `async_setup_services`."""
+    `async_setup_services`. The snoozes (`plus_tard.py`) stop their
+    expiry timer and are written to disk; their set and their subscribers
+    stay for the next setup of the entry."""
     services.async_unload_services(hass)
     animations.async_unload_service(hass)
+    snoozes = plus_tard.get(hass)
+    if snoozes is not None:
+        await snoozes.async_stop()
     return True

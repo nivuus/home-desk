@@ -4,6 +4,8 @@
 export const S = {
   /** Between a state label and the room it applies to: `EN COURS · Chambre`. */
   separator: ' · ',
+  /** The button that hides a card on every tablet for two hours. */
+  later: 'Plus tard',
   mediaPlaying: 'EN COURS',
   previous: 'Piste précédente',
   pause: 'Pause',

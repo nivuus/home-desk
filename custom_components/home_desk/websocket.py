@@ -1,4 +1,4 @@
-"""The transport: five websocket commands, and nothing else.
+"""The transport: seven websocket commands, and nothing else.
 
 This module is what finally lets a tablet receive its configuration --
 tasks 1 to 7 only delivered the INPUT side (the integration, its sections,
@@ -53,7 +53,12 @@ subentry exists (a house without shared sources is a normal state, not an
 error); `ERROR_SCREEN_CORRUPT` when the stored list no longer honours the
 contract. Open to non-admin users, like every command here.
 
-All five commands are registered by `__init__.async_setup_entry`; the
+`home_desk/plus_tard` { "cle": "aspirateur:vacuum.x" } hides that card on
+every tablet for two hours, and `home_desk/plus_tard/abonner` is the
+subscription to the active set (`plus_tard.py`). House-wide, so neither
+takes a screen name.
+
+All seven commands are registered by `__init__.async_setup_entry`; the
 `EVENEMENT_CHANGEMENT` event is fired by an ENTRY UPDATE LISTENER, not by
 a call from this module -- see `__init__.py`.
 """
@@ -66,10 +71,12 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.util import dt as dt_util
 
-from . import garde_ecran, schema
+from . import garde_ecran, plus_tard, schema
 from .const import (
     DOMAIN,
+    ERROR_NOT_LOADED,
     ERROR_SCREEN_CORRUPT,
     ERROR_SCREEN_NOT_FOUND,
     ERROR_VERSION_UNKNOWN,
@@ -82,6 +89,8 @@ from .const import (
     WS_ECRAN,
     WS_ECRANS,
     WS_MAISON,
+    WS_PLUS_TARD,
+    WS_PLUS_TARD_ABONNER,
 )
 
 
@@ -324,3 +333,55 @@ def ws_maison(hass: HomeAssistant, connection: websocket_api.ActiveConnection, m
         )
         return
     connection.send_result(msg["id"], {"sources": valide["sources"]})
+
+
+def _loaded_snoozes(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict,
+) -> plus_tard.Snoozes | None:
+    """The snoozes, or None after refusing `msg`: the commands outlive the
+    entry (nothing unregisters them), the expiry timer does not."""
+    snoozes = plus_tard.get(hass)
+    if snoozes is None:
+        connection.send_error(
+            msg["id"], ERROR_NOT_LOADED,
+            "the home_desk integration is not loaded -- "
+            "reload it from Settings > Devices & services")
+    return snoozes
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): WS_PLUS_TARD,
+        vol.Required("cle"): plus_tard.valid_key,
+    }
+)
+@callback
+def ws_plus_tard(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """`home_desk/plus_tard`: hides the card `cle` on every tablet. The
+    subscribers hear the new set before this answer."""
+    snoozes = _loaded_snoozes(hass, connection, msg)
+    if snoozes is None:
+        return
+    snoozes.snooze(msg["cle"], dt_util.utcnow())
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command({vol.Required("type"): WS_PLUS_TARD_ABONNER})
+@callback
+def ws_plus_tard_abonner(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict,
+) -> None:
+    """`home_desk/plus_tard/abonner`: the active set, now and on every
+    change or expiry. Stored in `connection.subscriptions`, so
+    `unsubscribe_events` and the closing of the socket both remove it."""
+    snoozes = _loaded_snoozes(hass, connection, msg)
+    if snoozes is None:
+        return
+
+    @callback
+    def _relay(active: dict[str, str]) -> None:
+        connection.send_message(websocket_api.event_message(msg["id"], active))
+
+    connection.subscriptions[msg["id"]] = snoozes.subscribe(_relay)
+    connection.send_result(msg["id"])
+    _relay(snoozes.active(dt_util.utcnow()))
