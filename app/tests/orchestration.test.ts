@@ -220,7 +220,10 @@ describe('actions des blocs de mode', () => {
     await pousser('media_player.musique_salon', 'playing',
             { media_title: 'Blinding Lights', supported_features: 1 });
 
-    racine.querySelector('.media .bouton')!.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    // A card button acts on release (`cardPress`, `stack/swipe.ts`).
+    const pause = racine.querySelector('.media .bouton')!;
+    pause.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    pause.dispatchEvent(new Event('pointerup', { bubbles: true }));
 
     expect(appelerService).toHaveBeenCalledWith(
       'media_player', 'media_pause', { entity_id: 'media_player.musique_salon' });

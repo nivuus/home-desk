@@ -75,12 +75,22 @@
   color: var(--mc-on-primary, var(--c-sur-primaire, var(--md-on-primary))); }
 .disque svg { width: 28px; height: 28px; }
 /* Same touch feedback as `.ambiance`/`.commande`/`.xl`/`.tuile` (`base.css`): `currentColor` at
-   10 % on a pseudo-element, so the card itself never reacts (`:active` also matches ancestors).
+   10 % on a pseudo-element, so the card itself never reacts. Driven by `.appuye` (`cardPress`,
+   `stack/swipe.ts`), not `:active`: a swipe that starts on a button drops the feedback once it
+   is a swipe, where `:active` would stay lit for the whole drag.
    An inert button gives none: acknowledging a press that does nothing is a dead button. */
 .disque::after { content: ''; position: absolute; inset: 0; border-radius: inherit;
   background: currentColor; opacity: 0; pointer-events: none;
   transition: opacity .2s var(--ressort); }
-.disque:not(.inerte):active::after { opacity: .1; transition: none; }
+.disque.appuye:not(.inerte)::after { opacity: .1; transition: none; }
+
+/* THE STACK. The displayed card takes horizontal moves for the swipe and leaves vertical ones to
+   the page; the dots sit under it, the current one elongated. Flat dots, no shadow. */
+.pile > .carte { touch-action: pan-y; }
+.pile .points { display: flex; justify-content: center; gap: 6px; height: 6px; margin-top: 8px; }
+.pile .points > span { width: 6px; height: 6px; border-radius: var(--sh-full);
+  background: var(--md-outline-variant); transition: width .18s ease-out; }
+.pile .points > span.courant { width: 18px; background: var(--md-on-surface-variant); }
 /* An inert button: a muted SOLID pair, the same on any background, never an opacity — an
    opacity would let the image show through the disc and drop its icon under 4.5:1. The pair is
    contrast-tested by `tests/card-backgrounds.test.ts`. */

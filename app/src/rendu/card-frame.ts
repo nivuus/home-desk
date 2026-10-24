@@ -14,6 +14,7 @@ import { html, type TemplateResult } from 'lit';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { ToneState } from './poster-sampler';
 import { icone } from './icones';
+import { cardPress, type CardPressHandlers } from '../stack/swipe';
 
 export const SOLID_TOKENS = ['neutral', 'timer', 'timer-late', 'charging', 'plug-in',
   'air-good', 'air-bad', 'calm'] as const;
@@ -70,28 +71,20 @@ const SOLID_ROLES = ['fond', 'texte', 'icone', 'disque', 'primaire', 'sur-primai
 const solidStyle = (token: SolidToken): string =>
   SOLID_ROLES.map((r) => `--c-${r}:var(--carte-${token}-${r});`).join('');
 
-/** How a press reaches a button's action — the ONE place to change it. For now an action fires
- *  on `pointerdown`, the repo's convention (`interaction.ts`); a handler left undefined is not
+/** A card button acts on release, not on contact: a swipe that starts on it must not fire it
+ *  (`stack/swipe.ts`, `cardPress`). An inert button binds nothing; a handler left undefined is not
  *  bound by `lit`. */
-type Press = {
-  down?: (e: PointerEvent) => void; move?: (e: PointerEvent) => void;
-  up?: (e: PointerEvent) => void; cancel?: (e: PointerEvent) => void;
-};
-function bindPress(act: () => void): Press {
-  return { down: () => act() };
-}
-
-const NO_PRESS: Press = {};
+const NO_PRESS: Partial<CardPressHandlers> = {};
 
 function slot(b: CardButton | undefined): TemplateResult {
   if (b === undefined) return html`<div class="vide" aria-hidden="true"></div>`;
   // An inert button keeps its place and its icon but binds nothing; `inert` also keeps it out of
   // focus and hit-testing, and `.inerte` drops the press feedback (same rule as `.absent`).
-  const p = b.inert ? NO_PRESS : bindPress(b.act);
+  const p = b.inert ? NO_PRESS : cardPress(b.act);
   return html`<div class="bouton disque ${b.primary ? 'primaire' : ''} ${b.inert ? 'inerte' : ''}"
     role="button" aria-label=${b.label} ?inert=${b.inert === true} data-mvt=${ifDefined(b.mvt)}
-    @pointerdown=${p.down} @pointermove=${p.move} @pointerup=${p.up}
-    @pointercancel=${p.cancel}>${icone(b.icon)}</div>`;
+    @pointerdown=${p.onpointerdown} @pointermove=${p.onpointermove}
+    @pointerup=${p.onpointerup} @pointercancel=${p.onpointercancel}>${icone(b.icon)}</div>`;
 }
 
 export function renderCardFrame(f: CardFrame): TemplateResult {

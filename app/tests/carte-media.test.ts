@@ -254,13 +254,16 @@ describe('media card — progress', () => {
   });
 });
 
+/** Card buttons act on release (`cardPress`, `stack/swipe.ts`). */
+const tap = (b: Element) => { b.dispatchEvent(new Event('pointerdown')); b.dispatchEvent(new Event('pointerup')); };
+
 describe('media card — actions', () => {
   it('pause on a remote source pins it', () => {
     const act = vi.fn();
     const pin = vi.fn();
     brancherMedia(act, pin);
     const c = rendre(BASE, READY, true);
-    c.querySelector('[data-mvt="detail:tr-pause"]')!.dispatchEvent(new Event('pointerdown'));
+    tap(c.querySelector('[data-mvt="detail:tr-pause"]')!);
     expect(pin).toHaveBeenCalledWith(sourceKey(BASE));
     expect(act).toHaveBeenCalledWith('media_player', 'media_pause', 'media_player.tv');
   });
@@ -269,7 +272,7 @@ describe('media card — actions', () => {
     const pin = vi.fn();
     brancherMedia(vi.fn(), pin);
     const c = rendre(BASE, READY, false);
-    c.querySelector('[data-mvt="detail:tr-pause"]')!.dispatchEvent(new Event('pointerdown'));
+    tap(c.querySelector('[data-mvt="detail:tr-pause"]')!);
     expect(pin).not.toHaveBeenCalled();
   });
 

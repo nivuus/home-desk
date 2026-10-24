@@ -80,10 +80,13 @@ describe('card frame — anatomy', () => {
 });
 
 describe('card frame — buttons', () => {
-  it('a press fires the action', () => {
+  it('a press fires the action on release (a swipe may start on a button)', () => {
     const act = vi.fn();
     render(renderCardFrame({ ...BASE, buttons: [undefined, { ...PLAY, act }, undefined] }), hote);
-    hote.querySelector('.primaire')!.dispatchEvent(new Event('pointerdown'));
+    const b = hote.querySelector('.primaire')!;
+    b.dispatchEvent(new Event('pointerdown'));
+    expect(act).not.toHaveBeenCalled();
+    b.dispatchEvent(new Event('pointerup'));
     expect(act).toHaveBeenCalledTimes(1);
   });
 
@@ -94,7 +97,9 @@ describe('card frame — buttons', () => {
     expect(b.classList.contains('inerte')).toBe(true);
     expect(b.hasAttribute('inert')).toBe(true);
     b.dispatchEvent(new Event('pointerdown'));
+    b.dispatchEvent(new Event('pointerup'));
     expect(act).not.toHaveBeenCalled();
+    expect(b.classList.contains('appuye')).toBe(false);
   });
 });
 
