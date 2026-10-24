@@ -1,9 +1,9 @@
-"""Translates a RAW contract identifier (a section, a mode) into its
-human label — for the TWO places where such an identifier ends up in a
+"""Translates a RAW contract identifier (a section) into its human label —
+for the place where such an identifier ends up in a
 `description_placeholders`, never in a `SelectSelector` (which translates
 itself via `translation_key`, see `objets.py`): the
-`ecran_deviendrait_invalide` message (garde_ecran.py) and `budget_intenable_mode`
-(objets.py).
+`ecran_deviendrait_invalide` message (garde_ecran.py). And the house
+subentry's title.
 
 Review round 2: measured — `errors["base"]` carried `description_
 placeholders["section"] = "minuteurs"` (the RAW identifier), while the
@@ -47,14 +47,6 @@ def section(hass, cle: str) -> str:
     either (a degraded text is better than a broken flow)."""
     menu = _traductions(_langue(hass))["config_subentries"]["ecran"]["step"]["reconfigure"]["menu_options"]
     return menu.get(cle, cle)
-
-
-def mode(hass, cle: str) -> str:
-    """The human label of a mode (`selector.mode.options`, published in round
-    1 for the `SelectSelector` of `SCHEMA_AGENCEMENT` — reused HERE rather
-    than retyped)."""
-    options = _traductions(_langue(hass))["selector"]["mode"]["options"]
-    return options.get(cle, cle)
 
 
 def house_title(hass) -> str:

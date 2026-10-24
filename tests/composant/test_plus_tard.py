@@ -218,3 +218,25 @@ async def test_a_second_start_adds_no_stop_listener(hass, entree):
     snoozes.async_start()
     assert hass.bus.async_listeners()[EVENT_HOMEASSISTANT_STOP] == stop_listeners
     assert snoozes is await plus_tard.async_setup(hass)
+
+
+async def test_no_command_is_visible_before_the_snoozes_are_read(hass, monkeypatch):
+    """Reading the Store awaits; every command must become visible in the same synchronous run
+    after it. A tablet reconnecting while the read was pending would otherwise load its screen
+    and see its snooze subscription refused with `unknown_command`, never retried."""
+    from homeassistant.components import websocket_api
+
+    seen_during_read: list[str] = []
+    real_setup = plus_tard.async_setup
+
+    async def watched_setup(hass_):
+        seen_during_read.extend(c for c in hass_.data.get(websocket_api.DOMAIN, {}) if c.startswith(DOMAIN))
+        return await real_setup(hass_)
+
+    monkeypatch.setattr(plus_tard, "async_setup", watched_setup)
+    resultat = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    await hass.config_entries.flow.async_configure(resultat["flow_id"], {})
+    await hass.async_block_till_done()
+
+    assert seen_during_read == []
+    assert {SNOOZE, SUBSCRIBE, "home_desk/ecran"} <= set(hass.data[websocket_api.DOMAIN])

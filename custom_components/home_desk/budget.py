@@ -92,8 +92,8 @@ def combien(bloc: str, rangee_ambiance: bool = True,
             zones: list[str] | None = None,
             synthese_reduite: bool = False) -> int:
     """How many controls the screen shows. NEVER RAISES: an untenable budget returns 0, and
-    the screen then displays its other zones without a row of controls — exactly what the
-    
+    the screen then displays its other zones without a row of controls — exactly what a
+    screen whose `zones` leave out `commandes` shows by composition (the first check below).
 
     `hauteur_utile=None` means `BUDGET["hauteurUtileParDefaut"]` (585, the Fire 7s).
     `zones=None` means the four default zones."""

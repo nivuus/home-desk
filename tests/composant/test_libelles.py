@@ -14,7 +14,7 @@ from custom_components.home_desk import libelles
 
 def test_libelles_section_lit_reellement_les_traductions_embarquees(monkeypatch):
     """Contrairement a schema.py/budget.py (lus a l'IMPORT), libelles.py lit a
-    l'APPEL (`_traductions()` est invoquee depuis `section()`/`mode()`, pas au
+    l'APPEL (`_traductions()` est invoquee depuis `section()`, pas au
     chargement du module) : pas besoin d'`importlib.reload`, un espionnage le
     temps de l'appel suffit a prouver la lecture reelle."""
     chemins_lus = []
@@ -46,31 +46,3 @@ def test_libelles_section_lit_reellement_les_traductions_embarquees(monkeypatch)
         "section() avec langue 'en' doit lire translations/en.json, pas une autre table."
     )
 
-
-def test_libelles_mode_lit_reellement_les_traductions_embarquees(monkeypatch):
-    """Meme garde que ci-dessus, pour `mode()` : les deux fonctions publiques
-    du module doivent chacune passer par une lecture reelle, pas seulement
-    l'une d'elles."""
-    chemins_lus = []
-    lire_original = pathlib.Path.read_text
-
-    def lire_espion(self, *args, **kwargs):
-        if self.suffix == ".json":
-            chemins_lus.append(pathlib.Path(self))
-        return lire_original(self, *args, **kwargs)
-
-    monkeypatch.setattr(pathlib.Path, "read_text", lire_espion)
-
-    class _ConfigFactice:
-        language = "fr"
-
-    class _HassFactice:
-        config = _ConfigFactice()
-
-    rendu = libelles.mode(_HassFactice(), "minuteur")
-
-    assert rendu == "Minuteur"
-    assert chemins_lus, "aucune lecture JSON detectee lors de l'appel a mode()"
-    assert any(chemin.name == "fr.json" for chemin in chemins_lus), (
-        "mode() avec langue 'fr' doit lire translations/fr.json, pas une autre table."
-    )

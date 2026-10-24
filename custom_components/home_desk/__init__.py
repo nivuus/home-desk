@@ -98,6 +98,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     be taken on the migrated data -- taken before, the first unrelated
     write would fire a change event for every migrated screen."""
     migration.migrate_subentries(hass, entry)
+    # The one await of the setup comes before every command: they all become visible in the
+    # same synchronous run, so no tablet can meet the screen commands without the snooze ones.
+    snoozes = await plus_tard.async_setup(hass)
     websocket_api.async_register_command(hass, websocket.ws_ecran)
     websocket_api.async_register_command(hass, websocket.ws_ecrans)
     websocket_api.async_register_command(hass, websocket.ws_maison)
@@ -105,8 +108,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     websocket_api.async_register_command(hass, websocket.ws_animations)
     websocket_api.async_register_command(hass, aspirateurs.ws_aspirateurs)
     websocket_api.async_register_command(hass, aspirateurs.ws_aspirer)
-    # The snoozes exist before their commands can be called.
-    snoozes = await plus_tard.async_setup(hass)
     websocket_api.async_register_command(hass, websocket.ws_plus_tard)
     websocket_api.async_register_command(hass, websocket.ws_plus_tard_abonner)
     snoozes.async_start()
