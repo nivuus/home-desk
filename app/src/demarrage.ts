@@ -27,8 +27,8 @@ import { armerRechargement } from './rechargement';
 import { roomTodoLists } from './cochage';
 import {
   chargerEcran as chargerEcranHA, listerEcrans as listerEcransHA, loadHouse as loadHouseHA,
+  EMPTY_HOUSE, type House,
 } from './configuration';
-import type { DeclarationSource } from './media';
 import { niveauDemande, type Niveau } from './mouvement';
 import { chargerLottie } from './lottie';
 // The next two lines carry an English-check exception: the engine factory is named by `mouvement/moteur.ts`, a
@@ -63,7 +63,7 @@ export type { ConnexionLike, DependancesDemarrage } from './boot/types';
  *  from, and that is what allowed introducing it without touching the screen body. */
 export async function startWithScreen(
   racine: HTMLElement, piece: Ecran, deps: Partial<DependancesDemarrage> = {},
-  house: DeclarationSource[] = [],
+  house: House = EMPTY_HOUSE,
 ): Promise<void> {
   // Task 20: the colour tokens (`--md-*`, `jetons.css`) and the day/night mode (class `.sombre`)
   // are scoped to `.m3`, set statically on `racine` (`#app`) by the HTML of each tablet.

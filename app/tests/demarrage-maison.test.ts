@@ -5,7 +5,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { startScreen } from '../src/demarrage';
 import type { DeclarationSource } from '../src/media';
-import type { Result } from '../src/configuration';
+import type { House, Result } from '../src/configuration';
 import { ecranVide, monterDemarrage, stockageAvecSession, vider } from './aides';
 
 const music: DeclarationSource = {
@@ -32,7 +32,7 @@ function deps(sur: Record<string, unknown> = {}) {
 
 describe('startScreen — the shared house list', () => {
   it('startup loads the house list with the screen and reloads it on the change event', async () => {
-    const loadHouse = vi.fn(async (): Promise<Result<DeclarationSource[]>> => ({ ok: true, value: [music] }));
+    const loadHouse = vi.fn(async (): Promise<Result<House>> => ({ ok: true, value: { sources: [music], appareils: [] } }));
     let onChange: ((e: Record<string, unknown>) => void) | undefined;
     const reloads: Promise<void>[] = [];
     const d = deps({

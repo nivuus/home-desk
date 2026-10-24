@@ -7,9 +7,15 @@ guarded write path, the change listener and the list-section UI.
 
 At most one house subentry: `async_step_user` aborts with
 `already_configured` when one exists, and otherwise creates it EMPTY and
-valid (`{"version": VERSION_MAISON, "sources": []}`) -- there is nothing to
-enter at creation. The sources are then added from `async_step_reconfigure`,
-which opens the list directly (a single section, so no menu).
+valid (`{"version": VERSION_MAISON, "sources": [], "appareils": []}`) --
+there is nothing to enter at creation. The sources are then added from
+`async_step_reconfigure`, which opens the list directly (a single section,
+so no menu).
+
+The appliances (`appareils`) have no form: they are written through the YAML
+(`home_desk.exporter` / `home_desk.importer`). Saving the sources rewrites
+`{**subentry.data, "sources": ...}`, so the appliances travel through the
+form untouched.
 
 Reuses `list_sections.ListSectionsMixin` (choose/add/edit/move/remove one
 item) with two overrides: `_sections` (`HOUSE_SECTIONS`, the screen source
@@ -32,6 +38,7 @@ from .list_fields_sources import HOUSE_SECTIONS
 from .list_sections import ListSectionsMixin
 
 _SOURCES = "sources"
+_APPLIANCES = "appareils"
 
 
 class HouseSubentryFlow(ListSectionsMixin, ConfigSubentryFlow):
@@ -47,7 +54,7 @@ class HouseSubentryFlow(ListSectionsMixin, ConfigSubentryFlow):
             return self.async_abort(reason="already_configured")
         return self.async_create_entry(
             title=libelles.house_title(self.hass),
-            data={"version": schema.VERSION_MAISON, _SOURCES: []},
+            data={"version": schema.VERSION_MAISON, _SOURCES: [], _APPLIANCES: []},
         )
 
     async def async_step_reconfigure(

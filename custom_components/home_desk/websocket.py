@@ -46,10 +46,10 @@ message `{url, type, duree, fond}` each time `home_desk.jouer_animation`
 names that screen (see `animations.py`). Same door and same bookkeeping as
 `home_desk/abonner`, fed by a dispatcher signal rather than a bus event.
 
-`home_desk/maison` -> {"sources": [...]}: the media sources shared by
-the whole house (the house subentry, `maison.py`), validated on read by
-`schema.validate_house` like a screen; `{"sources": []}` when no house
-subentry exists (a house without shared sources is a normal state, not an
+`home_desk/maison` -> {"sources": [...], "appareils": [...]}: the media
+sources and the appliances shared by the whole house (the house subentry,
+`maison.py`), validated on read by `schema.validate_house` like a screen;
+both lists empty when no house subentry exists (a house without shared sources is a normal state, not an
 error); `ERROR_SCREEN_CORRUPT` when the stored list no longer honours the
 contract. Open to non-admin users, like every command here.
 
@@ -313,12 +313,13 @@ def ws_animations(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
 @websocket_api.websocket_command({vol.Required("type"): WS_MAISON})
 @callback
 def ws_maison(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
-    """`home_desk/maison`: the shared house sources, validated on read."""
+    """`home_desk/maison`: the shared house sources and appliances,
+    validated on read."""
     entree = _entree(hass)
     maison = None if entree is None else next(
         (s for s in entree.subentries.values() if s.subentry_type == SUBENTRY_HOUSE), None)
     if maison is None:
-        connection.send_result(msg["id"], {"sources": []})
+        connection.send_result(msg["id"], {"sources": [], "appareils": []})
         return
     try:
         valide = schema.validate_house(dict(maison.data))
@@ -326,12 +327,12 @@ def ws_maison(hass: HomeAssistant, connection: websocket_api.ActiveConnection, m
         connection.send_error(
             msg["id"],
             ERROR_SCREEN_CORRUPT,
-            f"the stored house source list no longer honours the contract "
+            f"the stored house subentry no longer honours the contract "
             f"({err}) -- fix it from Settings > Devices & services > the "
             "home_desk integration, or restore an earlier backup",
         )
         return
-    connection.send_result(msg["id"], {"sources": valide["sources"]})
+    connection.send_result(msg["id"], {"sources": valide["sources"], "appareils": valide["appareils"]})
 
 
 @websocket_api.websocket_command(

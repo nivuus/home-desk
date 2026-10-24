@@ -79,7 +79,7 @@ def _entree(hass: HomeAssistant):
 
 async def _async_exporter(call: ServiceCall) -> None:
     """`home_desk.exporter`: writes ALL the entry's current screens, then the
-    shared house source list when there is one (`maison:`), to
+    house subentry (sources and appliances) when there is one (`maison:`), to
     `config/home_desk_ecrans.yaml`, `note` as comments (see
     `yaml_ecrans.rendre`). `titre` (`ConfigSubentry.title`) is included
     alongside the contract fields -- renaming the title alone (websocket.py
@@ -89,7 +89,8 @@ async def _async_exporter(call: ServiceCall) -> None:
     entry = _entree(hass)
     ecrans = [{"titre": subentry.title, **subentry.data} for subentry in garde_ecran.screen_subentries(entry)]
     house = garde_ecran.house_subentry(entry)
-    maison = None if house is None else {"sources": house.data["sources"]}
+    maison = None if house is None else {
+        "sources": house.data["sources"], "appareils": house.data["appareils"]}
     texte = yaml_ecrans.rendre(ecrans, maison)
     chemin = pathlib.Path(hass.config.path(SCREENS_EXPORT_FILE))
     await hass.async_add_executor_job(_write_file, chemin, texte)

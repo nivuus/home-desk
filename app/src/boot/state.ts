@@ -19,7 +19,7 @@ import type { Prevision } from '../meteo';
 import type { Evenement } from '../agenda';
 import type { createTaskCheck, createArming } from '../cochage';
 import type { AnimationEnCours } from '../animation';
-import type { DeclarationSource } from '../media';
+import { EMPTY_HOUSE, type House } from '../configuration';
 import type { MediaPin } from '../media-choice';
 import type { MeasuredCard } from './card-tones';
 import type { Card, StackView } from '../stack/types';
@@ -163,9 +163,9 @@ export class ScreenState {
   reveilNuit = false;
   jetonReveil = 0;
 
-  /** The media sources shared by the house (`home_desk/maison`), loaded with the screen; the
-   *  page reloads when they change, so they are fixed for its lifetime. */
-  house: DeclarationSource[] = [];
+  /** The media sources and appliances shared by the house (`home_desk/maison`), loaded with the
+   *  screen; the page reloads when they change, so they are fixed for its lifetime. */
+  house: House = EMPTY_HOUSE;
   /** A remote source paused FROM this tablet (`MediaPin`, `media-choice.ts`): the card stays while
    *  it is paused (`pickSource`), and `settlePin` drops it on every frame once it no longer
    *  applies. */

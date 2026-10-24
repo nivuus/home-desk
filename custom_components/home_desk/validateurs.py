@@ -22,8 +22,11 @@ from __future__ import annotations
 
 import re
 
+import voluptuous as vol
+
 from .fautes import (
     _FauteAlertePremiere,
+    _FauteAnyOf,
     _FauteConst,
     _FauteEnum,
     _FauteMaximum,
@@ -31,6 +34,7 @@ from .fautes import (
     _FauteMinItems,
     _FauteMinLength,
     _FauteMinimum,
+    _FauteNot,
     _FautePattern,
     _FauteType,
     _FauteUniqueItems,
@@ -60,6 +64,87 @@ def _string_pattern(regex: re.Pattern, min_len: int = 0):
             raise _FauteMinLength(f"longueur minimale {min_len}")
         if not regex.match(value):
             raise _FautePattern("ne respecte pas le motif attendu")
+        return value
+
+    return valider
+
+
+def _number(minimum=None):
+    """A JSON number (`"type": "number"`), never a bool, with an optional
+    `minimum`."""
+
+    def valider(value):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise _FauteType("attendu un nombre")
+        if minimum is not None and value < minimum:
+            raise _FauteMinimum(f"minimum {minimum}")
+        return value
+
+    return valider
+
+
+def _object():
+    """`"type": "object"` with no shape of its own: the shape comes from a
+    rule applied after it (an `if/then` branch)."""
+
+    def valider(value):
+        if not isinstance(value, dict):
+            raise _FauteType("attendu un objet")
+        return value
+
+    return valider
+
+
+def _array(item, min_items: int = 0, max_items: int | None = None):
+    """`"type": "array"` of ITEM with optional `minItems`/`maxItems`, each
+    bound raising its own keyword (see `_paire_service` for why not
+    `vol.Length`)."""
+    items = vol.Schema([item])
+
+    def valider(value):
+        if not isinstance(value, list):
+            raise _FauteType("attendu une liste")
+        if len(value) < min_items:
+            raise _FauteMinItems(f"au moins {min_items} element(s)")
+        if max_items is not None and len(value) > max_items:
+            raise _FauteMaxItems(f"au plus {max_items} element(s)")
+        return items(value)
+
+    return valider
+
+
+def _any_required(groups: list[list[str]]):
+    """`"anyOf": [{"required": [...]}, ...]`: at least one group fully
+    present. The fault names the object, like ajv's `anyOf`."""
+
+    def valider(value):
+        if not any(all(k in value for k in group) for group in groups):
+            raise _FauteAnyOf(f"au moins un de {groups} est requis")
+        return value
+
+    return valider
+
+
+def _absent(key: str):
+    """`"not": {"required": [KEY]}`: KEY must not be there. The fault names
+    the object, like ajv's `not`."""
+
+    def valider(value):
+        if key in value:
+            raise _FauteNot(f"{key} n'est pas admis ici")
+        return value
+
+    return valider
+
+
+def _present(key: str):
+    """`"required": [KEY]` carried by a rule applied after the structure
+    (an `if/then` branch): the same `RequiredFieldInvalid` as a structural
+    `required`, so `motif()` names the object."""
+
+    def valider(value):
+        if key not in value:
+            raise vol.RequiredFieldInvalid(f"{key} est requis", path=[key])
         return value
 
     return valider

@@ -348,14 +348,18 @@ def valider(brut: dict) -> dict:
 
 
 # --------------------------------------------------------------------------
-# The house source list (contrat/maison.schema.json): the media sources that
-# serve EVERY tablet, declared once. Each item is a screen source whose
-# `piece` is REQUIRED -- the `allOf: [{$ref source}, {required: [piece]}]`
-# of the contract. Read from the embedded contract, like everything above.
+# The house subentry (contrat/maison.schema.json): the media sources that
+# serve EVERY tablet, declared once, and (version 2) the appliances behind
+# the stack's cards. Each source is a screen source whose `piece` is
+# REQUIRED -- the `allOf: [{$ref source}, {required: [piece]}]` of the
+# contract. The appliance roles per type are BUILT from the contract's
+# `if/then` branches (`appliances.py`), never retyped here.
 # --------------------------------------------------------------------------
 
-VERSION_MAISON: int = json.loads(
-    CHEMIN_MAISON.read_text(encoding="utf-8"))["properties"]["version"]["const"]
+from .appliances import appliance_validator  # noqa: E402
+
+MAISON_JSON = json.loads(CHEMIN_MAISON.read_text(encoding="utf-8"))
+VERSION_MAISON: int = MAISON_JSON["properties"]["version"]["const"]
 
 
 def _piece_requise(source: dict) -> dict:
@@ -372,17 +376,20 @@ def _piece_requise(source: dict) -> dict:
 # Public because the house flow (maison.py) validates one item at a time.
 SOURCE_MAISON = vol.All(SOURCE, _piece_requise)
 
+APPAREIL = appliance_validator(MAISON_JSON["$defs"], ENTITE)
+
 MAISON = vol.Schema(
     {
         vol.Required("version"): _const(VERSION_MAISON),
         vol.Required("sources"): [SOURCE_MAISON],
+        vol.Required("appareils"): [APPAREIL],
     },
     extra=vol.PREVENT_EXTRA,
 )
 
 
 def validate_house(raw: dict) -> dict:
-    """Validates the house source list. Raises vol.Invalid (in practice a
+    """Validates the house subentry. Raises vol.Invalid (in practice a
     vol.MultipleInvalid) if `raw` does not conform, with the same
     `path: keyword` motif as `valider`."""
     return MAISON(raw)

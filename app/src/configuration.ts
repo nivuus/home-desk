@@ -13,6 +13,21 @@ export type Panne = 'introuvable' | 'version' | 'corrompu' | 'integrationAbsente
 
 export type Result<T> = { ok: true; value: T } | { ok: false; panne: Panne };
 
+/** The appliance types of the house (`contrat/maison.schema.json`, `$defs/appareil`). */
+export type ApplianceType = 'imprimante' | 'aspirateur' | 'voiture' | 'animaux' | 'plantes' | 'tapis' | 'air' | 'alarme' | 'encre';
+
+/** One appliance of the house, validated by the component: `piece` is a room name or `"maison"`
+ *  (shown everywhere), `entites` maps each role to an entity id, or to a list of them for the
+ *  list roles (`ams`, `sondes`, `zones`, `niveaux`). The roles each type requires live in the
+ *  contract only. */
+export type Appareil = { type: ApplianceType; piece: string; entites: Record<string, string | string[]>; seuil?: number };
+
+/** What `home_desk/maison` serves: the media sources and the appliances shared by every tablet. */
+export type House = { sources: DeclarationSource[]; appareils: Appareil[] };
+
+/** A house with nothing declared. */
+export const EMPTY_HOUSE: House = { sources: [], appareils: [] };
+
 /** One row of `home_desk/ecrans`. `nom` is the transport's primary key (entered data);
  *  `titre` is `ConfigSubentry.title`, a generic Home Assistant property that the user can
  *  rename on their own. Two distinct fields, even though they are kept in sync by the identity
@@ -79,19 +94,22 @@ export async function listerEcrans(cx: TransportConfig): Promise<Result<ListEntr
   }
 }
 
-/** Asks for the media sources shared by the whole house (`home_desk/maison`), validated by the
- *  component. `{"sources": []}` when no house is configured — a success, like an empty screen
- *  list. `unknown_command` is also a success with no source: an integration older than this list
- *  still serves screens, the tablet just has nothing to follow in other rooms. Every other
- *  refusal maps exactly as for `chargerEcran`. */
-export async function loadHouse(cx: TransportConfig): Promise<Result<DeclarationSource[]>> {
+/** Asks for the media sources and appliances shared by the whole house (`home_desk/maison`),
+ *  validated by the component. Both lists empty when no house is configured — a success, like an
+ *  empty screen list. `unknown_command` is also a success with an empty house: an integration
+ *  older than this list still serves screens. An answer without `appareils` is the same case one
+ *  step later: the new `dist/` reaches the tablets before Home Assistant restarts on the new
+ *  component. Every other refusal maps exactly as for `chargerEcran`. */
+export async function loadHouse(cx: TransportConfig): Promise<Result<House>> {
   try {
-    const brut = await cx.envoyerCommande({ type: 'home_desk/maison' });
-    const sources = (brut as { sources?: unknown } | null | undefined)?.sources;
-    if (!Array.isArray(sources)) return { ok: false, panne: 'corrompu' };
-    return { ok: true, value: sources as DeclarationSource[] };
+    const brut = await cx.envoyerCommande({ type: 'home_desk/maison' }) as
+      { sources?: unknown; appareils?: unknown } | null | undefined;
+    const sources = brut?.sources;
+    const appareils = brut?.appareils ?? [];
+    if (!Array.isArray(sources) || !Array.isArray(appareils)) return { ok: false, panne: 'corrompu' };
+    return { ok: true, value: { sources: sources as DeclarationSource[], appareils: appareils as Appareil[] } };
   } catch (error) {
-    if (error instanceof RefusHA && error.code === 'unknown_command') return { ok: true, value: [] };
+    if (error instanceof RefusHA && error.code === 'unknown_command') return { ok: true, value: EMPTY_HOUSE };
     return { ok: false, panne: panneDe(error) };
   }
 }

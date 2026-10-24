@@ -76,6 +76,14 @@ class _FauteUniqueItems(_Faute):
     mot_cle = "uniqueItems"
 
 
+class _FauteAnyOf(_Faute):
+    mot_cle = "anyOf"
+
+
+class _FauteNot(_Faute):
+    mot_cle = "not"
+
+
 class _FauteAlertePremiere(_FauteConst):
     """Caught in the final branch review, TWICE. First: `alerte`, if
     present in `agencement.modes`, must be its FIRST item (spec of

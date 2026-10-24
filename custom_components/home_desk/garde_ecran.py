@@ -201,10 +201,13 @@ def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]], maiso
     refusal (brief docstring). The second builds the `ConfigSubentry`
     objects and writes only once the first has passed in full.
 
-    `maison`: the house source list read from the file (`{"sources": [...]}`)
-    or `None`. It is validated with `schema.validate_house` in the SAME first
-    pass as the screens (its `version` is set when absent, like a screen's)
-    and written in the SAME single write.
+    `maison`: the house read from the file (`{"sources": [...],
+    "appareils": [...]}`) or `None`. It is validated with
+    `schema.validate_house` in the SAME first pass as the screens (its
+    `version` is set when absent, like a screen's) and written in the SAME
+    single write. A `maison:` exported before house version 2 has no
+    `appareils` and is refused by name (`required key ... 'appareils'`):
+    re-export, or add `appareils: []` to the file.
 
     ENTIRELY REPLACES the current subentries of `entry` -- screens AND house,
     never a merge: `maison` present creates or replaces the house subentry,

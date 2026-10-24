@@ -92,18 +92,26 @@ describe('listerEcrans', () => {
 describe('loadHouse', () => {
   const tv = { nom: 'TV', piece: 'Chambre', titre: ['media_player.tv'], sousTitre: [], affiche: [],
                progression: [], transport: [], volume: [] };
+  const printer = { type: 'imprimante', piece: 'maison',
+                    entites: { etat: 'sensor.printer_state', ams: ['sensor.tray_1'] } };
 
-  it('sends home_desk/maison and returns the source list', async () => {
-    const cx = transport(() => ({ sources: [tv] }));
-    expect(await loadHouse(cx)).toEqual({ ok: true, value: [tv] });
+  it('sends home_desk/maison and returns the sources and the appliances', async () => {
+    const cx = transport(() => ({ sources: [tv], appareils: [printer] }));
+    expect(await loadHouse(cx)).toEqual({ ok: true, value: { sources: [tv], appareils: [printer] } });
     expect(cx.envoyerCommande).toHaveBeenCalledWith({ type: 'home_desk/maison' });
   });
 
-  it('loadHouse maps unknown_command to an empty list', async () => {
+  it('loadHouse maps unknown_command to an empty house', async () => {
     // An integration older than the shared house list: the tablet still works, it just has
     // nothing to follow elsewhere.
     const cx = transport(() => { throw new RefusHA('unknown_command', 'Unknown command.'); });
-    expect(await loadHouse(cx)).toEqual({ ok: true, value: [] });
+    expect(await loadHouse(cx)).toEqual({ ok: true, value: { sources: [], appareils: [] } });
+  });
+
+  it('reads an answer without appareils as an integration older than the appliances', async () => {
+    // The page reloads from the new dist/ before Home Assistant restarts on the new component.
+    const cx = transport(() => ({ sources: [tv] }));
+    expect(await loadHouse(cx)).toEqual({ ok: true, value: { sources: [tv], appareils: [] } });
   });
 
   it('maps any other refusal like chargerEcran does', async () => {
@@ -113,8 +121,10 @@ describe('loadHouse', () => {
     expect(await loadHouse(lost)).toEqual({ ok: false, panne: 'reseau' });
   });
 
-  it('reports an answer without a sources array as corrupt', async () => {
+  it('reports an answer without a sources array, or with appareils not an array, as corrupt', async () => {
     expect(await loadHouse(transport(() => ({ sources: 'no' })))).toEqual({ ok: false, panne: 'corrompu' });
     expect(await loadHouse(transport(() => undefined))).toEqual({ ok: false, panne: 'corrompu' });
+    expect(await loadHouse(transport(() => ({ sources: [], appareils: 'no' }))))
+      .toEqual({ ok: false, panne: 'corrompu' });
   });
 });

@@ -19,7 +19,8 @@ const motifs = (erreurs: ErrorObject[]): string[] =>
 describe('contrat/cas-maison.json — le corpus que les deux suites partagent', () => {
   for (const cas of CORPUS.cas) {
     it(cas.nom, () => {
-      const maison = { ...CORPUS.minimal, ...(cas.modifie ?? {}) };
+      const maison: Record<string, unknown> = { ...CORPUS.minimal, ...(cas.modifie ?? {}) };
+      for (const cle of cas.retire ?? []) delete maison[cle];
       const ok = valider(maison);
       expect(ok, JSON.stringify(valider.errors)).toBe(cas.valide);
       if (!cas.valide) {

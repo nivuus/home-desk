@@ -20,6 +20,8 @@ CORPUS = json.loads(
 @pytest.mark.parametrize("cas", CORPUS["cas"], ids=lambda c: c["nom"])
 def test_the_corpus_gives_the_same_verdict(cas):
     maison = {**CORPUS["minimal"], **cas.get("modifie", {})}
+    for cle in cas.get("retire", []):
+        del maison[cle]
     if cas["valide"]:
         validate_house(maison)
         return
@@ -36,7 +38,25 @@ def test_the_corpus_has_cases_of_both_signs():
 
 
 def test_the_house_version_is_read_from_the_embedded_contract():
-    assert schema.VERSION_MAISON == 1
+    assert schema.VERSION_MAISON == 2
     assert schema.VERSION_MAISON == json.loads(
         (pathlib.Path(schema.__file__).parent / "contrat" / "maison.schema.json")
         .read_text(encoding="utf-8"))["properties"]["version"]["const"]
+
+
+def test_the_appliance_mirror_refuses_a_contract_construct_it_does_not_follow():
+    """The roles per type are built from the contract branches; a keyword the
+    mirror does not know must stop the import, never be skipped."""
+    import copy
+
+    from custom_components.home_desk.appliances import appliance_validator
+
+    defs = copy.deepcopy(schema.MAISON_JSON["$defs"])
+    defs["appareil"]["allOf"][0]["then"]["properties"]["entites"]["minProperties"] = 2
+    with pytest.raises(ValueError, match="does not mirror"):
+        appliance_validator(defs, schema.ENTITE)
+
+    defs = copy.deepcopy(schema.MAISON_JSON["$defs"])
+    defs["appareil"]["allOf"].pop()
+    with pytest.raises(ValueError, match="does not mirror"):
+        appliance_validator(defs, schema.ENTITE)

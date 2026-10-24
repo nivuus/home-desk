@@ -1,20 +1,213 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "La liste des sources media de la maison",
-  "description": "Les sources media qui servent TOUTES les tablettes, declarees une seule fois au niveau de la maison. Chaque source est une source d'ecran ($defs/source de ecran.schema.json) dont la piece est OBLIGATOIRE : une source de la maison sans piece ne dirait pas a la tablette ou elle joue. Le nom de la piece vient de la configuration, jamais du code.",
+  "title": "La sous-entree maison : sources media et appareils",
+  "description": "Ce que TOUTES les tablettes partagent, declare une seule fois au niveau de la maison. `sources` : des sources d'ecran ($defs/source de ecran.schema.json) dont la piece est OBLIGATOIRE : une source de la maison sans piece ne dirait pas a la tablette ou elle joue. `appareils` (version 2) : les appareils derriere les cartes de la pile. Le nom de la piece vient de la configuration, jamais du code.",
   "type": "object",
-  "required": ["version", "sources"],
+  "required": ["version", "sources", "appareils"],
   "additionalProperties": false,
   "properties": {
-    "version": { "const": 1 },
+    "version": {"const": 2},
     "sources": {
       "type": "array",
-      "items": {
-        "allOf": [
-          { "$ref": "ecran.schema.json#/$defs/source" },
-          { "required": ["piece"] }
-        ]
-      }
+      "items": {"allOf": [{"$ref": "ecran.schema.json#/$defs/source"}, {"required": ["piece"]}]}
+    },
+    "appareils": {"type": "array", "items": {"$ref": "#/$defs/appareil"}}
+  },
+  "$defs": {
+    "listeEntites": {"type": "array", "items": {"$ref": "ecran.schema.json#/$defs/entite"}},
+    "appareil": {
+      "type": "object",
+      "description": "Un appareil de la maison. `piece` : le nom d'une piece, ou \"maison\" pour un appareil montre partout ; toute chaine non vide, comme la `piece` d'une source (aucune liste de pieces ne vit dans le contrat). `entites` : des roles vers des entity_id ; les roles requis et facultatifs dependent de `type`, une branche `if/then` par type ci-dessous, et un role inconnu de son type est refuse. Les roles listes (`ams`, `sondes`, `zones`, `niveaux`) sont des tableaux d'entity_id, tous les autres un seul entity_id. `seuil` est REQUIS pour `air` et `encre` et INTERDIT ailleurs : un seuil ignore serait une valeur saisie pour rien.",
+      "required": ["type", "piece", "entites"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "imprimante",
+            "aspirateur",
+            "voiture",
+            "animaux",
+            "plantes",
+            "tapis",
+            "air",
+            "alarme",
+            "encre"
+          ]
+        },
+        "piece": {"type": "string", "minLength": 1},
+        "entites": {"type": "object"},
+        "seuil": {"type": "number", "minimum": 0}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"type": {"const": "imprimante"}}, "required": ["type"]},
+          "then": {
+            "properties": {
+              "entites": {
+                "required": ["etat", "progression"],
+                "additionalProperties": false,
+                "properties": {
+                  "etat": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "progression": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "finTache": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "couche": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "couchesTotal": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "tache": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "couverture": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "camera": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "pause": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "reprise": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "arret": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "erreur": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "ams": {"$ref": "#/$defs/listeEntites", "maxItems": 4}
+                }
+              }
+            },
+            "not": {"required": ["seuil"]}
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "aspirateur"}}, "required": ["type"]},
+          "then": {
+            "properties": {
+              "entites": {
+                "required": ["aspirateur"],
+                "additionalProperties": false,
+                "properties": {
+                  "aspirateur": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "plan": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "erreur": {"$ref": "ecran.schema.json#/$defs/entite"}
+                }
+              }
+            },
+            "not": {"required": ["seuil"]}
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "voiture"}}, "required": ["type"]},
+          "then": {
+            "properties": {
+              "entites": {
+                "required": ["batterie", "branchee"],
+                "additionalProperties": false,
+                "properties": {
+                  "batterie": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "branchee": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "enCharge": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "autonomie": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "limite": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "finCharge": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "demarrerCharge": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "arreterCharge": {"$ref": "ecran.schema.json#/$defs/entite"}
+                }
+              }
+            },
+            "not": {"required": ["seuil"]}
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "animaux"}}, "required": ["type"]},
+          "then": {
+            "properties": {
+              "entites": {
+                "anyOf": [
+                  {"required": ["fontaineVide"]},
+                  {"required": ["filtre"]},
+                  {"required": ["panneFontaine"]},
+                  {"required": ["panneDistributeur"]}
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "fontaineVide": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "filtre": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "panneFontaine": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "panneDistributeur": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "joursFiltre": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "nourrir": {"$ref": "ecran.schema.json#/$defs/entite"}
+                }
+              }
+            },
+            "not": {"required": ["seuil"]}
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "plantes"}}, "required": ["type"]},
+          "then": {
+            "properties": {
+              "entites": {
+                "required": ["sondes"],
+                "additionalProperties": false,
+                "properties": {
+                  "sondes": {"$ref": "#/$defs/listeEntites", "minItems": 1},
+                  "habitude": {"$ref": "ecran.schema.json#/$defs/entite"}
+                }
+              }
+            },
+            "not": {"required": ["seuil"]}
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "tapis"}}, "required": ["type"]},
+          "then": {
+            "properties": {
+              "entites": {
+                "required": ["vitesse"],
+                "additionalProperties": false,
+                "properties": {
+                  "vitesse": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "pas": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "distance": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "reglageVitesse": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "arret": {"$ref": "ecran.schema.json#/$defs/entite"}
+                }
+              }
+            },
+            "not": {"required": ["seuil"]}
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "air"}}, "required": ["type"]},
+          "then": {
+            "properties": {
+              "entites": {
+                "required": ["pm25", "purificateur"],
+                "additionalProperties": false,
+                "properties": {
+                  "pm25": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "purificateur": {"$ref": "ecran.schema.json#/$defs/entite"}
+                }
+              }
+            },
+            "required": ["seuil"]
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "alarme"}}, "required": ["type"]},
+          "then": {
+            "properties": {
+              "entites": {
+                "required": ["zones"],
+                "additionalProperties": false,
+                "properties": {"zones": {"$ref": "#/$defs/listeEntites", "minItems": 1}}
+              }
+            },
+            "not": {"required": ["seuil"]}
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "encre"}}, "required": ["type"]},
+          "then": {
+            "properties": {
+              "entites": {
+                "required": ["niveaux"],
+                "additionalProperties": false,
+                "properties": {"niveaux": {"$ref": "#/$defs/listeEntites", "minItems": 1}}
+              }
+            },
+            "required": ["seuil"]
+          }
+        }
+      ]
     }
   }
 }

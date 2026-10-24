@@ -171,3 +171,18 @@ def test_maison_round_trips_with_source_notes_as_comments():
 def test_lire_refuses_a_maison_that_is_not_a_mapping():
     with pytest.raises(ValueError):
         yaml_ecrans.lire("ecrans: []\nmaison: 3\n")
+
+
+def test_yaml_round_trip_keeps_appliances():
+    """List roles stay lists, single roles stay strings, `seuil` stays a
+    number, and a room name in any script survives untouched."""
+    maison = {"sources": [], "appareils": [
+        {"type": "imprimante", "piece": "書斎", "entites": {
+            "etat": "sensor.printer_state", "progression": "sensor.printer_progress",
+            "ams": ["sensor.tray_1", "sensor.tray_2"]}},
+        {"type": "encre", "piece": "maison", "seuil": 12.5,
+         "entites": {"niveaux": ["sensor.ink_black"]}},
+        {"type": "alarme", "piece": "غرفة الجلوس", "entites": {"zones": []}},
+    ]}
+    texte = yaml_ecrans.rendre([], maison)
+    assert yaml_ecrans.lire(texte) == ([], maison)

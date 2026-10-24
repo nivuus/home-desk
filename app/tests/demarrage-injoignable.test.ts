@@ -49,7 +49,7 @@ function mount() {
   const racine = document.createElement('div');
   const chargerEcran = vi.fn(async () => ({ ok: true as const, value: { ...ecranVide, nom: 'Cuisine' } }));
   // Doubled like `chargerEcran`: the fake socket answers no command, it only authenticates.
-  const loadHouse = vi.fn(async () => ({ ok: true as const, value: [] }));
+  const loadHouse = vi.fn(async () => ({ ok: true as const, value: { sources: [], appareils: [] } }));
   const recharger = vi.fn();
   const createConnection = vi.fn((j: Jetons) => new Connexion(j, {
     WebSocketImpl: FakeSocket as unknown as new (url: string) => WebSocket,

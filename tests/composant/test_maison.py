@@ -69,19 +69,19 @@ async def test_ws_maison_returns_empty_list_without_house_subentry(hass, ws_clie
     await ws_client.send_json_auto_id({"type": "home_desk/maison"})
     reponse = await ws_client.receive_json()
     assert reponse["success"] is True
-    assert reponse["result"] == {"sources": []}
+    assert reponse["result"] == {"sources": [], "appareils": []}
 
 
 async def test_ws_maison_returns_the_stored_sources(hass, ws_client, entree):
-    _store_house(hass, entree, {"version": 1, "sources": [SOURCE_BEDROOM]})
+    _store_house(hass, entree, {"version": 2, "sources": [SOURCE_BEDROOM], "appareils": []})
     await ws_client.send_json_auto_id({"type": "home_desk/maison"})
     reponse = await ws_client.receive_json()
     assert reponse["success"] is True
-    assert reponse["result"] == {"sources": [SOURCE_BEDROOM]}
+    assert reponse["result"] == {"sources": [SOURCE_BEDROOM], "appareils": []}
 
 
 async def test_ws_maison_refuses_corrupt_stored_data(hass, ws_client, entree):
-    _store_house(hass, entree, {"version": 1, "sources": [{**SOURCE_BEDROOM, "piece": ""}]})
+    _store_house(hass, entree, {"version": 2, "sources": [{**SOURCE_BEDROOM, "piece": ""}], "appareils": []})
     await ws_client.send_json_auto_id({"type": "home_desk/maison"})
     reponse = await ws_client.receive_json()
     assert reponse["success"] is False
@@ -89,7 +89,7 @@ async def test_ws_maison_refuses_corrupt_stored_data(hass, ws_client, entree):
 
 
 async def test_ws_maison_open_to_non_admin_user(hass, tablet, entree):
-    _store_house(hass, entree, {"version": 1, "sources": [SOURCE_BEDROOM]})
+    _store_house(hass, entree, {"version": 2, "sources": [SOURCE_BEDROOM], "appareils": []})
     await tablet.send_json_auto_id({"type": "home_desk/maison"})
     reponse = await tablet.receive_json()
     assert reponse["success"] is True
@@ -100,7 +100,7 @@ async def test_creating_the_house_stores_an_empty_valid_list(hass, entree):
     resultat = await _create_house(hass, entree)
     assert resultat["type"] is data_entry_flow.FlowResultType.CREATE_ENTRY
     _entry, house = _house(hass, entree)
-    assert dict(house.data) == {"version": 1, "sources": []}
+    assert dict(house.data) == {"version": 2, "sources": [], "appareils": []}
 
 
 async def test_second_house_subentry_is_refused(hass, entree):
@@ -131,7 +131,7 @@ async def test_invalid_house_data_is_not_persisted(hass, entree):
 
     with pytest.raises(vol.Invalid):
         garde_ecran.persist_house_if_valid(
-            hass, entry, house, {"version": 1, "sources": [{**SOURCE_BEDROOM, "piece": ""}]})
+            hass, entry, house, {"version": 2, "sources": [{**SOURCE_BEDROOM, "piece": ""}], "appareils": []})
     _entry, house = _house(hass, entree)
     assert house.data["sources"] == []
 
@@ -204,7 +204,7 @@ async def test_export_import_round_trip_keeps_house_sources(hass, entree):
         _entry, house = _house(hass, entree)
         noted = {**SOURCE_BEDROOM, "note": "Only the bedroom TV"}
         garde_ecran.persist_house_if_valid(
-            hass, _entry, house, {"version": 1, "sources": [noted]})
+            hass, _entry, house, {"version": 2, "sources": [noted], "appareils": []})
 
         await hass.services.async_call(DOMAIN, "exporter", blocking=True)
         texte = chemin.read_text(encoding="utf-8")
@@ -213,11 +213,11 @@ async def test_export_import_round_trip_keeps_house_sources(hass, entree):
         assert "note:" not in texte
         ecrans, maison = yaml_ecrans.lire(texte)
         assert [e["nom"] for e in ecrans] == ["salon"]
-        assert maison == {"sources": [noted]}
+        assert maison == {"sources": [noted], "appareils": []}
 
         await hass.services.async_call(DOMAIN, "importer", blocking=True)
         entry, house = _house(hass, entree)
-        assert house.data == {"version": 1, "sources": [noted]}
+        assert house.data == {"version": 2, "sources": [noted], "appareils": []}
         assert [s.title for s in entry.subentries.values() if s.subentry_type == "ecran"] == ["salon"]
     finally:
         chemin.unlink(missing_ok=True)
@@ -263,5 +263,98 @@ async def test_import_with_invalid_house_writes_nothing(hass, entree):
             await hass.services.async_call(DOMAIN, "importer", blocking=True)
         apres = {k: (s.title, dict(s.data)) for k, s in entry.subentries.items()}
         assert apres == avant
+    finally:
+        chemin.unlink(missing_ok=True)
+
+
+# Appliances (schema version 2): written through the YAML only, carried
+# untouched by the house form.
+PRINTER = {
+    "type": "imprimante",
+    "piece": "Bureau",
+    "entites": {"etat": "sensor.printer_state", "progression": "sensor.printer_progress",
+                "ams": ["sensor.tray_1", "sensor.tray_2"]},
+}
+AIR = {"type": "air", "piece": "maison", "seuil": 25,
+       "entites": {"pm25": "sensor.air_pm25", "purificateur": "fan.air_purifier"}}
+
+
+async def test_ws_maison_returns_appliances(hass, ws_client, entree):
+    _store_house(hass, entree, {"version": 2, "sources": [], "appareils": [PRINTER, AIR]})
+    await ws_client.send_json_auto_id({"type": "home_desk/maison"})
+    reponse = await ws_client.receive_json()
+    assert reponse["success"] is True, reponse
+    assert reponse["result"] == {"sources": [], "appareils": [PRINTER, AIR]}
+
+
+async def test_ws_maison_refuses_an_appliance_missing_a_required_role(hass, ws_client, entree):
+    broken = {**PRINTER, "entites": {"etat": "sensor.printer_state"}}
+    _store_house(hass, entree, {"version": 2, "sources": [], "appareils": [broken]})
+    await ws_client.send_json_auto_id({"type": "home_desk/maison"})
+    reponse = await ws_client.receive_json()
+    assert reponse["success"] is False
+    assert reponse["error"]["code"] == "ecran_corrompu"
+
+
+async def test_reconfiguring_sources_keeps_appliances(hass, entree):
+    """The house form shows only the sources; saving it must carry the
+    appliances over untouched (the car form lost fields this way once)."""
+    _store_house(hass, entree, {"version": 2, "sources": [], "appareils": [PRINTER, AIR]})
+    resultat = await _add_source_through_flow(hass, entree, SOURCE_BEDROOM)
+    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
+    _entry, house = _house(hass, entree)
+    assert house.data == {"version": 2, "sources": [SOURCE_BEDROOM], "appareils": [PRINTER, AIR]}
+
+
+async def test_export_import_round_trip_keeps_appliances(hass, entree):
+    from custom_components.home_desk import yaml_ecrans
+
+    chemin = _export_path(hass)
+    chemin.unlink(missing_ok=True)
+    try:
+        await _creer_ecran(hass, entree, nom="salon")
+        _store_house(hass, entree, {"version": 2, "sources": [SOURCE_BEDROOM], "appareils": [PRINTER, AIR]})
+        await hass.services.async_call(DOMAIN, "exporter", blocking=True)
+        _ecrans, maison = yaml_ecrans.lire(chemin.read_text(encoding="utf-8"))
+        assert maison == {"sources": [SOURCE_BEDROOM], "appareils": [PRINTER, AIR]}
+
+        await hass.services.async_call(DOMAIN, "importer", blocking=True)
+        _entry, house = _house(hass, entree)
+        assert house.data == {"version": 2, "sources": [SOURCE_BEDROOM], "appareils": [PRINTER, AIR]}
+    finally:
+        chemin.unlink(missing_ok=True)
+
+
+async def test_import_refuses_an_invalid_appliance_and_writes_nothing(hass, entree):
+    from homeassistant.exceptions import HomeAssistantError
+
+    chemin = _export_path(hass)
+    chemin.unlink(missing_ok=True)
+    try:
+        await _creer_ecran(hass, entree, nom="salon")
+        _store_house(hass, entree, {"version": 2, "sources": [], "appareils": [AIR]})
+        await hass.services.async_call(DOMAIN, "exporter", blocking=True)
+        texte = chemin.read_text(encoding="utf-8")
+        chemin.write_text(texte.replace("seuil: 25\n", ""), encoding="utf-8")
+        entry = hass.config_entries.async_get_entry(entree.entry_id)
+        avant = {k: (s.title, dict(s.data)) for k, s in entry.subentries.items()}
+
+        with pytest.raises(HomeAssistantError):
+            await hass.services.async_call(DOMAIN, "importer", blocking=True)
+        assert {k: (s.title, dict(s.data)) for k, s in entry.subentries.items()} == avant
+    finally:
+        chemin.unlink(missing_ok=True)
+
+
+async def test_import_names_the_missing_appliances_of_an_older_export(hass, entree):
+    """A file exported before house version 2 has no `appareils`: the
+    refusal names the field instead of guessing."""
+    from homeassistant.exceptions import HomeAssistantError
+
+    chemin = _export_path(hass)
+    try:
+        chemin.write_text("ecrans: []\nmaison:\n  sources: []\n", encoding="utf-8")
+        with pytest.raises(HomeAssistantError, match="appareils"):
+            await hass.services.async_call(DOMAIN, "importer", blocking=True)
     finally:
         chemin.unlink(missing_ok=True)

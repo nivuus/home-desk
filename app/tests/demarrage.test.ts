@@ -1552,7 +1552,7 @@ describe('startScreen — la coquille résout l écran avant de déléguer', () 
       maintenant: () => new Date(2026, 7, 1, 14, 0),
       // The bare `envoyerCommande` double answers nothing: without this, the house list would come
       // back corrupt and the body would never mount behind the screen these tests resolve.
-      loadHouse: async () => ({ ok: true as const, value: [] }),
+      loadHouse: async () => ({ ok: true as const, value: { sources: [], appareils: [] } }),
       ...sur,
     };
   }

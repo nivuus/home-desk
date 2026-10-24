@@ -29,7 +29,7 @@ function frameOf(states: [string, string][], opts: {
   const s = {
     etat, piece, agencement: resoudreAgencement(piece), recetteUid: null,
     d: { maintenant: () => new Date(2026, 7, 1, 14, 0) },
-    house: opts.house ?? [],
+    house: { sources: opts.house ?? [], appareils: [] },
     pinnedMedia: opts.pinned === undefined ? undefined : { key: opts.pinned, paused: true },
   } as unknown as ScreenState;
   return computeFrame(s);

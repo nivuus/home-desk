@@ -7,6 +7,7 @@ import { vi } from 'vitest';
 import { startScreen, type ConnexionLike, type DependancesDemarrage } from '../src/demarrage';
 import type { Ecran } from '../src/ecran';
 import type { DeclarationSource } from '../src/media';
+import type { Appareil } from '../src/configuration';
 import type { EvenementEtat } from '../src/connexion';
 import type { Prevision } from '../src/meteo';
 
@@ -119,6 +120,8 @@ export async function vider(): Promise<void> {
 export type OptionsMontage = {
   /** The shared house sources answered by `loadHouse` (`home_desk/maison`). Empty by default. */
   house?: DeclarationSource[];
+  /** The shared house appliances answered by `loadHouse`. Empty by default. */
+  appareils?: Appareil[];
   /** Par défaut le 1er août 2026 à 14 h : jamais la nuit (`momentDuJour`), donc l'écran normal —
    *  celui dont l'orchestration des modes décide le contenu. */
   maintenant?: () => Date;
@@ -241,7 +244,7 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
     // apprendre du transport. Mais ils traversent quand même la coquille — écran d'attente,
     // résolution, délégation — donc chacun des 292 sites en est une épreuve de plus.
     chargerEcran: async () => ({ ok: true, value: piece }),
-    loadHouse: async () => ({ ok: true, value: options.house ?? [] }),
+    loadHouse: async () => ({ ok: true, value: { sources: options.house ?? [], appareils: options.appareils ?? [] } }),
     intervalFn: intervalFn as any,
     minuteurFn: minuteurFn as any,
     maintenant: options.maintenant ?? (() => new Date(2026, 7, 1, 14, 0)),

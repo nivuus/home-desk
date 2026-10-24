@@ -23,6 +23,31 @@
   `migrate_subentry` (voir « Invariants du composant » dans `CLAUDE.md`).
 - Le nom de la pièce vient de la configuration, jamais du code.
 
+### Les appareils (version 2)
+
+- `appareils: [{type, piece, entites, seuil?}]`, servis par `home_desk/maison`
+  avec les sources (`{"sources", "appareils"}`) et portés par `s.house` côté
+  tablette (`House`, `app/src/configuration.ts`).
+- Les rôles requis et facultatifs de chaque `type` vivent UNE fois, dans les
+  branches `if/then` de `$defs/appareil` (`contrat/maison.schema.json`).
+  `appliances.py` construit le validateur voluptuous depuis ces branches et
+  refuse à l'import toute construction qu'il ne sait pas refléter ; ajv lit le
+  même fichier. Ne recopiez jamais la table ailleurs.
+- Rôles listes (`ams` 4 au plus, `sondes`, `zones`, `niveaux`, ces trois
+  derniers non vides) : des tableaux d'`entity_id` ; tous les autres, un seul.
+- `seuil` : requis pour `air` et `encre`, **interdit** ailleurs (`not`), plutôt
+  qu'ignoré : une valeur saisie pour rien serait un champ mort.
+- `piece` : toute chaîne non vide, `"maison"` pour un appareil montré partout.
+  Pas de contrôle contre une liste de pièces : la `piece` des sources ne l'a pas
+  non plus, et aucune liste de pièces n'existe dans l'intégration.
+- Pas de formulaire HA : les appareils s'écrivent par le YAML
+  (`home_desk.exporter` / `home_desk.importer`). Le formulaire des sources
+  réécrit `{**data, "sources": ...}`, donc conserve les appareils (gardé par
+  `test_reconfiguring_sources_keeps_appliances`).
+- Migration : `migration.migrate_house_data` (v1 -> v2, `appareils: []`), au
+  chargement, par `garde_ecran.migrate_subentry`. Un `maison:` exporté avant la
+  version 2 (sans `appareils`) est refusé à l'import, en nommant le champ.
+
 ## L'échelle de budget de la carte
 
 Le budget reçoit un genre de bloc (`carte` 264 px, `haut` 153 px, `defaut`

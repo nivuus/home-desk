@@ -207,8 +207,9 @@ suivantes par une convention de dépôt, sans filet automatique :
   `HouseSubentryFlow`, commande WS `home_desk/maison`, contrat
   `contrat/maison.schema.json` + `cas-maison.json`, `schema.validate_house`) :
   sources média de la maison, champ `piece` obligatoire (facultatif sur les
-  sources propres d'un écran). Bloc `maison:` du YAML ;
-  absent à l'import, il supprime la maison.
+  sources propres d'un écran), et depuis la version 2 les `appareils` de la
+  pile (rôles par type dans le contrat seul, miroir `appliances.py`). Bloc
+  `maison:` du YAML ; absent à l'import, il supprime la maison.
 - **Pile de cartes** (détail : `docs/claude/pile-de-cartes.md`) : rangs, prise
   de place, retour à 60 s, budget par genre de bloc, cadre et jetons, glissement,
   « plus tard », ajout d'un type de carte ; contrôle de rendu

@@ -186,7 +186,7 @@ def rendre(ecrans: list[dict], maison: dict | None = None) -> str:
     this function takes care of it, the caller has NOTHING to remove before
     calling `rendre`.
 
-    `maison`: the shared house source list (`{"sources": [...]}`, the
+    `maison`: the house subentry (`{"sources": [...], "appareils": [...]}`, the
     `version` is the importer's business, not the file's), written after
     `ecrans:` with the same note-to-comment mechanism; `None` writes no
     `maison:` key at all -- which `lire` reads back as "no house"."""
@@ -280,5 +280,5 @@ def lire(texte: str) -> tuple[list[dict], dict | None]:
         raise ValueError(f"{CLE_RACINE!r} doit etre une liste d'ecrans (un mapping chacun)")
     maison = document.get(CLE_MAISON)
     if CLE_MAISON in document and not isinstance(maison, dict):
-        raise ValueError(f"{CLE_MAISON!r} doit etre un mapping portant la liste 'sources'")
+        raise ValueError(f"{CLE_MAISON!r} doit etre un mapping portant les listes 'sources' et 'appareils'")
     return ecrans, maison
