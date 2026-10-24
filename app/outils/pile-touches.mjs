@@ -45,7 +45,11 @@ function touchscreen(cdp) {
 const PAUSE = '.actions .bouton.primaire';
 const NEXT = '.actions .bouton >> nth=2';
 const PLUS = '.media-pas >> nth=1';
-const acts = (log) => log.filter((l) => !l.startsWith('swipe.'));
+const CAMERA = '.actions .bouton[aria-label="Caméra"]';
+/** Past the camera's hold delay (`CAMERA_HOLD`, 300 ms), with room for a slow CI. */
+const HOLD_MS = 700;
+const acts = (log) => log.filter((l) => !l.startsWith('swipe.') && !l.startsWith('check.'));
+const checks = (log) => log.filter((l) => l.startsWith('check.'));
 const swipes = (log) => log.filter((l) => l.startsWith('swipe.'));
 
 /** A swipe from `from`, with a phantom pointerdown on `phantom` half-way, lifted before the swipe ends. */
@@ -72,7 +76,37 @@ const tapOn = (on) => async (page, t) => {
   await t.end();
 };
 
-/** `contacts`: the pointerdowns the page must have seen, with distinct ids. */
+/** What the page shows right now, logged as `check.*` for the scenario's verdict. */
+const look = (page, when) => page.evaluate((w) => {
+  const camera = document.querySelector('.carte .carte-camera');
+  const card = document.querySelector('.carte').getBoundingClientRect();
+  window.__log.push(`check.${w}:${camera === null ? 'hidden' : 'shown'}`, `check.${w}:height-${Math.round(card.height)}`);
+}, when);
+
+/** Holds the camera button past its delay, looks, lifts, looks. */
+const holdCamera = async (page, t) => {
+  const p1 = { ...(await centre(page, CAMERA)), id: 1 };
+  await t.start([p1]);
+  await page.waitForTimeout(HOLD_MS);
+  await look(page, 'held');
+  await t.end();
+  await page.waitForTimeout(50);
+  await look(page, 'released');
+};
+/** Holds the camera button until it shows, then slides past the threshold before lifting. */
+const holdThenSwipe = async (page, t) => {
+  const p1 = { ...(await centre(page, CAMERA)), id: 1 };
+  await t.start([p1]);
+  await page.waitForTimeout(HOLD_MS);
+  await look(page, 'held');
+  await t.slide(p1, -30);
+  await look(page, 'sliding');
+  await t.slide(p1, -(SWIPE_PX - 30));
+  await t.end();
+};
+
+/** `contacts`: the pointerdowns the page must have seen, with distinct ids. `card`: the
+ *  `__touchSetup` arguments (the media card when absent). */
 export const SCENARIOS = [
   { what: 'a phantom pointerdown on the pause button during a swipe from the title fires nothing',
     run: swipeWithPhantom('.carte .titre', PAUSE), contacts: 2,
@@ -92,6 +126,20 @@ export const SCENARIOS = [
   { what: `a tap on a volume stepper that slides ${TAP_SLIDE_PX} px steps exactly once`,
     run: tapOn(PLUS), contacts: 1,
     expected: (log) => acts(log).length === 1 && swipes(log).length === 0 },
+  { what: 'holding the printer\'s camera button shows the camera over the 264 px card; lifting hides it',
+    card: ['imprimante', 'camera'], run: holdCamera, contacts: 1,
+    expected: (log) => acts(log).length === 0 && swipes(log).length === 0
+      && ['check.held:shown', 'check.held:height-264', 'check.released:hidden'].every((c) => log.includes(c)) },
+  { what: `a tap on the camera button that slides ${TAP_SLIDE_PX} px never shows the camera`,
+    card: ['imprimante', 'camera'], run: tapOn(CAMERA), contacts: 1,
+    expected: (log) => acts(log).length === 0 && swipes(log).length === 0 && checks(log).length === 0 },
+  { what: 'a swipe that starts on the camera button never shows the camera',
+    card: ['imprimante', 'camera'], run: swipeFrom(CAMERA), contacts: 1,
+    expected: (log) => acts(log).length === 0 && swipes(log).length === 1 && checks(log).length === 0 },
+  { what: 'a hold on the camera that turns into a swipe hides the camera past the threshold',
+    card: ['imprimante', 'camera'], run: holdThenSwipe, contacts: 1,
+    expected: (log) => acts(log).length === 0 && swipes(log).length === 1
+      && log.includes('check.held:shown') && log.includes('check.sliding:hidden') },
 ];
 
 /** Runs one scenario on a fresh page of `ctx` (a context with `hasTouch`); `{ ok, detail }`. */
@@ -101,7 +149,7 @@ export async function runScenario(ctx, url, sc) {
   page.on('pageerror', (e) => errors.push(e.message));
   try {
     await page.goto(url);
-    await page.evaluate(() => window.__touchSetup());
+    await page.evaluate((card) => window.__touchSetup(...card), sc.card ?? []);
     const cdp = await ctx.newCDPSession(page);
     await sc.run(page, touchscreen(cdp));
     // The slide animation and any repaint queued by the last event.
@@ -111,6 +159,7 @@ export async function runScenario(ctx, url, sc) {
     const reached = ids.size === sc.contacts;
     const ok = errors.length === 0 && reached && sc.expected(log);
     const detail = `actions [${acts(log).join(', ')}], swipes ${swipes(log).length}, `
+      + `${checks(log).length ? `seen [${checks(log).join(' ')}], ` : ''}`
       + `pointers [${pointers.join(' ')}]${reached ? '' : ` — expected ${sc.contacts} contact(s)`}`
       + `${errors.length ? ` — page errors: ${errors.join(' | ')}` : ''}`;
     return { ok, detail };
@@ -126,6 +175,9 @@ export const MUTANTS = {
     from: '    if (g !== null) { e.stopPropagation(); return; }\n', to: '' },
   threshold: { what: 'the travel threshold: a press that slid still acts on release',
     from: '      p.armed = false;\n', to: '' },
+  'hold-end': { what: 'the end of a hold on a travel: a swipe from a held button keeps what the hold showed',
+    from: "      b.classList.remove('appuye');\n      endHold(p);\n",
+    to: "      b.classList.remove('appuye');\n      p.stopHold?.();\n" },
   contact: { what: 'act on release: the press also acts on contact',
     from: "      b.classList.add('appuye');\n", to: "      b.classList.add('appuye');\n      act();\n" },
 };

@@ -15,7 +15,7 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { live } from 'lit/directives/live.js';
 import type { ToneState } from './poster-sampler';
 import { icone } from './icones';
-import { cardPress, type CardPressHandlers } from '../stack/swipe';
+import { cardPress, type CardPressHandlers, type HoldPress } from '../stack/swipe';
 
 export const SOLID_TOKENS = ['neutral', 'timer', 'timer-late', 'charging', 'plug-in',
   'air-good', 'air-bad', 'calm'] as const;
@@ -32,6 +32,8 @@ export type CardButton = {
   icon: string; label: string; primary?: true; act: () => void; inert?: true;
   /** Motion-engine key of the button (`data-mvt`), when it animates on its own. */
   mvt?: string;
+  /** What holding the button does (`cardPress`): repeat, or its own `fire`. */
+  hold?: HoldPress;
 };
 
 export type CardFrame = {
@@ -42,6 +44,9 @@ export type CardFrame = {
   motion?: { block: string; state?: string; subtitle?: string };
   /** Extra root classes, for a card's own styles (`media`). */
   className?: string;
+  /** A picture laid over the whole card, text and buttons included, while it is asked for (the
+   *  printer's camera, held): nothing is read on it, so no tone applies. */
+  overlay?: string;
 };
 
 /** Hardens an image URL before it lands in `style="background-image:url('…')"`: `lit` escapes
@@ -81,7 +86,7 @@ function slot(b: CardButton | undefined): TemplateResult {
   if (b === undefined) return html`<div class="vide" aria-hidden="true"></div>`;
   // An inert button keeps its place and its icon but binds nothing; `inert` also keeps it out of
   // focus and hit-testing, and `.inerte` drops the press feedback (same rule as `.absent`).
-  const p = b.inert ? NO_PRESS : cardPress(b.act);
+  const p = b.inert ? NO_PRESS : cardPress(b.act, b.hold);
   return html`<div class="bouton disque ${b.primary ? 'primaire' : ''} ${b.inert ? 'inerte' : ''}"
     role="button" aria-label=${b.label} ?inert=${b.inert === true} data-mvt=${ifDefined(b.mvt)}
     @pointerdown=${p.onpointerdown} @pointermove=${p.onpointermove}
@@ -120,5 +125,10 @@ export function renderCardFrame(f: CardFrame, position?: TemplateResult): Templa
     </div>
     <div class="milieu">${f.middle}</div>
     <div class="actions">${slot(f.buttons[0])}${slot(f.buttons[1])}${slot(f.buttons[2])}</div>
+    ${f.overlay !== undefined
+      // Last child, over everything; `pointer-events: none` (`cards.css`) keeps the press that
+      // asked for it on its own button.
+      ? html`<div class="carte-camera" style="background-image:url('${urlSure(f.overlay)}')"></div>`
+      : ''}
   </section>`;
 }

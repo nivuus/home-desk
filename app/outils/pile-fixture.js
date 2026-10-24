@@ -1,5 +1,5 @@
-/** The page side of `verifier-pile.mjs`, bundled with `src/` by esbuild: the first batch of the
- *  card stack built from fixture states (no real entity), through the app's own `collectStack`
+/** The page side of `verifier-pile.mjs`, bundled with `src/` by esbuild: the cards of the
+ *  stack built from fixture states (no real entity), through the app's own `collectStack`
  *  and `frameCard`, drawn by `renderStack`, swiped by `attachSwipe`. Nothing here decides a
  *  verdict: the Node side measures what this page paints.
  *
@@ -21,6 +21,7 @@ import { brancherVoiture } from '../src/rendu/voiture';
 import { newVacuumState } from '../src/boot/vacuum';
 import { frameWith, pieceWith, running, screenWith } from '../tests/card-aides';
 import { CALME } from '../tests/contextes';
+import { printers } from './pile-fixture-printer.js';
 
 const MIN = 60_000;
 const MUSIC = 'media_player.pile_music';
@@ -110,12 +111,25 @@ function fixture(script, variant) {
     robots: [{ entite: ROBOT, nom: t.robot, passages: { min: 1, max: 1 },
       pieces: t.rooms.map((nom, i) => ({ zone: `z${i}`, nom })) }],
     chosen: t.rooms.map((_, i) => ({ entite: ROBOT, zone: `z${i}` })) };
+  const house = { sources: [], appareils: printers(script, variant, t.room, ev, now) };
   // Offline: the "later" button sends nothing (`laterButton`), there is no connection here.
   const s = screenWith({ etat, piece: pieceWith({ nom: t.room, aspirateur: ROBOT, voiture: CAR,
     ouvrants: [OPENING] }), vacuum, climEnVol: null, snoozed: new Set(), recetteUid: 'pile',
-    platRecette: t.dish, pageSourceIndex: [0, 1, 2], pageRecette: 1, horsLigne: true });
+    platRecette: t.dish, pageSourceIndex: [0, 1, 2], pageRecette: 1, horsLigne: true, house });
   const cards = collectStack(f, s);
-  return { cards, frames: cards.map((c) => frameCard(c, f, s)) };
+  // A card that repaints itself (the printer's camera, held) rebuilds its frame, as `dessiner`
+  // does on the tablet; the tones already read are kept.
+  s.dessiner = () => {
+    const before = new Map(current.frames.map((fr) => [fr.key, fr]));
+    current.frames = cards.map((c) => {
+      const fr = frameCard(c, f, s);
+      const old = before.get(fr.key);
+      const same = fr.background.kind === 'image' && old?.background.url === fr.background.url;
+      return same && old.tones !== undefined ? { ...fr, tones: old.tones } : fr;
+    });
+    render(renderStack(current.frames, current.index), host());
+  };
+  return { cards, frames: cards.map((c) => frameCard(c, f, s)), index: 0 };
 }
 
 /** One plain card per solid token: every colour a card may take carries the dots once. */
@@ -168,13 +182,16 @@ window.__show = async (i) => {
     if (state.status !== 'ready') throw new Error(`poster tones: ${state.status}`);
     current.frames[i] = { ...fr, tones: state };
   }
+  current.index = i;
   render(renderStack(current.frames, i), host());
 };
 
-/** The touch page: the media card of the Latin stack, swipeable, every action logged. Every
+/** The touch page: the first card of the Latin stack of `type` (the media card by default) that
+ *  carries a button `icon` when one is named, swipeable, every action logged. Every
  *  `pointerdown`/`pointerup` the page receives is logged too, so a scenario can prove that the
- *  contacts it meant to make really reached the card. */
-window.__touchSetup = async () => {
+ *  contacts it meant to make really reached the card; and every appearance of the printer's
+ *  camera picture (`check.camera-seen`), so a scenario can prove it never showed. */
+window.__touchSetup = async (type = 'media', icon = undefined) => {
   window.__log = [];
   window.__pointers = [];
   const log = (...a) => window.__log.push(a.slice(0, 2).join('.'));
@@ -186,8 +203,14 @@ window.__touchSetup = async () => {
     window.addEventListener(type, (e) => window.__pointers.push(`${type}:${e.pointerId}@${Math.round(e.clientX)}`), { capture: true });
   }
   const types = window.__setup('latin', 'a');
-  const index = types.indexOf('media');
+  const index = types.findIndex((t, i) => t === type
+    && (icon === undefined || current.frames[i].buttons.some((b) => b?.icon === icon)));
   await window.__show(index);
+  new MutationObserver(() => {
+    if (host().querySelector('.carte-camera') !== null && !window.__log.includes('check.camera-seen')) {
+      window.__log.push('check.camera-seen');
+    }
+  }).observe(host(), { childList: true, subtree: true });
   const h = { count: types.length, index, onTouch: () => {},
     onChange: (n) => { window.__log.push(`swipe.${n}`); h.index = n; window.__show(n); } };
   attachSwipe(host().querySelector('.pile'), h);

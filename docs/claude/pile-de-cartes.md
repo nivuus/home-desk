@@ -7,8 +7,9 @@ où vit chaque règle dans le code, pas pourquoi elle a été choisie.
 
 - **Rangs** (`app/src/stack/types.ts`, attribués par le `detect` de chaque carte) :
   0 recette ouverte · 1 minuteur · 2 attend un geste (aspirateur bloqué ou en pause,
-  voiture à brancher, aération) · 3 musique/film (`media`, `cinema`) · 4 tourne tout
-  seul (aspirateur qui passe, charge) · 5 rappels doux (lot 2).
+  voiture à brancher, aération, impression terminée, échouée ou en erreur) · 3
+  musique/film (`media`, `cinema`) · 4 tourne tout seul (aspirateur qui passe, charge,
+  impression en cours ou en pause) · 5 rappels doux (lot 3).
 - **Ordre dans un rang** (`stack/order.ts`) : la position du mode de la carte
   (`MODE_OF`) dans `agencement.modes` ; un type absent finit son rang ; tri stable.
 - **Collecte** (`stack/collect.ts`) : chaque module de `app/src/cards/` détecte ses
@@ -88,6 +89,19 @@ sur la carte aération.
 contrat doit être dans le formulaire, sinon l'enregistrer l'efface. Sans `limite`,
 jamais « à brancher ».
 
+## Imprimante 3D (`app/src/cards/printer.ts`)
+
+Appareil de la maison seulement (aucune source d'écran). Table des états tirée de
+ha-bambulab (sources citées en tête du module) : `print_status` `running`/`prepare`/
+`slicing`/`pause` → rang 4, `finish`/`failed` → rang 2 jusqu'au travail suivant (rien
+ne dit « plateau retiré »), `print_error` à `on` pendant un travail → rang 2 (filament
+épuisé compris) ; `idle`, `init`, `offline`, illisible → aucune carte. Boutons
+`pause`/`reprise`/`arret` : `button.*` seulement (`$defs/entiteBouton` du contrat
+maison), vides quand l'intégration les rend `unavailable`. Caméra : tenue, elle
+couvre la carte (`CardFrame.overlay`, `cards/printer-camera.ts`, `hold.fire` de
+`cardPress`) ; un glissement la masque au seuil (`onEnd` au désarmement) ; au plus
+5 s (`DELAI_SECOURS_MS`). Bobines AMS : `cards/printer-spools.ts`, `styles/printer.css`.
+
 ## Ajouter un type de carte
 
 1. `CardType` (`stack/types.ts`) ; son mode dans `MODE_OF` (`stack/order.ts`) s'il en a un.
@@ -96,7 +110,7 @@ jamais « à brancher ».
 3. L'enregistrer dans `MODULES` (`stack/collect.ts`).
 4. Tests vitest sur fixtures (`app/tests/card-aides.ts`), jamais d'entité réelle.
 5. L'ajouter au contrôle de rendu : la fixture de `app/outils/pile-fixture.js`
-   et la liste `BATCH` de `verifier-pile.mjs`.
+   (l'imprimante : `pile-fixture-printer.js`) et la liste `BATCH` de `verifier-pile.mjs`.
 
 ## Lancer les contrôles
 
@@ -104,8 +118,8 @@ jamais « à brancher ».
 cd app && node outils/verifier-pile.mjs          # 0 faute attendue, sortie 0
 node outils/verifier-pile.mjs --contre-epreuve   # carte de 300 px : DOIT échouer
 # autres contre-épreuves : =points, =contraste, =sans-points, =points-dehors,
-# =carte-seule, =trois-lignes ;
-# mutants de swipe.ts : --mutant=lock|threshold|contact — chacun DOIT échouer
+# =carte-seule, =trois-lignes, =bobines, =bobine-active ;
+# mutants de swipe.ts : --mutant=lock|threshold|contact|hold-end — chacun DOIT échouer
 ```
 
 Hors Home Assistant : `src/` empaqueté par esbuild, Chromium réel 343 × 585,

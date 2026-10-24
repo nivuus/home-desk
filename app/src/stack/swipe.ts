@@ -126,7 +126,7 @@ export function attachSwipe(
  *  must not lose the press. `repeated`: a hold already acted, so its release adds nothing. */
 type PressState = {
   id: number; x0: number; y0: number; t0: number; armed: boolean;
-  repeated: boolean; settled: boolean; stopHold?: () => void;
+  repeated: boolean; settled: boolean; holdEnded: boolean; stopHold?: () => void;
 };
 const presses = new WeakMap<Element, PressState>();
 
@@ -135,25 +135,34 @@ export type CardPressHandlers = {
   onpointerup: (e: PointerEvent) => void; onpointercancel: (e: PointerEvent) => void;
 };
 
-/** Holding repeats the action (`hold-repeat.ts`); `onEnd` runs once when the press ends, however,
- *  after the tap's action if there was one. */
-export type HoldPress = HoldTiming & { onEnd?: () => void };
+/** Holding repeats the action (`hold-repeat.ts`), or `fire` when the hold does something a tap
+ *  must not (the printer card's camera shows only while held). `onEnd` runs once when the hold is
+ *  over: at the press's end, after the tap's action if there was one, or as soon as a travel past
+ *  `SEUIL_PX` disarms the press — a swipe that started on the button. */
+export type HoldPress = HoldTiming & { fire?: () => void; onEnd?: () => void };
 
 /** A card button: `.appuye` from contact, the action on release if the finger moved less than
  *  `SEUIL_PX`. Acting at contact (`interaction.ts`) would fire every swipe that starts on a
  *  button; the immediate feedback keeps the press feeling instant. With `hold`, a press held
- *  past its delay repeats the action instead, until the release or a travel past `SEUIL_PX`. */
+ *  past its delay repeats the action (or `hold.fire`) instead, until the release or a travel past
+ *  `SEUIL_PX`. */
 export function cardPress(act: () => void, hold?: HoldPress): CardPressHandlers {
+  /** The end of the hold, once: at the press's end, or earlier when a travel disarms it. */
+  const endHold = (p: PressState) => {
+    p.stopHold?.();
+    if (p.holdEnded) return;
+    p.holdEnded = true;
+    hold?.onEnd?.();
+  };
   /** The ONE end of a press, whoever ends it: its release, its cancel, or the hold ending on its
-   *  own (`holdRepeat`). `hold.onEnd` runs here once, after any tap action: whatever the action
+   *  own (`holdRepeat`). `hold.onEnd` has run by then, after any tap action: whatever the action
    *  left (the volume's pending level) is always released. */
   const settle = (b: Element, p: PressState) => {
     if (p.settled) return;
     p.settled = true;
     if (presses.get(b) === p) presses.delete(b);
     b.classList.remove('appuye');
-    p.stopHold?.();
-    hold?.onEnd?.();
+    endHold(p);
   };
   return {
     onpointerdown(e) {
@@ -166,11 +175,12 @@ export function cardPress(act: () => void, hold?: HoldPress): CardPressHandlers 
         settle(b, open);
       }
       const p: PressState = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: e.timeStamp,
-        armed: true, repeated: false, settled: false };
+        armed: true, repeated: false, settled: false, holdEnded: false };
       presses.set(b, p);
       b.classList.add('appuye');
       if (hold !== undefined) {
-        p.stopHold = holdRepeat(b as HTMLElement, () => { p.repeated = true; act(); }, hold,
+        const fire = hold.fire ?? act;
+        p.stopHold = holdRepeat(b as HTMLElement, () => { p.repeated = true; fire(); }, hold,
           e.pointerId, () => settle(b, p));
       }
     },
@@ -182,7 +192,7 @@ export function cardPress(act: () => void, hold?: HoldPress): CardPressHandlers 
       // Kept open but disarmed until its release: a phantom contact must not re-arm it.
       p.armed = false;
       b.classList.remove('appuye');
-      p.stopHold?.();
+      endHold(p);
     },
     onpointerup(e) {
       const b = e.currentTarget as Element;

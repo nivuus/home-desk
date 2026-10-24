@@ -23,7 +23,10 @@
  *     card —, the dots' pill is solid with dots ≥ 4.5:1 against it (the icons' rule: it may sit
  *     on a picture), and the pill overlaps no disc and no text box. The count comes from the
  *     stack itself (`data-cards`, `renderStack`): several cards require one dot each, a single
- *     card forbids the dots. */
+ *     card forbids the dots.
+ *  5. the printer's AMS spools (`.bobines`): a solid pill, each spool's outer ring ≥ 4.5:1 against
+ *     it (a spool's colour is anything: the ring is what sets it apart), each filled spool's
+ *     inner ring ≥ 4.5:1 against the spool, and the spool that prints wider than every other. */
 import { build } from 'esbuild';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -135,8 +138,18 @@ function relever({ frameBottom, selector, textSelector }) {
         .filter((el) => hit(el.getBoundingClientRect())).map(name) : [],
     };
   }
+  const spoolPill = card.querySelector('.bobines');
+  const spools = spoolPill && {
+    fill: getComputedStyle(spoolPill).backgroundColor, opacity: opacity(spoolPill),
+    discs: [...spoolPill.querySelectorAll('.bobine')].map((el) => {
+      const st = getComputedStyle(el);
+      return { ring: st.borderTopColor, fill: st.backgroundColor,
+        inner: /rgba?\([^)]*\)/.exec(st.boxShadow)?.[0] ?? null, width: el.getBoundingClientRect().width,
+        active: el.classList.contains('en-cours'), empty: el.classList.contains('vide') };
+    }),
+  };
   return {
-    stack, titleLines,
+    stack, titleLines, spools,
     size: { width: c.width, height: c.height, bottom: c.bottom },
     clip: { x: Math.max(0, Math.floor(c.left)), y: Math.max(0, Math.floor(c.top)),
       width: Math.ceil(Math.min(c.right, innerWidth) - Math.max(0, Math.floor(c.left))),
@@ -220,6 +233,16 @@ export async function mesurerCarte(page, {
     })),
     overflow: r.overflow,
     unfit: r.unfit,
+    spools: r.spools && {
+      count: r.spools.discs.length,
+      solid: (rgba(r.spools.fill)[3] ?? 1) === 1 && r.spools.opacity === 1,
+      ring: round2(Math.min(...r.spools.discs.map((d) => ratioCss(r.spools.fill, d.ring)))),
+      inner: round2(Math.min(Infinity, ...r.spools.discs.filter((d) => !d.empty)
+        .map((d) => (d.inner === null ? 0 : ratioCss(d.fill, d.inner))))),
+      active: r.spools.discs.filter((d) => d.active).length,
+      largerActive: r.spools.discs.filter((d) => d.active)
+        .every((a) => r.spools.discs.every((d) => d.active || a.width > d.width + 0.5)),
+    },
     stack: r.stack && {
       height: round2(r.stack.height),
       cards: r.stack.cards,
@@ -258,6 +281,15 @@ export function jugerCarte(m) {
   }
   if (m.overflow.length) faults.push(`below the ${HEIGHT} px frame: ${m.overflow.join(', ')}`);
   if (m.unfit.length) faults.push(`does not fit the card: ${m.unfit.join(', ')}`);
+  if (m.spools) {
+    const sp = m.spools;
+    if (sp.count === 0) faults.push('a spool row without a spool');
+    if (!sp.solid) faults.push('spool pill not solid');
+    if (sp.ring < ICON_CONTRAST_MIN) faults.push(`spool ring contrast under ${ICON_CONTRAST_MIN}:1 (${sp.ring}:1)`);
+    if (sp.inner < ICON_CONTRAST_MIN) faults.push(`spool inner ring contrast under ${ICON_CONTRAST_MIN}:1 (${sp.inner}:1)`);
+    if (sp.active > 1) faults.push(`${sp.active} spools marked as printing`);
+    if (!sp.largerActive) faults.push('the printing spool is not larger than the others');
+  }
   if (m.stack) {
     const st = m.stack;
     if (Math.abs(st.height - BLOC_CARTE) > 0.5) faults.push(`stack block ${st.height} px, not ${BLOC_CARTE}`);
@@ -281,7 +313,8 @@ export function resumerCarte(m) {
   const wd = m.discs.reduce((a, d) => (d.ratio < a.ratio ? d : a), { ratio: Infinity });
   return `${m.size.width} × ${m.size.height}, worst text ${wb.ratio}:1 on "${wb.text}", worst icon ${wd.ratio}:1 `
     + `(${wd.cls ?? 'no disc'}), ${m.boxes.filter((b) => b.plate).length}/${m.boxes.length} box(es) on a plate`
-    + `${m.stack?.pill ? `, dots ${m.stack.pill.ratio}:1` : ''}`;
+    + `${m.stack?.pill ? `, dots ${m.stack.pill.ratio}:1` : ''}`
+    + `${m.spools ? `, ${m.spools.count} spool(s) ring ${m.spools.ring}:1` : ''}`;
 }
 
 // --- The in-memory page: `src/` bundled, the test posters served ------------------------------

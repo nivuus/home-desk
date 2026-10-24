@@ -15,6 +15,7 @@ type first (so an unknown `type` is an `enum` fault, never a missing role),
 then the branch of that type."""
 from __future__ import annotations
 
+import re
 from typing import Any, Callable
 
 import voluptuous as vol
@@ -29,10 +30,12 @@ from .validateurs import (
     _object,
     _present,
     _string,
+    _string_pattern,
 )
 
 _ENTITY_REF = "ecran.schema.json#/$defs/entite"
 _LIST_REF = "#/$defs/listeEntites"
+_BUTTON_REF = "#/$defs/entiteBouton"
 _THRESHOLD = "seuil"
 
 
@@ -43,18 +46,29 @@ def _unsupported(where: str, what: Any) -> ValueError:
         "extend the mirror before the contract")
 
 
-def _role(name: str, role_schema: dict, entity: Callable) -> Callable:
-    """A role is one entity id (`$ref` to `entite`) or a list of them (`$ref`
-    to `listeEntites`, with optional `minItems`/`maxItems` beside it)."""
+def _button_entity(defs: dict) -> Callable:
+    """`$defs/entiteBouton`: a string matching its `pattern`, nothing else."""
+    button = defs["entiteBouton"]
+    if set(button) - {"description"} != {"type", "pattern"} or button["type"] != "string":
+        raise _unsupported("$defs/entiteBouton", button)
+    return _string_pattern(re.compile(button["pattern"]))
+
+
+def _role(name: str, role_schema: dict, entity: Callable, button: Callable) -> Callable:
+    """A role is one entity id (`$ref` to `entite`), one button entity id
+    (`$ref` to `entiteBouton`) or a list of entity ids (`$ref` to
+    `listeEntites`, with optional `minItems`/`maxItems` beside it)."""
     ref = role_schema.get("$ref")
     if ref == _ENTITY_REF and set(role_schema) == {"$ref"}:
         return entity
+    if ref == _BUTTON_REF and set(role_schema) == {"$ref"}:
+        return button
     if ref == _LIST_REF and set(role_schema) <= {"$ref", "minItems", "maxItems"}:
         return _array(entity, role_schema.get("minItems", 0), role_schema.get("maxItems"))
     raise _unsupported(f"role {name!r}", role_schema)
 
 
-def _entities(type_name: str, schema: dict, entity: Callable) -> Callable:
+def _entities(type_name: str, schema: dict, entity: Callable, button: Callable) -> Callable:
     """The `entites` object of one branch: its roles, closed to any other."""
     if not set(schema) <= {"required", "anyOf", "additionalProperties", "properties"}:
         raise _unsupported(f"entites of {type_name!r}", sorted(schema))
@@ -64,7 +78,7 @@ def _entities(type_name: str, schema: dict, entity: Callable) -> Callable:
     shape = vol.Schema(
         {
             (vol.Required(name) if name in required else vol.Optional(name)):
-                _role(name, role_schema, entity)
+                _role(name, role_schema, entity, button)
             for name, role_schema in schema["properties"].items()
         },
         extra=vol.PREVENT_EXTRA,
@@ -79,7 +93,7 @@ def _entities(type_name: str, schema: dict, entity: Callable) -> Callable:
     return vol.All(shape, _any_required(groups))
 
 
-def _branch(branch: dict, entity: Callable) -> tuple[str, Callable]:
+def _branch(branch: dict, entity: Callable, button: Callable) -> tuple[str, Callable]:
     """One `{if: {type: const}, then: {...}}`: the type it names and the
     validator of an item of that type."""
     type_name = branch["if"]["properties"]["type"]["const"]
@@ -92,7 +106,7 @@ def _branch(branch: dict, entity: Callable) -> tuple[str, Callable]:
     if ("required" in then) == ("not" in then):
         raise _unsupported(f"branch {type_name!r}", "a threshold neither required nor forbidden")
     threshold = _present(_THRESHOLD) if "required" in then else _absent(_THRESHOLD)
-    entities = _entities(type_name, then["properties"]["entites"], entity)
+    entities = _entities(type_name, then["properties"]["entites"], entity, button)
     item = vol.Schema(
         {
             vol.Required("type"): object,
@@ -111,7 +125,8 @@ def appliance_validator(defs: dict, entity: Callable) -> Callable:
     appareil = defs["appareil"]
     props = appareil["properties"]
     types = props["type"]["enum"]
-    branches = dict(_branch(b, entity) for b in appareil["allOf"])
+    button = _button_entity(defs)
+    branches = dict(_branch(b, entity, button) for b in appareil["allOf"])
     if sorted(branches) != sorted(types):
         raise _unsupported("the type branches", sorted(set(branches) ^ set(types)))
     shared = vol.Schema(

@@ -1223,6 +1223,38 @@ body {
 .asp-choix [data-action="lancer"]:not(.inactif) { background: var(--md-primary);
   color: var(--md-on-primary); }
 
+/* The printer card (`cards/printer.ts`): its middle, the AMS spools and the camera overlay. Its own
+   file, like vacuum.css: cards.css holds the frame every card shares.
+
+   MIDDLE. The percentage large, beside it the end time, the layer and the spools, one line each (ellipsis:
+   the end time's words are the locale's). Every ancestor of these tone boxes up to `.carte`
+   stays unpositioned (`boot/card-tones.ts` measures through the offset chain). */
+/* Top-aligned, not on the baseline: the details column is taller than the figure, and a
+   baseline would push it past the middle zone. */
+.carte .imprimante-chiffres { align-items: flex-start; }
+.carte .imprimante-details { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+
+/* SPOOLS. A solid pill in the disc pair, like the stack's dots: each spool's outer ring is the
+   pill's icon colour, so it keeps the icons' 4.5:1 on any picture; the inner ring (black or
+   white, `--bobine-bord`, computed per spool) keeps it apart from its own colour. The spool that
+   prints is larger. Flat: no gradient, no shadow outside the ring. */
+.carte .bobines { flex: none; align-self: flex-start; display: flex; align-items: center; gap: 8px;
+  height: 28px; padding: 0 8px; box-sizing: border-box; border-radius: var(--sh-full);
+  background: var(--mc-secondary, var(--c-disque, var(--md-surface-container-highest))); }
+.carte .bobine { flex: none; width: 16px; height: 16px; box-sizing: border-box;
+  border-radius: var(--sh-full);
+  border: 2px solid var(--mc-on-secondary, var(--c-icone, var(--md-on-surface)));
+  background: var(--bobine); box-shadow: inset 0 0 0 2px var(--bobine-bord); }
+.carte .bobine.en-cours { width: 24px; height: 24px; }
+/* An empty tray (or a colour the integration did not give): the ring alone. */
+.carte .bobine.vide { background: transparent; box-shadow: none; }
+
+/* CAMERA. Over the whole card while its button is held: an opaque base under the picture (a
+   frame still loading shows black, never the card through it). `pointer-events: none`: the
+   press that asked for it stays on its button. */
+.carte .carte-camera { position: absolute; inset: 0; z-index: 1; background-color: #000;
+  background-size: cover; background-position: center; pointer-events: none; }
+
 /* The animation pushed by Home Assistant (`rendu/animation.ts`): above every view, never a
    target of the touch — the first touch is caught in capture on `#app` (`boot/animation.ts`),
    so the layer itself lets pointers through. Plain black for the veil, not a palette token: it

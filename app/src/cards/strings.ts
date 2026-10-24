@@ -37,6 +37,18 @@ export const S = {
   /** The end time and the limit, already formatted with `Intl` by the caller. */
   chargeEnds: (time: string) => `Fin à ${time}`,
   chargeLimit: (pct: string) => `Limite ${pct}`,
+  printer: 'Imprimante 3D',
+  /** `print_status` values of ha-bambulab (`cards/printer.ts`); any other has no card. */
+  printerStates: { running: 'Impression', prepare: 'Préparation', slicing: 'Découpage',
+    pause: 'En pause', finish: 'Terminée', failed: 'Échec' } as Record<string, string>,
+  printerError: 'Erreur',
+  printerCamera: 'Caméra',
+  printerResume: "Reprendre l'impression",
+  printerStop: "Arrêter l'impression",
+  /** The end of the print, already formatted with `Intl` by the caller. */
+  printEnds: (time: string) => `Fin à ${time}`,
+  /** The layer and the layer count, already formatted with `Intl` by the caller. */
+  layer: (n: string, total?: string) => (total === undefined ? `Couche ${n}` : `Couche ${n} / ${total}`),
   airing: 'À faire',
   /** How long it has been open, already formatted with `Intl` by the caller. */
   openSince: (duration: string) => `Ouvert depuis ${duration}`,

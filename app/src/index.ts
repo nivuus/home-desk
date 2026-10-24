@@ -4,6 +4,7 @@ import './styles/cards.css';
 import './styles/media.css';
 import './styles/pantry.css';
 import './styles/vacuum.css';
+import './styles/printer.css';
 import './styles/animation.css';
 import { startPage } from './page';
 

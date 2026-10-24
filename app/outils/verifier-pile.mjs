@@ -3,16 +3,18 @@
  *  Home Assistant: `src/` bundled by esbuild with the stylesheets of `src/index.ts`, viewport
  *  343 × 585, the system's fallback font (DejaVu Sans here, wider than Roboto: conservative).
  *
- *  1. Every card of the batch (timer, recipe, media, cinema, vacuum, car, airing), built from
+ *  1. Every card (timer, recipe, media, cinema, vacuum, car, airing, printer), built from
  *     fixture states by the app's own `collectStack`/`frameCard`, shown in turn in its stack, in
  *     two variants (each card in its other state: the late timer, the car to plug in, the
- *     stuck robot, other posters) × three scripts (Latin, CJK, Arabic, with titles and room
+ *     stuck robot, other posters, each print state over two variants) × three scripts (Latin, CJK, Arabic, with titles and room
  *     names too long): the rules of `card-check.mjs` — 311 × 264 at ±0.5 px, title on two lines
  *     at most, nothing past the 585 px frame, worst-pixel contrast ≥ 5:1 for text and ≥ 4.5:1
- *     for icons and dots, dots inside the card overlapping nothing. Then one plain card per
+ *     for icons and dots, dots inside the card overlapping nothing, the printer's spools ringed
+ *     at 4.5:1 and the printing one larger. Then one plain card per
  *     solid token: each of the eight colours carries the dots once.
  *  2. Real touches on a stacked card (`pile-touches.mjs`): a phantom contact during a swipe, a
- *     swipe that starts on a button or a volume stepper, a tap under the threshold.
+ *     swipe that starts on a button or a volume stepper, a tap under the threshold, the
+ *     printer's camera held, tapped, and swiped from.
  *
  *  Exits non-zero at the first fault. Counter-proofs, each of which MUST exit non-zero:
  *    --contre-epreuve            every card forced to 300 px tall
@@ -22,7 +24,9 @@
  *    --contre-epreuve=points-dehors  the dots moved outside the card
  *    --contre-epreuve=carte-seule  dots on a stack that declares one card
  *    --contre-epreuve=trois-lignes  titles clamped on three lines
- *    --mutant=lock|threshold|contact   a guard of `stack/swipe.ts` removed (touches only)
+ *    --contre-epreuve=bobines     spool rings the colour of their pill
+ *    --contre-epreuve=bobine-active  the printing spool drawn the size of the others
+ *    --mutant=lock|threshold|contact|hold-end   a guard of `stack/swipe.ts` removed (touches only)
  *
  *  Usage: cd app && node outils/verifier-pile.mjs [option] */
 import { chromium } from 'playwright-core';
@@ -36,8 +40,8 @@ import { MUTANTS, SCENARIOS, mutationPlugin, runScenario } from './pile-touches.
 const ORIGIN = 'http://verifier-pile.test';
 const SCRIPTS = ['latin', 'cjk', 'arabe'];
 const VARIANTS = ['a', 'b'];
-/** The batch: a stack missing one of them is a fixture that no longer reaches a card. */
-const BATCH = ['recette', 'minuteur', 'media', 'cinema', 'aspirateur', 'voiture', 'aeration'];
+/** The card types: a stack missing one of them is a fixture that no longer reaches a card. */
+const BATCH = ['recette', 'minuteur', 'media', 'cinema', 'aspirateur', 'voiture', 'aeration', 'imprimante'];
 const TEXT_BOXES = '[data-tone-box], .milieu *';
 
 const COUNTER_PROOFS = {
@@ -53,6 +57,11 @@ const COUNTER_PROOFS = {
     what: 'dots on a stack that declares one card' },
   'points-dehors': { css: '.carte .points { position: absolute; top: -30px; right: 0; }',
     what: 'the dots moved outside the card' },
+  bobines: { css: '.carte .bobine { border-color: '
+    + 'var(--mc-secondary, var(--c-disque, var(--md-surface-container-highest))) !important; }',
+  what: 'spool rings the colour of their pill' },
+  'bobine-active': { css: '.carte .bobine.en-cours { width: 16px !important; height: 16px !important; }',
+    what: 'the printing spool drawn the size of the others' },
   contraste: { css: '.carte .points > span { background: '
     + 'var(--mc-secondary, var(--c-disque, var(--md-surface-container-highest))) !important; }',
   what: 'dots the colour of their pill' },
@@ -79,7 +88,8 @@ async function renderChecks(ctx, url, { css, dom } = {}) {
     for (let i = 0; i < types.length; i++) {
       await page.evaluate((n) => window.__show(n), i);
       if (dom) await page.evaluate(dom);
-      const image = await page.evaluate(() => document.querySelector('.carte')?.classList.contains('media'));
+      const image = await page.evaluate(() => ['media', 'avec-image']
+        .some((c) => document.querySelector('.carte')?.classList.contains(c)));
       const tinted = !image || await attendreCarteTeintee(page, '.carte');
       const m = tinted ? await mesurerCarte(page, { selector: '.carte', textSelector: TEXT_BOXES }) : null;
       let j = tinted ? jugerCarte(m) : { ok: false, reason: 'the card never showed its picture' };

@@ -15,6 +15,11 @@
   },
   "$defs": {
     "listeEntites": {"type": "array", "items": {"$ref": "ecran.schema.json#/$defs/entite"}},
+    "entiteBouton": {
+      "type": "string",
+      "pattern": "^button\\.[a-z0-9_]+$",
+      "description": "Un entity_id du domaine button : la carte le presse par button.press, et l'integration qui le fournit (ha-bambulab pour l'imprimante) n'expose ces actions qu'en boutons. Un script ou un interrupteur serait un bouton mort."
+    },
     "appareil": {
       "type": "object",
       "description": "Un appareil de la maison. `piece` : le nom d'une piece, ou \"maison\" pour un appareil montre partout ; toute chaine non vide, comme la `piece` d'une source (aucune liste de pieces ne vit dans le contrat). `entites` : des roles vers des entity_id ; les roles requis et facultatifs dependent de `type`, une branche `if/then` par type ci-dessous, et un role inconnu de son type est refuse. Les roles listes (`ams`, `sondes`, `zones`, `niveaux`) sont des tableaux d'entity_id, tous les autres un seul entity_id. `seuil` est REQUIS pour `air` et `encre` et INTERDIT ailleurs : un seuil ignore serait une valeur saisie pour rien.",
@@ -55,9 +60,9 @@
                   "tache": {"$ref": "ecran.schema.json#/$defs/entite"},
                   "couverture": {"$ref": "ecran.schema.json#/$defs/entite"},
                   "camera": {"$ref": "ecran.schema.json#/$defs/entite"},
-                  "pause": {"$ref": "ecran.schema.json#/$defs/entite"},
-                  "reprise": {"$ref": "ecran.schema.json#/$defs/entite"},
-                  "arret": {"$ref": "ecran.schema.json#/$defs/entite"},
+                  "pause": {"$ref": "#/$defs/entiteBouton"},
+                  "reprise": {"$ref": "#/$defs/entiteBouton"},
+                  "arret": {"$ref": "#/$defs/entiteBouton"},
                   "erreur": {"$ref": "ecran.schema.json#/$defs/entite"},
                   "ams": {"$ref": "#/$defs/listeEntites", "maxItems": 4}
                 }

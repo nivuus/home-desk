@@ -11,6 +11,7 @@ import * as media from '../cards/media';
 import * as vacuum from '../cards/vacuum';
 import * as car from '../cards/car';
 import * as airing from '../cards/airing';
+import * as printer from '../cards/printer';
 import { orderStack } from './order';
 import type { Card, CardType } from './types';
 
@@ -19,10 +20,10 @@ type CardModule = {
   frame(card: Card, f: Frame, s: ScreenState): CardFrame;
 };
 
-/** The modules of the first batch, by the type(s) of card they draw. */
+/** The card modules, by the type(s) of card they draw. */
 const MODULES: Partial<Record<CardType, CardModule>> = {
   recette: recipe, minuteur: timer, media, cinema: media, aspirateur: vacuum, voiture: car,
-  aeration: airing,
+  aeration: airing, imprimante: printer,
 };
 
 /** Each module once, even when it draws two types (`media`/`cinema`). */
