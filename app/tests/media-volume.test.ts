@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, html } from 'lit';
-import { stepVolume, holdRepeat, volumeRow, PENDING_MS } from '../src/rendu/media-volume';
+import { stepVolume, volumeRow, PENDING_MS } from '../src/rendu/media-volume';
+import { holdRepeat } from '../src/hold-repeat';
+import { SEUIL_PX } from '../src/geste';
 
 describe('stepVolume', () => {
   it('stepVolume clamps at both ends and snaps to 5 %', () => {
@@ -26,13 +28,12 @@ describe('holdRepeat', () => {
 
   const OPTS = { delayMs: 400, everyMs: 200 };
 
-  it('fires once at once, then repeats after the delay', () => {
+  it('fires nothing before the delay, then once at the delay and every step after', () => {
     const el = document.body.appendChild(document.createElement('div'));
     const fire = vi.fn();
     const stop = holdRepeat(el, fire, OPTS);
-    expect(fire).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(399);
-    expect(fire).toHaveBeenCalledTimes(1);
+    expect(fire).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1 + 200 * 3);
     expect(fire).toHaveBeenCalledTimes(4);
     stop();
@@ -54,13 +55,13 @@ describe('holdRepeat', () => {
     }
   });
 
-  it('a release before the delay means a single step', () => {
+  it('a release before the delay repeats nothing (the single step is the tap\'s, `cardPress`)', () => {
     const el = document.createElement('div');
     const fire = vi.fn();
     holdRepeat(el, fire, OPTS);
     el.dispatchEvent(new Event('pointerup'));
     vi.advanceTimersByTime(2000);
-    expect(fire).toHaveBeenCalledTimes(1);
+    expect(fire).not.toHaveBeenCalled();
   });
 
   it('a hold whose button leaves the DOM stops, and ends', () => {
@@ -87,7 +88,7 @@ describe('holdRepeat', () => {
       holdRepeat(el, fire, OPTS, end);
       (target === 'document' ? document : el).dispatchEvent(new Event(type));
       vi.advanceTimersByTime(2000);
-      expect(fire, `${target} ${type}`).toHaveBeenCalledTimes(1);
+      expect(fire, `${target} ${type}`).not.toHaveBeenCalled();
       expect(end, `${target} ${type}`).toHaveBeenCalledTimes(1);
       el.remove();
     }
@@ -138,6 +139,51 @@ describe('volumeRow: the optimistic level belongs to the render', () => {
     expect(m.shown()).toBe('40\u00a0%');
     expect(m.host.querySelector<HTMLElement>('.media-volume')!.style.getPropertyValue('--niveau'))
       .toBe('0.4');
+  });
+
+  const pe = (type: string, x: number, id = 1) =>
+    new PointerEvent(type, { clientX: x, clientY: 100, pointerId: id, bubbles: true });
+
+  it('a tap steps once, on release', () => {
+    const m = mount('media_player.tap', 0.4);
+    m.plus().dispatchEvent(pe('pointerdown', 100));
+    expect(m.act).not.toHaveBeenCalled();
+    m.plus().dispatchEvent(pe('pointerup', 101));
+    expect(m.act).toHaveBeenCalledTimes(1);
+    expect(m.act.mock.lastCall![3].volume_level).toBe(0.45);
+    vi.advanceTimersByTime(PENDING_MS);
+  });
+
+  it('a swipe that starts on a stepper leaves the volume unchanged', () => {
+    const m = mount('media_player.swipe', 0.4);
+    m.plus().dispatchEvent(pe('pointerdown', 100));
+    m.plus().dispatchEvent(pe('pointermove', 100 - SEUIL_PX * 4));
+    vi.advanceTimersByTime(2000);                // long past the hold delay
+    m.plus().dispatchEvent(pe('pointerup', 100 - SEUIL_PX * 4));
+    expect(m.act).not.toHaveBeenCalled();
+    expect(m.shown()).toBe('40\u00a0%');
+  });
+
+  it('a hold that turns into a swipe stops repeating at the threshold', () => {
+    const m = mount('media_player.hold-swipe', 0.4);
+    m.plus().dispatchEvent(pe('pointerdown', 100));
+    vi.advanceTimersByTime(400 + 200);           // 0.45 at the delay, then 0.5
+    expect(m.act).toHaveBeenCalledTimes(2);
+    m.plus().dispatchEvent(pe('pointermove', 100 + SEUIL_PX * 2));
+    vi.advanceTimersByTime(2000);
+    m.plus().dispatchEvent(pe('pointerup', 100 + SEUIL_PX * 2));
+    expect(m.act).toHaveBeenCalledTimes(2);
+    vi.advanceTimersByTime(PENDING_MS);
+  });
+
+  it('a hold released after repeating adds no extra step', () => {
+    const m = mount('media_player.hold', 0.4);
+    m.plus().dispatchEvent(pe('pointerdown', 100));
+    vi.advanceTimersByTime(400);
+    m.plus().dispatchEvent(pe('pointerup', 100));
+    expect(m.act).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(PENDING_MS);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('once HA reaches the target, its later values show at once', () => {

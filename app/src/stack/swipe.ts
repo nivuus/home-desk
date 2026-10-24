@@ -16,6 +16,7 @@
  *  (`geste.ts`, correction round 5): one gesture per element, whatever the pointer id. */
 import { SEUIL_PX, DELAI_SECOURS_MS } from '../geste';
 import { minuteurFnParDefaut } from '../minuteurs';
+import { holdRepeat, type HoldTiming } from '../hold-repeat';
 
 /** The card's translation when it changes or snaps back: short, a slide and nothing else. */
 export const SLIDE_MS = 180;
@@ -118,8 +119,11 @@ export function attachSwipe(
 
 /** Press state, kept per button ELEMENT and not in the handlers' closure: `lit` installs new
  *  handlers at every render (the clock, any HA state), and a render between contact and release
- *  must not lose the press. */
-type PressState = { id: number; x0: number; y0: number; t0: number; armed: boolean };
+ *  must not lose the press. `repeated`: a hold already acted, so its release adds nothing. */
+type PressState = {
+  id: number; x0: number; y0: number; t0: number; armed: boolean;
+  repeated: boolean; stopHold?: () => void;
+};
 const presses = new WeakMap<Element, PressState>();
 
 export type CardPressHandlers = {
@@ -127,20 +131,36 @@ export type CardPressHandlers = {
   onpointerup: (e: PointerEvent) => void; onpointercancel: (e: PointerEvent) => void;
 };
 
+/** Holding repeats the action (`hold-repeat.ts`); `onEnd` runs once when the press ends, however. */
+export type HoldPress = HoldTiming & { onEnd?: () => void };
+
 /** A card button: `.appuye` from contact, the action on release if the finger moved less than
  *  `SEUIL_PX`. Acting at contact (`interaction.ts`) would fire every swipe that starts on a
- *  button; the immediate feedback keeps the press feeling instant. */
-export function cardPress(act: () => void): CardPressHandlers {
-  const settle = (b: Element) => { presses.delete(b); b.classList.remove('appuye'); };
+ *  button; the immediate feedback keeps the press feeling instant. With `hold`, a press held
+ *  past its delay repeats the action instead, until the release or a travel past `SEUIL_PX`. */
+export function cardPress(act: () => void, hold?: HoldPress): CardPressHandlers {
+  const settle = (b: Element, p: PressState) => {
+    presses.delete(b);
+    b.classList.remove('appuye');
+    p.stopHold?.();
+  };
   return {
     onpointerdown(e) {
       const b = e.currentTarget as Element;
       const open = presses.get(b);
       // A release lost by the WebView leaves a press open: past the same delay as `geste.ts`'s
       // safety net it is stale, read from the event's own clock so a press arms no timer.
-      if (open !== undefined && e.timeStamp - open.t0 < DELAI_SECOURS_MS) return;   // phantom
-      presses.set(b, { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: e.timeStamp, armed: true });
+      if (open !== undefined) {
+        if (e.timeStamp - open.t0 < DELAI_SECOURS_MS) return;   // the phantom contact
+        settle(b, open);
+      }
+      const p: PressState = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: e.timeStamp,
+        armed: true, repeated: false };
+      presses.set(b, p);
       b.classList.add('appuye');
+      if (hold !== undefined) {
+        p.stopHold = holdRepeat(b as HTMLElement, () => { p.repeated = true; act(); }, hold, hold.onEnd);
+      }
     },
     onpointermove(e) {
       const b = e.currentTarget as Element;
@@ -150,17 +170,20 @@ export function cardPress(act: () => void): CardPressHandlers {
       // Kept open but disarmed until its release: a phantom contact must not re-arm it.
       p.armed = false;
       b.classList.remove('appuye');
+      p.stopHold?.();
     },
     onpointerup(e) {
       const b = e.currentTarget as Element;
       const p = presses.get(b);
       if (p === undefined || p.id !== e.pointerId) return;   // nothing pressed, or the phantom's release
-      settle(b);
-      if (p.armed) act();
+      // The tap's action BEFORE the hold ends: `onEnd` must see what the action left.
+      if (p.armed && !p.repeated) act();
+      settle(b, p);
     },
     onpointercancel(e) {
       const b = e.currentTarget as Element;
-      if (presses.get(b)?.id === e.pointerId) settle(b);
+      const p = presses.get(b);
+      if (p !== undefined && p.id === e.pointerId) settle(b, p);
     },
   };
 }

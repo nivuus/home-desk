@@ -282,15 +282,13 @@ describe('media card — actions', () => {
     brancherMedia(act, vi.fn(), () => rendre(BASE));
     const c = rendre(BASE);
     const plus = c.querySelector('[data-mvt="detail:volume-plus"]')!;
-    plus.dispatchEvent(new Event('pointerdown'));
-    plus.dispatchEvent(new Event('pointerup'));
+    tap(plus);
     expect(act).toHaveBeenCalledWith('media_player', 'volume_set', 'media_player.philips',
       { volume_level: 0.45 });
     expect(c.querySelector('.media-niveau-texte')!.textContent).toBe('45 %');
     expect(c.querySelector<HTMLElement>('.media-volume')!.style.getPropertyValue('--niveau')).toBe('0.45');
     // A second press steps from the optimistic level, not from the stale HA one.
-    plus.dispatchEvent(new Event('pointerdown'));
-    plus.dispatchEvent(new Event('pointerup'));
+    tap(plus);
     expect(act).toHaveBeenLastCalledWith('media_player', 'volume_set', 'media_player.philips',
       { volume_level: 0.5 });
     vi.advanceTimersByTime(PENDING_MS);   // let the optimistic level expire for the other tests
@@ -301,7 +299,7 @@ describe('media card — actions', () => {
     const act = vi.fn();
     brancherMedia(act, vi.fn());
     const c = rendre({ ...BASE, volume: { entite: 'media_player.tv', parPas: true } });
-    c.querySelector('[data-mvt="detail:volume-moins"]')!.dispatchEvent(new Event('pointerdown'));
+    tap(c.querySelector('[data-mvt="detail:volume-moins"]')!);
     expect(act).toHaveBeenCalledWith('media_player', 'volume_down', 'media_player.tv');
   });
 });
