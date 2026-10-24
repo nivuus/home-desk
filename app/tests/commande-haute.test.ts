@@ -5,7 +5,7 @@ import { render } from 'lit';
 import { ordreCommandes, type ContexteModes } from '../src/modes';
 import { bouton } from '../src/rendu/tile';
 import { Etat } from '../src/etat';
-import type { Bouton } from '../src/ecran';
+import type { Bouton } from '../src/screen-types';
 import { CALME } from './contextes';
 
 /** `Bouton.haute`: a tile that spans the two rows of its column. It is a COST in the cut, never

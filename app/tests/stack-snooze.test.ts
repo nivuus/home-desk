@@ -10,7 +10,7 @@ import { detect, frame } from '../src/cards/airing';
 import { S } from '../src/cards/strings';
 import { CHEMINS } from '../src/rendu/icones';
 import type { ContexteModes } from '../src/modes';
-import type { Ecran } from '../src/ecran';
+import type { Ecran } from '../src/screen-types';
 import { etatWith, frameWith, pieceWith, screenWith } from './card-aides';
 import { CALME } from './contextes';
 import { monterDemarrage, restaurerReseau, vider, type Montage } from './aides';

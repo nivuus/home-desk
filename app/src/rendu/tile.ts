@@ -6,7 +6,7 @@
  *  command. Nothing but the language of the comments changed in the move. */
 import { html } from 'lit';
 import type { Etat } from '../etat';
-import type { Bouton } from '../ecran';
+import type { Bouton } from '../screen-types';
 import { icone } from './icones';
 import { descripteurJauge, fractionJauge } from '../jauge';
 import { offersVacuumChoice } from '../boot/vacuum';

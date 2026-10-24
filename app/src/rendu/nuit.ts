@@ -26,7 +26,7 @@
  *  fonction de présentation — aucun état de réveil n'est tenu ici. */
 import { html, type TemplateResult } from 'lit';
 import type { Etat } from '../etat';
-import type { Ecran } from '../ecran';
+import type { Ecran } from '../screen-types';
 import { icone } from './icones';
 
 export function rendreNuit(

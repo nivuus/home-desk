@@ -72,7 +72,7 @@ describe('alarm card — frame', () => {
     const [f, s] = alarm([['armed_away', null], ['disarmed', 'number']]);
     expect(frame(CARD, f, s).buttons[1]).toBeDefined();
   });
-  it('offline: the button sends nothing through the shared action', () => {
+  it('an armed alarm is a reminder: the neutral solid, never the alert red', () => {
     const [f, s] = alarm([['armed_away', null]]);
     expect(frame(CARD, f, s).background).toEqual({ kind: 'solid', token: 'neutral' });
   });

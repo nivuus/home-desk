@@ -18,7 +18,7 @@
 import { render } from 'lit';
 import { Connexion, lireJetons, delaiReconnexion, type Jetons } from './connexion';
 import { intervalFnParDefaut, minuteurFnParDefaut } from './minuteurs';
-import type { Ecran } from './ecran';
+import type { Ecran } from './screen-types';
 import { resoudreAgencement } from './agencement';
 import {
   sessionAbsente, startupError, ecranEnAttente, choisirEcran, ecranDeLaPanne,

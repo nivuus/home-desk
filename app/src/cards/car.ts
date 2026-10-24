@@ -17,7 +17,7 @@ import { html } from 'lit';
 import type { Frame } from '../boot/frame';
 import type { ScreenState } from '../boot/state';
 import type { Appareil } from '../configuration';
-import type { Voiture } from '../ecran';
+import type { Voiture } from '../screen-types';
 import type { Etat } from '../etat';
 import type { CardButton, CardFrame } from '../rendu/card-frame';
 import { actionsVoiture } from '../rendu/voiture';

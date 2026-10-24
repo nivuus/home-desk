@@ -1,7 +1,7 @@
 import { html, type TemplateResult } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 import type { Etat } from '../etat';
-import type { Ecran, EntreeSynthese } from '../ecran';
+import type { Ecran, EntreeSynthese } from '../screen-types';
 import type { Alerte } from '../contexte';
 import { icone } from './icones';
 import { ENTITE_ENTRETIEN } from './defaut';

@@ -6,7 +6,7 @@
  *  through a closure — each module receives this object and nothing else. Nothing in here renders
  *  or talks to Home Assistant: it is data plus the one `dessiner` entry point. */
 import type { Etat } from '../etat';
-import type { Ecran } from '../ecran';
+import type { Ecran } from '../screen-types';
 import type { Agencement } from '../agencement';
 import type { Niveau } from '../mouvement';
 import type { Moteur } from '../mouvement/moteur';

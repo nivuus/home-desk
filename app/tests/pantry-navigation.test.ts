@@ -6,7 +6,7 @@
 // all their animations.
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { startWithScreen, type ConnexionLike } from '../src/demarrage';
-import type { Ecran } from '../src/ecran';
+import type { Ecran } from '../src/screen-types';
 import { ENTREE_MS, GARDE_MS } from '../src/mouvement/grammaire';
 import { connexionFactice as doubleConnexion, ecranVide, stockageAvecSession, vider } from './aides';
 

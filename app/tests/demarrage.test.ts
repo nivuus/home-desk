@@ -7,7 +7,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { startScreen, startWithScreen } from '../src/demarrage';
 import { niveauDemande } from '../src/mouvement';
 import { Connexion } from '../src/connexion';
-import type { Ecran } from '../src/ecran';
+import type { Ecran } from '../src/screen-types';
 import type { EvenementEtat } from '../src/connexion';
 // Tâche 12 : le double de connexion, les stockages et la pièce vide vivent désormais dans
 // `tests/aides.ts`, partagés avec `tests/orchestration.test.ts` — déplacés sans une ligne de

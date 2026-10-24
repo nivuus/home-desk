@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { modePrincipal, modulateursActifs, ordreCommandes, CONDITIONS,
   type ContexteModes, type ModePrincipal } from '../src/modes';
-import { ECRANS, type Bouton } from '../src/ecran';
+import { ECRANS } from '../src/ecran';
+import type { Bouton } from '../src/screen-types';
 import { AGENCEMENT_DEFAUT } from '../src/agencement';
 import type { CardType } from '../src/stack/types';
 import { CALME } from './contextes';

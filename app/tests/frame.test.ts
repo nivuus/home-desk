@@ -3,7 +3,7 @@ import { computeFrame } from '../src/boot/frame';
 import type { ScreenState } from '../src/boot/state';
 import { resoudreAgencement } from '../src/agencement';
 import { Etat } from '../src/etat';
-import type { Ecran } from '../src/ecran';
+import type { Ecran } from '../src/screen-types';
 import type { DeclarationSource } from '../src/media';
 import { sourceKey } from '../src/media-choice';
 import { detect as detectMedia } from '../src/cards/media';

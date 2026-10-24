@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { startPage } from '../src/page';
 import { ECRANS } from '../src/ecran';
-import type { Ecran } from '../src/ecran';
+import type { Ecran } from '../src/screen-types';
 
 function racineAvec(dataset: Record<string, string> = {}) {
   const el = document.createElement('div');

@@ -12,7 +12,7 @@ import { CAPTEUR_EXPIRATIONS, CAPTEUR_MANQUES } from '../garde-manger';
 import type { CardFrame } from '../rendu/card-frame';
 import type { Card } from '../stack/types';
 import { laterButton } from './actions';
-import { declaresView, shoppingButton } from './meal';
+import { declaresView, shoppingButton } from './kitchen';
 import { attributeOf, stateOf } from './readings';
 import { S } from './strings';
 

@@ -13,7 +13,7 @@
  *  Module PUR : aucun import de rendu, aucune lecture d'état. Même règle que `modes.ts`, et c'est
  *  ce qui le rend testable sans navigateur. */
 import type { ModePrincipal, Modulateur } from './modes';
-import type { Ecran } from './ecran';
+import type { Ecran } from './screen-types';
 
 /** Les zones MOBILES. Le bandeau n'y est pas : c'est la barre d'état de l'écran, la déplacer n'a
  *  pas de sens et coûterait un cas de plus au moteur. « Toute la maison » non plus : elle est

@@ -5,7 +5,7 @@
  *  le ramasse pas comme une suite vide. */
 import { vi } from 'vitest';
 import { startScreen, type ConnexionLike, type DependancesDemarrage } from '../src/demarrage';
-import type { Ecran } from '../src/ecran';
+import type { Ecran } from '../src/screen-types';
 import type { DeclarationSource } from '../src/media';
 import type { Appareil } from '../src/configuration';
 import type { EvenementEtat } from '../src/connexion';

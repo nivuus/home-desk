@@ -6,7 +6,7 @@
  *  Home Assistant: same discipline as `contexte.ts`/`jauge.ts`, testable without a browser.
  *  Wired by `demarrage.ts` (the only place that knows both `Etat`/`Connexion` and the page's
  *  clock) and rendered by `rendu/taches.ts`. */
-import type { Ecran } from './ecran';
+import type { Ecran } from './screen-types';
 
 /** `todo.*` entities to display on this room's "Tâches" view: those already declared in
  *  `piece.synthese` (`todo.maintenance` everywhere, `todo.travail` in the office, the expiry

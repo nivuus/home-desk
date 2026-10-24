@@ -5,7 +5,7 @@ import type { Frame } from '../src/boot/frame';
 import type { ScreenState } from '../src/boot/state';
 import type { VueMinuteur } from '../src/minuteur';
 import type { SourceResolue } from '../src/media';
-import type { Ecran } from '../src/ecran';
+import type { Ecran } from '../src/screen-types';
 import { Etat } from '../src/etat';
 import { EMPTY_HOUSE } from '../src/configuration';
 

@@ -15,24 +15,16 @@ import { imageToPaint } from '../boot/card-tones';
 import type { Frame } from '../boot/frame';
 import { currentMeal } from '../boot/recipe';
 import type { ScreenState } from '../boot/state';
-import { CAPTEUR_REPAS, LISTE_COURSES, SCRIPT_VALIDER_REPAS, mealStartMs } from '../garde-manger';
+import { CAPTEUR_REPAS, SCRIPT_VALIDER_REPAS, mealStartMs } from '../garde-manger';
 import type { CardButton, CardFrame } from '../rendu/card-frame';
 import type { Card } from '../stack/types';
 import { cardAct } from './actions';
 import { clockTime } from './format';
+import { declaresView, shoppingButton } from './kitchen';
 import { stateOf } from './readings';
 import { S } from './strings';
 
 const WINDOW_MS = 60 * 60_000;
-
-/** Does the screen show the home-stock meal at all? It declares the recipe view. */
-export const declaresView = (s: ScreenState, view: string): boolean => s.piece.commandes.some((c) => c.vue === view);
-
-/** The shopping button, when the screen lists the shopping list in its tasks view. */
-export function shoppingButton(s: ScreenState): CardButton | undefined {
-  if (!(s.piece.listesTachesExtra ?? []).includes(LISTE_COURSES)) return undefined;
-  return { icon: 'list', label: S.shopping, act: () => { location.hash = '#taches'; } };
-}
 
 const keyOf = (): string => `repas:${CAPTEUR_REPAS}`;
 

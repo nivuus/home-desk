@@ -12,14 +12,15 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { render, html } from 'lit';
 import { Etat } from '../src/etat';
-import { ECRANS, type EntreeSynthese } from '../src/ecran';
+import { ECRANS } from '../src/ecran';
+import type { EntreeSynthese } from '../src/screen-types';
 import { rendreCorps, ligneSynthese, rendreAlerte } from '../src/rendu/corps';
 import { etiquette } from '../src/rendu/tile';
 import { rendreMaison } from '../src/rendu/maison';
 import type { Alerte } from '../src/contexte';
 import type { ContexteModes } from '../src/modes';
 import { AGENCEMENT_DEFAUT, type Agencement, type Zone } from '../src/agencement';
-import type { Ecran } from '../src/ecran';
+import type { Ecran } from '../src/screen-types';
 import type { CardType } from '../src/stack/types';
 
 const ev = (id: string, etat: string, attributes: Record<string, unknown> = {}) =>

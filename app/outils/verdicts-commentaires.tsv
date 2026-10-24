@@ -14,241 +14,210 @@
 #
 # Les lignes vides et les lignes ouvertes par `#` sont ignorees.
 
-# Les docstrings de TYPE (decision 1 de la spec) : le type reste dans le depot,
-# la donnee part. Y compris celles qui citent une piece en exemple -- elles
-# decrivent la FORME du champ, pas le reglage de cette maison.
-8	type
-12	type
-16	type
-22	type
-32	type
-47	type
-53	type
-57	type
-73	type
-79	type
-98	type
-106	type
-112	type
-124	type
-126	type
-133	type
-142	type
-145	type
-148	type
-150	type
-152	type
-157	type
-160	type
-171	type
-177	type
-182	type
-187	type
-
-# Le marqueur de taille pose en fin de ligne sur `export const ECRANS` (2026-09-28) :
-# une consigne au controle de politique, pas un reglage de la maison. Il part avec le
-# litteral a l'etape 8.
-197	orpheline:marqueur de politique de taille du fichier, pas une note de la maison -- il part avec le litteral a l etape 8
+# 2026-10-24 (pile de cartes, M8) : les types sont partis dans `app/src/screen-types.ts`,
+# leurs 27 docstrings (verdict `type`) avec eux, et le marqueur de taille pose sur
+# `export const ECRANS` (orpheline) est retire : `ecran.ts` ne porte plus que le litteral,
+# sous 500 lignes. Les numeros ci-dessous ont glisse de 194 lignes.
 
 # SALON -- pourquoi la rangee d'ambiances est vide, ce que les cinq commandes
 # coutent, et ce que `perso` masque. Aucun `note` ne vit sur un tableau :
 # le raisonnement va a l'ecran.
-201	attachee:salon.note
-202	attachee:salon.note
-203	attachee:salon.note
-204	attachee:salon.note
-205	attachee:salon.note
-206	attachee:salon.note
-207	attachee:salon.note
-208	attachee:salon.note
-209	attachee:salon.note
-211	attachee:salon.note
-212	attachee:salon.note
-213	attachee:salon.note
-283	attachee:salon.note
-284	attachee:salon.note
-285	attachee:salon.note
+7	attachee:salon.note
+8	attachee:salon.note
+9	attachee:salon.note
+10	attachee:salon.note
+11	attachee:salon.note
+12	attachee:salon.note
+13	attachee:salon.note
+14	attachee:salon.note
+15	attachee:salon.note
+17	attachee:salon.note
+18	attachee:salon.note
+19	attachee:salon.note
+89	attachee:salon.note
+90	attachee:salon.note
+91	attachee:salon.note
 
 # SALON -- la Porte, epinglee a la demande du proprietaire.
-217	attachee:salon.commandes[2].note
-218	attachee:salon.commandes[2].note
-219	attachee:salon.commandes[2].note
-220	attachee:salon.commandes[2].note
-221	attachee:salon.commandes[2].note
-222	attachee:salon.commandes[2].note
-223	attachee:salon.commandes[2].note
+23	attachee:salon.commandes[2].note
+24	attachee:salon.commandes[2].note
+25	attachee:salon.commandes[2].note
+26	attachee:salon.commandes[2].note
+27	attachee:salon.commandes[2].note
+28	attachee:salon.commandes[2].note
+29	attachee:salon.commandes[2].note
 
 # SALON -- le Rideau, epingle le 2026-08-29.
-227	attachee:salon.commandes[3].note
-228	attachee:salon.commandes[3].note
-229	attachee:salon.commandes[3].note
-230	attachee:salon.commandes[3].note
-231	attachee:salon.commandes[3].note
-232	attachee:salon.commandes[3].note
-233	attachee:salon.commandes[3].note
-234	attachee:salon.commandes[3].note
+33	attachee:salon.commandes[3].note
+34	attachee:salon.commandes[3].note
+35	attachee:salon.commandes[3].note
+36	attachee:salon.commandes[3].note
+37	attachee:salon.commandes[3].note
+38	attachee:salon.commandes[3].note
+39	attachee:salon.commandes[3].note
+40	attachee:salon.commandes[3].note
 
 # SALON -- l'ordre d'exclusivite des sources, porte par la premiere qui gagne.
-241	attachee:salon.sources[0].note
-242	attachee:salon.sources[0].note
+47	attachee:salon.sources[0].note
+48	attachee:salon.sources[0].note
 
 # SALON -- le televiseur et ses quatre entites, puis le Philips en tete du volume.
-263	attachee:salon.sources[2].note
-264	attachee:salon.sources[2].note
-276	attachee:salon.sources[2].note
-277	attachee:salon.sources[2].note
+69	attachee:salon.sources[2].note
+70	attachee:salon.sources[2].note
+82	attachee:salon.sources[2].note
+83	attachee:salon.sources[2].note
 
 # SALON -- la ligne DLC, seule chose que le garde-manger apporte a l'entree.
-291	attachee:salon.synthese[4].note
-292	attachee:salon.synthese[4].note
-293	attachee:salon.synthese[4].note
-294	attachee:salon.synthese[4].note
-295	attachee:salon.synthese[4].note
+97	attachee:salon.synthese[4].note
+98	attachee:salon.synthese[4].note
+99	attachee:salon.synthese[4].note
+100	attachee:salon.synthese[4].note
+101	attachee:salon.synthese[4].note
 
 # SALON -- pourquoi `minuteur` et `recette` sont retires de la liste des modes.
-312	attachee:salon.agencement.note
-313	attachee:salon.agencement.note
-314	attachee:salon.agencement.note
+118	attachee:salon.agencement.note
+119	attachee:salon.agencement.note
+120	attachee:salon.agencement.note
 
 # BUREAU -- pourquoi quatre commandes au lieu de deux, et dans quel ordre.
-329	attachee:bureau.note
-330	attachee:bureau.note
-331	attachee:bureau.note
-332	attachee:bureau.note
-333	attachee:bureau.note
-334	attachee:bureau.note
-335	attachee:bureau.note
-336	attachee:bureau.note
-337	attachee:bureau.note
-338	attachee:bureau.note
+135	attachee:bureau.note
+136	attachee:bureau.note
+137	attachee:bureau.note
+138	attachee:bureau.note
+139	attachee:bureau.note
+140	attachee:bureau.note
+141	attachee:bureau.note
+142	attachee:bureau.note
+143	attachee:bureau.note
+144	attachee:bureau.note
 
 # BUREAU -- le Ventilateur, bascule en direct faute de script HA.
-342	attachee:bureau.commandes[2].note
-343	attachee:bureau.commandes[2].note
-344	attachee:bureau.commandes[2].note
+148	attachee:bureau.commandes[2].note
+149	attachee:bureau.commandes[2].note
+150	attachee:bureau.commandes[2].note
 
 # BUREAU -- le Velux, tuile d'etat pure sans actionneur.
-347	attachee:bureau.commandes[3].note
-348	attachee:bureau.commandes[3].note
-349	attachee:bureau.commandes[3].note
-350	attachee:bureau.commandes[3].note
-351	attachee:bureau.commandes[3].note
-352	attachee:bureau.commandes[3].note
-353	attachee:bureau.commandes[3].note
+153	attachee:bureau.commandes[3].note
+154	attachee:bureau.commandes[3].note
+155	attachee:bureau.commandes[3].note
+156	attachee:bureau.commandes[3].note
+157	attachee:bureau.commandes[3].note
+158	attachee:bureau.commandes[3].note
+159	attachee:bureau.commandes[3].note
 
 # BUREAU -- les modes retires, puis le bloc central par defaut.
-388	attachee:bureau.agencement.note
-389	attachee:bureau.agencement.note
-392	attachee:bureau.agencement.note
-393	attachee:bureau.agencement.note
-394	attachee:bureau.agencement.note
+194	attachee:bureau.agencement.note
+195	attachee:bureau.agencement.note
+198	attachee:bureau.agencement.note
+199	attachee:bureau.agencement.note
+200	attachee:bureau.agencement.note
 
 # CUISINE -- le remaniement du 2026-08-29 (ambiances), les quatre commandes,
 # et la seule liste de taches supplementaire de la maison.
-402	attachee:cuisine.note
-403	attachee:cuisine.note
-404	attachee:cuisine.note
-405	attachee:cuisine.note
-406	attachee:cuisine.note
-408	attachee:cuisine.note
-409	attachee:cuisine.note
-410	attachee:cuisine.note
-411	attachee:cuisine.note
-412	attachee:cuisine.note
-413	attachee:cuisine.note
-421	attachee:cuisine.note
-422	attachee:cuisine.note
-423	attachee:cuisine.note
-424	attachee:cuisine.note
-425	attachee:cuisine.note
-527	attachee:cuisine.note
-528	attachee:cuisine.note
+208	attachee:cuisine.note
+209	attachee:cuisine.note
+210	attachee:cuisine.note
+211	attachee:cuisine.note
+212	attachee:cuisine.note
+214	attachee:cuisine.note
+215	attachee:cuisine.note
+216	attachee:cuisine.note
+217	attachee:cuisine.note
+218	attachee:cuisine.note
+219	attachee:cuisine.note
+227	attachee:cuisine.note
+228	attachee:cuisine.note
+229	attachee:cuisine.note
+230	attachee:cuisine.note
+231	attachee:cuisine.note
+333	attachee:cuisine.note
+334	attachee:cuisine.note
 
 # CUISINE -- la Hotte en tete, et son icone.
-431	attachee:cuisine.commandes[0].note
-432	attachee:cuisine.commandes[0].note
-433	attachee:cuisine.commandes[0].note
-434	attachee:cuisine.commandes[0].note
-435	attachee:cuisine.commandes[0].note
-436	attachee:cuisine.commandes[0].note
-437	attachee:cuisine.commandes[0].note
-438	attachee:cuisine.commandes[0].note
+237	attachee:cuisine.commandes[0].note
+238	attachee:cuisine.commandes[0].note
+239	attachee:cuisine.commandes[0].note
+240	attachee:cuisine.commandes[0].note
+241	attachee:cuisine.commandes[0].note
+242	attachee:cuisine.commandes[0].note
+243	attachee:cuisine.commandes[0].note
+244	attachee:cuisine.commandes[0].note
 
 # CUISINE -- le Rideau, et le contournement du bug ZHA `open_cover`.
-440	attachee:cuisine.commandes[1].note
-441	attachee:cuisine.commandes[1].note
-442	attachee:cuisine.commandes[1].note
-443	attachee:cuisine.commandes[1].note
-444	attachee:cuisine.commandes[1].note
-445	attachee:cuisine.commandes[1].note
-446	attachee:cuisine.commandes[1].note
-447	attachee:cuisine.commandes[1].note
-448	attachee:cuisine.commandes[1].note
-449	attachee:cuisine.commandes[1].note
-450	attachee:cuisine.commandes[1].note
-451	attachee:cuisine.commandes[1].note
+246	attachee:cuisine.commandes[1].note
+247	attachee:cuisine.commandes[1].note
+248	attachee:cuisine.commandes[1].note
+249	attachee:cuisine.commandes[1].note
+250	attachee:cuisine.commandes[1].note
+251	attachee:cuisine.commandes[1].note
+252	attachee:cuisine.commandes[1].note
+253	attachee:cuisine.commandes[1].note
+254	attachee:cuisine.commandes[1].note
+255	attachee:cuisine.commandes[1].note
+256	attachee:cuisine.commandes[1].note
+257	attachee:cuisine.commandes[1].note
 
 # CUISINE -- Garde-manger (ex-Courses), et sa navigation interne `vue`.
-454	attachee:cuisine.commandes[2].note
-455	attachee:cuisine.commandes[2].note
-456	attachee:cuisine.commandes[2].note
-457	attachee:cuisine.commandes[2].note
+260	attachee:cuisine.commandes[2].note
+261	attachee:cuisine.commandes[2].note
+262	attachee:cuisine.commandes[2].note
+263	attachee:cuisine.commandes[2].note
 
 # CUISINE -- Recette, et son indicateur de disponibilite.
-460	attachee:cuisine.commandes[3].note
-461	attachee:cuisine.commandes[3].note
-462	attachee:cuisine.commandes[3].note
-463	attachee:cuisine.commandes[3].note
-464	attachee:cuisine.commandes[3].note
+266	attachee:cuisine.commandes[3].note
+267	attachee:cuisine.commandes[3].note
+268	attachee:cuisine.commandes[3].note
+269	attachee:cuisine.commandes[3].note
+270	attachee:cuisine.commandes[3].note
 
 # CUISINE -- la cinquieme entree de synthese, la DLC : pourquoi `todo.`,
 # pourquoi la DLC suit la maintenance, et pourquoi jamais une alerte.
-497	attachee:cuisine.synthese[4].note
-498	attachee:cuisine.synthese[4].note
-499	attachee:cuisine.synthese[4].note
-501	attachee:cuisine.synthese[4].note
-502	attachee:cuisine.synthese[4].note
-503	attachee:cuisine.synthese[4].note
-504	attachee:cuisine.synthese[4].note
-505	attachee:cuisine.synthese[4].note
-506	attachee:cuisine.synthese[4].note
-508	attachee:cuisine.synthese[4].note
-509	attachee:cuisine.synthese[4].note
-511	attachee:cuisine.synthese[4].note
-512	attachee:cuisine.synthese[4].note
+303	attachee:cuisine.synthese[4].note
+304	attachee:cuisine.synthese[4].note
+305	attachee:cuisine.synthese[4].note
+307	attachee:cuisine.synthese[4].note
+308	attachee:cuisine.synthese[4].note
+309	attachee:cuisine.synthese[4].note
+310	attachee:cuisine.synthese[4].note
+311	attachee:cuisine.synthese[4].note
+312	attachee:cuisine.synthese[4].note
+314	attachee:cuisine.synthese[4].note
+315	attachee:cuisine.synthese[4].note
+317	attachee:cuisine.synthese[4].note
+318	attachee:cuisine.synthese[4].note
 
 # CUISINE -- le Scanner, qui ne vit que dans la vue « Toute la maison ».
-516	attachee:cuisine.extrasMaison[0].note
-517	attachee:cuisine.extrasMaison[0].note
-518	attachee:cuisine.extrasMaison[0].note
-519	attachee:cuisine.extrasMaison[0].note
-520	attachee:cuisine.extrasMaison[0].note
-521	attachee:cuisine.extrasMaison[0].note
-522	attachee:cuisine.extrasMaison[0].note
+322	attachee:cuisine.extrasMaison[0].note
+323	attachee:cuisine.extrasMaison[0].note
+324	attachee:cuisine.extrasMaison[0].note
+325	attachee:cuisine.extrasMaison[0].note
+326	attachee:cuisine.extrasMaison[0].note
+327	attachee:cuisine.extrasMaison[0].note
+328	attachee:cuisine.extrasMaison[0].note
 
 # CUISINE -- « Aspirer ici », et pourquoi ce libelle-la.
-536	attachee:cuisine.aspirateurMaison.note
-537	attachee:cuisine.aspirateurMaison.note
-538	attachee:cuisine.aspirateurMaison.note
-539	attachee:cuisine.aspirateurMaison.note
+342	attachee:cuisine.aspirateurMaison.note
+343	attachee:cuisine.aspirateurMaison.note
+344	attachee:cuisine.aspirateurMaison.note
+345	attachee:cuisine.aspirateurMaison.note
 
 # CUISINE -- la seule piece a porter `minuteur` et `recette`, puis son bloc.
-544	attachee:cuisine.agencement.note
-547	attachee:cuisine.agencement.note
-548	attachee:cuisine.agencement.note
+350	attachee:cuisine.agencement.note
+353	attachee:cuisine.agencement.note
+354	attachee:cuisine.agencement.note
 
 # Les quatre lignes `//` nues qui separent deux paragraphes d'un meme bloc.
-407	orpheline:ligne `//` nue, separateur de paragraphe sans aucun texte a transporter -- la perte est nulle, `enNote` filtre de toute facon les lignes vides
-500	orpheline:ligne `//` nue, separateur de paragraphe sans aucun texte a transporter -- la perte est nulle, `enNote` filtre de toute facon les lignes vides
-507	orpheline:ligne `//` nue, separateur de paragraphe sans aucun texte a transporter -- la perte est nulle, `enNote` filtre de toute facon les lignes vides
-510	orpheline:ligne `//` nue, separateur de paragraphe sans aucun texte a transporter -- la perte est nulle, `enNote` filtre de toute facon les lignes vides
+213	orpheline:ligne `//` nue, separateur de paragraphe sans aucun texte a transporter -- la perte est nulle, `enNote` filtre de toute facon les lignes vides
+306	orpheline:ligne `//` nue, separateur de paragraphe sans aucun texte a transporter -- la perte est nulle, `enNote` filtre de toute facon les lignes vides
+313	orpheline:ligne `//` nue, separateur de paragraphe sans aucun texte a transporter -- la perte est nulle, `enNote` filtre de toute facon les lignes vides
+316	orpheline:ligne `//` nue, separateur de paragraphe sans aucun texte a transporter -- la perte est nulle, `enNote` filtre de toute facon les lignes vides
 
 # Un bloc egare : ces quatre lignes sont le DOUBLON EXACT des lignes 452-455
 # (verifie par `diff`), qui precedent la tuile « Courses » qu'elles decrivent.
 # Posees ici juste apres `commandes: [`, elles surplombent la Hotte, qui ne
 # porte aucun `vue`. La copie utile part avec Courses ; celle-ci n'a pas de
 # valeur a suivre.
-427	orpheline:doublon exact des lignes 452-455, qui precedent la tuile « Courses » qu'elles decrivent ; la copie utile part avec elle, celle-ci n'a aucune valeur a suivre
-428	orpheline:doublon exact des lignes 452-455, qui precedent la tuile « Courses » qu'elles decrivent ; la copie utile part avec elle, celle-ci n'a aucune valeur a suivre
-429	orpheline:doublon exact des lignes 452-455, qui precedent la tuile « Courses » qu'elles decrivent ; la copie utile part avec elle, celle-ci n'a aucune valeur a suivre
-430	orpheline:doublon exact des lignes 452-455, qui precedent la tuile « Courses » qu'elles decrivent ; la copie utile part avec elle, celle-ci n'a aucune valeur a suivre
+233	orpheline:doublon exact des lignes 452-455, qui precedent la tuile « Courses » qu'elles decrivent ; la copie utile part avec elle, celle-ci n'a aucune valeur a suivre
+234	orpheline:doublon exact des lignes 452-455, qui precedent la tuile « Courses » qu'elles decrivent ; la copie utile part avec elle, celle-ci n'a aucune valeur a suivre
+235	orpheline:doublon exact des lignes 452-455, qui precedent la tuile « Courses » qu'elles decrivent ; la copie utile part avec elle, celle-ci n'a aucune valeur a suivre
+236	orpheline:doublon exact des lignes 452-455, qui precedent la tuile « Courses » qu'elles decrivent ; la copie utile part avec elle, celle-ci n'a aucune valeur a suivre

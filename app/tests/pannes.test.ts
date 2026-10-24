@@ -18,7 +18,7 @@ import { Etat } from '../src/etat';
 import { ligneSynthese } from '../src/rendu/corps';
 import { startWithScreen, type ConnexionLike } from '../src/demarrage';
 import { Connexion } from '../src/connexion';
-import type { Ecran } from '../src/ecran';
+import type { Ecran } from '../src/screen-types';
 import type { EvenementEtat } from '../src/connexion';
 import { vider } from './aides';
 

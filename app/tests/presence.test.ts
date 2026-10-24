@@ -12,7 +12,8 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { render } from 'lit';
 import { Etat } from '../src/etat';
-import { ECRANS, type Bouton, type EntreeSynthese } from '../src/ecran';
+import { ECRANS } from '../src/ecran';
+import type { Bouton, EntreeSynthese } from '../src/screen-types';
 import { rendreCorps, ligneSynthese } from '../src/rendu/corps';
 import { etiquette } from '../src/rendu/tile';
 import { rendreMaison } from '../src/rendu/maison';

@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { appliancesFor } from '../src/stack/appliances';
 import { collectStack, frameCard } from '../src/stack/collect';
 import type { Appareil } from '../src/configuration';
-import type { Voiture } from '../src/ecran';
+import type { Voiture } from '../src/screen-types';
 import type { Rank } from '../src/stack/types';
 import { etatWith, frameWith, pieceWith, screenWith } from './card-aides';
 

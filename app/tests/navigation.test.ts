@@ -16,7 +16,8 @@
 //      la page, jamais une fois par redessin (deuxième piège déjà payé dans ce projet).
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { startWithScreen, type ConnexionLike } from '../src/demarrage';
-import { ECRANS, type Ecran } from '../src/ecran';
+import { ECRANS } from '../src/ecran';
+import type { Ecran } from '../src/screen-types';
 import { RefusHA, type EvenementEtat } from '../src/connexion';
 import { CLE_RECETTE } from '../src/recette-en-cours';
 import { ENTREE_MS, GARDE_MS, PALETTE_MS } from '../src/mouvement/grammaire';

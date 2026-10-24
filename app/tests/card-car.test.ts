@@ -4,7 +4,7 @@ import { render } from 'lit';
 import { detect, frame } from '../src/cards/car';
 import { wireCardActions } from '../src/cards/actions';
 import { brancherVoiture } from '../src/rendu/voiture';
-import type { Voiture } from '../src/ecran';
+import type { Voiture } from '../src/screen-types';
 import type { Frame } from '../src/boot/frame';
 import type { ScreenState } from '../src/boot/state';
 import { etatWith, frameWith, pieceWith, screenWith, T0 } from './card-aides';

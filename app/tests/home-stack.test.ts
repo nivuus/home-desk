@@ -5,7 +5,7 @@
 // card, and what the per-second ticks may write into the displayed card.
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { monterDemarrage, vider, restaurerReseau, type Montage } from './aides';
-import type { Bouton, Ecran } from '../src/ecran';
+import type { Bouton, Ecran } from '../src/screen-types';
 import type { DeclarationSource } from '../src/media';
 import { RETURN_MS } from '../src/stack/follow';
 import { PAS_PROGRESSION_MS } from '../src/boot/constants';

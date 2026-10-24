@@ -11,7 +11,7 @@
  *
  *  Fonctions pures : aucune lecture d'`Etat` ici, seulement le contexte déjà réduit à des valeurs
  *  simples par l'appelant (`demarrage.ts`). C'est ce qui les rend testables sans navigateur. */
-import type { Bouton } from './ecran';
+import type { Bouton } from './screen-types';
 import { AGENCEMENT_DEFAUT } from './agencement';
 import type { Zone } from './agencement';
 import { arrangement, BUDGET, type Arrangement } from './screen-budget';

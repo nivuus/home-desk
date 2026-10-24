@@ -3,7 +3,7 @@
  *  real WebSocket, a real clock or a real page reload. */
 import type { Jetons, EvenementEtat } from '../connexion';
 import type { ConnexionAppelable } from '../interaction';
-import type { Ecran } from '../ecran';
+import type { Ecran } from '../screen-types';
 import type { House, ListEntry, Result, TransportConfig } from '../configuration';
 import type { chargerLottie } from '../lottie';
 

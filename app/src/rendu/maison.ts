@@ -19,7 +19,7 @@
  *  project. */
 import { html, type TemplateResult } from 'lit';
 import type { Etat } from '../etat';
-import type { Bouton, Ecran } from '../ecran';
+import type { Bouton, Ecran } from '../screen-types';
 import { icone } from './icones';
 import { descripteurJauge, fractionJauge } from '../jauge';
 

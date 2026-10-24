@@ -4,7 +4,8 @@
 // Même patron que `tests/interaction.test.ts`/`tests/geste.test.ts` : ces fabriques sont testées
 // isolément, sans DOM, avec un minuteur factice injecté.
 import { describe, it, expect, vi } from 'vitest';
-import { ECRANS, type Ecran } from '../src/ecran';
+import { ECRANS } from '../src/ecran';
+import type { Ecran } from '../src/screen-types';
 import {
   roomTodoLists, listLabel, aplatirTaches, repartirTaches, MAX_LIGNES_TACHES,
   createArming, createTaskCheck,

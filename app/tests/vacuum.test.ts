@@ -5,7 +5,7 @@
 // Assistant's words, and the number of passes the robot accepts. Mounted through the REAL start-up
 // (`monterDemarrage`), so the composition of `boot/wiring.ts` is what is under test.
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import type { Ecran } from '../src/ecran';
+import type { Ecran } from '../src/screen-types';
 import { RefusHA } from '../src/connexion';
 import { LONG_PRESS_MS, createLongPress } from '../src/long-press';
 import { ecranVide, monterDemarrage, vider, type Montage } from './aides';

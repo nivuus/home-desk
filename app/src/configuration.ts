@@ -2,7 +2,7 @@
  *  websocket.py`). It requests a screen or the list of screens, and turns any refusal into a
  *  NAMED FAILURE. It renders nothing and does not touch the DOM: it is `rendu/repli.ts` that
  *  knows what to show for each failure, and `demarrage.ts` that wires the two. */
-import type { Ecran } from './ecran';
+import type { Ecran } from './screen-types';
 import type { DeclarationSource } from './media';
 import { RefusHA } from './connexion';
 
