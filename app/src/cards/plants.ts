@@ -18,7 +18,8 @@ import type { CardButton, CardFrame } from '../rendu/card-frame';
 import { cardEntities, role } from '../stack/appliances';
 import type { Card, Rank } from '../stack/types';
 import { cardAct, laterButton } from './actions';
-import { numberOf, percent } from './format';
+import { numberOf } from './format';
+import { gauge } from './gauge';
 import { attributeOf, nameOf, stateOf } from './readings';
 import { S } from './strings';
 
@@ -61,18 +62,6 @@ export function detect(_f: Frame, s: ScreenState): Card[] {
   });
 }
 
-function gauge(s: ScreenState, d: Dry) {
-  const name = nameOf(s.etat, d.id);
-  const fill = Math.min(100, Math.max(0, d.value));
-  return html`<div class="jauge">
-    <div class="jauge-tete">
-      <span class="carte-ligne" dir="auto">${name ?? ''}</span>
-      <span class="jauge-valeur">${percent(d.value)}</span>
-    </div>
-    <div class="jauge-piste"><div class="jauge-niveau" style="width:${fill}%"></div></div>
-  </div>`;
-}
-
 function wateredButton(s: ScreenState, p: Plants, key: string): CardButton {
   const later = laterButton(s, key);
   const habit = stateOf(s.etat, p.habitude) !== undefined ? p.habitude : undefined;
@@ -101,7 +90,7 @@ export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
     label: S.todo,
     title: S.plants,
     ...(extra > 0 ? { subtitle: S.plantsMore(new Intl.NumberFormat().format(extra)) } : {}),
-    middle: html`${dry.slice(0, MAX_GAUGES).map((d) => gauge(s, d))}`,
+    middle: html`${dry.slice(0, MAX_GAUGES).map((d) => gauge(nameOf(s.etat, d.id), d.value))}`,
     buttons: [laterButton(s, card.key, false), wateredButton(s, p, card.key), detailsButton(s)],
     background: { kind: 'solid', token: 'neutral' },
     motion: { block: 'bloc:plantes' },

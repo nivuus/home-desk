@@ -3,7 +3,7 @@
  *  Home Assistant: `src/` bundled by esbuild with the stylesheets of `src/index.ts`, viewport
  *  343 × 585, the system's fallback font (DejaVu Sans here, wider than Roboto: conservative).
  *
- *  1. Every card (timer, recipe, media, cinema, vacuum, car, airing, printer, pets, plants), built from
+ *  1. Every card (timer, recipe, media, cinema, vacuum, car, airing, printer, pets, plants, treadmill, air, ink), built from
  *     fixture states by the app's own `collectStack`/`frameCard`, shown in turn in its stack, in
  *     two variants (each card in its other state: the late timer, the car to plug in, the
  *     stuck robot, other posters, each print state over two variants) × three scripts (Latin, CJK, Arabic, with titles and room
@@ -11,7 +11,7 @@
  *     at most, nothing past the 585 px frame, worst-pixel contrast ≥ 5:1 for text and ≥ 4.5:1
  *     for icons and dots, dots inside the card overlapping nothing, the printer's spools ringed
  *     at 4.5:1 and the printing one larger. Then one plain card per
- *     solid token: each of the eight colours carries the dots once.
+ *     solid token: each of the seven colours carries the dots once.
  *  2. Real touches on a stacked card (`pile-touches.mjs`): a phantom contact during a swipe, a
  *     swipe that starts on a button or a volume stepper, a tap under the threshold, the
  *     printer's camera held, tapped, and swiped from.
@@ -42,7 +42,7 @@ const SCRIPTS = ['latin', 'cjk', 'arabe'];
 const VARIANTS = ['a', 'b'];
 /** The card types: a stack missing one of them is a fixture that no longer reaches a card. */
 const BATCH = ['recette', 'minuteur', 'media', 'cinema', 'aspirateur', 'voiture', 'aeration', 'imprimante',
-  'animaux', 'plantes'];
+  'animaux', 'plantes', 'tapis', 'air', 'encre'];
 const TEXT_BOXES = '[data-tone-box], .milieu *';
 
 const COUNTER_PROOFS = {

@@ -35,6 +35,16 @@
       "pattern": "^(number|input_number)\\.[a-z0-9_]+$",
       "description": "Un entity_id du domaine number ou input_number : la carte l'ecrit par `<domaine>.set_value`, avec l'attribut `min` de l'entite pour valeur."
     },
+    "entiteVentilateur": {
+      "type": "string",
+      "pattern": "^fan\\.[a-z0-9_]+$",
+      "description": "Un entity_id du domaine fan : la carte l'allume et l'eteint par `fan.toggle` et lit ses `preset_modes`, ce qu'aucun autre domaine ne publie."
+    },
+    "listeCapteurs": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/entiteCapteur"},
+      "description": "Une liste d'entity_id du domaine sensor (les niveaux de cartouche)."
+    },
     "appareil": {
       "type": "object",
       "description": "Un appareil de la maison. `piece` : le nom d'une piece, ou \"maison\" pour un appareil montre partout ; toute chaine non vide, comme la `piece` d'une source (aucune liste de pieces ne vit dans le contrat). `entites` : des roles vers des entity_id ; les roles requis et facultatifs dependent de `type`, une branche `if/then` par type ci-dessous, et un role inconnu de son type est refuse. Les roles listes (`ams`, `sondes`, `zones`, `niveaux`) sont des tableaux d'entity_id, tous les autres un seul entity_id. `seuil` est REQUIS pour `air` et `encre`, FACULTATIF pour `plantes` (l'humidite sous laquelle une sonde sans `soil_warning` appelle un arrosage) et INTERDIT ailleurs : un seuil ignore serait une valeur saisie pour rien.",
@@ -174,11 +184,11 @@
                 "required": ["vitesse"],
                 "additionalProperties": false,
                 "properties": {
-                  "vitesse": {"$ref": "ecran.schema.json#/$defs/entite"},
-                  "pas": {"$ref": "ecran.schema.json#/$defs/entite"},
-                  "distance": {"$ref": "ecran.schema.json#/$defs/entite"},
-                  "reglageVitesse": {"$ref": "ecran.schema.json#/$defs/entite"},
-                  "arret": {"$ref": "ecran.schema.json#/$defs/entite"}
+                  "vitesse": {"$ref": "#/$defs/entiteCapteur"},
+                  "pas": {"$ref": "#/$defs/entiteCapteur"},
+                  "distance": {"$ref": "#/$defs/entiteCapteur"},
+                  "reglageVitesse": {"$ref": "#/$defs/entiteReglage"},
+                  "arret": {"$ref": "#/$defs/entiteBouton"}
                 }
               }
             },
@@ -193,8 +203,8 @@
                 "required": ["pm25", "purificateur"],
                 "additionalProperties": false,
                 "properties": {
-                  "pm25": {"$ref": "ecran.schema.json#/$defs/entite"},
-                  "purificateur": {"$ref": "ecran.schema.json#/$defs/entite"}
+                  "pm25": {"$ref": "#/$defs/entiteCapteur"},
+                  "purificateur": {"$ref": "#/$defs/entiteVentilateur"}
                 }
               }
             },
@@ -221,7 +231,7 @@
               "entites": {
                 "required": ["niveaux"],
                 "additionalProperties": false,
-                "properties": {"niveaux": {"$ref": "#/$defs/listeEntites", "minItems": 1}}
+                "properties": {"niveaux": {"$ref": "#/$defs/listeCapteurs", "minItems": 1}}
               }
             },
             "required": ["seuil"]

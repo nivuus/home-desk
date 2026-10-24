@@ -58,6 +58,29 @@ def _patterned_entities(defs: dict) -> dict[str, Callable]:
     return refs
 
 
+def _patterned_lists(defs: dict, patterned: dict[str, Callable]) -> dict[str, Callable]:
+    """Every `$defs/liste*` other than `listeEntites`: an array whose items are
+    one patterned `entite*`. Keyed by the `$ref` a role uses, taking the same
+    `minItems`/`maxItems` beside it."""
+    refs = {}
+    for name, schema in defs.items():
+        if not name.startswith("liste") or name == "listeEntites":
+            continue
+        item = schema.get("items", {}).get("$ref")
+        if set(schema) - {"description"} != {"type", "items"} or schema["type"] != "array" \
+                or set(schema["items"]) != {"$ref"} or item not in patterned:
+            raise _unsupported(f"$defs/{name}", schema)
+        refs[f"#/$defs/{name}"] = _ListOf(patterned[item])
+    return refs
+
+
+class _ListOf:
+    """The item validator of a patterned list; `_role` adds the bounds."""
+
+    def __init__(self, item: Callable) -> None:
+        self.item = item
+
+
 def _role(name: str, role_schema: dict, entity: Callable, patterned: dict[str, Callable]) -> Callable:
     """A role is one entity id (`$ref` to `entite`), one entity id of a
     constrained domain (`$ref` to a patterned `entite*`) or a list of entity
@@ -65,8 +88,11 @@ def _role(name: str, role_schema: dict, entity: Callable, patterned: dict[str, C
     ref = role_schema.get("$ref")
     if ref == _ENTITY_REF and set(role_schema) == {"$ref"}:
         return entity
-    if ref in patterned and set(role_schema) == {"$ref"}:
-        return patterned[ref]
+    found = patterned.get(ref)
+    if isinstance(found, _ListOf) and set(role_schema) <= {"$ref", "minItems", "maxItems"}:
+        return _array(found.item, role_schema.get("minItems", 0), role_schema.get("maxItems"))
+    if found is not None and not isinstance(found, _ListOf) and set(role_schema) == {"$ref"}:
+        return found
     if ref == _LIST_REF and set(role_schema) <= {"$ref", "minItems", "maxItems"}:
         return _array(entity, role_schema.get("minItems", 0), role_schema.get("maxItems"))
     raise _unsupported(f"role {name!r}", role_schema)
@@ -136,6 +162,7 @@ def appliance_validator(defs: dict, entity: Callable) -> Callable:
     props = appareil["properties"]
     types = props["type"]["enum"]
     patterned = _patterned_entities(defs)
+    patterned.update(_patterned_lists(defs, patterned))
     branches = dict(_branch(b, entity, patterned) for b in appareil["allOf"])
     if sorted(branches) != sorted(types):
         raise _unsupported("the type branches", sorted(set(branches) ^ set(types)))

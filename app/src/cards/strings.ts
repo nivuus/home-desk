@@ -69,4 +69,18 @@ export const S = {
   plantsDetails: 'Détails',
   /** More dry plants than the card has room for, the count already formatted with `Intl`. */
   plantsMore: (n: string) => `et ${n} autres`,
+  treadmill: 'Tapis de marche',
+  treadmillWalking: 'EN MARCHE',
+  treadmillSlower: 'Ralentir',
+  treadmillFaster: 'Accélérer',
+  treadmillStop: 'Arrêter le tapis',
+  air: "Qualité de l'air",
+  airLabel: 'PM2,5',
+  airOn: 'Allumer le purificateur',
+  airOff: 'Éteindre le purificateur',
+  airFavourite: 'Mode favori',
+  /** The purifier's motor speed, already formatted with `Intl` by the caller. */
+  airMotor: (speed: string) => `Moteur ${speed}`,
+  ink: "Niveaux d'encre",
+  inkLabel: 'ENCRE BASSE',
 } as const;

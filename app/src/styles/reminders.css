@@ -22,3 +22,10 @@
   text-overflow: ellipsis; white-space: nowrap; }
 .carte .carte-ligne.composee > .sep { flex: none; white-space: pre; }
 .carte .carte-ligne.composee > [dir] { flex-shrink: 3; }
+
+/* The ink card's one-line gauge: name (the first to give way), a fixed track, the percentage. */
+.carte .jauge-ligne { flex: none; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.carte .jauge-ligne .carte-ligne { flex: 1; }
+.carte .jauge-ligne .jauge-piste { flex: none; width: 96px; }
+.carte .jauge-ligne .jauge-valeur { min-width: 44px; text-align: end; }
+.carte .encre-barres { display: flex; flex-direction: column; gap: 2px; min-width: 0; }

@@ -23,6 +23,7 @@ import { frameWith, pieceWith, running, screenWith } from '../tests/card-aides';
 import { CALME } from '../tests/contextes';
 import { printers } from './pile-fixture-printer.js';
 import { reminders } from './pile-fixture-reminders.js';
+import { sensors } from './pile-fixture-sensors.js';
 
 const MIN = 60_000;
 const MUSIC = 'media_player.pile_music';
@@ -112,7 +113,8 @@ function fixture(script, variant) {
     robots: [{ entite: ROBOT, nom: t.robot, passages: { min: 1, max: 1 },
       pieces: t.rooms.map((nom, i) => ({ zone: `z${i}`, nom })) }],
     chosen: t.rooms.map((_, i) => ({ entite: ROBOT, zone: `z${i}` })) };
-  const house = { sources: [], appareils: [...printers(script, variant, t.room, ev, now), ...reminders(script, variant, t.room, ev)] };
+  const house = { sources: [], appareils: [...printers(script, variant, t.room, ev, now), ...reminders(script, variant, t.room, ev),
+    ...sensors(script, variant, t.room, ev)] };
   // Offline: the "later" button sends nothing (`laterButton`), there is no connection here.
   const s = screenWith({ etat, piece: pieceWith({ nom: t.room, aspirateur: ROBOT, voiture: CAR,
     ouvrants: [OPENING],

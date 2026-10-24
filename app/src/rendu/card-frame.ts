@@ -18,7 +18,7 @@ import { icone } from './icones';
 import { cardPress, type CardPressHandlers, type HoldPress } from '../stack/swipe';
 
 export const SOLID_TOKENS = ['neutral', 'timer', 'timer-late', 'charging', 'plug-in',
-  'air-good', 'air-bad', 'calm'] as const;
+  'air-bad', 'calm'] as const;
 export type SolidToken = typeof SOLID_TOKENS[number];
 
 export type CardBackground =

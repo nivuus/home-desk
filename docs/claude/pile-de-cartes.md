@@ -47,8 +47,8 @@ reste vide (`.vide`) ; un bouton `inert` garde sa place sans rien lier.
 - Fonds : `image` (l'image du sujet, intacte, couleurs tirées par
   `poster-sampler.ts`, plaque opaque seulement où le texte n'atteint pas 5:1),
   `solid` (un jeton), `theme`. Jamais de dégradé, jamais de voile.
-- Les 8 jetons unis (`SOLID_TOKENS`) : `neutral`, `timer`, `timer-late`,
-  `charging`, `plug-in`, `air-good`, `air-bad`, `calm` ; chacun a six rôles
+- Les 7 jetons unis (`SOLID_TOKENS`) : `neutral`, `timer`, `timer-late`,
+  `charging`, `plug-in`, `air-bad`, `calm` ; chacun a six rôles
   `--carte-<jeton>-{fond,texte,icone,disque,primaire,sur-primaire}`.
 - Points de la pile (`rendu/stack.ts`) : une pastille pleine au bout de la
   rangée d'étiquette, seulement s'il y a plus d'une carte.
