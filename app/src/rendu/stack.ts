@@ -2,7 +2,7 @@
  *  DOM, with one dot per card, the current one elongated — only when there is more than one
  *  card. The dots sit INSIDE the card, at the end of its label row (`renderCardFrame`'s
  *  `position`): the stack block is exactly the card's 264 px, which is what the budget bills.
- *  Swiping is attached by the caller on the rendered `.carte` (`stack/swipe.ts`). */
+ *  Swiping is attached by the caller on the `.pile` around the card (`boot/home-stack.ts`, `stack/swipe.ts`). */
 import { html, type TemplateResult } from 'lit';
 import { renderCardFrame, type CardFrame } from './card-frame';
 

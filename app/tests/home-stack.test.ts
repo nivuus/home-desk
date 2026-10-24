@@ -126,7 +126,14 @@ describe('swiping and returning', () => {
 
   it('a stack of one card is still swipe-locked: a drag snaps back and changes nothing', async () => {
     await mount(KITCHEN, PLAYING);
-    await drag(-120);
+    const pile = m.racine.querySelector<HTMLElement>('.pile')!;
+    // The swipe is attached even with one card: mid-drag the stack follows the finger, damped
+    // to a quarter at the end of the stack (-120 px of finger, -30 px of card).
+    pile.dispatchEvent(pe('pointerdown', 200));
+    pile.dispatchEvent(pe('pointermove', 80));
+    expect(pile.style.transform).toBe('translateX(-30px)');
+    pile.dispatchEvent(pe('pointerup', 80));
+    await vider();
     expect(displayedType()).toBe('media');
     expect(m.racine.querySelector<HTMLElement>('.pile')!.style.transform).toBe('');
   });
@@ -156,15 +163,22 @@ describe('swiping and returning', () => {
     expect(displayedType()).toBe('media');
     expect(m.racine.querySelectorAll('.carte')).toHaveLength(1);
     // The flip was a new card taking the place: the touch it had no longer applies, and the
-    // return it armed redraws nothing when it fires.
+    // return it armed redraws nothing when it fires. The trace of a redraw is the clock: 60 s
+    // later it reads 14:01, so a stale return that still painted would show it.
+    const clock = () => m.racine.querySelector('.heure')!.textContent!.replace(/\s/g, '');
+    expect(clock()).toBe('14:00');
     const html = m.racine.innerHTML;
     now += RETURN_MS;
     const stale = m.minuteurFn.mock.calls.find(([, ms]) => ms === RETURN_MS)![0] as () => void;
     const before = m.racine.querySelector('.carte');
     stale();
     await vider();
+    expect(clock()).toBe('14:00');
     expect(m.racine.querySelector('.carte')).toBe(before);
     expect(m.racine.innerHTML).toBe(html);
+    // The check can fail: any real redraw at this instant moves the clock.
+    await m.pousser('light.a', 'on');
+    expect(clock()).toBe('14:01');
   });
 });
 

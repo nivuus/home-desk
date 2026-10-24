@@ -62,7 +62,7 @@ from . import garde_ecran
 # round 1 (defect B), this module already importing BOTH names TOGETHER
 # being the proof that the seam was already separable.
 from .list_errors import _ERROR_BY_KEYWORD, _localiser_champ
-# Fix round 3: decision 7, wired HERE for "voiture" -- the seven fields
+# Fix round 3: decision 7, wired HERE for "voiture" -- the entity fields
 # of $defs/voiture (inline, without its own $defs) are entities just like
 # those of a "list" section (see registre.py). Final branch review (C1):
 # `avertissement_entites_inconnues` replaces the direct call to
@@ -124,12 +124,25 @@ SCHEMA_AGENCEMENT = vol.Schema(
     }
 )
 
-# The seven entities of $defs/voiture, never hardcoded again elsewhere — the
-# "sans_voiture" checkbox (brief, step 2) is NOT a contract field: it never
-# leaves this form, cf. SectionsObjetMixin.async_step_voiture.
+# The seven required entities of $defs/voiture, never hardcoded again
+# elsewhere — the "sans_voiture" checkbox (brief, step 2) is NOT a contract
+# field: it never leaves this form, cf. SectionsObjetMixin.async_step_voiture.
 CHAMPS_VOITURE = (
     "batterie", "autonomie", "branchee", "enCharge", "clim", "demarrerClim", "arreterClim",
 )
+
+# The five OPTIONAL charging entities of $defs/voiture (the car card's limit,
+# end time and actions), each with the domains its role allows. Until fix
+# round 1 of card-stack task 6 they were YAML-only, and re-saving this
+# section erased them: the object is rebuilt from the form, so EVERY field
+# of $defs/voiture must be shown here (`note` included) or it is lost.
+CHAMPS_VOITURE_OPTIONNELS = {
+    "limite": ["number", "input_number"],
+    "finCharge": ["sensor"],
+    "demarrerCharge": ["button", "script", "switch"],
+    "arreterCharge": ["button", "script", "switch"],
+    "boutonLimite": ["button", "script", "switch"],
+}
 
 SCHEMA_VOITURE = vol.Schema(
     {
@@ -137,6 +150,12 @@ SCHEMA_VOITURE = vol.Schema(
         **{
             vol.Optional(champ): selector.EntitySelector(selector.EntitySelectorConfig())
             for champ in CHAMPS_VOITURE
+        },
+        **{
+            vol.Optional(champ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=domaines)
+            )
+            for champ, domaines in CHAMPS_VOITURE_OPTIONNELS.items()
         },
         vol.Optional("note"): str,
     }
@@ -262,7 +281,9 @@ class SectionsObjetMixin:
     async def async_step_voiture(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """The "Car" step (voiture): seven entities, or the "No car" checkbox.
+        """The "Car" step (voiture): seven required entities and five
+        optional charging ones, or the "No car" checkbox. A field cleared in
+        the form is dropped from the object.
         UNTICKING it (`sans_voiture=True`) REMOVES the object from the
         subentry — never seven fields left empty: the contract requires the
         COMPLETE object as soon as it exists (root `$defs`, `voiture` ->
@@ -310,7 +331,7 @@ class SectionsObjetMixin:
             else:
                 candidat = {
                     champ: user_input[champ]
-                    for champ in CHAMPS_VOITURE
+                    for champ in (*CHAMPS_VOITURE, *CHAMPS_VOITURE_OPTIONNELS)
                     if user_input.get(champ) not in (None, "")
                 }
                 if user_input.get("note"):
@@ -322,7 +343,7 @@ class SectionsObjetMixin:
                     errors[champ] = _ERROR_BY_KEYWORD.get(mot_cle, ERROR_FIELD_INVALID)
                 else:
                     # Fix round 3: decision 7, which had remained unwired
-                    # HERE -- the SEVEN fields of `voiture` are entities in
+                    # HERE -- the fields of `voiture` are entities in
                     # the contract (`$ref: entite`), as exposed to typos as
                     # any field of a "list" section. WARNS, never refuses
                     # -- same rule as the sections skeleton

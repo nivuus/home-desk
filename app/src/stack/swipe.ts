@@ -27,7 +27,7 @@ export type SwipeHandlers = {
   count: number; index: number; onChange(index: number): void; onTouch(): void;
 };
 
-/** Makes `el` (the displayed `.carte`) swipeable. `h` is read at each gesture, so the caller may
+/** Makes `el` (the `.pile` that holds the displayed card) swipeable. `h` is read at each gesture, so the caller may
  *  update `index`/`count` in place. Returns the detacher, which also ends an open gesture. */
 export function attachSwipe(
   el: HTMLElement, h: SwipeHandlers,

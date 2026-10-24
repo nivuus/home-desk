@@ -131,3 +131,55 @@ async def test_une_entite_inconnue_AVERTIT_dans_voiture(hass, entree):
     # La collision : `note` est du texte libre au contrat, pas une entite --
     # meme quand sa valeur ressemble a un `entity_id`.
     assert "reglages.avances" not in placeholders
+
+
+# ---------------------------------------------------------------------------
+# Card-stack task 6, fix round 1: the five optional charging fields of
+# `$defs/voiture` (limit, end time, start/stop charge, limit button) were
+# set by YAML only. Re-saving the Car section rebuilt the object from the
+# seven form fields and erased them without a word.
+# ---------------------------------------------------------------------------
+
+CHARGE_FIELDS = {
+    "limite": "number.car_charge_limit",
+    "finCharge": "sensor.car_charge_end",
+    "demarrerCharge": "button.car_start_charge",
+    "arreterCharge": "script.car_stop_charge",
+    "boutonLimite": "switch.car_limit_button",
+}
+
+
+async def _save_car(hass, entree, subentry_id, data):
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "voiture"})
+    return await hass.config_entries.subentries.async_configure(flow["flow_id"], data)
+
+
+async def test_car_resave_keeps_the_five_charging_fields(hass, entree):
+    subentry_id = await _creer_ecran(hass, entree)
+    full = {**VOITURE_COMPLETE, **CHARGE_FIELDS}
+    resultat = await _save_car(hass, entree, subentry_id, full)
+    assert resultat["type"] is data_entry_flow.FlowResultType.MENU
+    subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
+    assert subentry.data["voiture"] == full
+
+    # Re-opening the section prefills every saved field, the five included.
+    flow = await _init_reconfigure(hass, entree, subentry_id)
+    form = await hass.config_entries.subentries.async_configure(
+        flow["flow_id"], {"next_step_id": "voiture"})
+    suggested = {
+        str(cle): cle.description["suggested_value"]
+        for cle in form["data_schema"].schema
+        if cle.description and "suggested_value" in cle.description
+    }
+    for champ, entite in CHARGE_FIELDS.items():
+        assert suggested.get(champ) == entite, champ
+
+    # A field cleared in the form is dropped; the others stay.
+    cleared = dict(full)
+    del cleared["limite"]
+    resultat = await _save_car(hass, entree, subentry_id, cleared)
+    assert resultat["type"] is data_entry_flow.FlowResultType.MENU
+    subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
+    assert subentry.data["voiture"] == cleared

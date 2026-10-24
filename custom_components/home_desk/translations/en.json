@@ -306,6 +306,11 @@
             "clim": "Air conditioning (state)",
             "demarrerClim": "Start air conditioning",
             "arreterClim": "Stop air conditioning",
+            "limite": "Charge limit (optional)",
+            "finCharge": "Charge end time (optional)",
+            "demarrerCharge": "Start charging (optional)",
+            "arreterCharge": "Stop charging (optional)",
+            "boutonLimite": "Apply charge limit (optional)",
             "note": "Note"
           }
         },

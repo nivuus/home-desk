@@ -683,12 +683,12 @@ body {
    pointerdown dessus (cf. rendu/taches.ts) : exclue de la couche d'état plus haut dans ce fichier. */
 .ligne-tache.reste { background: var(--md-surface-container-low); color: var(--md-on-surface-variant); }
 
-/* Blocs des modes ménage et aération (2026-08-02), today the meal, agenda and maintenance blocks
-   (`rendu/defaut.ts`; the vacuum and the airing became stack cards, card-stack task 6). Même
-   rayon, même padding, même structure
-   `.t`/`.v` que `.demain`/`.alerte` — mais une couleur NEUTRE : aucun n'est une alerte.
-   `surface-container-low`, le même ton que `.prevision` qu'ils remplacent, pour que la traversée
-   d'un mode à l'autre ne change pas la valeur du bloc dans la page. */
+/* Born as the blocks of the cleaning and airing modes (2026-08-02); today the meal, agenda and
+   maintenance blocks (`rendu/defaut.ts`: the vacuum and the airing became stack cards, card-stack
+   task 6). Same radius, same padding, same `.t`/`.v` structure as `.demain`/`.alerte`, but a
+   NEUTRAL colour: none of them is an alert. `surface-container-low`, the same tone as the
+   `.prevision` they replace, so that moving from one mode to another does not change the block's
+   weight on the page. */
 .mode-bloc { background: var(--md-surface-container-low); color: var(--md-on-surface);
   border-radius: var(--sh-xl); padding: 11px 16px; display: flex; align-items: center; gap: 13px; }
 .mode-texte { flex: 1; min-width: 0; }
@@ -696,14 +696,15 @@ body {
   color: var(--md-on-surface-variant); }
 .mode-bloc .v { font-size: 15px; font-weight: 600; line-height: 1.3; margin-top: 2px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Tâche 14 : repas (cuisine) et rendez-vous (bureau) portent un nom de plat / un résumé
-   d'événement — une donnée EXTERNE (`home_stock`, calendrier), de longueur non maîtrisée ici,
-   contrairement au vocabulaire fixe qu'avait `.mode-bloc .v` (« Ménage », « Ouvert », the former
-   `rendu/modes.ts`). `.v` seul (nowrap + ellipse) a été mesuré tronqué dès le pire cas réaliste
-   (deux plats le même jour, un résumé de réunion un peu long, `outils/verifier-rendu.mjs`) : cette
-   variante reprend le clamp 2 lignes de `.carte .titre.deux-lignes` (`cards.css`), la seule façon honnête de montrer
-   un nom entier plutôt qu'une coupe silencieuse. `white-space: normal` annule le `nowrap` hérité
-   ci-dessus (sinon `-webkit-line-clamp` n'a rien à répartir sur plusieurs lignes). */
+/* Task 14: the meal (kitchen) and the appointment (office) carry a dish name or an event
+   summary, EXTERNAL data (`home_stock`, calendar) whose length is not controlled here, unlike the
+   fixed vocabulary `.mode-bloc .v` used to show (the cleaning and airing values of the former
+   `rendu/modes.ts`). `.v` alone (nowrap + ellipsis) was measured truncated from the worst
+   realistic case on (two dishes on the same day, a slightly long meeting summary,
+   `outils/verifier-rendu.mjs`): this variant reuses the two-line clamp of
+   `.carte .titre.deux-lignes` (`cards.css`), the only honest way to show a whole name rather than
+   a silent cut. `white-space: normal` cancels the `nowrap` inherited above (otherwise
+   `-webkit-line-clamp` has nothing to spread over several lines). */
 .mode-bloc .v.deux-lignes { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden; white-space: normal; }
 

@@ -306,6 +306,11 @@
             "clim": "Climatisation (état)",
             "demarrerClim": "Démarrer la climatisation",
             "arreterClim": "Arrêter la climatisation",
+            "limite": "Limite de charge (facultatif)",
+            "finCharge": "Heure de fin de charge (facultatif)",
+            "demarrerCharge": "Démarrer la charge (facultatif)",
+            "arreterCharge": "Arrêter la charge (facultatif)",
+            "boutonLimite": "Appliquer la limite de charge (facultatif)",
             "note": "Note"
           }
         },
