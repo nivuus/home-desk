@@ -9,7 +9,8 @@ vi.mock('../src/rendu/poster-sampler', async (original) => ({
   tonesFor,
 }));
 
-const { tonesToPaint, measureCard, afterMediaPaint } = await import('../src/boot/media-tones');
+const { tonesToPaint, measureCard } = await import('../src/boot/card-tones');
+const { afterMediaPaint } = await import('../src/boot/media-tones');
 
 const SOURCE = { nom: 'Musique', titre: 'Nude', affiche: '/api/vignette?url=a' } as SourceResolue;
 const SPEC = { w: 311, h: 260, boxes: [{ x: 16, y: 12, w: 80, h: 15 }] };
@@ -24,10 +25,10 @@ function lay(el: HTMLElement, o: { l?: number; t?: number; w: number; h: number;
   Object.defineProperty(el, 'offsetParent', { configurable: true, value: o.parent });
 }
 
-/** `.media` 311 × 260 holding one tone box at (16, 12), 80 × 15. */
+/** `.carte` 311 × 260 holding one tone box at (16, 12), 80 × 15. */
 function card(boxParent?: 'card' | 'elsewhere'): HTMLElement {
   const c = document.createElement('div');
-  c.className = 'media';
+  c.className = 'carte media';
   const box = document.createElement('div');
   box.setAttribute('data-tone-box', '');
   c.appendChild(box);
@@ -40,7 +41,7 @@ function screen(c: HTMLElement | null) {
   const racine = document.createElement('div');
   if (c) racine.appendChild(c);
   const minuteurFn = vi.fn();
-  const s = { racine, mediaCard: null, d: { minuteurFn }, dessiner: () => {} } as unknown as ScreenState;
+  const s = { racine, measuredCard: null, d: { minuteurFn }, dessiner: () => {} } as unknown as ScreenState;
   return { s, minuteurFn };
 }
 
@@ -64,7 +65,7 @@ describe('tonesToPaint', () => {
 });
 
 describe('measureCard', () => {
-  it('reads the size and the boxes relative to .media', () => {
+  it('reads the size and the boxes relative to .carte', () => {
     expect(measureCard(card())).toEqual(SPEC);
   });
 
@@ -74,7 +75,7 @@ describe('measureCard', () => {
     expect(measureCard(c)).toBeNull();
   });
 
-  it('throws when a tone box is not laid out inside .media', () => {
+  it('throws when a tone box is not laid out inside .carte', () => {
     expect(() => measureCard(card('elsewhere'))).toThrow(/tone box/);
   });
 });
@@ -84,17 +85,17 @@ describe('afterMediaPaint', () => {
     const c = card();
     lay(c, { w: 0, h: 0, parent: null });
     const { s } = screen(c);
-    s.mediaCard = { url: SOURCE.affiche!, spec: SPEC };
+    s.measuredCard = { url: SOURCE.affiche!, spec: SPEC };
     afterMediaPaint(s, SOURCE);
     expect(tonesFor).not.toHaveBeenCalled();
-    expect(s.mediaCard).toBeNull();
+    expect(s.measuredCard).toBeNull();
   });
 
   it('a new measurement asks for the tones; a miss waits for onTonesReady', () => {
     tonesFor.mockReturnValue({ status: 'pending' });
     const { s, minuteurFn } = screen(card());
     afterMediaPaint(s, SOURCE);
-    expect(s.mediaCard).toEqual({ url: SOURCE.affiche, spec: SPEC });
+    expect(s.measuredCard).toEqual({ url: SOURCE.affiche, spec: SPEC });
     expect(tonesFor).toHaveBeenCalledWith(SOURCE.affiche, SPEC);
     expect(minuteurFn).not.toHaveBeenCalled();
   });
@@ -122,7 +123,7 @@ describe('afterMediaPaint', () => {
     const { s } = screen(card());
     afterMediaPaint(s, SOURCE);
     afterMediaPaint(s, { ...SOURCE, affiche: '/api/vignette?url=b' });
-    expect(s.mediaCard!.url).toBe('/api/vignette?url=b');
+    expect(s.measuredCard!.url).toBe('/api/vignette?url=b');
     expect(tonesFor).toHaveBeenCalledTimes(2);
   });
 });

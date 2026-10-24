@@ -489,7 +489,8 @@ describe('tictacProgression — les trois refus', () => {
     const carte = racine.querySelector<HTMLElement>('.media');
     expect(carte, 'carte média introuvable — la source doit être en lecture').not.toBeNull();
     const tic = trouverTic(intervalFn);
-    const ecrit = vi.spyOn(carte!.style, 'setProperty');
+    // `--progression` lives on the progress row of the card (`rendu/media.ts`).
+    const ecrit = vi.spyOn(carte!.querySelector<HTMLElement>('.media-progression')!.style, 'setProperty');
 
     // Correction (ronde de correction 1, tâche 9) : ce nettoyage restaurait un descripteur sur
     // `Document.prototype` — jamais modifié par la ligne juste en dessous, qui pose `hidden` en
@@ -541,7 +542,7 @@ describe('tictacProgression — les trois refus', () => {
       // séparément du précédent (« aucune carte »).
       expect(carte, 'carte média introuvable — la source doit être en lecture').not.toBeNull();
       const tic = trouverTic(intervalFn);
-      const ecrit = vi.spyOn(carte!.style, 'setProperty');
+      const ecrit = vi.spyOn(carte!.querySelector<HTMLElement>('.media-progression')!.style, 'setProperty');
 
       tic();
 

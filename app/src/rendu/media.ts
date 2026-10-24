@@ -1,22 +1,24 @@
 /** The media card: the only photographic element of the whole application (rule 2 of the
  *  coherence spec — one image on screen, never two, which is what makes it a focal point).
  *
- *  Layout (spec 2026-10-23, "Disposition (piste C)"), top to bottom: label `EN COURS · <room>`,
- *  title (two lines at most), subtitle; an 8 px progress bar with elapsed and remaining times;
- *  the transport row (previous, play/pause as the primary disc, next); the volume row (`−`,
- *  level, `+`). A row without data is not rendered: the card shrinks, it never shows an empty
- *  box. Every button is a 62 px solid disc.
+ *  It renders in the shared card frame (`card-frame.ts`): header `EN COURS · <room>`, title (two
+ *  lines at most), subtitle; in the middle zone an 8 px progress bar with elapsed and remaining
+ *  times, then the volume row (`−`, level, `+`); the transport (previous, play/pause as the
+ *  primary disc, next) in the frame's three button slots. A row without data is not rendered and
+ *  a transport button the player cannot honour leaves its slot empty: the card keeps its size,
+ *  it never shows an empty box or a dead button.
  *
- *  Colours (spec, "Couleurs"): with a readable poster (`ToneState` ready), the poster covers the
- *  whole card untouched — no veil, no reduced opacity, no gradient — and the tones derived from
- *  it (`tones.ts`) colour the text, the discs and the bars. Pending, unreadable or no poster:
- *  theme colours, same layout, same solid discs. */
+ *  Colours (spec 2026-10-23, "Couleurs"): with a readable poster (`ToneState` ready), the poster
+ *  covers the whole card untouched — no veil, no reduced opacity, no gradient — and the tones
+ *  derived from it (`tones.ts`) colour the text, the discs and the bars. Pending, unreadable or
+ *  no poster: theme colours, same layout, same solid discs. */
 import { html, type TemplateResult } from 'lit';
 import type { SourceResolue } from '../media';
 import { sourceKey } from '../media-choice';
 import { ancrerProgression, fractionAncree, secondesAncrees, type Ancre } from '../progression';
 import type { ToneState } from './poster-sampler';
-import { icone } from './icones';
+import { renderCardFrame, type CardButton } from './card-frame';
+import { S } from '../cards/strings';
 import { writeTime } from './minuteur';
 import { volumeRow } from './media-volume';
 
@@ -33,17 +35,6 @@ export function brancherMedia(fn: typeof agir, pin: (key: string) => void, repai
   agir = fn;
   epingler = pin;
   repeindre = repaint;
-}
-
-/** Hardens a poster URL before it lands in `style="background-image:url('…')"`: `lit` escapes
- *  nothing inside an attribute, and the URL is not ours (a third-party integration, a file
- *  name). Only what can leave `url('…')` is percent-encoded — both quotes, the parentheses, the
- *  backslash (the CSS escape) and any white space. `encodeURI` was tried and REJECTED: it encodes
- *  `%` into `%25` and breaks every already percent-encoded URL (`Mon%20affiche.png`). The server
- *  reads the percent-encoding back as the original character, so the poster still loads. */
-export function urlSure(u: string): string {
-  return String(u).replace(/['"()\\]|\s/g,
-    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`);
 }
 
 /** `m:ss`, or `h:mm:ss` from one hour on — whole seconds, rounded down like any player. */
@@ -63,7 +54,7 @@ const remaining = (a: Ancre, elapsed: number): string =>
  *  remaining times and, when `moveRail`, the bar — from the SAME anchor at the SAME instant, so
  *  the text and the bar never disagree. The one exception is `?mouvement=aucun` (`moveRail`
  *  false): the times keep moving and the bar waits for the next `dessiner()`. No `lit` render: the times are written into their
- *  existing text nodes (`writeTime`) and the bar through `--progression`; the next `dessiner()`
+ *  existing text nodes (`writeTime`) and the bar through `--progression` on the progress row; the next `dessiner()`
  *  rewrites the exact values anyway. */
 export function writeProgress(card: HTMLElement, a: Ancre, horlogeMs: number, moveRail: boolean): void {
   const elapsed = secondesAncrees(a, horlogeMs);
@@ -71,23 +62,30 @@ export function writeProgress(card: HTMLElement, a: Ancre, horlogeMs: number, mo
   const r = card.querySelector<HTMLElement>('.media-reste');
   if (e) writeTime(e, formatMediaTime(elapsed));
   if (r) writeTime(r, remaining(a, elapsed));
-  if (moveRail) card.style.setProperty('--progression', String(fractionAncree(a, horlogeMs)));
+  const rail = card.querySelector<HTMLElement>('.media-progression');
+  if (moveRail && rail) rail.style.setProperty('--progression', String(fractionAncree(a, horlogeMs)));
 }
 
+const TRANSPORT_LABEL = { precedent: S.previous, pause: S.pause, lecture: S.play, suivant: S.next };
+
 function transportButton(
-  name: string, entity: string, service: string, primary: boolean, before?: () => void,
-): TemplateResult {
+  name: keyof typeof TRANSPORT_LABEL, entity: string, service: string, primary: boolean,
+  before?: () => void,
+): CardButton {
   // `name` is the icon name, hence already the button's functional identity: two transport
   // buttons never share it in one render (pause and play are exclusive), and it depends on no
   // array index — which is what the motion engine keys the button by.
-  return html`<div class="media-bouton ${primary ? 'principal' : ''} media-${name}"
-    data-mvt="detail:tr-${name}"
-    @pointerdown=${() => { before?.(); agir('media_player', service, entity); }}>${icone(name)}</div>`;
+  return {
+    icon: name, label: TRANSPORT_LABEL[name], mvt: `detail:tr-${name}`,
+    act: () => { before?.(); agir('media_player', service, entity); },
+    ...(primary ? { primary: true as const } : {}),
+  };
 }
 
-function transportRow(s: SourceResolue, remote: boolean): TemplateResult | '' {
+function transportButtons(s: SourceResolue, remote: boolean):
+  [CardButton?, CardButton?, CardButton?] {
   const t = s.transport;
-  if (t === undefined) return '';
+  if (t === undefined) return [undefined, undefined, undefined];
   // PAUSE and PLAY are two distinct `supported_features` bits (`CAP`, `media.ts`): the pause
   // button only while playing AND `peutPause`, the play button only when stopped AND
   // `peutLecture` — never a button resting on the other capability. Pausing a source of another
@@ -96,35 +94,26 @@ function transportRow(s: SourceResolue, remote: boolean): TemplateResult | '' {
     ? transportButton('pause', t.entite, 'media_pause', true,
         remote ? () => epingler(sourceKey(s)) : undefined)
     : !t.enLecture && t.peutLecture ? transportButton('lecture', t.entite, 'media_play', true)
-    : '';
-  if (middle === '' && !t.peutPrecedent && !t.peutSuivant) return '';
-  return html`<div class="media-transport">
-    ${t.peutPrecedent ? transportButton('precedent', t.entite, 'media_previous_track', false) : ''}
-    ${middle}
-    ${t.peutSuivant ? transportButton('suivant', t.entite, 'media_next_track', false) : ''}
-  </div>`;
+    : undefined;
+  return [
+    t.peutPrecedent ? transportButton('precedent', t.entite, 'media_previous_track', false) : undefined,
+    middle,
+    t.peutSuivant ? transportButton('suivant', t.entite, 'media_next_track', false) : undefined,
+  ];
 }
 
 function progressRow(a: Ancre | null): TemplateResult | '' {
   if (a === null) return '';
   const elapsed = secondesAncrees(a, 0);
-  return html`<div class="media-progression" data-mvt="detail:media-progression">
+  // `--progression` lives on the row: the bar reads it, and the one-second tick moves it there.
+  return html`<div class="media-progression" style="--progression:${fractionAncree(a, 0)}"
+    data-mvt="detail:media-progression">
     <div class="media-barre"><div class="media-barre-plein"></div></div>
     <div class="media-temps">
       <span class="media-ecoule plaque" data-tone-box>${formatMediaTime(elapsed)}</span>
       <span class="media-reste plaque" data-tone-box>${remaining(a, elapsed)}</span>
     </div>
   </div>`;
-}
-
-/** Card colours as custom properties, set ONLY from ready tones: `media.css` falls back on the
- *  theme for each one. The values are `hexFromArgb` output, never external text. */
-function toneStyle(tones: ToneState): string {
-  if (tones.status !== 'ready') return '';
-  const t = tones.tones;
-  return `--mc-text:${t.text};--mc-primary:${t.primary};--mc-on-primary:${t.onPrimary};`
-    + `--mc-secondary:${t.secondary};--mc-on-secondary:${t.onSecondary};`
-    + (t.plate !== undefined ? `--mc-plate:${t.plate};` : '');
 }
 
 export function rendreCarteMedia(
@@ -139,31 +128,19 @@ export function rendreCarteMedia(
 ): TemplateResult {
   // Anchored at monotonic 0: the render takes both clocks at the same instant.
   const ancre = ancrerProgression(s.progression, maintenantMs, 0);
-  const poster = s.affiche !== undefined && tones.status === 'ready' ? s.affiche : undefined;
-  const label = s.piece ? `EN COURS · ${s.piece}` : 'EN COURS';
   // The whole block is keyed `bloc:media`: a new track is a CONTENT CHANGE under the same key
   // (a mutation the engine crosses), never an exit plus an entry. `data-mvt-etat` carries the
   // title, folded back on `s.nom` for a player that publishes no metadata.
-  return html`
-    <div class="media ${poster ? 'avec-affiche' : ''}"
-      style="--progression:${fractionAncree(ancre, 0)};${toneStyle(tones)}"
-      data-zone="blocCentral" data-mvt="bloc:media" data-mvt-etat=${s.titre || s.nom}>
-      ${poster
-        // A background layer, never an <img> in the flow: a replaced element would take part in
-        // the layout and make the block's height depend on the poster's proportions.
-        ? html`<div class="media-affiche" style="background-image:url('${urlSure(poster)}')"></div>`
-        : ''}
-      <div class="media-texte">
-        <!-- dir="auto": each text takes its direction from its own first strong character, so a
-             right-to-left title reads right to left whatever the page's language. -->
-        <div class="t plaque" dir="auto" data-tone-box>${label}</div>
-        <div class="v deux-lignes plaque" dir="auto" data-tone-box>${s.titre}</div>
-        ${s.sousTitre
-          ? html`<div class="media-sous plaque" dir="auto" data-tone-box data-mvt="detail:media-sous">${s.sousTitre}</div>`
-          : ''}
-      </div>
-      ${progressRow(ancre)}
-      ${transportRow(s, remote)}
-      ${volumeRow(s.volume, agir, () => repeindre())}
-    </div>`;
+  return renderCardFrame({
+    key: `media:${sourceKey(s)}`,
+    className: 'media',
+    label: s.piece ? `${S.mediaPlaying}${S.separator}${s.piece}` : S.mediaPlaying,
+    title: s.titre,
+    ...(s.sousTitre ? { subtitle: s.sousTitre } : {}),
+    middle: html`${progressRow(ancre)}${volumeRow(s.volume, agir, () => repeindre())}`,
+    buttons: transportButtons(s, remote),
+    background: s.affiche !== undefined ? { kind: 'image', url: s.affiche } : { kind: 'theme' },
+    tones,
+    motion: { block: 'bloc:media', state: s.titre || s.nom, subtitle: 'detail:media-sous' },
+  });
 }

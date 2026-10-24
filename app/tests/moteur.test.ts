@@ -1156,7 +1156,7 @@ describe('creerMoteur — croisement d\'affiche média', () => {
 
 /** Un `SourceResolue` minimal pour ces tests : un seul champ varie d'un appel à l'autre (`titre`),
  *  `affiche` optionnel — c'est la présence ou l'absence de ce champ qui décide si `rendu/media.ts`
- *  pose un `.media-affiche` (fond CSS `background-image`) dans le gabarit. */
+ *  pose un `.carte-image` (fond CSS `background-image`) dans le gabarit. */
 /** Tones ready: the only state in which the card paints its poster layer (2026-10-24). */
 const PRETES: ToneState = { status: 'ready', tones: { text: '#000000', primary: '#303030',
   onPrimary: '#ffffff', secondary: '#e0e0e0', onSecondary: '#000000', worstContrast: 21 } };
@@ -1201,17 +1201,17 @@ describe('creerMoteur — croisement d\'affiche média, avec lit RÉEL (verrouil
         // s'exécute — sans `copie`, le fantôme ci-dessous cloné à cet instant porterait donc
         // « Nude », jamais « Weird Fishes ».
         expect(apres).toBe(avant);
-        expect(apres!.querySelector('.v')?.textContent).toBe('Nude');
+        expect(apres!.querySelector('.titre')?.textContent).toBe('Nude');
 
         const sortant = appels.find((x) => x.el.parentElement?.id === 'mvt-fantomes')!;
         expect(sortant, 'aucun fantôme trouvé dans #mvt-fantomes').toBeDefined();
         // L'ANCIEN titre, jamais « Nude » : c'est `copie` qui le garantit.
-        expect(sortant.el.querySelector('.v')?.textContent).toBe('Weird Fishes');
+        expect(sortant.el.querySelector('.titre')?.textContent).toBe('Weird Fishes');
       });
   });
 
 // Ronde de correction 1 — `rendu/media.ts` ne pose JAMAIS de `<img>` (l'affiche est un fond CSS
-// sur `.media-affiche`, cf. son commentaire « un élément remplacé participerait à la mise en
+// sur `.carte-image`, cf. son commentaire « un élément remplacé participerait à la mise en
 // page ») : `querySelector('img')` renvoie donc TOUJOURS `null` en production, et l'attente
 // écrite avec un `<img>` fabriqué à la main ne protégeait rien de réel — seulement la fixture du
 // test. Ces tests exercent désormais le VRAI gabarit de `rendreCarteMedia`, affiche comprise.

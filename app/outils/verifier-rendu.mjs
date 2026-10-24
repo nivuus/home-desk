@@ -138,7 +138,7 @@ const CONTRASTE_MIN = 5;
 // Borné à 2 lignes (`base.css`), il tient dans les 64 px de la tuile sans en changer la hauteur.
 // Le pire cas réel est « Petit-déjeuner chèvre-tomates-pain complet » (42 caractères), sous la
 // tuile « Recette » de la cuisine : deux lignes en montrent l'essentiel, l'ellipse dit le reste.
-const CLAMPS_VOULUS = ['.v.deux-lignes', '.pastille .pv', '.synthese-texte', '.commande .s'];
+const CLAMPS_VOULUS = ['.v.deux-lignes', '.titre.deux-lignes', '.pastille .pv', '.synthese-texte', '.commande .s'];
 
 /** Tâche 12 (round 1, point 4) — même patron que `CLAMPS_VOULUS` ci-dessus, pour le contrôle
  *  générique `overflow: hidden` (`analyserRendu`) : une exemption se NOMME, elle ne se déduit pas
@@ -166,16 +166,16 @@ export const RESUME_LONG = 'Meet-up Golf Innovation Auvergne 2026 | French Tech 
  *  déclaration — un plancher qui vérifie ce que le CSS PROMET, jamais un chiffre inventé.
  *
  *  COUVERT (largeur déclarée) :
- *    `.media-bouton`, `.media-pas` 62 px — disques `width: 62px; height: 62px`, `flex: none`
- *    (`media.css`, refonte livrée le 2026-10-24 sur la spec du 2026-10-23 : `.media-pas` faisait 44 px et le rail de volume
+ *    `.disque` 62 px — les boutons du cadre de carte et le volume de la carte média, disques
+ *    `width: 62px; height: 62px`, `flex: none` (`cards.css` ; ex-`.media-bouton`/`.media-pas`
+ *    de `media.css`, refonte du 2026-10-24 : `.media-pas` faisait 44 px et le rail de volume
  *    `.media-rail` a disparu).
  *  NON COUVERT (aucune largeur déclarée, donc aucun plancher honnête à poser) :
  *    `.ambiance`/`.commande`/`.tuile` (pistes de grille `1fr`), `.xl` (pleine largeur),
  *    `.mode-action` (largeur dictée par son libellé et son `padding`). Pour celles-là, le seul
  *    garde-fou reste le débordement du cadre, déjà en place. */
 const PLANCHERS_LARGEUR = {
-  '.media-bouton': CIBLE_MIN_PX,
-  '.media-pas': CIBLE_MIN_PX,
+  '.disque': CIBLE_MIN_PX,
   // Tâche 10 — minuteurs et voiture. `.mn-bouton` (pause/lecture/annuler) et `.mn-etiquette`
   // (choix rapide d'un aliment) déclarent chacun `min-width: 62px` dans `base.css` : le CSS
   // PROMET 62, donc le plancher vaut 62, exactement le même principe que `.media-bouton`
@@ -497,7 +497,7 @@ export const MODES = [
     etats: [
       ['media_player.ytube_music_player', 'playing', {
         // 71 caractères : la longueur réellement relevée sur un titre YouTube Music (cf.
-        // `.media .v.deux-lignes`, borné à 2 lignes). Le pire cas, pas un cas moyen.
+        // `.carte .titre.deux-lignes`, borné à 2 lignes). Le pire cas, pas un cas moyen.
         media_title: 'Un titre de chanson assez long pour tenir sur deux lignes entières',
         media_artist: 'Un artiste au nom lui aussi passablement long',
         entity_picture: '/local/wallpanel/essai-affiche-claire.png',
@@ -1111,8 +1111,7 @@ export function analyserRendu(params) {
   // tombés à ~57 px sous le `flex-shrink` par défaut (revue de la tâche 6, cf. le long commentaire
   // de `.media-rangee` dans `base.css`) n'a été trouvé qu'à la lecture du CSS, à la main : la
   // seule machine capable de le voir ne regardait pas ces éléments-là.
-  //   `.media-bouton` — précédent / pause / lecture / suivant
-  //   `.media-pas`    — volume − / +
+  //   `.disque`       — précédent / pause / lecture / suivant (cadre de carte), volume − / +
   //   `.mode-action`  — « Retour base » du mode ménage
   // Revue tâche 15 (I2) : la LARGEUR est relevée en même temps que la hauteur, et comparée au
   // plancher DÉCLARÉ de l'élément quand il en a un (`planchersLargeur`, cf. son commentaire en
@@ -1136,7 +1135,7 @@ export function analyserRendu(params) {
   //   `.ing-retirer`         — croix de retrait d'un ingrédient (icône seule, 62×62)
   //   `.ing-actions > *`     — Retirer tout / Fermer, dans le panneau
   const cibles = [...app.querySelectorAll(
-    '.ambiance,.commande,.tuile,.xl,.media-bouton,.media-pas,.mode-action,'
+    '.ambiance,.commande,.tuile,.xl,.disque,.mode-action,'
     + '.mn-bouton,.mn-nouveau,.mn-ligne,.mn-etiquette,.vt-bouton,'
     + '.recette-nav > *,.recette-actions > *,.recette-minuteur,.ing-retirer,.ing-actions > *')]
     .map((e) => {
@@ -2598,7 +2597,7 @@ async function echantillonnerRail(page) {
   const valeurs = [];
   for (let i = 0; i < ECHANTILLONS_RAIL; i++) {
     valeurs.push(await page.evaluate(() => {
-      const el = document.querySelector('.media');
+      const el = document.querySelector('.media .media-progression');
       return el ? Number.parseFloat(el.style.getPropertyValue('--progression')) : NaN;
     }));
     if (i < ECHANTILLONS_RAIL - 1) await page.waitForTimeout(FENETRE_RAIL_MS / ECHANTILLONS_RAIL);
@@ -3276,13 +3275,13 @@ const FIXTURES = [
     nom: 'boutons de transport sous la cible tactile (.media-bouton à 57 px)',
     html: gabaritFixture(`
       <div style="width:279px;display:flex;align-items:center;gap:10px;background:${CONTENEUR};">
-        <div class="media-bouton" style="width:62px;height:57px;background:${PRIMAIRE};"></div>
-        <div class="media-bouton" style="width:62px;height:57px;background:${PRIMAIRE};"></div>
-        <div class="media-bouton" style="width:62px;height:57px;background:${PRIMAIRE};"></div>
-        <div class="media-pas" style="width:62px;height:62px;background:${PRIMAIRE};"></div>
+        <div class="bouton disque" style="width:62px;height:57px;background:${PRIMAIRE};"></div>
+        <div class="bouton disque" style="width:62px;height:57px;background:${PRIMAIRE};"></div>
+        <div class="bouton disque" style="width:62px;height:57px;background:${PRIMAIRE};"></div>
+        <div class="media-pas disque" style="width:62px;height:62px;background:${PRIMAIRE};"></div>
       </div>
     `),
-    attendu: (j) => !j.ok && /cible trop petite \(57 px[^)]*media-bouton/.test(j.raison),
+    attendu: (j) => !j.ok && /cible trop petite \(57 px[^)]*bouton disque/.test(j.raison),
     description: 'trois `.media-bouton` de 57 px doivent être signalés — ils ne l\'étaient pas avant la tâche 13',
   },
   {
@@ -3295,12 +3294,12 @@ const FIXTURES = [
     nom: 'boutons de transport écrasés EN LARGEUR (.media-bouton à 57 × 62) — le défaut de la tâche 6',
     html: gabaritFixture(`
       <div style="width:279px;display:flex;align-items:center;gap:10px;background:${CONTENEUR};">
-        <div class="media-bouton" style="width:57px;height:62px;background:${PRIMAIRE};"></div>
-        <div class="media-bouton" style="width:57px;height:62px;background:${PRIMAIRE};"></div>
-        <div class="media-bouton" style="width:57px;height:62px;background:${PRIMAIRE};"></div>
+        <div class="bouton disque" style="width:57px;height:62px;background:${PRIMAIRE};"></div>
+        <div class="bouton disque" style="width:57px;height:62px;background:${PRIMAIRE};"></div>
+        <div class="bouton disque" style="width:57px;height:62px;background:${PRIMAIRE};"></div>
       </div>
     `),
-    attendu: (j) => !j.ok && /cible trop étroite[^)]*media-bouton 57×62/.test(j.raison),
+    attendu: (j) => !j.ok && /cible trop étroite[^)]*bouton disque 57×62/.test(j.raison),
     description: 'un `.media-bouton` de 57 px de LARGE (62 px de haut) doit être signalé — il ne l\'était pas',
   },
   {
@@ -3308,9 +3307,9 @@ const FIXTURES = [
     // défaut que le précédent, même plancher, et c'est la LARGEUR seule qui est en faute.
     nom: 'volume − / + écrasé EN LARGEUR (.media-pas à 57 × 62)',
     html: gabaritFixture(`
-      <div class="media-pas" style="width:57px;height:62px;background:${PRIMAIRE};color:${SUR_PRIMAIRE};">−</div>
+      <div class="media-pas disque" style="width:57px;height:62px;background:${PRIMAIRE};color:${SUR_PRIMAIRE};">−</div>
     `),
-    attendu: (j) => !j.ok && /cible trop étroite[^)]*media-pas 57×62/.test(j.raison) && !/trop petite/.test(j.raison),
+    attendu: (j) => !j.ok && /cible trop étroite[^)]*media-pas disque 57×62/.test(j.raison) && !/trop petite/.test(j.raison),
     description: 'un `.media-pas` de 57 px de LARGE doit être signalé trop étroit, et seulement ça',
   },
   {

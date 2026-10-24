@@ -120,7 +120,7 @@ function nombre(v: unknown): number | undefined {
 }
 
 /** Largeur demandée à `/api/vignette`. 400 px couvre très largement la boîte de 311x153 px de
- *  `.media-affiche` (`background-size: cover`), y compris la marge de manœuvre d'un écran plus
+ *  `.carte-image` (`background-size: cover`), y compris la marge de manœuvre d'un écran plus
  *  dense — sans jamais approcher le seuil qui tue la tablette. */
 export const LARGEUR_AFFICHE = 400;
 
@@ -128,7 +128,7 @@ export const LARGEUR_AFFICHE = 400;
  *
  *  ⚠️ CE N'EST PAS UNE OPTIMISATION, C'EST UN CORRECTIF DE PLANTAGE. Plex publie une
  *  `entity_picture` de 2000x3000 px : ~23 Mo une fois décodée en bitmap. Posée telle quelle en
- *  `background-image` sur `.media-affiche`, elle **tue le process de la WebView** des Fire 7 —
+ *  `background-image` sur `.carte-image`, elle **tue le process de la WebView** des Fire 7 —
  *  Fully redémarrait en boucle (~5 s de vie par instance) pendant toute la durée d'un film.
  *  Mesuré sur la tablette du salon le 2026-08-25, une seule variable changeant : 2000x3000 =
  *  4 morts en 48 s ; 800x1200 = 1 mort ; 400x600 = 0 mort ; sans image = 0 mort.

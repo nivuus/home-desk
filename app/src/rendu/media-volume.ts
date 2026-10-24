@@ -114,7 +114,7 @@ function settable(act: Act, repaint: () => void, entity: string, published: numb
 }
 
 function button(name: 'moins' | 'plus', onDown: (ev: PointerEvent) => void): TemplateResult {
-  return html`<div class="media-pas" data-mvt="detail:volume-${name}"
+  return html`<div class="media-pas disque" data-mvt="detail:volume-${name}"
     @pointerdown=${onDown}>${name === 'moins' ? '−' : '+'}</div>`;
 }
 

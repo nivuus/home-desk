@@ -6,7 +6,8 @@ import type { ContexteModes } from '../modes';
 import type { SourceResolue } from '../media';
 import { pastilleBandeau } from '../agenda';
 import { ancrerProgression } from '../progression';
-import { afterMediaPaint, tonesToPaint } from './media-tones';
+import { afterMediaPaint } from './media-tones';
+import { tonesToPaint } from './card-tones';
 import { rendreBandeau } from '../rendu/bandeau';
 import { rendreCorps, rendreAlerte, rendreHorsLigne } from '../rendu/corps';
 import { rendreCarteMedia } from '../rendu/media';
@@ -116,7 +117,7 @@ export function paintHome(
     : mode === 'menage' && piece.aspirateur ? rendreMenage(etat, piece.aspirateur)
     // In cinema the card shows the own source whose screen is on (`boot/draw.ts`), never a remote one.
     : (mode === 'cinema' || mode === 'media') && source
-      ? rendreCarteMedia(source, maintenantMs, tonesToPaint(source, s.mediaCard),
+      ? rendreCarteMedia(source, maintenantMs, tonesToPaint(source, s.measuredCard),
                          mode === 'media' && f.media.remote)
     : mode === 'aeration' ? rendreAeration(etat, piece.ouvrants)
     : mode === 'voiture' && piece.voiture ? rendreVoiture(etat, piece.voiture, s.climEnVol)

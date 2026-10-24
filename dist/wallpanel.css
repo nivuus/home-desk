@@ -699,7 +699,7 @@ body {
    contrairement au vocabulaire fixe de `.mode-bloc .v` ailleurs (« Ménage », « Ouvert » — cf.
    `rendu/modes.ts`). `.v` seul (nowrap + ellipse) a été mesuré tronqué dès le pire cas réaliste
    (deux plats le même jour, un résumé de réunion un peu long, `outils/verifier-rendu.mjs`) : cette
-   variante reprend le clamp 2 lignes de `.media .v.deux-lignes`, la seule façon honnête de montrer
+   variante reprend le clamp 2 lignes de `.carte .titre.deux-lignes` (`cards.css`), la seule façon honnête de montrer
    un nom entier plutôt qu'une coupe silencieuse. `white-space: normal` annule le `nowrap` hérité
    ci-dessus (sinon `-webkit-line-clamp` n'a rien à répartir sur plusieurs lignes). */
 .mode-bloc .v.deux-lignes { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
@@ -943,61 +943,141 @@ body {
 .recette-actions > .armee { background: var(--md-error-container); color: var(--md-on-error-container); }
 .recette-actions > .inactif { opacity: 0.4; }
 
-/* The media card (`rendu/media.ts`), redesigned on 2026-10-24 (spec 2026-10-23, "piste C").
-   Moved out of `base.css` with every `.media*` rule.
+/* The shared card frame (`rendu/card-frame.ts`, spec 2026-10-24 "Anatomie d'une carte").
 
-   COLOURS. Each colour is a `--mc-*` custom property set on `.media` ONLY when the poster's tones
-   are ready (`tones.ts`, `rendu/poster-sampler.ts`); each `var()` below falls back on the theme,
-   which is the pending / unreadable / no-poster card. Never a gradient on any surface here: a
-   gradient bands on the 6-bit panels of the Fire 7 tablets. Every surface is solid — discs,
-   bars, text plates — and the poster itself is shown untouched: no veil, no reduced opacity.
+   SIZE. 311 × 264 whatever the card and its subject: a card never changes size. The padding is
+   the media card's (8 px vertical, task 9 of 2026-10-24: it keeps the office and kitchen screens
+   inside 585 px); 264 is `hauteurs.blocCarte` (`contrat/budget.json`), the media card at its
+   tallest. `flex: none`: a column that runs out of room must never squeeze the card (its
+   `overflow: hidden` would let it shrink to nothing and clip its rows); the screen budget is
+   what keeps the column inside 585 px.
 
-   HEIGHT. 8 px of vertical padding, not 12 (task 9, 2026-10-24): at 12 the card measured
-   270.8 px, and the office and kitchen screens (Ambiance row dropped, synthèse reduced) needed
-   590 px for two controls — 5 px over the 585 px frame. The spec lets the padding give way
-   first; `hauteurs.blocCarte` (`contrat/budget.json`) is the height measured after it. */
-.media { position: relative; overflow: hidden; isolation: isolate; box-sizing: border-box;
-  padding: 8px 16px; border-radius: var(--sh-xl);
-  background: var(--md-primary-container); color: var(--mc-text, var(--md-on-primary-container));
+   COLOURS. Every colour goes through a custom property with a theme fallback:
+   - `--mc-*`: the tones of an image card, set only when they are ready (`tones.ts`);
+   - `--c-*`: a solid card, pointed at its token's `--carte-<token>-*` values below.
+   Never a gradient on any surface here — a gradient bands on the 6-bit panels of the Fire 7
+   tablets (`base.css`) — and the image is shown untouched: no veil, no reduced opacity. */
+.carte { position: relative; overflow: hidden; isolation: isolate; box-sizing: border-box;
+  width: 311px; height: 264px; flex: none; border-radius: 28px; padding: 8px 16px;
+  background: var(--c-fond, var(--md-primary-container));
+  color: var(--mc-text, var(--c-texte, var(--md-on-primary-container)));
   display: flex; flex-direction: column; gap: 8px; }
-/* The poster: a `cover` background layer UNDER the content (`z-index: -1` inside the stacking
+/* The image: a `cover` background layer UNDER the content (`z-index: -1` inside the stacking
    context `isolation` opens), never an <img> in the flow. Its pixels are what
    `poster-sampler.ts` measures under the text boxes: the layer must stay exactly the card's
    border box, so no inset, no transform. */
-.media-affiche { position: absolute; inset: 0; z-index: -1; background-size: cover;
+.carte-image { position: absolute; inset: 0; z-index: -1; background-size: cover;
   background-position: center; }
 
-/* LINE HEIGHTS. Every text line of the card has an explicit line-height, never `normal`: `normal`
-   takes the metrics of every font a line uses, so a title in a script Roboto lacks (CJK, Arabic…)
-   falls back on a font with a taller ascent and descent and grows the card past the 585 px frame
-   (final review, 2026-10-24: +28 px in CJK). With a fixed line-height the card is as tall in any
-   script, which is what `hauteurs.blocCarte` (`contrat/budget.json`) can promise.
-   The label is ONE line whatever the room's name: cut with an ellipsis, never wrapped. */
-.media .t { font-size: 11px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase;
-  line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Every ancestor of a tone box up to `.carte` stays unpositioned: `boot/card-tones.ts` measures
+   the boxes through the offset chain, which must end on the card. */
+.entete { flex: none; min-width: 0; }
+.milieu { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center;
+  gap: 8px; }
+
+/* LINE HEIGHTS. Every text line has an explicit line-height, never `normal`: `normal` takes the
+   metrics of every font a line uses, so a title in a script Roboto lacks (CJK, Arabic…) falls
+   back on a font with a taller ascent and grows the card past the 585 px frame (+28 px in CJK,
+   final review of 2026-10-24). The label is ONE line whatever the room's name: an ellipsis,
+   never a wrap. `color: inherit` and `margin: 0`: `base.css` has a global `.etiquette` (the home
+   view's labels, `--md-on-surface-variant` and a -4 px margin) that must not reach a card, whose
+   text takes the card's own colour — the tones are computed for that colour only. */
+.carte .etiquette { font-size: 11px; font-weight: 700; letter-spacing: .9px;
+  text-transform: uppercase; line-height: 1.2; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; color: inherit; margin: 0; }
 /* `overflow-wrap: anywhere`: a single word longer than the card (a URL, a file name) wraps
    instead of being clipped at the right edge. */
-.media .v { font-size: 15px; font-weight: 600; line-height: 1.26; overflow-wrap: anywhere; }
-/* Two lines at most, never one: YouTube titles are long (71 characters seen) and a title cut at
-   the first line says nothing any more. `-webkit-line-clamp` is understood by the Chromium
-   WebView of these tablets. */
-.media .v.deux-lignes { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-  overflow: hidden; }
-.media-sous { font-size: 12px; font-weight: 500; line-height: 1.2; white-space: nowrap;
+.carte .titre { font-size: 15px; font-weight: 600; line-height: 1.26; overflow-wrap: anywhere; }
+/* Two lines at most, never one: a title cut at the first line says nothing any more.
+   `-webkit-line-clamp` is understood by the Chromium WebView of these tablets. */
+.carte .titre.deux-lignes { display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden; }
+.carte .sous-titre { font-size: 12px; font-weight: 500; line-height: 1.2; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; }
 
-/* The text plate (spec, "Fond de texte conditionnel"): a solid, palette-tinted background fitted
-   to the text, painted only when the text alone cannot reach 5:1 over the poster. Its padding is
+/* The text plate (spec 2026-10-23, "Fond de texte conditionnel"): a solid background fitted to
+   the text, painted only when the text alone cannot reach 5:1 over the image. Its padding is
    ALWAYS there — only its background changes — so the plate never moves the layout, and the
-   boxes `boot/media-tones.ts` measures are the same with and without it. The negative margin
+   boxes `boot/card-tones.ts` measures are the same with and without it. The negative margin
    keeps the text itself aligned with the discs below. */
-.media .plaque { display: block; width: fit-content; max-width: calc(100% + 12px);
+.carte .plaque { display: block; width: fit-content; max-width: calc(100% + 12px);
   box-sizing: border-box; padding: 1px 6px; margin-inline: -6px; border-radius: 6px;
   background: var(--mc-plate, transparent); }
 
+/* Three fixed 62 px columns: the primary stays centred and the side buttons keep their edge
+   whichever of them exist. */
+.carte .actions { flex: none; display: grid; grid-template-columns: repeat(3, 62px);
+  justify-content: space-between; align-items: center; }
+.carte .vide { width: 62px; height: 62px; }
+
+/* Discs: 62 px solid, the project's minimum touch target. The disc colour comes from the tones
+   or the token, so the icon's contrast never depends on the image behind it. */
+.disque { position: relative; width: 62px; height: 62px; flex: none; box-sizing: border-box;
+  border-radius: var(--sh-full); display: flex; align-items: center; justify-content: center;
+  background: var(--mc-secondary, var(--c-disque, var(--md-surface-container-highest)));
+  color: var(--mc-on-secondary, var(--c-icone, var(--md-on-surface))); }
+.disque.primaire { background: var(--mc-primary, var(--c-primaire, var(--md-primary)));
+  color: var(--mc-on-primary, var(--c-sur-primaire, var(--md-on-primary))); }
+.disque svg { width: 28px; height: 28px; }
+/* Same touch feedback as `.ambiance`/`.commande`/`.xl`/`.tuile` (`base.css`): `currentColor` at
+   10 % on a pseudo-element, so the card itself never reacts (`:active` also matches ancestors).
+   An inert button gives none: acknowledging a press that does nothing is a dead button. */
+.disque::after { content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: currentColor; opacity: 0; pointer-events: none;
+  transition: opacity .2s var(--ressort); }
+.disque:not(.inerte):active::after { opacity: .1; transition: none; }
+.disque.inerte { opacity: .55; }
+
+/* SOLID TOKENS. Six flat colours per token: the card, its text, the secondary disc and its icon,
+   the primary disc and its icon. `tests/card-backgrounds.test.ts` reads these very lines: text
+   ≥ 5:1 on the card, icons ≥ 4.5:1 on the card and on their disc. One set for both themes: they
+   say a state (a warming timer, a charging car), not the page's palette. */
+.carte {
+  --carte-neutral-fond: #e4e9eb; --carte-neutral-texte: #0c1214; --carte-neutral-disque: #cdd2d5;
+  --carte-neutral-icone: #0c1214; --carte-neutral-primaire: #003c48;
+  --carte-neutral-sur-primaire: #ffffff;
+
+  --carte-timer-fond: #a3330b; --carte-timer-texte: #fff8f2; --carte-timer-disque: #7e2408;
+  --carte-timer-icone: #fff1e6; --carte-timer-primaire: #fff1e6;
+  --carte-timer-sur-primaire: #8a2a00;
+
+  --carte-timer-late-fond: #8c1d18; --carte-timer-late-texte: #fff4f2;
+  --carte-timer-late-disque: #66120e; --carte-timer-late-icone: #fff4f2;
+  --carte-timer-late-primaire: #fff4f2; --carte-timer-late-sur-primaire: #8c1d18;
+
+  --carte-charging-fond: #1f4fa8; --carte-charging-texte: #f2f5ff; --carte-charging-disque: #163a7d;
+  --carte-charging-icone: #f2f5ff; --carte-charging-primaire: #dfe6ff;
+  --carte-charging-sur-primaire: #1b2a66;
+
+  --carte-plug-in-fond: #f2b233; --carte-plug-in-texte: #2b1d00; --carte-plug-in-disque: #d99a1e;
+  --carte-plug-in-icone: #2b1d00; --carte-plug-in-primaire: #2b1d00;
+  --carte-plug-in-sur-primaire: #ffe9b8;
+
+  --carte-air-good-fond: #28704f; --carte-air-good-texte: #ffffff; --carte-air-good-disque: #1b5038;
+  --carte-air-good-icone: #f0fff7; --carte-air-good-primaire: #e6fff2;
+  --carte-air-good-sur-primaire: #14452f;
+
+  --carte-air-bad-fond: #8a4b0f; --carte-air-bad-texte: #fff5e8; --carte-air-bad-disque: #6b390a;
+  --carte-air-bad-icone: #fff5e8; --carte-air-bad-primaire: #fff1dd;
+  --carte-air-bad-sur-primaire: #5a2f05;
+
+  --carte-calm-fond: #dfe8e4; --carte-calm-texte: #102019; --carte-calm-disque: #c6d4ce;
+  --carte-calm-icone: #102019; --carte-calm-primaire: #2d5a4b;
+  --carte-calm-sur-primaire: #ffffff;
+}
+
+/* The media card (`rendu/media.ts`), redesigned on 2026-10-24 (spec 2026-10-23, "piste C"):
+   its own rows only. The frame — size, padding, header, plates, discs, poster layer — is the
+   shared card frame's (`cards.css`); the media card's root carries `.carte.media`.
+
+   COLOURS. Each colour is a `--mc-*` custom property set on the card ONLY when the poster's tones
+   are ready (`tones.ts`, `rendu/poster-sampler.ts`); each `var()` below falls back on the theme,
+   which is the pending / unreadable / no-poster card. Never a gradient on any surface here: a
+   gradient bands on the 6-bit panels of the Fire 7 tablets. */
+
 /* Progress: an 8 px bar with a visible track, elapsed time left, remaining time right. The fill
-   is a child sized by `--progression` (set on `.media`, moved by the one-second tick), never a
-   gradient stop. */
+   is a child sized by `--progression` (set on `.media-progression`, moved by the
+   one-second tick), never a gradient stop. */
 .media-barre { height: 8px; border-radius: 4px; overflow: hidden;
   background: var(--mc-secondary, var(--md-surface-container-highest)); }
 .media-barre-plein { height: 100%; width: calc(var(--progression, 0) * 100%); border-radius: 4px;
@@ -1005,36 +1085,12 @@ body {
 .media-temps { display: flex; justify-content: space-between; margin-top: 4px;
   font-size: 12px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
 
-/* Buttons: 62 px solid discs, the project's minimum touch target. The disc colour comes from the
-   palette, so the icon's contrast never depends on the poster. Play/pause is the primary disc. */
-.media-bouton, .media-pas { position: relative; width: 62px; height: 62px; flex: none;
-  box-sizing: border-box; border-radius: var(--sh-full);
-  display: flex; align-items: center; justify-content: center;
-  background: var(--mc-secondary, var(--md-surface-container-highest));
-  color: var(--mc-on-secondary, var(--md-on-surface)); }
-.media-bouton.principal { background: var(--mc-primary, var(--md-primary));
-  color: var(--mc-on-primary, var(--md-on-primary)); }
-.media-bouton svg { width: 28px; height: 28px; }
-/* Same touch feedback as `.ambiance`/`.commande`/`.xl`/`.tuile` (`base.css`): `currentColor` at
-   10 % on a pseudo-element, so the card itself never reacts (`:active` also matches ancestors). */
-.media-bouton::after, .media-pas::after {
-  content: ''; position: absolute; inset: 0; border-radius: inherit;
-  background: currentColor; opacity: 0; pointer-events: none;
-  transition: opacity .2s var(--ressort);
-}
-.media-bouton:active::after, .media-pas:active::after { opacity: .1; transition: none; }
-
-/* Transport: three fixed columns, so play/pause stays centred and previous/next keep their
-   edge whichever of them the player supports (no dead button is ever drawn in their place). */
-.media-transport, .media-volume { display: grid; grid-template-columns: 62px 1fr 62px;
-  align-items: center; column-gap: 8px; }
-.media-precedent { grid-column: 1; }
-.media-pause, .media-lecture { grid-column: 2; justify-self: center; }
-.media-suivant { grid-column: 3; }
-
-/* Volume: `−` and `+` discs, the level written large over a thin gauge. A press repeats while
+/* Volume: `−` and `+` discs (`.disque`, `cards.css`) at the edges of three fixed columns, like the
+   transport slots below them, the level written large over a thin gauge. A press repeats while
    held (`rendu/media-volume.ts`): `touch-action: none` keeps the browser from turning a held
    finger into a scroll and cancelling the pointer. */
+.media-volume { display: grid; grid-template-columns: 62px 1fr 62px; align-items: center;
+  column-gap: 8px; }
 .media-pas { font-size: 30px; font-weight: 600; touch-action: none; }
 .media-niveau { min-width: 0; }
 .media .media-niveau-texte { margin-inline: auto; font-size: 24px; font-weight: 700;

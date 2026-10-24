@@ -14,9 +14,11 @@
  *     the two luminance extremes: a mid-grey text over a black-and-white poster has both
  *     extremes far from it and still a pixel at its own luminance. The content box (padding
  *     excluded) is where the glyphs are; it stays clear of the plate's rounded corners.
- *  2. every disc (`.media-bouton`, `.media-pas`): a solid fill (alpha 1 — the poster must not show
+ *  2. every disc (`.disque`: the transport slots and the volume steps): a solid fill (alpha 1 — the poster must not show
  *     through) and an icon colour ≥ 4.5:1 against it.
- *  3. no element of the card below the frame (585 px).
+ *  3. no element of the card below the frame (585 px), and none outside the card itself: the
+ *     card is a fixed 311 × 264 frame (`cards.css`) that clips, so a content too tall no longer
+ *     grows the card past the frame — it is cut, or squeezed out of the middle zone.
  *
  *  `mesurerCarteMedia` runs on any page that shows the card (the live pages of
  *  `verifier-rendu.mjs`, or the in-memory fixtures below); `autoTestCarteMedia` proves the check
@@ -33,17 +35,17 @@ const WIDTH = 343;
 const HEIGHT = 585;
 const TONE_WAIT_MS = 10_000;
 
-/** Waits until the card shows its poster with ready tones (`.avec-affiche`, set by
- *  `rendreCarteMedia` only then) AND the poster bitmap is decoded, so the pixels sampled are the
+/** Waits until the card shows its poster with ready tones (`.avec-image`, set by
+ *  the card frame only then) AND the poster bitmap is decoded, so the pixels sampled are the
  *  poster's and not the theme fill under a still-loading image. False on timeout. */
 export async function attendreCarteTeintee(page, limitMs = TONE_WAIT_MS) {
   try {
-    await page.waitForSelector('.media.avec-affiche .media-affiche', { timeout: limitMs });
+    await page.waitForSelector('.media.avec-image .carte-image', { timeout: limitMs });
   } catch {
     return false;
   }
   return page.evaluate(async () => {
-    const layer = document.querySelector('.media.avec-affiche .media-affiche');
+    const layer = document.querySelector('.media.avec-image .carte-image');
     const url = /url\("?(.*?)"?\)/.exec(getComputedStyle(layer).backgroundImage)?.[1];
     if (!url) return false;
     const img = new Image();
@@ -70,18 +72,30 @@ function relever(frameBottom) {
       x1: Math.floor(r.right - px(s.paddingRight)), y1: Math.floor(r.bottom - px(s.paddingBottom)),
     };
   }).filter((b) => b.x1 > b.x0 && b.y1 > b.y0);
-  const discs = [...card.querySelectorAll('.media-bouton, .media-pas')].map((el) => {
+  const discs = [...card.querySelectorAll('.disque')].map((el) => {
     const s = getComputedStyle(el);
     return { cls: String(el.className).trim(), fill: s.backgroundColor, icon: s.color };
   });
+  const name = (el) => String(el.className?.baseVal ?? el.className ?? el.tagName);
   const overflow = [card, ...card.querySelectorAll('*')]
     .filter((el) => el.getBoundingClientRect().bottom > frameBottom + 0.5)
-    .map((el) => String(el.className?.baseVal ?? el.className ?? el.tagName));
+    .map(name);
+  // What the fixed frame hides: an element past the card's edge, or a row of the middle zone
+  // pushed past that zone (onto the buttons) by a header that grew.
+  const middle = card.querySelector('.milieu');
+  const m = middle?.getBoundingClientRect();
+  const unfit = [
+    ...[...card.querySelectorAll('*')].filter((el) => el.getBoundingClientRect().bottom > c.bottom + 0.5),
+    ...(m ? [...middle.querySelectorAll('*')].filter((el) => {
+      const r = el.getBoundingClientRect();
+      return r.top < m.top - 0.5 || r.bottom > m.bottom + 0.5;
+    }) : []),
+  ].map(name);
   return {
     clip: { x: Math.max(0, Math.floor(c.left)), y: Math.max(0, Math.floor(c.top)),
       width: Math.ceil(Math.min(c.right, innerWidth) - Math.max(0, Math.floor(c.left))),
       height: Math.ceil(Math.min(c.bottom, innerHeight) - Math.max(0, Math.floor(c.top))) },
-    boxes, discs, overflow,
+    boxes, discs, overflow, unfit: [...new Set(unfit)],
   };
 }
 
@@ -150,6 +164,7 @@ export async function mesurerCarteMedia(page, frameBottom = HEIGHT) {
       cls: d.cls, solid: (rgba(d.fill)[3] ?? 1) === 1, ratio: round2(ratioCss(d.fill, d.icon)),
     })),
     overflow: r.overflow,
+    unfit: r.unfit,
   };
 }
 
@@ -172,6 +187,7 @@ export function jugerCarte(m) {
     faults.push(`icon contrast under ${ICON_CONTRAST_MIN}:1 (${lowIcon.map((d) => `${d.cls} ${d.ratio}:1`).join('; ')})`);
   }
   if (m.overflow.length) faults.push(`below the ${HEIGHT} px frame: ${m.overflow.join(', ')}`);
+  if (m.unfit.length) faults.push(`does not fit the card: ${m.unfit.join(', ')}`);
   return { ok: faults.length === 0, reason: faults.join(' ; ') };
 }
 
@@ -204,7 +220,7 @@ import { render } from 'lit';
 import { Etat } from './etat';
 import { resoudreSource, CAP } from './media';
 import { rendreCarteMedia } from './rendu/media';
-import { measureCard } from './boot/media-tones';
+import { measureCard } from './boot/card-tones';
 import { computeTones, browserSampler } from './rendu/poster-sampler';
 const P = 'media_player.verifier_carte';
 const DECL = { nom: 'Musique', titre: [P], sousTitre: [P], affiche: [P],
@@ -256,8 +272,8 @@ const pass = (j) => j.ok;
 const BLOC_CARTE = JSON.parse(readFileSync(join(APP, '..', 'contrat', 'budget.json'), 'utf8')).hauteurs.blocCarte;
 /** What the card looked like before the final review (2026-10-24): `line-height: normal` on the
  *  label, subtitle and times, and a label that wraps. A fallback font grew it past its budget. */
-const LINE_HEIGHT_NORMAL = `.media .t, .media-sous, .media-temps { line-height: normal !important; }
-  .media .t { white-space: normal !important; }`;
+const LINE_HEIGHT_NORMAL = `.media .etiquette, .media .sous-titre, .media-temps { line-height: normal !important; }
+  .media .etiquette { white-space: normal !important; }`;
 const CASES = [
   ...['claire', 'moyenne', 'sombre', 'pastel'].map((poster) => ({
     poster, options: {}, expected: pass,
@@ -273,12 +289,12 @@ const CASES = [
     expected: pass,
     what: `CJK title and subtitle, room name too long for the label: within its ${BLOC_CARTE} px budget` },
   { poster: 'moyenne', options: { script: 'cjk', top: HEIGHT - BLOC_CARTE, css: LINE_HEIGHT_NORMAL },
-    expected: (j) => !j.ok && /below the 585 px frame/.test(j.reason),
-    what: 'COUNTER-PROOF: the same card with line-height normal and a wrapping label must overflow' },
-  { poster: 'moyenne', options: { css: '.media .media-bouton { background: rgba(20, 20, 20, .6) !important; }' },
+    expected: (j) => !j.ok && /does not fit the card/.test(j.reason),
+    what: 'COUNTER-PROOF: the same card with line-height normal and a wrapping label must not fit' },
+  { poster: 'moyenne', options: { css: '.media .bouton { background: rgba(20, 20, 20, .6) !important; }' },
     expected: (j) => !j.ok && /disc not solid/.test(j.reason),
     what: 'COUNTER-PROOF: a translucent disc must be flagged' },
-  { poster: 'moyenne', options: { css: '.media .media-bouton, .media .media-pas { color: var(--mc-secondary) !important; }' },
+  { poster: 'moyenne', options: { css: '.media .disque { color: var(--mc-secondary) !important; }' },
     expected: (j) => !j.ok && /icon contrast under/.test(j.reason),
     what: 'COUNTER-PROOF: an icon the colour of its disc must be flagged' },
 ];

@@ -66,14 +66,14 @@ function uneSeuleFois(f: () => void): () => void {
 }
 
 /** Ronde de correction 1 — extrait l'URL d'un `background-image: url(...)`, posé par
- *  `rendu/media.ts` sur `.media-affiche`. Le bloc média ne pose JAMAIS de `<img>` dans son flux
+ *  le cadre de carte (`rendu/card-frame.ts`) sur `.carte-image`. Le bloc média ne pose JAMAIS de `<img>` dans son flux
  *  (cf. le commentaire de `rendreCarteMedia` : « un élément remplacé participerait à la mise en
  *  page et ferait varier la hauteur du bloc ») — c'est donc la SEULE façon de savoir si une
  *  affiche existe et où la précharger. `style.backgroundImage`, une fois posé via un attribut
  *  `style`, est TOUJOURS normalisé par le navigateur en `url("…")` ou `url('…')` — on retire juste
  *  les guillemets qui l'entourent, jamais un découpage au caractère près sur la chaîne brute. */
 function urlAffiche(bloc: HTMLElement): string | null {
-  const affiche = bloc.querySelector<HTMLElement>('.media-affiche');
+  const affiche = bloc.querySelector<HTMLElement>('.carte-image');
   const valeur = affiche?.style.backgroundImage;
   if (!valeur) return null;
   const m = /^url\((['"]?)([\s\S]*)\1\)$/.exec(valeur.trim());
@@ -460,7 +460,7 @@ export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): M
         // Le risque est l'inverse d'un fantôme périmé : croiser vers une affiche NEUVE pas
         // encore chargée, donc vers un aplat, puis la voir surgir d'un coup une seconde plus
         // tard. `rendu/media.ts` ne pose JAMAIS de `<img>` — l'affiche est un fond CSS sur
-        // `.media-affiche` (cf. son commentaire) — on précharge donc l'URL extraite de ce fond
+        // `.carte-image` (cf. son commentaire) — on précharge donc l'URL extraite de ce fond
         // (`urlAffiche`) sur une image fabriquée ici, et on attend `decoder()` dessus, plafonné
         // à `AFFICHE_ATTENTE_MAX_MS` : un mur ne reste pas bloqué sur une image qui ne vient
         // pas. Sans affiche du tout (YouTube n'en fournit aucune), rien à attendre.

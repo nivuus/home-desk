@@ -153,7 +153,11 @@ try {
     <!-- Measurement only: a column child too tall for the frame is SHRUNK by flex (and its
          overflow clipped), which would publish a squeezed height as the zone's cost. Unshrinkable
          here, so every zone keeps its natural height and an overflow shows as a negative reste. -->
-    <style>.corps > * { flex-shrink: 0 !important; }</style></head><body><div id="app" class="m3"></div></body></html>`);
+    <style>.corps > * { flex-shrink: 0 !important; }</style>
+    <!-- Same reason inside the card: the frame is a fixed 264 px (cards.css), so measured as
+         rendered it would always read 264 and a content too tall would just be clipped. Natural
+         height here, which is what must fit the frame. -->
+    <style>.carte { height: auto !important; } .carte > * { flex-shrink: 0 !important; }</style></head><body><div id="app" class="m3"></div></body></html>`);
   await page.addScriptTag({ content: js });
   const textes = await page.evaluate(() => window.__textes);
   for (const cle of await page.evaluate(() => window.__ecrans)) {

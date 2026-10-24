@@ -623,7 +623,7 @@ body {
    contrairement au vocabulaire fixe de `.mode-bloc .v` ailleurs (« Ménage », « Ouvert » — cf.
    `rendu/modes.ts`). `.v` seul (nowrap + ellipse) a été mesuré tronqué dès le pire cas réaliste
    (deux plats le même jour, un résumé de réunion un peu long, `outils/verifier-rendu.mjs`) : cette
-   variante reprend le clamp 2 lignes de `.media .v.deux-lignes`, la seule façon honnête de montrer
+   variante reprend le clamp 2 lignes de `.carte .titre.deux-lignes` (`cards.css`), la seule façon honnête de montrer
    un nom entier plutôt qu'une coupe silencieuse. `white-space: normal` annule le `nowrap` hérité
    ci-dessus (sinon `-webkit-line-clamp` n'a rien à répartir sur plusieurs lignes). */
 .mode-bloc .v.deux-lignes { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;

@@ -21,7 +21,7 @@ import type { createTaskCheck, createArming } from '../cochage';
 import type { AnimationEnCours } from '../animation';
 import type { DeclarationSource } from '../media';
 import type { MediaPin } from '../media-choice';
-import type { MeasuredCard } from './media-tones';
+import type { MeasuredCard } from './card-tones';
 import type { ConnexionLike, DependancesDemarrage } from './types';
 import { newPantryState, type PantryState } from './pantry';
 import { newVacuumState, type VacuumState } from './vacuum';
@@ -167,8 +167,8 @@ export class ScreenState {
    *  it is paused (`pickSource`), and `settlePin` drops it on every frame once it no longer
    *  applies. */
   pinnedMedia: MediaPin | undefined;
-  /** The media card as the last paint measured it, for the poster tones (`boot/media-tones.ts`). */
-  mediaCard: MeasuredCard | null = null;
+  /** The image card as the last paint measured it, for its tones (`boot/card-tones.ts`). */
+  measuredCard: MeasuredCard | null = null;
 
   // Task 15 review (I1): the starting point of the media progress rail, recomputed on every
   // `dessiner()` and consumed by the one-second tick armed in `wireScreen`. `null` = nothing to

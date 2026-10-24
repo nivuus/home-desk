@@ -41,7 +41,7 @@ describe('orchestration des modes', () => {
     });
 
     expect(racine.querySelector('.media')).not.toBeNull();
-    expect(racine.querySelector('.media .v')?.textContent).toContain('Blinding Lights');
+    expect(racine.querySelector('.media .titre')?.textContent).toContain('Blinding Lights');
     expect(racine.querySelector('.voiture')).toBeNull();
   });
 
@@ -55,7 +55,7 @@ describe('orchestration des modes', () => {
     expect(racine.classList.contains('sombre')).toBe(true);
     // Écran allumé sans lecture en cours : la carte est là, avec le nom de l'application faute de
     // titre — c'est la distinction `allumee` / `joue` de `media.ts`, exercée ici de bout en bout.
-    expect(racine.querySelector('.media .v')?.textContent).toContain('Plex');
+    expect(racine.querySelector('.media .titre')?.textContent).toContain('Plex');
   });
 
   it('rend le bloc ménage quand l\'aspirateur tourne, même si la TV est allumée', async () => {
@@ -220,7 +220,7 @@ describe('actions des blocs de mode', () => {
     await pousser('media_player.musique_salon', 'playing',
             { media_title: 'Blinding Lights', supported_features: 1 });
 
-    racine.querySelector('.media-bouton')!.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    racine.querySelector('.media .bouton')!.dispatchEvent(new Event('pointerdown', { bubbles: true }));
 
     expect(appelerService).toHaveBeenCalledWith(
       'media_player', 'media_pause', { entity_id: 'media_player.musique_salon' });
@@ -283,7 +283,7 @@ describe('arbitrage de la source affichée', () => {
     // résolu au microtask suivant) ne le relâche — jamais un remplacement instantané.
     await Promise.resolve(); await Promise.resolve();
 
-    expect(racine.querySelector('.media .v')?.textContent).toContain('Retour vers le futur');
+    expect(racine.querySelector('.media .titre')?.textContent).toContain('Retour vers le futur');
     expect(racine.textContent).not.toContain('Blinding Lights');
   });
 
@@ -294,7 +294,7 @@ describe('arbitrage de la source affichée', () => {
     await pousser('media_player.musique_salon', 'paused',
             { media_title: 'Blinding Lights', supported_features: 1 });
 
-    expect(racine.querySelector('.media .v')?.textContent).toContain('Blinding Lights');
+    expect(racine.querySelector('.media .titre')?.textContent).toContain('Blinding Lights');
   });
 });
 
