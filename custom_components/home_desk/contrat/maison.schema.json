@@ -35,6 +35,11 @@
       "pattern": "^(number|input_number)\\.[a-z0-9_]+$",
       "description": "Un entity_id du domaine number ou input_number : la carte l'ecrit par `<domaine>.set_value`, avec l'attribut `min` de l'entite pour valeur."
     },
+    "entiteAlarme": {
+      "type": "string",
+      "pattern": "^alarm_control_panel\\.[a-z0-9_]+$",
+      "description": "Un entity_id du domaine alarm_control_panel : la carte lit `armed_*` et `code_format` et appelle `alarm_control_panel.alarm_disarm`, ce qu'aucun autre domaine ne publie ni n'accepte."
+    },
     "entiteVentilateur": {
       "type": "string",
       "pattern": "^fan\\.[a-z0-9_]+$",
@@ -44,6 +49,11 @@
       "type": "array",
       "items": {"$ref": "#/$defs/entiteCapteur"},
       "description": "Une liste d'entity_id du domaine sensor (les niveaux de cartouche)."
+    },
+    "listeAlarmes": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/entiteAlarme"},
+      "description": "Une liste d'entity_id du domaine alarm_control_panel (les zones d'une alarme)."
     },
     "appareil": {
       "type": "object",
@@ -218,7 +228,7 @@
               "entites": {
                 "required": ["zones"],
                 "additionalProperties": false,
-                "properties": {"zones": {"$ref": "#/$defs/listeEntites", "minItems": 1}}
+                "properties": {"zones": {"$ref": "#/$defs/listeAlarmes", "minItems": 1}}
               }
             },
             "not": {"required": ["seuil"]}

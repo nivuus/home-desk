@@ -85,4 +85,22 @@ export const S = {
   inkLabel: 'ENCRE BASSE',
   /** More cartridges than the card has room for, the count already formatted with `Intl`. */
   inkMore: (n: string) => `et ${n} autres`,
+  meal: 'REPAS',
+  mealOpenRecipe: 'Ouvrir la recette',
+  mealValidate: 'Valider le repas',
+  shopping: 'Courses',
+  /** Ingredients missing from the stock, the count already formatted with `Intl`. */
+  mealMissing: (n: string) => `Manquants : ${n}`,
+  pantry: 'Garde-manger',
+  pantryLabel: 'À CONSOMMER',
+  pantryOpen: 'Ouvrir le garde-manger',
+  /** More products than the card lists, the count already formatted with `Intl`. */
+  pantryMore: (n: string) => `et ${n} autres`,
+  alarm: 'Alarme',
+  alarmLabel: 'ARMÉE',
+  /** More armed zones than the card lists, the count already formatted with `Intl`. */
+  alarmMore: (n: string) => `et ${n} autres`,
+  alarmDisarm: 'Désarmer',
+  /** The middle line of an armed zone that asks for a code: the card has no keypad. */
+  alarmCode: 'Un code est demandé : désarmer depuis le panneau de l’alarme',
 } as const;

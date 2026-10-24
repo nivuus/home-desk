@@ -30,6 +30,25 @@ export const CAPTEUR_REPAS = 'sensor.home_stock_next_meal';
  *  cochés — et le compte est ce qu'on lit de loin, ce qu'un `binary_sensor` ne saurait dire. */
 export const LISTE_DLC = 'todo.home_stock_expirations';
 
+/** The calendar of the planned meals. Its `event` is the same `repo.next_meal` as the sensor's, and
+ *  its `start_time` attribute is the meal's own time (the slot's `default_time` on its day), local,
+ *  written by Home Assistant as `%Y-%m-%d %H:%M:%S` (calendar `state_attributes`, read 2026-10-24).
+ *  The sensor publishes the day and the slot but no time. */
+export const AGENDA_REPAS = 'calendar.home_stock_meals';
+
+/** The script of the house that validates the next meal (`scripts.yaml`). */
+export const SCRIPT_VALIDER_REPAS = 'script.home_stock_validate_next_meal';
+
+/** The two binary sensors of the pantry: `on` while a batch nears its date (attribute `batches`,
+ *  each with a `product_name`) or a product runs short (attribute `products`, names). The
+ *  thresholds are home-stock's own. */
+export const CAPTEUR_EXPIRATIONS = 'binary_sensor.home_stock_expirations';
+export const CAPTEUR_MANQUES = 'binary_sensor.home_stock_shortages';
+
+/** The shopping list, the one the kitchen screen already lists in its tasks view
+ *  (`Ecran.listesTachesExtra`). */
+export const LISTE_COURSES = 'todo.home_stock_shopping';
+
 export type NextMeal = {
   /** « Dîner », « Demain, déjeuner », « Lundi, dîner ». */
   etiquette: string;
@@ -44,6 +63,8 @@ export type NextMeal = {
   /** Le nombre d'ingrédients absents du stock. 0 quand l'attribut manque : on n'invente pas un
    *  avertissement à partir d'une ignorance. */
   manquants: number;
+  /** The meal's picture when the sensor publishes one (`entity_picture`); home-stock does not yet. */
+  image?: string | null;
 };
 
 function texte(v: unknown): string | null {
@@ -71,7 +92,22 @@ export function nextMeal(etat: Etat, maintenant: Date): NextMeal | undefined {
     mealId: entier(a.meal_id),
     recetteId: entier(a.recipe_id),
     manquants: entier(a.missing_ingredients) ?? 0,
+    ...(texte(a.entity_picture) !== null ? { image: texte(a.entity_picture) } : {}),
   };
+}
+
+const DATE_HA = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/;
+
+/** The instant the next meal is planned for, from the calendar; `null` when the calendar is
+ *  silent, holds no event or writes a time in a shape we do not know. Local time, like `day`. */
+export function mealStartMs(etat: Etat): number | null {
+  if (!etat.estUtilisable(AGENDA_REPAS)) return null;
+  const raw = etat.lire(AGENDA_REPAS)!.attributs?.start_time;
+  const m = typeof raw === 'string' ? DATE_HA.exec(raw) : null;
+  if (m === null) return null;
+  const [y, mo, d, h, mi, se] = m.slice(1).map(Number);
+  const ms = new Date(y, mo - 1, d, h, mi, se).getTime();
+  return Number.isNaN(ms) ? null : ms;
 }
 
 /** Le nombre de lots qui périment, ou `undefined` quand la liste ne dit rien d'exploitable.

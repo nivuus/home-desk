@@ -17,6 +17,9 @@ import * as plants from '../cards/plants';
 import * as treadmill from '../cards/treadmill';
 import * as air from '../cards/air';
 import * as ink from '../cards/ink';
+import * as meal from '../cards/meal';
+import * as pantry from '../cards/pantry';
+import * as alarm from '../cards/alarm';
 import { orderStack } from './order';
 import type { Card, CardType } from './types';
 
@@ -29,7 +32,7 @@ type CardModule = {
 const MODULES: Partial<Record<CardType, CardModule>> = {
   recette: recipe, minuteur: timer, media, cinema: media, aspirateur: vacuum, voiture: car,
   aeration: airing, imprimante: printer, animaux: pets, plantes: plants,
-  tapis: treadmill, air, encre: ink,
+  tapis: treadmill, air, encre: ink, repas: meal, 'garde-manger': pantry, alarme: alarm,
 };
 
 /** Each module once, even when it draws two types (`media`/`cinema`). */
