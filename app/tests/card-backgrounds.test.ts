@@ -33,6 +33,25 @@ describe('solid card backgrounds', () => {
     expect(contrastRatio(lum(primaire), lum(surPrimaire))).toBeGreaterThanOrEqual(4.5);
   });
 
+  it('an inert button is a solid pair with its icon ≥ 4.5:1, never an opacity', () => {
+    const hex = (role: string) => {
+      const m = new RegExp(`--carte-inerte-${role}:\\s*(#[0-9a-fA-F]{6})\\s*;`).exec(css);
+      if (m === null) throw new Error(`cards.css declares no solid --carte-inerte-${role}`);
+      return m[1];
+    };
+    expect(contrastRatio(lum(hex('disque')), lum(hex('icone')))).toBeGreaterThanOrEqual(4.5);
+    const rule = /\.disque\.inerte[^{]*\{([^}]*)\}/.exec(css);
+    expect(rule, '.disque.inerte rule').not.toBeNull();
+    expect(rule![1]).toMatch(/background:\s*var\(--carte-inerte-disque\)/);
+    expect(rule![1]).toMatch(/color:\s*var\(--carte-inerte-icone\)/);
+    // No opacity on an inert disc, whatever rule carries it.
+    // (`:not(.inerte)` names the OTHER buttons: their press feedback, not an inert disc.)
+    const inertRules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)]
+      .filter((m) => m[1].replace(/:not\(\.inerte\)/g, '').includes('.inerte'));
+    expect(inertRules.length).toBeGreaterThan(0);
+    for (const m of inertRules) expect(m[2], m[1].trim()).not.toMatch(/(^|[;\s])opacity:/);
+  });
+
   it('no gradient anywhere in the card sheet', () => {
     expect(css).not.toMatch(/gradient\(/);
   });

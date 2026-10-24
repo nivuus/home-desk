@@ -81,7 +81,11 @@
   background: currentColor; opacity: 0; pointer-events: none;
   transition: opacity .2s var(--ressort); }
 .disque:not(.inerte):active::after { opacity: .1; transition: none; }
-.disque.inerte { opacity: .55; }
+/* An inert button: a muted SOLID pair, the same on any background, never an opacity — an
+   opacity would let the image show through the disc and drop its icon under 4.5:1. The pair is
+   contrast-tested by `tests/card-backgrounds.test.ts`. */
+.disque.inerte, .disque.primaire.inerte { background: var(--carte-inerte-disque);
+  color: var(--carte-inerte-icone); }
 
 /* SOLID TOKENS. Six flat colours per token: the card, its text, the secondary disc and its icon,
    the primary disc and its icon. `tests/card-backgrounds.test.ts` reads these very lines: text
@@ -119,4 +123,6 @@
   --carte-calm-fond: #dfe8e4; --carte-calm-texte: #102019; --carte-calm-disque: #c6d4ce;
   --carte-calm-icone: #102019; --carte-calm-primaire: #2d5a4b;
   --carte-calm-sur-primaire: #ffffff;
+
+  --carte-inerte-disque: #d8dee0; --carte-inerte-icone: #4b5457;
 }

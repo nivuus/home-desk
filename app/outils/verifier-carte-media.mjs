@@ -14,7 +14,8 @@
  *     the two luminance extremes: a mid-grey text over a black-and-white poster has both
  *     extremes far from it and still a pixel at its own luminance. The content box (padding
  *     excluded) is where the glyphs are; it stays clear of the plate's rounded corners.
- *  2. every disc (`.disque`: the transport slots and the volume steps): a solid fill (alpha 1 — the poster must not show
+ *  2. every disc (`.disque`: the transport slots and the volume steps): a solid fill (alpha 1 and
+ *     an effective opacity of 1 up the tree — the poster must not show
  *     through) and an icon colour ≥ 4.5:1 against it.
  *  3. no element of the card below the frame (585 px), and none outside the card itself: the
  *     card is a fixed 311 × 264 frame (`cards.css`) that clips, so a content too tall no longer
@@ -72,9 +73,17 @@ function relever(frameBottom) {
       x1: Math.floor(r.right - px(s.paddingRight)), y1: Math.floor(r.bottom - px(s.paddingBottom)),
     };
   }).filter((b) => b.x1 > b.x0 && b.y1 > b.y0);
+  // A disc is solid only if nothing lets the image through: its fill's alpha AND the effective
+  // opacity of the disc and every ancestor (an `opacity` anywhere up the tree composites the
+  // disc, icon included, with what is behind it — the fill's alpha alone never sees it).
+  const opacity = (el) => {
+    let o = 1;
+    for (let n = el; n !== null && n.nodeType === 1; n = n.parentElement) o *= Number(getComputedStyle(n).opacity);
+    return o;
+  };
   const discs = [...card.querySelectorAll('.disque')].map((el) => {
     const s = getComputedStyle(el);
-    return { cls: String(el.className).trim(), fill: s.backgroundColor, icon: s.color };
+    return { cls: String(el.className).trim(), fill: s.backgroundColor, icon: s.color, opacity: opacity(el) };
   });
   const name = (el) => String(el.className?.baseVal ?? el.className ?? el.tagName);
   const overflow = [card, ...card.querySelectorAll('*')]
@@ -161,7 +170,8 @@ export async function mesurerCarteMedia(page, frameBottom = HEIGHT) {
       cls: b.cls, text: b.text, plate: b.plate, pixels: worst[i].pixels, ratio: round2(worst[i].worst),
     })),
     discs: r.discs.map((d) => ({
-      cls: d.cls, solid: (rgba(d.fill)[3] ?? 1) === 1, ratio: round2(ratioCss(d.fill, d.icon)),
+      cls: d.cls, solid: (rgba(d.fill)[3] ?? 1) === 1 && d.opacity === 1,
+      ratio: round2(ratioCss(d.fill, d.icon)),
     })),
     overflow: r.overflow,
     unfit: r.unfit,
@@ -294,6 +304,9 @@ const CASES = [
   { poster: 'moyenne', options: { css: '.media .bouton { background: rgba(20, 20, 20, .6) !important; }' },
     expected: (j) => !j.ok && /disc not solid/.test(j.reason),
     what: 'COUNTER-PROOF: a translucent disc must be flagged' },
+  { poster: 'moyenne', options: { css: '.media .disque { opacity: .55 !important; }' },
+    expected: (j) => !j.ok && /disc not solid/.test(j.reason),
+    what: 'COUNTER-PROOF: a solid disc made see-through by opacity must be flagged' },
   { poster: 'moyenne', options: { css: '.media .disque { color: var(--mc-secondary) !important; }' },
     expected: (j) => !j.ok && /icon contrast under/.test(j.reason),
     what: 'COUNTER-PROOF: an icon the colour of its disc must be flagged' },
@@ -338,6 +351,6 @@ export async function autoTestCarteMedia(nav) {
   }
   console.log('Media card auto-test passed: the five posters pass on their computed tones, the '
     + 'stripes only through their plate, a CJK card fits its budget, and the plate-less stripes, '
-    + 'the line-height-normal card, the translucent disc and the low-contrast icon are flagged.');
+    + 'the line-height-normal card, the translucent disc, the see-through disc and the low-contrast icon are flagged.');
   return 0;
 }
