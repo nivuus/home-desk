@@ -194,7 +194,7 @@ const ORIGIN = 'http://carte-media.test';
  *  app's own sampler (`computeTones` + `browserSampler`, same origin as the page), and renders it
  *  again with them — the sequence `boot/media-tones.ts` runs on the tablet. `withoutPlate` drops
  *  the plate from the computed tones; `css` overrides the stylesheets before the card is drawn;
- *  `top` moves the card down so its bottom sits on the frame when it is `blocMedia` tall: the
+ *  `top` moves the card down so its bottom sits on the frame when it is `blocCarte` tall: the
  *  counter-proofs. */
 async function bundleFixture() {
   const sheets = readFileSync(join(APP, 'src', 'index.ts'), 'utf8')
@@ -251,9 +251,9 @@ window.__poser = async (poster, { withoutPlate = false, script = 'latin', top = 
 }
 
 const pass = (j) => j.ok;
-/** `blocMedia` (`contrat/budget.json`): the height the budget promises for the card. Posed with
- *  its top at `HEIGHT - blocMedia`, a card taller than its budget crosses the frame. */
-const BLOC_MEDIA = JSON.parse(readFileSync(join(APP, '..', 'contrat', 'budget.json'), 'utf8')).hauteurs.blocMedia;
+/** `blocCarte` (`contrat/budget.json`): the height the budget promises for the card. Posed with
+ *  its top at `HEIGHT - blocCarte`, a card taller than its budget crosses the frame. */
+const BLOC_CARTE = JSON.parse(readFileSync(join(APP, '..', 'contrat', 'budget.json'), 'utf8')).hauteurs.blocCarte;
 /** What the card looked like before the final review (2026-10-24): `line-height: normal` on the
  *  label, subtitle and times, and a label that wraps. A fallback font grew it past its budget. */
 const LINE_HEIGHT_NORMAL = `.media .t, .media-sous, .media-temps { line-height: normal !important; }
@@ -269,10 +269,10 @@ const CASES = [
   { poster: 'rayures', options: { withoutPlate: true },
     expected: (j) => !j.ok && /text contrast under/.test(j.reason),
     what: 'COUNTER-PROOF: stripes with the plate forced off must be flagged' },
-  { poster: 'moyenne', options: { script: 'cjk', top: HEIGHT - BLOC_MEDIA },
+  { poster: 'moyenne', options: { script: 'cjk', top: HEIGHT - BLOC_CARTE },
     expected: pass,
-    what: `CJK title and subtitle, room name too long for the label: within its ${BLOC_MEDIA} px budget` },
-  { poster: 'moyenne', options: { script: 'cjk', top: HEIGHT - BLOC_MEDIA, css: LINE_HEIGHT_NORMAL },
+    what: `CJK title and subtitle, room name too long for the label: within its ${BLOC_CARTE} px budget` },
+  { poster: 'moyenne', options: { script: 'cjk', top: HEIGHT - BLOC_CARTE, css: LINE_HEIGHT_NORMAL },
     expected: (j) => !j.ok && /below the 585 px frame/.test(j.reason),
     what: 'COUNTER-PROOF: the same card with line-height normal and a wrapping label must overflow' },
   { poster: 'moyenne', options: { css: '.media .media-bouton { background: rgba(20, 20, 20, .6) !important; }' },

@@ -10,7 +10,7 @@ import CORPUS from '../../contrat/cas-budget.json';
  *  deux suites, jamais les deux — c'est tout ce que cette table garantit, cf. `contrat/README.md`. */
 
 type Cas = {
-  mode: string;
+  bloc: string;
   rangeeAmbiance: boolean;
   zones: Zone[] | null;
   hauteurUtile: number;
@@ -34,28 +34,28 @@ describe('contrat/cas-budget.json — le corpus que les deux suites partagent', 
 
   for (const cas of CAS) {
     const zones = cas.zones ?? undefined;
-    const nom = `${cas.mode}/ambiance=${cas.rangeeAmbiance}${cas.syntheseReduite ? '/reduite' : ''}/zones=${cas.zones ? cas.zones.join(',') : 'defaut'}/${cas.hauteurUtile}px`;
+    const nom = `${cas.bloc}/ambiance=${cas.rangeeAmbiance}${cas.syntheseReduite ? '/reduite' : ''}/zones=${cas.zones ? cas.zones.join(',') : 'defaut'}/${cas.hauteurUtile}px`;
 
     it(`${nom} — combien()`, () => {
       const rendu = cas.syntheseReduite !== undefined
-        ? combien(cas.mode as any, cas.rangeeAmbiance, cas.hauteurUtile, zones, cas.syntheseReduite)
+        ? combien(cas.bloc as any, cas.rangeeAmbiance, cas.hauteurUtile, zones, cas.syntheseReduite)
         : zones === undefined
-          ? combien(cas.mode as any, cas.rangeeAmbiance, cas.hauteurUtile)
-          : combien(cas.mode as any, cas.rangeeAmbiance, cas.hauteurUtile, zones);
+          ? combien(cas.bloc as any, cas.rangeeAmbiance, cas.hauteurUtile)
+          : combien(cas.bloc as any, cas.rangeeAmbiance, cas.hauteurUtile, zones);
       expect(rendu, nom).toBe(cas.commandes);
     });
 
     if (cas.arrangement !== undefined) {
       it(`${nom} — arrangement()`, () => {
-        expect(arrangement(cas.mode as any, cas.rangeeAmbiance, cas.hauteurUtile, zones), nom)
+        expect(arrangement(cas.bloc as any, cas.rangeeAmbiance, cas.hauteurUtile, zones), nom)
           .toEqual(cas.arrangement);
       });
     }
 
     it(`${nom} — verifierBudget()`, () => {
       const rendu = zones === undefined
-        ? verifierBudget(cas.mode as any, cas.rangeeAmbiance, cas.hauteurUtile)
-        : verifierBudget(cas.mode as any, cas.rangeeAmbiance, cas.hauteurUtile, zones);
+        ? verifierBudget(cas.bloc as any, cas.rangeeAmbiance, cas.hauteurUtile)
+        : verifierBudget(cas.bloc as any, cas.rangeeAmbiance, cas.hauteurUtile, zones);
       expect(rendu, nom).toBe(cas.debordement);
     });
   }

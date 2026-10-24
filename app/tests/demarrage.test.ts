@@ -730,11 +730,13 @@ describe('minuteurs de cuisine', () => {
     location.hash = '';
   });
 
-  it('ne rend aucune commande pendant qu\'un minuteur tourne', async () => {
+  it('rend deux commandes pendant qu\'un minuteur tourne : la carte gravit l\'échelle', async () => {
     const m = await monterCuisine();
     await m.pousser('timer.cuisine', 'active',
       { finishes_at: new Date(MAINTENANT_FIXE + 60_000).toISOString() });
-    expect(m.racine.querySelectorAll('.commande')).toHaveLength(0);
+    // Card-stack plan, task 1: the timer is a `carte`, which the ladder fits with two controls at
+    // 585 px (it used to be a 215 px block that left none).
+    expect(m.racine.querySelectorAll('.commande')).toHaveLength(2);
     expect(m.racine.querySelector('.minuteurs')).not.toBeNull();
   });
 
@@ -974,16 +976,14 @@ describe('minuteurs de cuisine', () => {
  *  tenu par `corps.test.ts > une tuile minuteur seule suffit à garder la rangée`).
  *
  *  Comment il est observable, puisque `rangeeAmbiance` n'est jamais exporté : par le nombre de
- *  commandes. In `minuteur` mode, `combien('minuteur', true)` gives 0 and
- *  `combien('minuteur', false)` gives 2 (`tests/budget.test.ts`). A kitchen without ambiances but
- *  with its three `minuteurs` must therefore render NO control — the count of a room that pays
- *  for its row. Without the fix it would render two, spending a place the row already takes.
- *
- *  2026-10-24: this test used the `media` mode (2 against 4) until the media card's ladder
- *  (`arrangement`, `screen-budget.ts`): both values of `rangeeAmbiance` now end on two controls
- *  there, so the mode no longer tells them apart. `minuteur` does, and never climbs the ladder. */
+ *  commandes. Card-stack plan, task 1: the timer is a `carte`, which climbs the ladder, so at
+ *  585 px both values of `rangeeAmbiance` end on the same two controls and no row. On a screen
+ *  tall enough to keep the row (688 px: `combien('carte', true, 688)` is 2, `combien('carte',
+ *  false, 688)` is 4, `tests/budget.test.ts`) a kitchen without ambiances but with its three
+ *  `minuteurs` pays for its row and renders TWO controls; without the fix it would render four,
+ *  spending places the row already takes. */
 describe('minuteurs sans ambiance : le contexte budgète la rangée que le gabarit rend', () => {
-  const cuisineSansAmbiance: Ecran = { ...ECRANS.cuisine, ambiances: [] };
+  const cuisineSansAmbiance: Ecran = { ...ECRANS.cuisine, ambiances: [], hauteurUtile: 688 };
 
   it('garde la rangée Ambiance pour la seule tuile minuteur, et lui fait payer sa place', async () => {
     const m = await monterDemarrage(cuisineSansAmbiance, {
@@ -1000,10 +1000,10 @@ describe('minuteurs sans ambiance : le contexte budgète la rangée que le gabar
     expect(groupe, 'la rangée Ambiance doit exister pour la tuile minuteur seule').not.toBeNull();
     expect(groupe!.style.getPropertyValue('--ambiances')).toBe('1');
     expect(m.racine.querySelector('[data-minuteur-entree]')).not.toBeNull();
-    // And the context budgeted it: timer mode under an Ambiance row, hence NO control.
+    // And the context budgeted it: a card under an Ambiance row, hence two controls.
     expect(m.racine.querySelector('[data-zone="blocCentral"].minuteurs, .minuteurs'),
            'le mode minuteur doit être atteint').not.toBeNull();
-    expect(m.racine.querySelectorAll('.commande')).toHaveLength(0);
+    expect(m.racine.querySelectorAll('.commande')).toHaveLength(2);
   });
 });
 

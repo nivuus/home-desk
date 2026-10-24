@@ -10,7 +10,8 @@ import pathlib
 import pytest
 
 from custom_components.home_desk import budget as _module_budget
-from custom_components.home_desk.budget import CHEMIN_BUDGET, arrangement, combien, check_budget
+from custom_components.home_desk.budget import (
+    CHEMIN_BUDGET, arrangement, combien, check_budget, screen_overflow)
 
 CORPUS = json.loads(
     (pathlib.Path(__file__).resolve().parents[2] / "contrat" / "cas-budget.json")
@@ -18,21 +19,21 @@ CORPUS = json.loads(
 
 
 @pytest.mark.parametrize("cas", CORPUS["cas"], ids=lambda c: (
-    f"{c['mode']}-ambiance={c['rangeeAmbiance']}{'-reduite' if c.get('syntheseReduite') else ''}-"
+    f"{c['bloc']}-ambiance={c['rangeeAmbiance']}{'-reduite' if c.get('syntheseReduite') else ''}-"
     f"zones={','.join(c['zones']) if c['zones'] else 'defaut'}-{c['hauteurUtile']}px"))
 def test_le_corpus_rend_le_meme_verdict(cas):
-    nom = (f"{cas['mode']}/ambiance={cas['rangeeAmbiance']}/"
+    nom = (f"{cas['bloc']}/ambiance={cas['rangeeAmbiance']}/"
            f"zones={cas['zones']}/{cas['hauteurUtile']}px")
-    rendu_commandes = combien(cas["mode"], cas["rangeeAmbiance"], cas["hauteurUtile"], cas["zones"],
+    rendu_commandes = combien(cas["bloc"], cas["rangeeAmbiance"], cas["hauteurUtile"], cas["zones"],
                               synthese_reduite=cas.get("syntheseReduite", False))
     assert rendu_commandes == cas["commandes"], (
         f"{nom} : combien() rend {rendu_commandes}, le corpus attend {cas['commandes']}")
-    rendu_debordement = check_budget(cas["mode"], cas["rangeeAmbiance"], cas["hauteurUtile"], cas["zones"])
+    rendu_debordement = check_budget(cas["bloc"], cas["rangeeAmbiance"], cas["hauteurUtile"], cas["zones"])
     assert rendu_debordement == cas["debordement"], (
         f"{nom} : verifier_budget() rend {rendu_debordement}, "
         f"le corpus attend {cas['debordement']}")
     if "arrangement" in cas:
-        rendu_arrangement = arrangement(cas["mode"], cas["rangeeAmbiance"], cas["hauteurUtile"],
+        rendu_arrangement = arrangement(cas["bloc"], cas["rangeeAmbiance"], cas["hauteurUtile"],
                                         cas["zones"])
         assert rendu_arrangement == cas["arrangement"], (
             f"{nom} : arrangement() rend {rendu_arrangement}, le corpus attend {cas['arrangement']}")
@@ -93,3 +94,26 @@ def test_budget_lit_reellement_son_contrat_embarque(monkeypatch):
         assert chemin.resolve().is_relative_to(composant_dir), (
             f"budget.py a lu {chemin}, hors de {composant_dir} : "
             "nommer le contrat embarque sans le lire ne suffit pas.")
+
+
+def test_a_card_climbs_the_ladder():
+    assert arrangement("carte", True, 585) == {
+        "rangeeAmbiance": False, "syntheseReduite": True, "commandes": 2}
+    assert check_budget("carte", True, 585) == 0
+    assert combien("carte", True, 585) == 0
+
+
+def test_only_a_card_climbs_the_ladder():
+    assert arrangement("haut", True, 585)["rangeeAmbiance"] is True
+    assert combien("haut", True, 585) == 2
+    assert combien("defaut", True, 585) == 4
+
+
+def test_the_form_refuses_what_overflows_with_a_card_or_empty():
+    # The form checks both the card and the empty-stack block and reports the larger overflow.
+    assert check_budget("carte", True, 400) > 0
+    for bloc_defaut in (None, "voiture"):
+        assert screen_overflow(bloc_defaut, True, 400) == max(
+            check_budget("carte", True, 400),
+            check_budget("haut" if bloc_defaut == "voiture" else "defaut", True, 400))
+    assert screen_overflow(None, True, 585) == 0

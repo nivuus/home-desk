@@ -24,7 +24,7 @@
  *  the `reduite` class, whatever the arrangement chose — the CSS rule is what is measured.
  *
  *  Usage:  cd app && node outils/mesurer-carte-media.mjs      (no build needed, `dist/` untouched)
- *  Output: per-screen detail on stderr, `{ blocMedia, syntheseReduite }` on stdout. */
+ *  Output: per-screen detail on stderr, `{ blocCarte, syntheseReduite }` on stdout. */
 import { chromium } from 'playwright-core';
 import { build } from 'esbuild';
 import { readFileSync } from 'node:fs';
@@ -142,7 +142,7 @@ function relever() {
 }
 
 const nav = await chromium.launch({ headless: true });
-let blocMedia = 0;
+let blocCarte = 0;
 let syntheseReduite = 0;
 try {
   const page = await nav.newPage({ viewport: { width: LARGEUR, height: HAUTEUR } });
@@ -161,7 +161,7 @@ try {
       await page.evaluate(([c, p, b, t]) => window.__poser(c, p, b, t), [cle, parPas, BUDGET.hauteurs.bandeau, texte]);
       await page.waitForTimeout(50);
       const m = await page.evaluate(relever);
-      blocMedia = Math.max(blocMedia, m.zones.blocCentral);
+      blocCarte = Math.max(blocCarte, m.zones.blocCentral);
       syntheseReduite = Math.max(syntheseReduite, m.reduite);
       console.error(`· ${cle.padEnd(8)} volume ${parPas ? 'par pas' : 'niveau '} ${texte.padEnd(5)}  carte ${m.zones.blocCentral}`
         + `  synthese ${m.zones.synthese}${m.reduiteRendue ? ' (reduite)' : ''}  reduite ${m.reduite}`
@@ -173,4 +173,4 @@ try {
 } finally {
   await nav.close();
 }
-console.log(JSON.stringify({ blocMedia, syntheseReduite }, null, 2));
+console.log(JSON.stringify({ blocCarte, syntheseReduite }, null, 2));

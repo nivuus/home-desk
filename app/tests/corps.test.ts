@@ -697,7 +697,7 @@ describe('rangées de commandes selon le mode', () => {
   });
 
   // 2026-08-29: the living room kept its four controls in media mode, paid by the Ambiance row
-  // it gave up. 2026-10-24: the redesigned media card (264 px, `blocMedia`) costs more than that
+  // it gave up. 2026-10-24: the redesigned media card (264 px, `blocCarte`) costs more than that
   // row gave back — the budget's arrangement reduces the synthèse and keeps ONE row, two places,
   // which the two pins of the living room take (`epingler`, `modes.ts`).
   it('en mode média, le salon garde une rangée : ses deux épingles', () => {
@@ -759,11 +759,11 @@ describe('rangées de commandes selon le mode', () => {
       expect(libelles, nom).toContain('Porte');
       // Sous chaleur, la même tuile s'appelle « Fermer » : c'est la consigne du jour, pas un objet.
       expect(libelles.includes('Rideau') || libelles.includes('Fermer'), nom).toBe(true);
-      // Four places in every mode but the two that show the media card: the ambiance row given
-      // back to the budget buys them (the tall door takes two). Since 2026-10-24 the media card
-      // leaves one row (`arrangement`, `screen-budget.ts`), where the door is a normal tile.
-      const media = nom === 'média' || nom === 'cinéma';
-      expect(places(hote), nom).toBe(media ? 2 : 4);
+      // Four places in every mode but the ones that show a card: the ambiance row given back to
+      // the budget buys them (the tall door takes two). A card leaves one row (`arrangement`,
+      // `screen-budget.ts`), where the door is a normal tile.
+      const carte = nom === 'média' || nom === 'cinéma' || nom === 'ménage';
+      expect(places(hote), nom).toBe(carte ? 2 : 4);
     }
   });
 

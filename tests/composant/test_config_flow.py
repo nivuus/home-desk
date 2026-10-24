@@ -202,7 +202,8 @@ async def test_un_ecran_qui_deborde_est_REFUSE_avec_son_chiffre(hass, entree):
         flow["flow_id"], {**IDENTITE_MINIMALE, "hauteurUtile": 100})
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
     assert resultat["errors"]["hauteurUtile"] == ERROR_BUDGET_UNTENABLE
-    assert "336" in str(resultat["description_placeholders"]), (
+    # 411 = the card's last rung (511 px) - 100: the larger of the two compositions the screen shows.
+    assert "411" in str(resultat["description_placeholders"]), (
         "le formulaire doit dire DE COMBIEN l'ecran deborde, pas seulement qu'il deborde")
 
 

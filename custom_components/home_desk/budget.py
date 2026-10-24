@@ -44,10 +44,10 @@ BUDGET = json.loads(CHEMIN_BUDGET.read_text(encoding="utf-8"))
 ZONES_DEFAUT: list[str] = ["ambiances", "commandes", "blocCentral", "synthese"]
 
 
-def cout_ecran(mode: str, rangee_ambiance: bool, rangees: int,
+def cout_ecran(bloc: str, rangee_ambiance: bool, rangees: int,
                zones: list[str] | None = None, synthese_reduite: bool = False) -> int:
-    """What the screen measures for `rangees` rows of controls, at a given mode, ambience row and
-    zones. `.corps` is a FLEX COLUMN with a fixed gutter: its cost is the sum of its
+    """What the screen measures for `rangees` rows of controls, for a given block kind, ambience row
+    and zones. `.corps` is a FLEX COLUMN with a fixed gutter: its cost is the sum of its
     children plus one gutter between each pair, plus its vertical padding, with the header band
     on top. ONE SINGLE child is always there, the "Toute la maison" (whole house) button — it lives outside
     the adjustable order (cf. `rendu/corps.ts` on the application side). The others count only if
@@ -60,18 +60,9 @@ def cout_ecran(mode: str, rangee_ambiance: bool, rangees: int,
     if zones is None:
         zones = ZONES_DEFAUT
     h = BUDGET["hauteurs"]
-    # Four branches: `minuteur` pays `blocMinuteur` (215 px), the media modes (`media`,
-    # `cinema`) pay `blocMedia` (264 px, since 2026-10-24), the other tall block (`voiture`)
-    # pays `blocHaut` (153 px), all the others pay `blocDefaut` (84 px). A single central block
-    # per screen: never an "on top of".
-    if mode in BUDGET["modesABlocMinuteur"]:
-        bloc = h["blocMinuteur"]
-    elif mode in BUDGET["modesABlocMedia"]:
-        bloc = h["blocMedia"]
-    elif mode in BUDGET["modesABlocHaut"]:
-        bloc = h["blocHaut"]
-    else:
-        bloc = h["blocDefaut"]
+    # One central block per screen, chosen by its kind: `carte` (the stack card, 264 px), `haut`
+    # (the car block, 153 px), `defaut` (84 px). Never an "on top of".
+    hauteur_bloc = {"carte": h["blocCarte"], "haut": h["blocHaut"], "defaut": h["blocDefaut"]}[bloc]
 
     # "Toute la maison" (whole house) is OUTSIDE the adjustable order: always there, always billed. The
     # four others cost something only if the layout asks for them.
@@ -79,7 +70,7 @@ def cout_ecran(mode: str, rangee_ambiance: bool, rangees: int,
     somme = h["touteLaMaison"]
     if "blocCentral" in zones:
         enfants += 1
-        somme += bloc
+        somme += hauteur_bloc
     if "synthese" in zones:
         enfants += 1
         somme += h["syntheseReduite"] if synthese_reduite else h["synthese"]
@@ -96,13 +87,13 @@ def cout_ecran(mode: str, rangee_ambiance: bool, rangees: int,
     return h["bandeau"] + h["paddingCorps"] + somme + h["gouttiere"] * (enfants - 1)
 
 
-def combien(mode: str, rangee_ambiance: bool = True,
+def combien(bloc: str, rangee_ambiance: bool = True,
             hauteur_utile: int | None = None,
             zones: list[str] | None = None,
             synthese_reduite: bool = False) -> int:
     """How many controls the screen shows. NEVER RAISES: an untenable budget returns 0, and
     the screen then displays its other zones without a row of controls — exactly what the
-    `minuteur` mode already does legitimately.
+    
 
     `hauteur_utile=None` means `BUDGET["hauteurUtileParDefaut"]` (585, the Fire 7s).
     `zones=None` means the four default zones."""
@@ -121,7 +112,7 @@ def combien(mode: str, rangee_ambiance: bool = True,
     # `combien` LOOPS from `rangees_max` down to 1 and returns the first that fits; it never divides
     # the remainder by the height of a row.
     for rangees in range(rangees_max, 0, -1):
-        if cout_ecran(mode, rangee_ambiance, rangees, zones, synthese_reduite) <= hauteur_utile:
+        if cout_ecran(bloc, rangee_ambiance, rangees, zones, synthese_reduite) <= hauteur_utile:
             return rangees * BUDGET["tuilesParRangee"]
     # Never a row cut in half: below one row, only zero remains — whether the budget
     # holds or not.
@@ -139,19 +130,19 @@ def _echelons(rangee_ambiance: bool) -> list[dict[str, bool]]:
     ]
 
 
-def arrangement(mode: str, rangee_ambiance: bool = True,
+def arrangement(bloc: str, rangee_ambiance: bool = True,
                 hauteur_utile: int | None = None,
                 zones: list[str] | None = None) -> dict[str, bool | int]:
-    """What the screen shows in `mode`: the first rung whose `combien` reaches
-    `commandesSousBlocHaut`, or the last rung if none does. Only the modes of
-    `modesABlocMedia` climb the ladder; every other mode gets its full composition. The budget
+    """What the screen shows under `bloc`: the first rung whose `combien` reaches
+    `commandesSousBlocHaut`, or the last rung if none does. Only `carte` climbs the ladder; the
+    empty-stack blocks get their full composition. The budget
     decides, never a list of rooms. Returns the keys of the TypeScript `Arrangement`
     (`rangeeAmbiance`, `syntheseReduite`, `commandes`), so the corpus compares them as is."""
     rungs = _echelons(rangee_ambiance)
-    if mode not in BUDGET["modesABlocMedia"]:
+    if bloc != "carte":
         rungs = rungs[:1]
     chiffres = [
-        {**r, "commandes": combien(mode, r["rangeeAmbiance"], hauteur_utile, zones,
+        {**r, "commandes": combien(bloc, r["rangeeAmbiance"], hauteur_utile, zones,
                                    r["syntheseReduite"])}
         for r in rungs
     ]
@@ -161,21 +152,29 @@ def arrangement(mode: str, rangee_ambiance: bool = True,
     return chiffres[-1]
 
 
-def check_budget(mode: str, rangee_ambiance: bool, hauteur_utile: int,
+def check_budget(bloc: str, rangee_ambiance: bool, hauteur_utile: int,
                  zones: list[str] | None = None) -> int:
     """By how much this composition overflows, in pixels. 0 if it fits. Written for the
     Home Assistant integration's form, which must be able to say "this screen overflows by
-    58 px" (`check_budget('minuteur', True, 500)`, checked by running it — the previous
-    value, 45, was wrong: `check_budget('minuteur', True, 585)` returns 0, not 45)
-    AT INPUT TIME — not in front of the tablet.
+    N px" AT INPUT TIME — not in front of the tablet.
 
     Always counts ZERO rows of controls: it is the smallest composition the screen
     can render, hence the question "does it fit, even empty?". The rendering never calls it:
     it is `combien` that degrades, `check_budget` that delivers the verdict.
 
-    Since 2026-10-24, for the modes of `modesABlocMedia`, that smallest composition is the LAST
+    Since 2026-10-24, for a `carte`, that smallest composition is the LAST
     rung of the ladder (reduced synthesis, no Ambiance row): the screen draws it whenever nothing
     else fits, so the form refuses only what overflows even there."""
-    r = _echelons(rangee_ambiance)[2 if mode in BUDGET["modesABlocMedia"] else 0]
-    return max(0, cout_ecran(mode, r["rangeeAmbiance"], 0, zones, r["syntheseReduite"])
+    r = _echelons(rangee_ambiance)[2 if bloc == "carte" else 0]
+    return max(0, cout_ecran(bloc, r["rangeeAmbiance"], 0, zones, r["syntheseReduite"])
                - hauteur_utile)
+
+
+def screen_overflow(bloc_defaut: str | None, rangee_ambiance: bool, hauteur_utile: int,
+                    zones: list[str] | None = None) -> int:
+    """The overflow the form reports for a screen. The screen shows both an empty-stack
+    composition (`haut` when `blocDefaut` is `voiture`, else `defaut`) and a card over the day,
+    so it must hold the larger of the two overflows."""
+    vide = "haut" if bloc_defaut == "voiture" else "defaut"
+    return max(check_budget(vide, rangee_ambiance, hauteur_utile, zones),
+               check_budget("carte", rangee_ambiance, hauteur_utile, zones))

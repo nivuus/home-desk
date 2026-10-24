@@ -66,7 +66,7 @@ in the identity, never in `list_sections.py`.
 **Review round 1, second rejection: `hauteurUtile` also carries the contract
 bounds** (`schema.HAUTEUR_MIN`/`HAUTEUR_MAX`, 320 and 4000 px). The budget
 alone does not cover them: a huge height (10,000 px, for example) NEVER
-overflows (`check_budget` returns 0 for it), and without this second guard the
+overflows (`screen_overflow` returns 0 for it), and without this second guard the
 form accepted it — only for `schema.valider()` to reject it later,
 reversing exactly what this task exists to avoid (reject at
 input time, not in front of the tablet). The guard reuses `schema.hauteur_utile`,
@@ -92,7 +92,7 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from . import schema
-from .budget import BUDGET, check_budget
+from .budget import BUDGET, screen_overflow
 from .const import (
     DOMAIN,
     ERROR_BUDGET_UNTENABLE,
@@ -210,8 +210,8 @@ def _valider_identite(user_input: dict[str, Any], *, noms_existants: frozenset[s
         errors["nom"] = ERROR_NAME_ALREADY_USED
         description_placeholders["nom"] = nom
         return errors, description_placeholders, None
-    deborde = check_budget(
-        "defaut", rangee_ambiance=True, hauteur_utile=user_input["hauteurUtile"]
+    deborde = screen_overflow(
+        None, rangee_ambiance=True, hauteur_utile=user_input["hauteurUtile"]
     )
     if deborde:
         errors["hauteurUtile"] = ERROR_BUDGET_UNTENABLE

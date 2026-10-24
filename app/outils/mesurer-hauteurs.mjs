@@ -215,11 +215,14 @@ function releverZones() {
 
 // `mode.mode` names the main mode a VARIANT exercises (`minuteur-solo` is the `minuteur` mode
 // with a single timer); without it, the entry's name is the mode.
+// The budget bills a block kind (`contrat/budget.json` -> `hauteurs.bloc*`), not a mode. This is
+// the same PROVISIONAL translation as `blocDuMode` in `src/modes.ts` (the card-stack plan replaces
+// it once the stack decides the central block): the modes that draw a tall card are `blocCarte`,
+// `voiture` is `blocHaut`, every other mode is `blocDefaut`.
+const MODES_CARTE = ['minuteur', 'recette', 'media', 'cinema', 'menage', 'aeration'];
 const familleDuBloc = (nom) => {
-  if ((BUDGET.modesABlocMinuteur ?? []).includes(nom)) return 'blocMinuteur';
-  if ((BUDGET.modesABlocMedia ?? []).includes(nom)) return 'blocMedia';
-  if ((BUDGET.modesABlocHaut ?? []).includes(nom)) return 'blocHaut';
-  return 'blocDefaut';
+  if (MODES_CARTE.includes(nom)) return 'blocCarte';
+  return nom === 'voiture' ? 'blocHaut' : 'blocDefaut';
 };
 
 const releves = [];
@@ -408,11 +411,10 @@ const hauteurs = {
     grilles.map((g) => g.gouttiere)),
   blocDefaut: maxBloc('blocDefaut'),
   blocHaut: maxBloc('blocHaut'),
-  blocMinuteur: maxBloc('blocMinuteur'),
-  // The media card (2026-10-24). `syntheseReduite`, the one-line synthèse the media modes may
+  // The stack card (media card redesign, 2026-10-24). `syntheseReduite`, the one-line synthèse the media modes may
   // use, is NOT measured here: `outils/mesurer-carte-media.mjs` measures it with the card, and
   // its value must be carried over by hand when this block is copied into `contrat/budget.json`.
-  blocMedia: maxBloc('blocMedia'),
+  blocCarte: maxBloc('blocCarte'),
   synthese: maxZone('synthese'),
   touteLaMaison: maxZone('touteLaMaison'),
 };

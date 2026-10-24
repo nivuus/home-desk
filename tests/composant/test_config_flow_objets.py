@@ -91,107 +91,66 @@ async def test_le_TROISIEME_invariant_croise_est_refuse_a_la_saisie(hass, entree
 
 
 # ---------------------------------------------------------------------------
-# Le budget verifie MODE PAR MODE (budget_intenable_mode)
+# Le budget suit les deux compositions de l'ecran (budget_intenable_mode)
 # ---------------------------------------------------------------------------
 
 
-async def test_le_budget_nomme_le_PIRE_mode_pas_le_premier_qui_deborde(hass, entree):
-    """La tache 5 ne verifiait que le mode "defaut", le moins cher. Ici la
-    donnee existe enfin, donc la verification peut etre complete.
+async def _creer_ecran_a_hauteur(hass, entree, hauteur: int) -> str:
+    """An already persisted screen whose height no longer passes the budget.
 
-    Ronde 1 de relecture (Important I3) : le decor precedent n'avait
-    qu'UN SEUL mode qui debordait ("minuteur"), ce qui rendait « nommer le
-    PREMIER mode qui deborde » et « nommer le PIRE » indiscernables : un
-    bug qui nommerait le premier mode debordant plutot que le pire aurait
-    laisse ce test vert. Decor corrige : DEUX modes debordent, de montants
-    DIFFERENTS, "cinema" SOUMIS AVANT "minuteur" dans la liste (pour qu'un
-    bug "premier trouve" nomme cinema, pas minuteur) -- zones=["ambiances",
-    "commandes", "blocCentral"] (deliberement PAS ZONES_DEFAUT, qui porte
-    aussi "synthese" -- pour prouver que ce sont les zones SAISIES ICI, et
-    non budget.ZONES_DEFAUT, qui comptent dans la verification de
-    l'agencement).
+    The identity step refuses such a height up front (`screen_overflow` with the default
+    zones), so a screen this low can only exist as DATA that predates the rule: the agencement
+    step is then the one that has to catch it. Created tall, then lowered in place."""
+    subentry_id = await _creer_ecran(hass, entree)
+    entry = hass.config_entries.async_get_entry(entree.entry_id)
+    subentry = entry.subentries[subentry_id]
+    hass.config_entries.async_update_subentry(
+        entry, subentry, data={**subentry.data, "hauteurUtile": hauteur})
+    return subentry_id
 
-    hauteurUtile=436 : le plus petit budget qui passe encore la garde
-    d'IDENTITE (_valider_identite, mode "defaut" contre ZONES_DEFAUT -- 436
-    px, verifie par execution : cout_ecran("defaut", True, 0, ZONES_DEFAUT)
-    == 436). Le mode "minuteur" exige un slot de minuteur (garde_ecran.py,
-    le Critique) -- persiste ici pour que l'agencement lui-meme reste
-    valide -- ce qui rend aussi rangee_ambiance vrai en permanence (la
-    formule compte aussi les minuteurs, cf. app/src/demarrage.ts) : ce
-    test-ci ne cherche donc PAS a faire varier rangee_ambiance (voir le
-    test suivant pour cette preuve-la, avec un decor SANS minuteur). A
-    rangee_ambiance=True : check_budget("cinema", True, 436, zones) =
-    43 (29 avant l'echelle de la carte media du 2026-10-24 ; 42 a blocMedia
-    263 px, 43 a 264 px, sans rangee Ambiance), check_budget("minuteur", True, 436,
-    zones) = 91 (le pire ; 82
-    avant que blocMinuteur passe de 206 a 215 px le 2026-10-11) --
-    verifie par execution, PAS retape de memoire (le brief nomme "45" a cet
-    endroit, et previent explicitement que cette valeur est fausse)."""
-    subentry_id = await _creer_ecran(hass, entree, hauteurUtile=436)
-    zones = ["ambiances", "commandes", "blocCentral"]
-    modes = ["defaut", "cinema", "minuteur"]
 
-    flow = await _init_reconfigure(hass, entree, subentry_id)
-    await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "minuteurs"})
-    await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], ELEMENTS_VALIDES["minuteurs"])
-    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-
+async def _soumettre_agencement(hass, entree, subentry_id, zones, modes):
     flow = await _init_reconfigure(hass, entree, subentry_id)
     await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {"next_step_id": "agencement"})
-    resultat = await hass.config_entries.subentries.async_configure(
+    return await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {"zones": zones, "modes": modes})
+
+
+async def test_le_budget_suit_la_carte_avec_les_zones_saisies(hass, entree):
+    """Card-stack plan, task 1: the form no longer prices mode by mode. The screen shows an
+    empty-stack composition AND a card over the day, and `screen_overflow` reports the larger
+    overflow -- the card's, whose last rung (reduced synthesis, no Ambiance row) is the most
+    expensive composition the screen can be forced into.
+
+    hauteurUtile=436 with zones ["ambiances", "commandes", "blocCentral"] (deliberately NOT the
+    default four: it proves the zones ENTERED HERE count, not `budget.ZONES_DEFAUT`):
+    121 + 24 + (62 + 264) + 8 x 1 = 479 at zero rows, an overflow of 43. With the default zones
+    it would be 511 - 436 = 75. Checked by running it, not typed from memory."""
+    subentry_id = await _creer_ecran_a_hauteur(hass, entree, 436)
+    resultat = await _soumettre_agencement(
+        hass, entree, subentry_id, ["ambiances", "commandes", "blocCentral"], ["defaut"])
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
     assert resultat["errors"]["base"] == ERROR_BUDGET_UNTENABLE_MODE
-    # "cinema" est SOUMIS AVANT "minuteur" : un bug "premier qui deborde"
-    # nommerait cinema (43 px). Le PIRE est minuteur (91 px).
-    # Ronde 2 de relecture (point 3) : {mode} est desormais TRADUIT
-    # ("Timer", le libelle EN du selecteur "mode"), plus l'identifiant
-    # brut du contrat ("minuteur").
-    assert resultat["description_placeholders"]["mode"] == "Timer"
-    assert resultat["description_placeholders"]["debordement"] == "91"
+    assert resultat["description_placeholders"]["debordement"] == "43"
+    assert "mode" not in resultat["description_placeholders"]
 
     entry = hass.config_entries.async_get_entry(entree.entry_id)
     assert entry.subentries[subentry_id].data.get("agencement") is None, (
         "un refus ne doit RIEN persister")
 
 
-async def test_le_budget_suit_rangee_ambiance_REELLEMENT_persistee(hass, entree):
-    """Ronde 1 de relecture (Important I3, seconde moitie) : prouve que
-    `rangee_ambiance` (async_step_agencement) vient bien de l'ecran
-    REELLEMENT persiste, jamais fige a `True` ni calcule d'un seul cote.
-    Decor SANS mode "minuteur" (dont la seule presence dans `minuteurs`
-    forcerait `rangee_ambiance` a vrai en permanence, cf. le test
-    ci-dessus -- ce test-ci veut l'isoler de la seule contribution des
-    AMBIANCES) : `modes=["defaut", "voiture"]`, memes zones que ci-dessus.
-
-    2026-10-24 : "voiture", plus "cinema". Les modes de la carte media
-    passent par l'echelle (`arrangement`), dont le dernier echelon n'a
-    plus de rangee Ambiance : leur verdict ne depend donc plus de
-    `rangee_ambiance`, et ne pouvait plus rien prouver ici. "voiture"
-    garde blocHaut (153 px) et sa rangee, avec exactement les memes
-    chiffres qu'avait "cinema".
-
-    Sans aucune tuile d'ambiance persistee, rangee_ambiance=False et
-    check_budget("voiture", False, 436, zones) = 0 : l'agencement TIENT.
-    Une fois une VRAIE tuile d'ambiance ajoutee, rangee_ambiance=True et
-    check_budget("voiture", True, 436, zones) = 29 : LE MEME agencement,
-    resoumis a l'identique, est desormais REFUSE. Un code qui ignorerait
-    `rangee_ambiance` (fige a True, ou a False) rendrait les deux
-    soumissions indiscernables."""
-    subentry_id = await _creer_ecran(hass, entree, hauteurUtile=436)
+async def test_la_rangee_ambiance_ne_change_pas_le_verdict_d_une_carte(hass, entree):
+    """The card's ladder drops the Ambiance row, so a persisted Ambiance tile cannot move the
+    verdict any more (it did while the form priced `voiture` and `cinema` separately): the same
+    layout is refused with the same figure before and after one is added. `rangee_ambiance`
+    is still read from the persisted screen, but it is the card that dominates."""
+    subentry_id = await _creer_ecran_a_hauteur(hass, entree, 436)
     zones = ["ambiances", "commandes", "blocCentral"]
     modes = ["defaut", "voiture"]
 
-    flow = await _init_reconfigure(hass, entree, subentry_id)
-    await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "agencement"})
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"zones": zones, "modes": modes})
-    assert resultat["type"] is data_entry_flow.FlowResultType.MENU, resultat.get("errors")
+    avant = await _soumettre_agencement(hass, entree, subentry_id, zones, modes)
+    assert avant["description_placeholders"]["debordement"] == "43"
 
     flow = await _init_reconfigure(hass, entree, subentry_id)
     await hass.config_entries.subentries.async_configure(
@@ -201,46 +160,23 @@ async def test_le_budget_suit_rangee_ambiance_REELLEMENT_persistee(hass, entree)
         flow["flow_id"], ELEMENTS_VALIDES["ambiances"])
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
 
-    flow = await _init_reconfigure(hass, entree, subentry_id)
-    await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "agencement"})
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"zones": zones, "modes": modes})
+    apres = await _soumettre_agencement(hass, entree, subentry_id, zones, modes)
+    assert apres["errors"]["base"] == ERROR_BUDGET_UNTENABLE_MODE
+    assert apres["description_placeholders"]["debordement"] == "43"
+
+
+async def test_le_budget_de_la_carte_suit_l_echelle(hass, entree):
+    """2026-10-24 (spec 2026-10-23, "Place a l'ecran"): the card is drawn on the LAST rung of the
+    ladder when nothing else fits (reduced synthesis, no Ambiance row), so the form prices that
+    rung. At 500 px with the four default zones: 121 + 24 + (62 + 264 + 24) + 8 x 2 = 511 px, an
+    overflow of 11 px -- not the 115 px of the full composition (two-line synthesis and Ambiance
+    row), which would refuse by a figure the tablet never shows."""
+    subentry_id = await _creer_ecran_a_hauteur(hass, entree, 500)
+    resultat = await _soumettre_agencement(
+        hass, entree, subentry_id,
+        ["ambiances", "commandes", "blocCentral", "synthese"], ["defaut"])
     assert resultat["type"] is data_entry_flow.FlowResultType.FORM
     assert resultat["errors"]["base"] == ERROR_BUDGET_UNTENABLE_MODE
-    # Ronde 2 de relecture (point 3) : libelle traduit ("Car"), pas
-    # l'identifiant brut ("voiture").
-    assert resultat["description_placeholders"]["mode"] == "Car"
-    assert resultat["description_placeholders"]["debordement"] == "29"
-
-
-async def test_le_budget_des_modes_media_suit_l_echelle(hass, entree):
-    """2026-10-24 (spec 2026-10-23, "Place a l'ecran") : the screen draws
-    the media card on the LAST rung of the ladder when nothing else fits
-    (reduced synthesis, no Ambiance row), so the form prices that rung.
-    At 500 px with the four default zones: 121 + 24 + (62 + 264 + 24) +
-    8 x 2 = 511 px, an overflow of 11 px -- and not the 115 px of the full
-    composition (two-line synthesis and Ambiance row), which would refuse
-    by a figure the tablet never shows."""
-    subentry_id = await _creer_ecran(hass, entree, hauteurUtile=500)
-    flow = await _init_reconfigure(hass, entree, subentry_id)
-    await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "ambiances"})
-    await hass.config_entries.subentries.async_configure(flow["flow_id"], {"nouveau": True})
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], ELEMENTS_VALIDES["ambiances"])
-    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-
-    flow = await _init_reconfigure(hass, entree, subentry_id)
-    await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {"next_step_id": "agencement"})
-    resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"],
-        {"zones": ["ambiances", "commandes", "blocCentral", "synthese"],
-         "modes": ["defaut", "media"]})
-    assert resultat["type"] is data_entry_flow.FlowResultType.FORM
-    assert resultat["errors"]["base"] == ERROR_BUDGET_UNTENABLE_MODE
-    assert resultat["description_placeholders"]["mode"] == "Media"
     assert resultat["description_placeholders"]["debordement"] == "11"
 
 

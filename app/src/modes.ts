@@ -14,7 +14,7 @@
 import type { Bouton } from './ecran';
 import { AGENCEMENT_DEFAUT } from './agencement';
 import type { Zone } from './agencement';
-import { arrangement, BUDGET, type Arrangement } from './screen-budget';
+import { arrangement, BUDGET, type Arrangement, type BudgetBlock } from './screen-budget';
 
 export type ModePrincipal =
   'alerte' | 'recette' | 'minuteur' | 'menage' | 'cinema' | 'media' | 'aeration' | 'voiture' | 'defaut';
@@ -174,7 +174,16 @@ export function modulateursActifs(c: ContexteModes): Modulateur[] {
  *  BUDGET decides (`combien`), never a list of rooms: a screen with the room keeps its row. Still
  *  true: never a row of controls cut in half — the whole row or nothing. */
 export function arrangementEcran(c: ContexteModes): Arrangement {
-  return arrangement(modePrincipal(c), c.rangeeAmbiance, c.hauteurUtile, c.zones);
+  return arrangement(blocDuMode(modePrincipal(c)), c.rangeeAmbiance, c.hauteurUtile, c.zones);
+}
+
+/** PROVISIONAL (card-stack plan, task 1): the budget bills a block kind, not a mode. Until the
+ *  stack decides what the central block is (task 6 replaces this), the modes that drew a tall
+ *  card keep climbing the ladder as `carte`, `voiture` keeps its tall block, the rest is default. */
+const MODES_CARTE: ModePrincipal[] = ['minuteur', 'recette', 'media', 'cinema', 'menage', 'aeration'];
+function blocDuMode(mode: ModePrincipal): BudgetBlock {
+  if (MODES_CARTE.includes(mode)) return 'carte';
+  return mode === 'voiture' ? 'haut' : 'defaut';
 }
 
 /** Remonte en tête les commandes dont le libellé est cité, dans l'ordre cité, en gardant les

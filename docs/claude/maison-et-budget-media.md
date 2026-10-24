@@ -1,4 +1,4 @@
-# Sous-entrée maison et échelle de budget des modes média
+# Sous-entrée maison et échelle de budget de la carte
 
 ## La sous-entrée maison
 
@@ -23,16 +23,16 @@
   `migrate_subentry` (voir « Invariants du composant » dans `CLAUDE.md`).
 - Le nom de la pièce vient de la configuration, jamais du code.
 
-## L'échelle de budget des modes à bloc média
+## L'échelle de budget de la carte
 
-Les modes listés dans `contrat/budget.json` -> `modesABlocMedia` (`media`,
-`cinema`) essaient dans l'ordre : composition complète, synthèse réduite,
+Le budget reçoit un genre de bloc (`carte` 264 px, `haut` 153 px, `defaut`
+84 px), plus un mode. Seul `carte` essaie dans l'ordre : composition complète, synthèse réduite,
 synthèse réduite sans la rangée Ambiance.
 
 - TypeScript : `app/src/screen-budget.ts`. Jumeau Python :
   `custom_components/home_desk/budget.py`.
 - Corpus partagé `contrat/cas-budget.json`, lu par les deux suites.
-- Hauteurs : `budget.json` -> `hauteurs` (`blocMedia`, `syntheseReduite`),
+- Hauteurs : `budget.json` -> `hauteurs` (`blocCarte`, `syntheseReduite`),
   mesurées par `app/outils/mesurer-carte-media.mjs`.
 
 ## Teintes de la carte média

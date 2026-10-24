@@ -106,16 +106,16 @@ describe('mode minuteur', () => {
     expect(modePrincipal(ctx({ minuteurEnCours: false }))).toBe('defaut');
   });
 
-  // Tâche 10 bis (arbitrage du propriétaire, 2026-08-03) : le réglage est devenu une sous-vue
-  // plein écran, et la LISTE des minuteurs, mesurée en tâche 10, dépassait encore de 45 px à
-  // deux commandes (630 px). Trois lignes de 62 px ne laissent la place à AUCUNE commande —
-  // elles restent à un appui dans « Toute la maison ».
-  it('n\'affiche aucune commande pendant un minuteur — trois lignes de 62 px ne laissent pas la place', () => {
+  // Card-stack plan, task 1: the timer is a `carte` (264 px), which climbs the ladder
+  // (`arrangement`, `screen-budget.ts`): reduced synthèse, no Ambiance row, one row of two
+  // controls. The old 215 px timer block left none at 585 px.
+  it('affiche deux commandes pendant un minuteur — la carte gravit l\'échelle', () => {
     const commandes = [
       { libelle: 'A', icone: 'sofa', entite: 'light.a' },
       { libelle: 'B', icone: 'sofa', entite: 'light.b' },
     ];
-    expect(ordreCommandes(commandes, ctx({ minuteurEnCours: true }))).toEqual([]);
+    expect(ordreCommandes(commandes, ctx({ minuteurEnCours: true })).map((b) => b.libelle))
+      .toEqual(['A', 'B']);
   });
 });
 
@@ -156,7 +156,7 @@ describe('mode voiture', () => {
  *  comportement qu'avant sans une ligne à changer. */
 describe('rangeeAmbiance — le budget rendu par la rangée « Ambiance » supprimée', () => {
   // 2026-10-24: `media` and `cinema` left this test. The redesigned media card (264 px,
-  // `blocMedia`) costs more than the Ambiance row gives back: their ladder (`arrangement`,
+  // `blocCarte`) costs more than the Ambiance row gives back: their ladder (`arrangement`,
   // `screen-budget.ts`) ends on ONE row with or without the Ambiance row.
   it('sans rangée Ambiance, le bloc haut (voiture) retrouve quatre commandes', () => {
     expect(ordreCommandes(QUATRE, { ...ctx({ blocDefaut: 'voiture' }), rangeeAmbiance: false }))
@@ -345,10 +345,10 @@ describe('ordreCommandes — cuisine et bureau à quatre commandes (tâche 19)',
       .toEqual(noms(ECRANS.cuisine.commandes));
   });
 
-  // Le mode `minuteur` (cuisine) ne rend AUCUNE commande : la rangée entière disparaît, quatre
-  // déclarées ou deux. Sa hauteur ne doit donc pas bouger d'un pixel avec cette tâche.
-  it('le mode minuteur ne rend toujours aucune commande, quel que soit le nombre déclaré', () => {
-    expect(ordreCommandes(ECRANS.cuisine.commandes, ctx({ minuteurEnCours: true }))).toEqual([]);
+  // Le mode `minuteur` (cuisine) est une carte : une rangée de deux commandes, quatre déclarées ou
+  // deux — la grille ne grandit jamais avec le nombre déclaré.
+  it('le mode minuteur rend deux commandes, quel que soit le nombre déclaré', () => {
+    expect(ordreCommandes(ECRANS.cuisine.commandes, ctx({ minuteurEnCours: true }))).toHaveLength(2);
   });
 });
 
@@ -389,8 +389,9 @@ describe('ordreCommandes — commande épinglée (salon, 2026-08-04)', () => {
     ];
     for (const [mode, c] of modes) {
       const resultat = noms(ordreCommandes(salon, c));
-      // 2026-10-24: one row under the media card (`arrangement`), the two pins fill it.
-      expect(resultat, mode).toHaveLength(mode === 'cinema' || mode === 'media' ? 2 : 3);
+      // One row under a card (`arrangement`, the provisional `blocDuMode`: cinema, media, menage,
+      // aeration), the two pins fill it.
+      expect(resultat, mode).toHaveLength(['cinema', 'media', 'menage', 'aeration'].includes(mode) ? 2 : 3);
       expect(resultat, mode).toContain('Porte');
       expect(resultat, mode).toContain('Rideau');
     }
@@ -459,12 +460,10 @@ describe('ordreCommandes — commande épinglée (salon, 2026-08-04)', () => {
       .toEqual(['Lumières', 'Chauffage', 'Rideau', 'Ambilight']);
   });
 
-  // Garde-fou pour la cuisine : un mode à zéro commande reste à zéro. Un épinglage ne crée jamais
-  // une rangée — le budget de hauteur du bloc minuteur (630 px mesurés sur 585) ne le permet pas.
-  // Le salon ne déclare pas de minuteurs, donc ce mode ne l'atteint jamais ; le test le prouve
-  // quand même sur ses propres commandes, épinglage compris.
-  it('un mode à zéro commande le reste, épinglage compris', () => {
-    expect(ordreCommandes(salon, ctx({ minuteurEnCours: true }))).toEqual([]);
+  // Garde-fou : un épinglage ne crée jamais une rangée. Sous une carte (minuteur), le budget laisse
+  // deux places et les deux épingles du salon les prennent, pas une de plus.
+  it('sous une carte, les épingles prennent les deux places et pas une de plus', () => {
+    expect(noms(ordreCommandes(salon, ctx({ minuteurEnCours: true })))).toEqual(['Porte', 'Rideau']);
   });
 
   it('aucune commande épinglée en cuisine ni au bureau : leur ordre ne bouge pas', () => {
@@ -497,11 +496,11 @@ describe('mode recette', () => {
     expect(modePrincipal({ ...CTX, recetteEnCours: true, alerte: true })).toBe('alerte');
   });
 
-  it('laisse quatre commandes, comme le mode defaut', () => {
+  it('laisse deux commandes : une recette ouverte est une carte', () => {
     const boutons = [1, 2, 3, 4, 5].map((n) => ({
       libelle: `B${n}`, icone: 'bulb', entite: `light.b${n}`,
     }));
-    expect(ordreCommandes(boutons, { ...CTX, recetteEnCours: true })).toHaveLength(4);
+    expect(ordreCommandes(boutons, { ...CTX, recetteEnCours: true })).toHaveLength(2);
   });
 });
 

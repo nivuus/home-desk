@@ -209,8 +209,8 @@ suivantes par une convention de dépôt, sans filet automatique :
   sources média de la maison, champ `piece` obligatoire (facultatif sur les
   sources propres d'un écran). Bloc `maison:` du YAML ;
   absent à l'import, il supprime la maison.
-- **Échelle de budget** des modes de `budget.json` -> `modesABlocMedia`
-  (media, cinema) : composition complète, synthèse réduite, synthèse réduite
+- **Échelle de budget** du bloc `carte` (le budget reçoit un genre de bloc,
+  `carte` | `haut` | `defaut`, jamais un mode) : composition complète, synthèse réduite, synthèse réduite
   sans rangée Ambiance (`app/src/screen-budget.ts`, jumeau `budget.py`, corpus
   `contrat/cas-budget.json`).
 - **Teintes de la carte média** : `app/src/tones.ts`,

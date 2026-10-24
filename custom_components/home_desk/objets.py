@@ -20,8 +20,8 @@ import voluptuous as vol
 from homeassistant.config_entries import SubentryFlowResult
 from homeassistant.helpers import selector
 
-from . import libelles, schema
-from .budget import BUDGET, check_budget
+from . import schema
+from .budget import BUDGET, screen_overflow
 from .const import (
     ERROR_ALERT_NOT_FIRST,
     ERROR_BUDGET_UNTENABLE_MODE,
@@ -175,11 +175,10 @@ class SectionsObjetMixin:
         Replays `schema.AGENCEMENT` (the complete mirror, including its two
         `Contains` — zones must contain "commandes", modes must contain
         "defaut") then, only if the object is structurally valid, the
-        SECOND out-of-schema rule of this task: the budget checked MODE BY
-        MODE, with the zones ENTERED HERE and the height/ambiance ACTUALLY
-        persisted. The refusal names the MOST COSTLY mode, not just a
-        number — "the timer mode overflows by X px", never "this screen
-        overflows by X px"."""
+        SECOND out-of-schema rule of this task: the budget, with the zones
+        ENTERED HERE and the height/ambiance ACTUALLY persisted. The screen
+        shows both an empty-stack composition and a card over the day, so the
+        refusal reports the LARGER of the two overflows (`screen_overflow`)."""
         entry = self._get_entry()
         subentry = self._get_reconfigure_subentry()
         errors: dict[str, str] = {}
@@ -233,25 +232,12 @@ class SectionsObjetMixin:
                 hauteur_utile = subentry.data.get(
                     "hauteurUtile", BUDGET["hauteurUtileParDefaut"]
                 )
-                pire_mode: str | None = None
-                pire_debordement = 0
-                for mode in valide["modes"]:
-                    debordement = check_budget(
-                        mode, rangee_ambiance, hauteur_utile, valide["zones"]
-                    )
-                    if debordement > pire_debordement:
-                        pire_debordement = debordement
-                        pire_mode = mode
-                if pire_mode is not None:
+                debordement = screen_overflow(
+                    valide.get("blocDefaut"), rangee_ambiance, hauteur_utile, valide["zones"]
+                )
+                if debordement:
                     errors["base"] = ERROR_BUDGET_UNTENABLE_MODE
-                    # Review round 2 (point 3): {mode} interpolated the RAW
-                    # contract identifier ("minuteur"), never translated —
-                    # whereas the matching SelectSelector
-                    # (translation_key="mode", round 1) already publishes
-                    # "Minuteur" / "Timer". `libelles.mode` reads the SAME
-                    # table.
-                    description_placeholders["mode"] = libelles.mode(self.hass, pire_mode)
-                    description_placeholders["debordement"] = str(pire_debordement)
+                    description_placeholders["debordement"] = str(debordement)
                 else:
                     # Review round 1 (Critical): schema.AGENCEMENT replayed
                     # above only sees THE LAYOUT itself, never the CROSS

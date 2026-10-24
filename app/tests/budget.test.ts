@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { ordreCommandes, type ContexteModes } from '../src/modes';
-import { arrangement, combien, verifierBudget, BUDGET } from '../src/screen-budget';
+import { arrangement, combien, verifierBudget, BUDGET, type BudgetBlock } from '../src/screen-budget';
 import { ECRANS } from '../src/ecran';
-import { resoudreAgencement, AGENCEMENT_DEFAUT, type Zone } from '../src/agencement';
+import { AGENCEMENT_DEFAUT, type Zone } from '../src/agencement';
 import { CALME } from './contextes';
 
 /** `CALME_VOITURE` : un `ContexteModes` valant `blocDefaut: 'voiture'` et rien d'autre d'actif.
@@ -12,44 +12,21 @@ import { CALME } from './contextes';
  *  `ContexteModes` (c'est déjà arrivé avec `rangeeAmbiance`) sans qu'aucun typage ne le signale. */
 const CALME_VOITURE: ContexteModes = { ...CALME, blocDefaut: 'voiture' };
 
-/** La table de vérité de `combien()` AVANT cette tâche, relevée dans `modes.ts` l. 129-140.
- *  Elle ne doit pas bouger d'un chiffre : c'est tout l'objet de ce test.
+/** The truth table of `combien()` by block kind, in the FULL composition (all `combien` prices).
  *
- *  Testée sur `combien` DIRECTEMENT, et non à travers `ordreCommandes` : celui-ci prend
- *  `(commandes, contexte)` et dérive le mode du contexte lui-même (`modes.ts` l. 210), donc
- *  atteindre les neuf modes par lui demanderait de fabriquer neuf contextes — neuf occasions
- *  de tester autre chose que ce qu'on croit. `combien` est donc exporté par cette tâche.
+ *  Testé sur `combien` DIRECTEMENT, et non à travers `ordreCommandes` : celui-ci dérive le bloc du
+ *  contexte, donc atteindre chaque genre par lui demanderait de fabriquer un contexte par ligne.
  *
- *  2026-09-12 (plan 2, tâche 5) : UNE SEULE ligne bouge, `['minuteur', false, 0]` devient
- *  `['minuteur', false, 2]`. Ce n'était pas une mesure mais une EXCEPTION : `combien` rendait 0
- *  pour tout mode de `modesSansCommande` avant tout calcul de coût, jamais parce qu'un budget de
- *  585 px avait été confronté au coût réel du mode. Une fois `minuteur` soumis au même calcul que
- *  les huit autres (`coutEcran` lui compte désormais `blocMinuteur`, 206 px), sans rangée
- *  d'ambiance une rangée de commandes coûte 533 px au total : ça tient sous 585, donc 2. AVEC
- *  rangée d'ambiance, le bloc central coûte 558 px sans commande, et il ne reste que 27 px —
- *  moins qu'une rangée : ça ne tient pas, donc 0, cette ligne-là ne bouge pas. Aucun écran de
- *  `ECRANS` ne peut aujourd'hui atteindre `['minuteur', false, …]` : la seule
- *  pièce à porter le mode `minuteur` (la cuisine) a aussi des ambiances déclarées, donc
- *  `rangeeAmbiance` y vaut toujours `true` en pratique (cf. `demarrage.ts`, et le test
- *  d'inatteignabilité plus bas). Cette ligne reste néanmoins dans la table : `combien` est une
- *  fonction pure, testée sur tout son domaine, pas seulement sur ce que la maison déclare
- *  aujourd'hui.
- *
- *  2026-10-11: `blocMinuteur` is 215 px since the solo timer gained its row of steps, hence
- *  542 px, 567 px and 18 px instead of 533, 558 and 27 above. Both verdicts hold.
- *
- *  2026-10-24 (task 9 of the media card redesign): FOUR rows move, `media` and `cinema`, to 0.
- *  The redesigned card is `blocMedia` (264 px measured, `modesABlocMedia`), no longer `blocHaut`
- *  (153 px): in the FULL composition — which is all `combien` prices — not one row of controls
- *  fits under it any more (687 px with the Ambiance row, 590 px without). What those screens
- *  actually show is `arrangement`'s answer, the owner's ladder (reduced synthèse, then no Ambiance
- *  row), pinned below in `l'echelle de la carte media`. `voiture` keeps `blocHaut` and its 2/4. */
-const ATTENDU: [string, boolean, number][] = [
-  ['minuteur', true, 0], ['minuteur', false, 2],
-  ['media', true, 0], ['cinema', true, 0], ['voiture', true, 2],
-  ['media', false, 0], ['cinema', false, 0], ['voiture', false, 4],
+ *  Card-stack plan, task 1: the budget bills a BLOCK KIND (`carte` 264 px, `haut` 153 px,
+ *  `defaut` 84 px), no longer a mode. Hand-checked at 585 px: a `carte` costs 616 px with the
+ *  Ambiance row (688 for one row of controls), 519 px without (591): in the full composition not
+ *  one row fits under it, hence 0 twice. What the screen actually shows under a card is
+ *  `arrangement`'s answer, the owner's ladder, pinned in `l'echelle de la carte`. `haut` keeps
+ *  its 2/4, `defaut` its 4/4. */
+const ATTENDU: [BudgetBlock, boolean, number][] = [
+  ['carte', true, 0], ['carte', false, 0],
+  ['haut', true, 2], ['haut', false, 4],
   ['defaut', true, 4], ['defaut', false, 4],
-  ['alerte', true, 4], ['recette', true, 4], ['menage', true, 4], ['aeration', true, 4],
 ];
 
 describe('contrat/budget.json', () => {
@@ -59,8 +36,8 @@ describe('contrat/budget.json', () => {
   });
 
   it('reproduit exactement la table de verite de combien()', () => {
-    for (const [mode, rangeeAmbiance, places] of ATTENDU) {
-      expect(combien(mode as any, rangeeAmbiance), `${mode} / ambiance=${rangeeAmbiance}`)
+    for (const [bloc, rangeeAmbiance, places] of ATTENDU) {
+      expect(combien(bloc, rangeeAmbiance), `${bloc} / ambiance=${rangeeAmbiance}`)
         .toBe(places);
     }
   });
@@ -84,10 +61,10 @@ describe('contrat/budget.json', () => {
  *  rendent le meme ecran au budget de reference. */
 describe('hauteurUtile', () => {
   it('rend exactement la table historique pour 585 px', () => {
-    // 2026-10-24: the media screen's 2 now comes from the ladder, not from the full composition.
-    expect(arrangement('media', true, 585).commandes).toBe(2);
+    // The card's 2 comes from the ladder, not from the full composition.
+    expect(arrangement('carte', true, 585).commandes).toBe(2);
     expect(combien('defaut', true, 585)).toBe(4);
-    expect(combien('minuteur', true, 585)).toBe(0);
+    expect(combien('carte', true, 585)).toBe(0);
   });
 
   /** Les deux nombres de la regle d'hier (`commandesParDefaut`, `commandesSousBlocHaut`) ne sont
@@ -98,10 +75,10 @@ describe('hauteurUtile', () => {
   it('retombe sur les deux nombres declares par le contrat, au budget de reference', () => {
     const H = BUDGET.hauteurUtileParDefaut;
     expect(combien('defaut', true, H)).toBe(BUDGET.commandesParDefaut);
-    expect(combien('voiture', true, H)).toBe(BUDGET.commandesSousBlocHaut);
-    expect(combien('voiture', false, H)).toBe(BUDGET.commandesParDefaut);
+    expect(combien('haut', true, H)).toBe(BUDGET.commandesSousBlocHaut);
+    expect(combien('haut', false, H)).toBe(BUDGET.commandesParDefaut);
     // 2026-10-24: `commandesSousBlocHaut` is also the ladder's target (`arrangement`).
-    expect(arrangement('media', true, H).commandes).toBe(BUDGET.commandesSousBlocHaut);
+    expect(arrangement('carte', true, H).commandes).toBe(BUDGET.commandesSousBlocHaut);
   });
 
   /** Relecture de la tache 4 : ce test etait DEGENERE. Il posait `court = 585 - 64 * 2` = 457, ou
@@ -118,25 +95,22 @@ describe('hauteurUtile', () => {
    *  un nombre de tuiles reellement affichables, pas une capacite theorique. */
   it('ne depasse jamais deux rangees, meme sur un grand ecran', () => {
     expect(combien('defaut', true, 2000)).toBe(4);
-    expect(combien('media', true, 2000)).toBe(4);
+    expect(combien('carte', true, 2000)).toBe(4);
   });
 
   /** 2026-09-12, plan 2 : `combien()` LEVAIT `BudgetIntenable` ici. Or c'est le moteur de rendu
    *  qui l'appelle (via `ordreCommandes`) : un ecran declarant `hauteurUtile: 480` aurait donc
    *  fait un ECRAN BLANC. Le verdict a demenage dans `verifierBudget`, que le rendu n'appelle
-   *  jamais ; `combien` degrade desormais a zero, comme le mode `minuteur` le fait deja. */
+   *  jamais ; `combien` degrade desormais a zero, comme la carte le fait a 585 px. */
   it('rend 0 plutot que de lever quand meme zero commande ne tient pas', () => {
     expect(combien('defaut', true, 100)).toBe(0);
   });
 
-  /** 2026-09-12 (plan 2, tache 5) : `minuteur` n'est plus un cas a part. Il degrade a zero par le
-   *  MEME mecanisme generique que `defaut` ci-dessus (la boucle de `combien` ne trouve aucune
-   *  rangee qui tienne), plus par une exception qui le visait nommement (l'ancien
-   *  `modesSansCommande`, disparu du contrat avec le court-circuit qu'il servait). Ce test clone
-   *  donc a dessein celui du dessus avec `minuteur` a la place de `defaut` : la meme assertion sur
-   *  deux modes differents est la preuve qu'aucun des deux n'est plus un cas particulier. */
-  it('degrade a zero sans lever pour minuteur aussi, par le meme mecanisme generique', () => {
-    expect(combien('minuteur', true, 100)).toBe(0);
+  /** `carte` degrade a zero par le MEME mecanisme generique que `defaut` ci-dessus (la boucle de
+   *  `combien` ne trouve aucune rangee qui tienne), sans exception qui la vise : la meme assertion
+   *  sur deux genres de bloc prouve qu'aucun n'est un cas particulier. */
+  it('degrade a zero sans lever pour une carte aussi, par le meme mecanisme generique', () => {
+    expect(combien('carte', true, 100)).toBe(0);
   });
 
   /** `verifierBudget` porte le verdict que `combien` a perdu : elle n'est appelee que par le
@@ -169,7 +143,7 @@ describe('hauteurUtile', () => {
    *
    *  Relecture de la tache 4 : ce test n'assertait QUE `not.toThrow()`, et passait donc aussi bien
    *  quand `ordreCommandes` ne transmettait pas `hauteurUtile` du tout (sans le cablage,
-   *  `combien('voiture', undefined, 585)` rend 2 et ne leve pas davantage). La mutation l'a
+   *  `combien('haut', undefined, 585)` rend 2 et ne leve pas davantage). La mutation l'a
    *  prouve : decabler la moitie (1) de cette tache laissait la suite entierement verte. C'est le
    *  RESULTAT qu'il faut affirmer — a 50 px, plus une seule commande ne tient. */
   it('ordreCommandes transmet hauteurUtile et ne leve jamais, meme sur un ecran absurde', () => {
@@ -179,56 +153,42 @@ describe('hauteurUtile', () => {
   });
 });
 
-/** 2026-09-12, plan 2, tache 5 : `blocMinuteur` (215 px depuis le 2026-10-11, 206 avant ;
- *  `contrat/budget.json`) devient un bloc
- *  central comme les autres — `coutEcran` (`screen-budget.ts`) le facture au mode `minuteur` via
- *  `modesABlocMinuteur`, et `combien` a perdu le court-circuit qui rendait 0 SANS jamais calculer
- *  ce cout. Les quatre valeurs ci-dessous sont calculees a la main contre `coutEcran`, pas
- *  copiees du brief de la tache — chacune est verifiee independamment par un test qui affirme un
- *  CHIFFRE EXACT, jamais une absence de levee ni une inegalite vague (cf. la relecture de la
- *  tache 4 : `not.toThrow()` et `toBeGreaterThan(0)` laissent passer un calcul faux). */
-describe('le mode minuteur paie son cout comme les autres', () => {
-  /** 585 px, rangee d'ambiance : 121 + 24 + 32 + 215 + 9 + 72 + 62 + 4x8 = 567, reste 18 px —
-   *  moins que les 64 px d'une rangee de commandes. 0 commande, IDENTIQUE a avant cette tache :
-   *  seule la ligne `['minuteur', false, …]` de la table de verite bougeait (cf. plus haut). */
-  it('rend 0 commande a 585 px avec rangee d ambiance, par calcul et non par court-circuit', () => {
-    expect(combien('minuteur', true, 585)).toBe(0);
+/** A `carte` pays its cost like any other block (`coutEcran`, `screen-budget.ts`), with no
+ *  short-circuit: its 0 controls in the full composition are a CONSEQUENCE of the budget. Every
+ *  value is computed by hand against `coutEcran` and asserted to the pixel, never as an
+ *  inequality (cf. the task 4 review: `not.toThrow()` and `toBeGreaterThan(0)` let a wrong sum
+ *  through). Card-stack plan, task 1: the old `minuteur` block (215 px) is gone, the timer is a
+ *  card like the others. */
+describe('une carte paie son cout comme les autres blocs', () => {
+  /** 585 px, Ambiance row, 0 rows: 121 + 24 + 32 + 264 + 9 + 72 + 62 + 4 x 8 = 616. One row of
+   *  controls adds 64 + 8 = 688: it does not fit. 0 controls in the full composition. */
+  it('rend 0 commande a 585 px avec rangee d ambiance', () => {
+    expect(combien('carte', true, 585)).toBe(0);
   });
 
-  /** Sans rangee d'ambiance, la ligne qui bouge : 121 + 24 + 32 + 215 + 62 + 2x8 = 470 (zero
-   *  rangee, 3 enfants). Une rangee de commandes ajoute un 4e enfant et sa gouttiere : 470 + 64 +
-   *  8 = 542 px — sous les 585, ca tient. Deux rangees : 542 + 64 + 10 (gouttiere de grille) =
-   *  616 px — ca deborde. 2 commandes, donc : c'est ce que `combien('minuteur', false, 585)`
-   *  rendait a tort a 0 avant cette tache, uniquement parce que le court-circuit ne calculait
-   *  jamais rien. */
-  it('rend 2 commandes a 585 px sans rangee d ambiance : rien ne l empechait, sauf l exception', () => {
-    expect(combien('minuteur', false, 585)).toBe(2);
+  /** Without the Ambiance row: 121 + 24 + 32 + 264 + 62 + 2 x 8 = 519 at 0 rows (3 children), 591
+   *  with one row (+ 64 + 8). Still above 585: 0, where the OLD timer block (215 px) gave 2. */
+  it('rend 0 commande a 585 px sans rangee d ambiance en composition complete', () => {
+    expect(combien('carte', false, 585)).toBe(0);
   });
 
-  /** Un ecran assez haut pour financer une rangee sous le bloc minuteur EN RENDRAIT deux tuiles —
-   *  la preuve que le 0 de 585 px est une CONSEQUENCE du budget, pas une regle fixee pour ce mode.
-   *  639 px pour une rangee (121+24+32+215+9+72+62+5x8+64 = 639, la 5e gouttiere venant du 6e
-   *  enfant qu'ajoute la rangee). La mesure historique `mesures.ecranModeMinuteur` de
-   *  `contrat/budget.json` (« liste seule, 45 px au-dela du budget », relevee le 2026-08-03, TROIS
-   *  SEMAINES avant que ce modele de calcul existe) vaut 630 : EXACTEMENT ce modele avec le bloc de
-   *  la LISTE (206 px), le seul qui existait alors. Les 9 px d'ecart sont ceux que la forme solo a
-   *  gagnes le 2026-10-11 (ses pas ± 1 sur leur propre rangee) — le modele et la mesure se
-   *  confirment toujours, a la forme mesuree pres. */
-  it('rend 2 commandes des que le budget finance une rangee (639 px, la mesure historique + 9)', () => {
-    expect(combien('minuteur', true, 638)).toBe(0);
-    expect(combien('minuteur', true, 639)).toBe(2);
-    expect(BUDGET.mesures.ecranModeMinuteur.px + (BUDGET.hauteurs.blocMinuteur - 206)).toBe(639);
+  /** The budget funds a row as soon as it is there: 688 px with the Ambiance row (616 + 64 + 8),
+   *  591 px without. Two rows would cost 762 / 665 px. */
+  it('rend 2 commandes des que le budget finance une rangee', () => {
+    expect(combien('carte', true, 687)).toBe(0);
+    expect(combien('carte', true, 688)).toBe(2);
+    expect(combien('carte', false, 590)).toBe(0);
+    expect(combien('carte', false, 591)).toBe(2);
   });
 
-  /** verifierBudget chiffre desormais le debordement reel du mode minuteur — c'est le point de la
-   *  tache : avant, `verifierBudget('minuteur', true, 585)` rendait 0 pour un ecran qui aurait pu
-   *  deborder sans que la fonction ne puisse jamais le dire, faute de facturer le bon bloc. */
-  it('verifierBudget rend 0 a 585 px (567 px consommes, l ecran tient)', () => {
-    expect(verifierBudget('minuteur', true, 585)).toBe(0);
+  /** The last rung of the ladder (reduced synthese, no Ambiance row) is what the form prices:
+   *  121 + 24 + 24 + 264 + 62 + 2 x 8 = 511 px at zero rows. */
+  it('verifierBudget rend 0 a 585 px (511 px consommes, l ecran tient)', () => {
+    expect(verifierBudget('carte', true, 585)).toBe(0);
   });
 
-  it('verifierBudget chiffre le debordement exact a 500 px (567 - 500)', () => {
-    expect(verifierBudget('minuteur', true, 500)).toBe(67);
+  it('verifierBudget chiffre le debordement exact a 500 px (511 - 500)', () => {
+    expect(verifierBudget('carte', true, 500)).toBe(11);
   });
 });
 
@@ -272,8 +232,8 @@ describe('coutEcran compte les zones que l agencement demande, et elles seules',
 
   /** SANS `blocCentral` : 4 enfants, somme 62 + 32 + 9 + 72 = 175.
    *      121 + 24 + 175 + 8 x 3 = 344   (92 px de moins : 84 de blocDefaut + 8 de gouttière)
-   *  C'est la zone la plus chère : sous `minuteur` (blocMinuteur, 215 px) l'écart monterait à
-   *  223 px de débordement fantôme. */
+   *  C'est la zone la plus chère : sous une `carte` (blocCarte, 264 px) l'écart monterait à
+   *  272 px de débordement fantôme. */
   it('ne facture pas le bloc central quand la zone est absente', () => {
     const sansBloc: Zone[] = ['ambiances', 'commandes', 'synthese'];
     expect(verifierBudget('defaut', true, 100, sansBloc)).toBe(244);
@@ -293,9 +253,9 @@ describe('coutEcran compte les zones que l agencement demande, et elles seules',
    *  celle d'avant. La table de vérité gelée (`ATTENDU`) l'atteste déjà en n'appelant jamais avec
    *  `zones` ; ce test l'atteste par l'autre bout, en le passant EXPLICITEMENT. */
   it('le defaut explicite rend exactement ce que l omission rend', () => {
-    for (const [mode, rangeeAmbiance, places] of ATTENDU) {
-      expect(combien(mode as any, rangeeAmbiance, 585, AGENCEMENT_DEFAUT.zones),
-             `${mode} / ambiance=${rangeeAmbiance}`).toBe(places);
+    for (const [bloc, rangeeAmbiance, places] of ATTENDU) {
+      expect(combien(bloc, rangeeAmbiance, 585, AGENCEMENT_DEFAUT.zones),
+             `${bloc} / ambiance=${rangeeAmbiance}`).toBe(places);
     }
   });
 
@@ -311,73 +271,41 @@ describe('coutEcran compte les zones que l agencement demande, et elles seules',
   });
 });
 
-/** Test d'INATTEIGNABILITE, au niveau des DONNEES (`ecran.ts`), pas seulement du calcul. La ligne
- *  `['minuteur', false, 2]` de la table de verite ci-dessus est mathematiquement correcte, mais
- *  aucun ecran de la maison ne peut aujourd'hui l'atteindre : `demarrage.ts` derive
- *  `rangeeAmbiance` de `piece.ambiances.length > 0 || (piece.minuteurs?.length ?? 0) > 0`, et tout
- *  ecran qui porte le mode `minuteur` doit donc declarer l'un ou l'autre pour meme ENTRER dans ce
- *  mode avec une rangee d'ambiance vraie. Sans ce test, la table gele un chiffre qu'aucun ecran ne
- *  peut produire — un test qui ne protege rien. */
-describe('minuteur et rangeeAmbiance : ce que la donnee garantit', () => {
-  it('tout ecran portant le mode minuteur declare des ambiances ou des minuteurs', () => {
-    for (const [nom, ecran] of Object.entries(ECRANS)) {
-      // Relecture de la tache 5 : la garde passe par `resoudreAgencement`, PAS par
-      // `ecran.agencement?.modes`. La production ne lit jamais le champ directement
-      // (`demarrage.ts` appelle `resoudreAgencement(piece)`), et `AGENCEMENT_DEFAUT.modes`
-      // contient `minuteur` : un ecran qui perdrait son agencement explicite porterait donc le
-      // mode en pratique tout en etant SILENCIEUSEMENT saute ici. Le test resterait vert en
-      // cessant d'asserter le cas meme pour lequel il existe.
-      if (!resoudreAgencement(ecran).modes.includes('minuteur')) continue;
-      const declare = ecran.ambiances.length > 0 || (ecran.minuteurs?.length ?? 0) > 0;
-      expect(declare, `${nom} porte le mode minuteur sans ambiances ni minuteurs declares`)
-        .toBe(true);
-    }
-  });
-
-  /** Corroboration : au moins un ecran porte reellement le mode minuteur aujourd'hui, sans quoi
-   *  le test ci-dessus serait vide et ne garantirait rien. */
-  it('au moins un ecran porte effectivement le mode minuteur', () => {
-    const porteurs = Object.values(ECRANS)
-      .filter((e) => resoudreAgencement(e).modes.includes('minuteur'));
-    expect(porteurs.length).toBeGreaterThan(0);
-  });
-});
-
 /** 2026-10-24, spec 2026-10-23 "Place à l'écran": the owner's order, on the measured heights
- *  (`blocMedia` 264 px, `syntheseReduite` 24 px, `outils/mesurer-carte-media.mjs`). The BUDGET
+ *  (`blocCarte` 264 px, `syntheseReduite` 24 px, `outils/mesurer-carte-media.mjs`). The BUDGET
  *  decides through `combien`, never a list of rooms: these tests name screen SHAPES (with or
  *  without an Ambiance row), and the last one walks the three declared screens end to end. */
-describe('l echelle de la carte media', () => {
+describe('l echelle de la carte', () => {
   it('forme du salon (sans rangee Ambiance) : la synthese reduite suffit, deux commandes', () => {
-    expect(arrangement('media', false, 585))
+    expect(arrangement('carte', false, 585))
       .toEqual({ rangeeAmbiance: false, syntheseReduite: true, commandes: 2 });
   });
 
   it('forme du bureau et de la cuisine : synthese reduite ET plus de rangee Ambiance', () => {
-    expect(arrangement('media', true, 585))
+    expect(arrangement('carte', true, 585))
       .toEqual({ rangeeAmbiance: false, syntheseReduite: true, commandes: 2 });
-    expect(arrangement('cinema', true, 585))
+    expect(arrangement('carte', false, 585))
       .toEqual({ rangeeAmbiance: false, syntheseReduite: true, commandes: 2 });
   });
 
   it('un ecran qui a la place garde sa rangee Ambiance', () => {
-    expect(arrangement('media', true, 680))
+    expect(arrangement('carte', true, 680))
       .toEqual({ rangeeAmbiance: true, syntheseReduite: true, commandes: 2 });
-    expect(arrangement('media', true, 688))
+    expect(arrangement('carte', true, 688))
       .toEqual({ rangeeAmbiance: true, syntheseReduite: false, commandes: 2 });
   });
 
-  it('voiture et defaut ne passent jamais par l echelle', () => {
-    expect(arrangement('voiture', true, 500))
+  it('haut et defaut ne passent jamais par l echelle', () => {
+    expect(arrangement('haut', true, 500))
       .toEqual({ rangeeAmbiance: true, syntheseReduite: false, commandes: 0 });
     expect(arrangement('defaut', true, 585))
       .toEqual({ rangeeAmbiance: true, syntheseReduite: false, commandes: 4 });
   });
 
-  it('verifierBudget chiffre le dernier echelon pour les modes de la carte media', () => {
+  it('verifierBudget chiffre le dernier echelon pour une carte', () => {
     // 121 + 24 + (62 + 264 + 24) + 8 x 2 = 511 px at zero rows, Ambiance row dropped.
-    expect(verifierBudget('media', true, 500)).toBe(11);
-    expect(verifierBudget('media', true, 511)).toBe(0);
+    expect(verifierBudget('carte', true, 500)).toBe(11);
+    expect(verifierBudget('carte', true, 511)).toBe(0);
   });
 
   it('ordreCommandes coupe selon l echelle, sur les trois ecrans declares', () => {
@@ -388,5 +316,29 @@ describe('l echelle de la carte media', () => {
       };
       expect(ordreCommandes(ecran.commandes, ctx), nom).toHaveLength(2);
     }
+  });
+});
+
+/** Card-stack plan, task 1: the budget bills a block kind. Hand-checked at 585 px. */
+describe('le budget par genre de bloc', () => {
+  it('a card costs 264 px whatever it shows, and only a card climbs the ladder', () => {
+    expect(verifierBudget('carte', true, 585)).toBe(0);
+    expect(combien('carte', true, 585)).toBe(0);
+    expect(arrangement('carte', true, 585))
+      .toEqual({ rangeeAmbiance: false, syntheseReduite: true, commandes: 2 });
+    expect(arrangement('carte', false, 585))
+      .toEqual({ rangeeAmbiance: false, syntheseReduite: true, commandes: 2 });
+  });
+
+  it('the empty-stack blocks keep their budget', () => {
+    expect(combien('defaut', true, 585)).toBe(4);
+    expect(combien('haut', true, 585)).toBe(2);
+    expect(arrangement('haut', true, 585).rangeeAmbiance).toBe(true);
+  });
+
+  it('prices the tall block at 577 px for two controls', () => {
+    // 121 + 24 + (62 + 153 + 32 + 9 + 72) + 64 + 5 x 8 = 577.
+    expect(combien('haut', true, 577)).toBe(2);
+    expect(combien('haut', true, 576)).toBe(0);
   });
 });

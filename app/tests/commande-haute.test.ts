@@ -45,9 +45,10 @@ describe('ordreCommandes — tall tile', () => {
     expect(coupe.some((b) => b.haute)).toBe(false);
   });
 
-  it('a mode with no command stays empty', () => {
-    const commandes = [tuile('A', { haute: true, epingle: true })];
-    expect(ordreCommandes(commandes, { ...CALME, minuteurEnCours: true })).toEqual([]);
+  it('a pinned tall tile under a card is a normal tile on its single row', () => {
+    // A card (the timer) leaves one row of two places: nothing to span, the tile takes one.
+    const commandes = [tuile('A', { haute: true, epingle: true }), tuile('B')];
+    expect(noms(ordreCommandes(commandes, { ...CALME, minuteurEnCours: true }))).toEqual(['A', 'B']);
   });
 });
 

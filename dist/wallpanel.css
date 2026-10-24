@@ -955,7 +955,7 @@ body {
    HEIGHT. 8 px of vertical padding, not 12 (task 9, 2026-10-24): at 12 the card measured
    270.8 px, and the office and kitchen screens (Ambiance row dropped, synthèse reduced) needed
    590 px for two controls — 5 px over the 585 px frame. The spec lets the padding give way
-   first; `hauteurs.blocMedia` (`contrat/budget.json`) is the height measured after it. */
+   first; `hauteurs.blocCarte` (`contrat/budget.json`) is the height measured after it. */
 .media { position: relative; overflow: hidden; isolation: isolate; box-sizing: border-box;
   padding: 8px 16px; border-radius: var(--sh-xl);
   background: var(--md-primary-container); color: var(--mc-text, var(--md-on-primary-container));
@@ -971,7 +971,7 @@ body {
    takes the metrics of every font a line uses, so a title in a script Roboto lacks (CJK, Arabic…)
    falls back on a font with a taller ascent and descent and grows the card past the 585 px frame
    (final review, 2026-10-24: +28 px in CJK). With a fixed line-height the card is as tall in any
-   script, which is what `hauteurs.blocMedia` (`contrat/budget.json`) can promise.
+   script, which is what `hauteurs.blocCarte` (`contrat/budget.json`) can promise.
    The label is ONE line whatever the room's name: cut with an ellipsis, never wrapped. */
 .media .t { font-size: 11px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase;
   line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
