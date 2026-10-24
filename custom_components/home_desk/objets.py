@@ -132,16 +132,17 @@ CHAMPS_VOITURE = (
 )
 
 # The five OPTIONAL charging entities of $defs/voiture (the car card's limit,
-# end time and actions), each with the domains its role allows. Until fix
+# end time and actions), each with the domains its role allows: the actions
+# are pressed with `button.press` (`app/src/cards/car.ts`), so `button` only. Until fix
 # round 1 of card-stack task 6 they were YAML-only, and re-saving this
 # section erased them: the object is rebuilt from the form, so EVERY field
 # of $defs/voiture must be shown here (`note` included) or it is lost.
 CHAMPS_VOITURE_OPTIONNELS = {
     "limite": ["number", "input_number"],
     "finCharge": ["sensor"],
-    "demarrerCharge": ["button", "script", "switch"],
-    "arreterCharge": ["button", "script", "switch"],
-    "boutonLimite": ["button", "script", "switch"],
+    "demarrerCharge": ["button"],
+    "arreterCharge": ["button"],
+    "boutonLimite": ["button"],
 }
 
 SCHEMA_VOITURE = vol.Schema(

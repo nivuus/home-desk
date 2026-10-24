@@ -144,8 +144,8 @@ CHARGE_FIELDS = {
     "limite": "number.car_charge_limit",
     "finCharge": "sensor.car_charge_end",
     "demarrerCharge": "button.car_start_charge",
-    "arreterCharge": "script.car_stop_charge",
-    "boutonLimite": "switch.car_limit_button",
+    "arreterCharge": "button.car_stop_charge",
+    "boutonLimite": "button.car_limit_button",
 }
 
 
@@ -183,3 +183,17 @@ async def test_car_resave_keeps_the_five_charging_fields(hass, entree):
     assert resultat["type"] is data_entry_flow.FlowResultType.MENU
     subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
     assert subentry.data["voiture"] == cleared
+
+
+def test_car_charge_actions_offer_button_entities_only():
+    """Fix round 2: the car card presses these with `button.press`
+    (`app/src/cards/car.ts`), so a script or a switch would be a dead button."""
+    from custom_components.home_desk.objets import SCHEMA_VOITURE
+
+    domains = {
+        str(key): value.config.get("domain")
+        for key, value in SCHEMA_VOITURE.schema.items()
+        if str(key) in ("demarrerCharge", "arreterCharge", "boutonLimite")
+    }
+    for field in ("demarrerCharge", "arreterCharge", "boutonLimite"):
+        assert domains[field] == ["button"], field
