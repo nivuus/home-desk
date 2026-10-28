@@ -138,10 +138,10 @@ export function frame(card: Card, f: Frame, s: ScreenState): CardFrame {
     // details stand beside the figure, spools included: under it, a card with an error subtitle
     // and a two-line title would run out of height.
     middle: html`<div class="carte-chiffres imprimante-chiffres">
-        ${pct !== null ? html`<span class="carte-chiffre plaque" data-tone-box>${percent(pct)}</span>` : ''}
+        ${pct !== null ? html`<span class="carte-chiffre" data-tone-box>${percent(pct)}</span>` : ''}
         <div class="imprimante-details">
-          ${end !== undefined ? html`<span class="carte-ligne plaque" data-tone-box>${end}</span>` : ''}
-          ${lay !== undefined ? html`<span class="carte-ligne plaque" data-tone-box>${lay}</span>` : ''}
+          ${end !== undefined ? html`<span class="carte-ligne" data-tone-box>${end}</span>` : ''}
+          ${lay !== undefined ? html`<span class="carte-ligne" data-tone-box>${lay}</span>` : ''}
           ${spoolRow(s.etat, p.ams)}
         </div>
       </div>`,

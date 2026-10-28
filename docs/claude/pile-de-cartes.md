@@ -176,9 +176,9 @@ A stacked block is exactly 264 px: the dots are inside the card.
 three round 62 px buttons, icon only, the centre one primary. A place with no real action stays
 empty.
 
-- Backgrounds: `image` (the subject's picture, intact; colours from `poster-sampler.ts`; an
-  opaque plate only where text would fall under 5:1), `solid` (a token), `theme`. Never a
-  gradient or a veil.
+- Backgrounds: `image` (the subject's picture, blurred, and dimmed only by the least amount that
+  lifts light text to 5:1 — `poster-filter.ts`; colours from `poster-sampler.ts`; never a plate
+  behind a text since 2026-10-28), `solid` (a token), `theme`. Never a gradient or a veil.
 - The 7 solid tokens (`SOLID_TOKENS`): `neutral`, `timer`, `timer-late`, `charging`, `plug-in`,
   `air-bad`, `calm`; each has six roles `--carte-<token>-{fond,texte,icone,disque,primaire,sur-primaire}`.
 - Text from HA: `dir="auto"`, explicit line heights, one-line ellipsis.

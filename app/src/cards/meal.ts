@@ -43,7 +43,7 @@ export function frame(card: Card, f: Frame, s: ScreenState): CardFrame {
   const start = startIfInWindow(f, s);
   if (meal === undefined || start === null) throw new Error(`meal card: no meal in its window for ${card.key}`);
   const missing = meal.manquants > 0
-    ? html`<div class="carte-ligne repas-manquants plaque" data-tone-box>${S.mealMissing(new Intl.NumberFormat().format(meal.manquants))}</div>` : '';
+    ? html`<div class="carte-ligne repas-manquants" data-tone-box>${S.mealMissing(new Intl.NumberFormat().format(meal.manquants))}</div>` : '';
   const recipe: CardButton | undefined = meal.recetteId === null ? undefined
     : { icon: 'book', label: S.mealOpenRecipe, primary: true, act: () => { location.hash = '#recette'; } };
   const validate: CardButton | undefined = stateOf(s.etat, SCRIPT_VALIDER_REPAS) === undefined ? undefined
@@ -52,7 +52,7 @@ export function frame(card: Card, f: Frame, s: ScreenState): CardFrame {
     key: card.key,
     label: S.meal,
     title: meal.plat,
-    middle: html`<div class="carte-ligne plaque" data-tone-box>${clockTime(start)}</div>${missing}`,
+    middle: html`<div class="carte-ligne" data-tone-box>${clockTime(start)}</div>${missing}`,
     buttons: [shoppingButton(s), recipe, validate],
     ...(meal.image ? imageToPaint(card.key, meal.image, s.measuredCard)
       : { background: { kind: 'solid' as const, token: 'neutral' as const } }),

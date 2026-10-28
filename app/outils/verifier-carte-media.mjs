@@ -1,9 +1,9 @@
-/** The media card on its untouched poster: what the render check measures (spec 2026-10-23,
- *  "Couleurs" and "Fond de texte conditionnel").
+/** The media card on its blurred poster: what the render check measures (spec 2026-10-23,
+ *  "Couleurs", amended 2026-10-28: blur and least dimming instead of the plates).
  *
- *  Since the redesign the poster covers the whole card with no veil, and the colours of the text,
- *  the discs and the bars are derived from the poster (`src/tones.ts`), with a solid plate behind
- *  the text only when the text alone cannot reach 5:1. The rules and the painted-pixel
+ *  The poster covers the whole card, blurred (`src/poster-filter.ts`); the colours of the text,
+ *  the discs and the bars are derived from it (`src/tones.ts`), and it is dimmed only by the
+ *  least amount that lifts light text to 5:1 when no tone reaches it otherwise. The rules and the painted-pixel
  *  measurement are shared with the stack check (`card-check.mjs`); this module poses the media
  *  card on the five test posters.
  *
@@ -34,8 +34,8 @@ const ORIGIN = 'http://carte-media.test';
  *  re-listed). `__poser` renders the worst-case card (remote source, two-line title, subtitle,
  *  progress, three transport discs, a volume level), measures it, computes its tones with the
  *  app's own sampler (`computeTones` + `browserSampler`, same origin as the page), and renders it
- *  again with them — the sequence `boot/card-tones.ts` runs on the tablet. `withoutPlate` drops
- *  the plate from the computed tones; `css` overrides the stylesheets before the card is drawn;
+ *  again with them — the sequence `boot/card-tones.ts` runs on the tablet. `withoutDim` drops
+ *  the dimming from the computed tones; `css` overrides the stylesheets before the card is drawn;
  *  `top` moves the card down so its bottom sits on the frame when it is `blocCarte` tall: the
  *  counter-proofs. */
 async function bundleFixture() {
@@ -62,7 +62,7 @@ const TEXTS = {
 const OTHERS = (n) => Array.from({ length: n - 1 }, (_, i) => ({ key: 'essai:' + i, label: 'ESSAI',
   title: 'Carte ' + i, middle: '', buttons: [undefined, undefined, undefined],
   background: { kind: 'solid', token: 'neutral' } }));
-window.__poser = async (poster, { withoutPlate = false, script = 'latin', top = 0, css = '', stack = 1 } = {}) => {
+window.__poser = async (poster, { withoutDim = false, script = 'latin', top = 0, css = '', stack = 1 } = {}) => {
   const t = TEXTS[script];
   const etat = new Etat();
   etat.appliquer({ entity_id: P, state: 'playing', attributes: {
@@ -83,7 +83,7 @@ window.__poser = async (poster, { withoutPlate = false, script = 'latin', top = 
   const spec = measureCard(app.querySelector('.media'));
   const state = await computeTones(s.affiche, spec, browserSampler, location.origin);
   if (state.status !== 'ready') throw new Error('poster tones: ' + state.status);
-  const tones = withoutPlate ? { status: 'ready', tones: { ...state.tones, plate: undefined } } : state;
+  const tones = withoutDim ? { status: 'ready', tones: { ...state.tones, dim: 1 } } : state;
   render(draw(tones), app);
 };
 `;
@@ -101,12 +101,20 @@ const CASES = [
     poster, options: {}, expected: pass,
     what: `poster "${poster}" with its computed tones: every rule holds`,
   })),
-  { poster: 'rayures', options: {},
-    expected: (j, m) => j.ok && m.boxes.some((b) => b.plate),
-    what: 'stripes with their computed tones: needs the plate, and passes on it' },
-  { poster: 'rayures', options: { withoutPlate: true },
+  { poster: 'rayures', options: {}, expected: pass,
+    what: 'stripes with their computed tones: the blur alone or with its dimming, every rule holds' },
+  { poster: 'moyenne', options: {},
+    expected: (j, m) => j.ok && /brightness/.test(m.poster ?? ''),
+    what: 'mid-tone poster: no tone reaches 5:1 even blurred, so it is dimmed, and passes' },
+  { poster: 'moyenne', options: { withoutDim: true },
     expected: (j) => !j.ok && /text contrast under/.test(j.reason),
-    what: 'COUNTER-PROOF: stripes with the plate forced off must be flagged' },
+    what: 'COUNTER-PROOF: the mid-tone poster with its dimming forced off must be flagged' },
+  { poster: 'rayures', options: { css: '.media .carte-image { filter: none !important; }' },
+    expected: (j) => !j.ok && /text contrast under/.test(j.reason),
+    what: 'COUNTER-PROOF: stripes left sharp under tones computed for the blur must be flagged' },
+  { poster: 'claire', options: { css: '.media .titre { background: #f0f0f0; }' },
+    expected: (j) => !j.ok && /text on a plate/.test(j.reason),
+    what: 'COUNTER-PROOF: a plate put back behind the title must be flagged' },
   { poster: 'moyenne', options: { script: 'cjk', top: HEIGHT - BLOC_CARTE },
     expected: pass,
     what: `CJK title and subtitle, room name too long for the label: within its ${BLOC_CARTE} px budget` },
@@ -141,7 +149,7 @@ const CASES = [
 
 /** 0 when every case came out as expected, 1 otherwise. */
 export async function autoTestCarteMedia(nav) {
-  console.log('Media card auto-test on the untouched poster (painted pixels, the real card from `src/`):');
+  console.log('Media card auto-test on the blurred poster (painted pixels, the real card from `src/`):');
   const ctx = await nav.newContext({ viewport: { width: WIDTH, height: HEIGHT } });
   const pageHtml = await bundleFixture();
   await servirPage(ctx, ORIGIN, pageHtml);
@@ -169,8 +177,9 @@ export async function autoTestCarteMedia(nav) {
     return 1;
   }
   console.log('Media card auto-test passed: the five posters pass on their computed tones, the '
-    + 'stripes only through their plate, a CJK card fits its budget, a stack keeps it with solid '
-    + 'dots, and a row under the card, overlapping or low-contrast dots, the plate-less stripes, '
-    + 'the line-height-normal card, the translucent disc, the see-through disc and the low-contrast icon are flagged.');
+    + 'mid-tone one only through its dimming, a CJK card fits its budget, a stack keeps it with solid '
+    + 'dots, and a row under the card, overlapping or low-contrast dots, the undimmed mid-tone poster, '
+    + 'the unblurred stripes, a plate behind a text, the line-height-normal card, the translucent '
+    + 'disc, the see-through disc and the low-contrast icon are flagged.');
   return 0;
 }

@@ -6,14 +6,15 @@
  *  and no placeholder or dead button is ever drawn. A button's `label` is its `aria-label` only —
  *  a card button never shows text.
  *
- *  Backgrounds: an image (the subject's own picture) shown untouched as a cover layer, coloured
- *  through its tones (`poster-sampler.ts`); a solid colour named by a token (`cards.css`); or
- *  the theme's own colours.
- *  Never a gradient, never a veil. */
+ *  Backgrounds: an image (the subject's own picture) shown blurred as a cover layer, dimmed only
+ *  as much as its text needs (`poster-filter.ts`) and coloured through its tones
+ *  (`poster-sampler.ts`); a solid colour named by a token (`cards.css`); or the theme's own
+ *  colours. Never a gradient, never a plate behind a text. */
 import { html, type TemplateResult } from 'lit';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { live } from 'lit/directives/live.js';
 import type { ToneState } from './poster-sampler';
+import { POSTER_BLEED_PX, posterFilter } from '../poster-filter';
 import { icone } from './icones';
 import { cardPress, type CardPressHandlers, type HoldPress } from '../stack/swipe';
 
@@ -66,9 +67,14 @@ function toneStyle(tones: ToneState | undefined): string {
   if (tones?.status !== 'ready') return '';
   const t = tones.tones;
   return `--mc-text:${t.text};--mc-primary:${t.primary};--mc-on-primary:${t.onPrimary};`
-    + `--mc-secondary:${t.secondary};--mc-on-secondary:${t.onSecondary};`
-    + (t.plate !== undefined ? `--mc-plate:${t.plate};` : '');
+    + `--mc-secondary:${t.secondary};--mc-on-secondary:${t.onSecondary};`;
 }
+
+/** The image layer's own style: the poster, its overhang and its filter, the ones
+ *  `poster-sampler.ts` reproduces before measuring (`poster-filter.ts`). `dim` is a number of
+ *  ours; the URL goes through `urlSure`. */
+const imageStyle = (url: string, dim: number): string =>
+  `background-image:url('${urlSure(url)}');inset:-${POSTER_BLEED_PX}px;filter:${posterFilter(dim)}`;
 
 const SOLID_ROLES = ['fond', 'texte', 'icone', 'disque', 'primaire', 'sur-primaire'] as const;
 
@@ -99,7 +105,8 @@ export function renderCardFrame(f: CardFrame, position?: TemplateResult): Templa
   const bg = f.background;
   // The picture only once its tones are ready: pending or unreadable, the card keeps the theme
   // colours, same layout.
-  const image = bg.kind === 'image' && f.tones?.status === 'ready' ? bg.url : undefined;
+  const image = bg.kind === 'image' && f.tones?.status === 'ready'
+    ? { url: bg.url, dim: f.tones.tones.dim } : undefined;
   const style = bg.kind === 'solid' ? solidStyle(bg.token) : bg.kind === 'image' ? toneStyle(f.tones) : '';
   // `live`: the per-second tick turns a timer card late by writing this attribute between two
   // renders (`tictacMinuteurs`); compared with the DOM, never with the last value `lit` wrote, a
@@ -109,17 +116,17 @@ export function renderCardFrame(f: CardFrame, position?: TemplateResult): Templa
       data-mvt=${ifDefined(f.motion?.block)} data-mvt-etat=${ifDefined(f.motion?.state)}>
     ${image !== undefined
       // A background layer, never an <img> in the flow: a replaced element would take part in the
-      // layout, and `poster-sampler.ts` measures exactly this layer's cover crop.
-      ? html`<div class="carte-image" style="background-image:url('${urlSure(image)}')"></div>`
+      // layout, and `poster-sampler.ts` measures exactly this layer, blur included.
+      ? html`<div class="carte-image" style=${imageStyle(image.url, image.dim)}></div>`
       : ''}
     <div class="entete">
       <!-- dir="auto": each text takes its direction from its own first strong character. -->
       <div class="ligne-etiquette">
-        <div class="etiquette plaque" dir="auto" data-tone-box>${f.label}</div>${position ?? ''}
+        <div class="etiquette" dir="auto" data-tone-box>${f.label}</div>${position ?? ''}
       </div>
-      <div class="titre deux-lignes plaque" dir="auto" data-tone-box>${f.title}</div>
+      <div class="titre deux-lignes" dir="auto" data-tone-box>${f.title}</div>
       ${f.subtitle
-        ? html`<div class="sous-titre plaque" dir="auto" data-tone-box
+        ? html`<div class="sous-titre" dir="auto" data-tone-box
             data-mvt=${ifDefined(f.motion?.subtitle)}>${f.subtitle}</div>`
         : ''}
     </div>

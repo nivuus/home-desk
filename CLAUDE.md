@@ -218,8 +218,10 @@ suivantes par une convention de dépôt, sans filet automatique :
   Exemple `maison.appareils` (validé par `make test-composant`) :
   `docs/claude/pile-de-cartes-appareils.example.yaml`.
 - **Teintes de la carte média** : `app/src/tones.ts`,
-  `app/src/rendu/poster-sampler.ts`, `app/src/boot/card-tones.ts`; contrôle de
-  rendu `app/outils/verifier-carte-media.mjs`.
+  `app/src/rendu/poster-sampler.ts`, `app/src/boot/card-tones.ts`; flou et
+  assombrissement de la pochette : `app/src/poster-filter.ts` (une seule
+  définition pour le calque et l'échantillonneur, jamais dans une feuille de
+  style) ; contrôle de rendu `app/outils/verifier-carte-media.mjs`.
 
 ## Dettes connues du composant, reportées au 3b/3c
 

@@ -2,6 +2,7 @@
 // Only same-origin images (the /api/vignette output) are read; anything else is unreadable.
 import type { TonalPalette } from '@material/material-color-utilities';
 import { posterPalette, tonesOver, type Box, type CardTones } from '../tones';
+import { POSTER_BLEED_PX, POSTER_BLUR_PX } from '../poster-filter';
 
 export type ToneState =
   | { status: 'pending' }
@@ -14,7 +15,8 @@ export type ToneState =
 export type CardSpec = { w: number; h: number; boxes: Box[] };
 
 /** What a sampler hands over once per poster: the 64 x 64 ARGB sample for the palette, and a
- *  synchronous drawing of the poster's cover crop at any card size (RGBA, `width` per row). */
+ *  synchronous drawing of the card's image layer at any card size — the blurred cover crop,
+ *  before any dimming (RGBA, `width` per row). */
 export type PosterImage = {
   quantPixels: number[];
   draw: (w: number, h: number) => { rgba: Uint8ClampedArray; width: number };
@@ -124,7 +126,10 @@ function context(w: number, h: number): CanvasRenderingContext2D {
 
 /** Browser sampler: loads the image, reads the 64 x 64 whole image (a SecurityError there, on a
  *  tainted canvas, makes the poster unreadable before any card is drawn), and keeps the decoded
- *  image to draw the card-size cover crop on demand — the pixels the browser shows under the text. */
+ *  image to draw the card's image layer on demand — the pixels the browser shows under the text.
+ *  The layer (`rendu/card-frame.ts`) overhangs the card by `POSTER_BLEED_PX` on each side, covers
+ *  that larger box, and is blurred: drawn the same way here, then cut back to the card. The
+ *  dimming is left to `tones.ts`, which computes it from these pixels. */
 export const browserSampler: Sampler = async (url) => {
   const img = await loadImage(url);
   const quantCtx = context(QUANT_SIZE, QUANT_SIZE);
@@ -135,10 +140,13 @@ export const browserSampler: Sampler = async (url) => {
     quantPixels.push(((q[i + 3]! << 24) | (q[i]! << 16) | (q[i + 1]! << 8) | q[i + 2]!) >>> 0);
   }
   const draw = (w: number, h: number) => {
-    const cardCtx = context(w, h);
-    const c = coverCrop(img.naturalWidth, img.naturalHeight, w, h);
-    cardCtx.drawImage(img, c.sx, c.sy, c.sw, c.sh, 0, 0, w, h);
-    return { rgba: cardCtx.getImageData(0, 0, w, h).data, width: w };
+    const bw = w + 2 * POSTER_BLEED_PX;
+    const bh = h + 2 * POSTER_BLEED_PX;
+    const layerCtx = context(bw, bh);
+    const c = coverCrop(img.naturalWidth, img.naturalHeight, bw, bh);
+    layerCtx.filter = `blur(${POSTER_BLUR_PX}px)`;
+    layerCtx.drawImage(img, c.sx, c.sy, c.sw, c.sh, 0, 0, bw, bh);
+    return { rgba: layerCtx.getImageData(POSTER_BLEED_PX, POSTER_BLEED_PX, w, h).data, width: w };
   };
   return { quantPixels, draw };
 };

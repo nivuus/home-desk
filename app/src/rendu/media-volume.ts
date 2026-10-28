@@ -107,7 +107,7 @@ export function volumeRow(
   return html`<div class="media-volume" style="--niveau:${level}">
     ${button('moins', settable(act, repaint, v.entite, v.niveau, -1))}
     <div class="media-niveau" data-mvt="detail:volume-niveau">
-      <div class="media-niveau-texte plaque" data-tone-box>${percent(level)}</div>
+      <div class="media-niveau-texte" data-tone-box>${percent(level)}</div>
       <div class="media-jauge"><div class="media-jauge-plein"></div></div>
     </div>
     ${button('plus', settable(act, repaint, v.entite, v.niveau, 1))}

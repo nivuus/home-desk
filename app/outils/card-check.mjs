@@ -2,9 +2,10 @@
  *  measurement of a card on the pixels actually painted, its verdict, and the in-memory page
  *  that bundles `src/` with esbuild and serves the test posters.
  *
- *  Why painted pixels: an image card's text sits on the picture itself, with a solid plate only
- *  where the text alone cannot reach 5:1. A computed `backgroundColor` is blind to a
- *  `background-image` by construction; the only honest measurement is the screenshot. The rules,
+ *  Why painted pixels: an image card's text sits on the blurred picture itself, dimmed only where
+ *  the text alone cannot reach 5:1 (`src/poster-filter.ts`). A computed `backgroundColor` is
+ *  blind to a filtered `background-image` by construction; the only honest measurement is the
+ *  screenshot. The rules,
  *  per card (`mesurerCarte`, `jugerCarte`):
  *
  *  1. every text box: the WORST pixel under its content box, against the text colour, ≥ 5:1. The
@@ -12,8 +13,9 @@
  *     glyphs themselves are sampled and every ratio reads 1:1. Worst pixel means the minimum
  *     ratio over every pixel, not over the two luminance extremes: a mid-grey text over a
  *     black-and-white picture has both extremes far from it and still a pixel at its own
- *     luminance. The content box (padding excluded) is where the glyphs are; it stays clear of
- *     the plate's rounded corners.
+ *     luminance. The content box (padding excluded) is where the glyphs are. No text box has a
+ *     background of its own: the plates behind each text were refused (2026-10-28), the blur and
+ *     the dimming are what carry the contrast.
  *  2. every disc (`.disque`): a solid fill (alpha 1 and an effective opacity of 1 up the tree —
  *     the picture must not show through) and an icon colour ≥ 4.5:1 against it.
  *  3. the card is the fixed 311 × `blocCarte` frame, its title two lines at most, and no element
@@ -83,7 +85,8 @@ function relever({ frameBottom, selector, textSelector }) {
     const s = getComputedStyle(el);
     return {
       cls: String(el.className), text: (el.textContent || '').trim().slice(0, 30),
-      colour: s.color, plate: !/rgba\(0, 0, 0, 0\)|transparent/.test(s.backgroundColor),
+      colour: s.color, tone: el.hasAttribute('data-tone-box'),
+      plate: !/rgba\(0, 0, 0, 0\)|transparent/.test(s.backgroundColor),
       x0: Math.ceil(r.left + px(s.paddingLeft)), y0: Math.ceil(r.top + px(s.paddingTop)),
       x1: Math.floor(r.right - px(s.paddingRight)), y1: Math.floor(r.bottom - px(s.paddingBottom)),
     };
@@ -101,7 +104,10 @@ function relever({ frameBottom, selector, textSelector }) {
     return { cls: String(el.className).trim(), fill: s.backgroundColor, icon: s.color, opacity: opacity(el) };
   });
   const name = (el) => String(el.className?.baseVal ?? el.className ?? el.tagName);
-  const overflow = [card, ...card.querySelectorAll('*')]
+  // The image layer overhangs the card on purpose (`src/poster-filter.ts`, the blur's bleed) and
+  // the card's `overflow: hidden` clips it: it is the one element allowed past the card's edges.
+  const laidOut = [...card.querySelectorAll('*')].filter((el) => !el.classList.contains('carte-image'));
+  const overflow = [card, ...laidOut]
     .filter((el) => el.getBoundingClientRect().bottom > frameBottom + 0.5)
     .map(name);
   // What the fixed frame hides: an element past the card's edge, or a row of the middle zone
@@ -109,17 +115,19 @@ function relever({ frameBottom, selector, textSelector }) {
   const middle = card.querySelector('.milieu');
   const m = middle?.getBoundingClientRect();
   const unfit = [
-    ...[...card.querySelectorAll('*')].filter((el) => el.getBoundingClientRect().bottom > c.bottom + 0.5),
+    ...laidOut.filter((el) => el.getBoundingClientRect().bottom > c.bottom + 0.5),
     ...(m ? [...middle.querySelectorAll('*')].filter((el) => {
       const r = el.getBoundingClientRect();
       return r.top < m.top - 0.5 || r.bottom > m.bottom + 0.5;
     }) : []),
   ].map(name);
-  // Lines of the title: its content height (the plate's padding excluded) over its line height.
+  // Lines of the title: its content height (padding excluded) over its line height.
   const title = card.querySelector('.titre');
   const ts = title && getComputedStyle(title);
   const titleLines = title
     ? (title.getBoundingClientRect().height - px(ts.paddingTop) - px(ts.paddingBottom)) / px(ts.lineHeight) : 0;
+  const layer = card.querySelector('.carte-image');
+  const poster = layer ? getComputedStyle(layer).filter : null;
   const pile = card.closest('.pile');
   const pill = card.querySelector('.points');
   let stack = null;
@@ -149,7 +157,7 @@ function relever({ frameBottom, selector, textSelector }) {
     }),
   };
   return {
-    stack, titleLines, spools,
+    stack, titleLines, spools, poster,
     size: { width: c.width, height: c.height, bottom: c.bottom },
     clip: { x: Math.max(0, Math.floor(c.left)), y: Math.max(0, Math.floor(c.top)),
       width: Math.ceil(Math.min(c.right, innerWidth) - Math.max(0, Math.floor(c.left))),
@@ -224,8 +232,10 @@ export async function mesurerCarte(page, {
   return {
     size: { width: round2(r.size.width), height: round2(r.size.height), bottom: round2(r.size.bottom) },
     titleLines: round2(r.titleLines),
+    poster: r.poster,
     boxes: r.boxes.map((b, i) => ({
-      cls: b.cls, text: b.text, plate: b.plate, pixels: worst[i].pixels, ratio: round2(worst[i].worst),
+      cls: b.cls, text: b.text, tone: b.tone, plate: b.plate, pixels: worst[i].pixels,
+      ratio: round2(worst[i].worst),
     })),
     discs: r.discs.map((d) => ({
       cls: d.cls, solid: (rgba(d.fill)[3] ?? 1) === 1 && d.opacity === 1,
@@ -271,8 +281,10 @@ export function jugerCarte(m) {
   const lowText = m.boxes.filter((b) => b.pixels > 0 && b.ratio < TEXT_CONTRAST_MIN);
   if (lowText.length) {
     faults.push(`text contrast under ${TEXT_CONTRAST_MIN}:1 (${lowText
-      .map((b) => `"${b.text}" ${b.ratio}:1${b.plate ? ' on its plate' : ', no plate'}`).join('; ')})`);
+      .map((b) => `"${b.text}" ${b.ratio}:1`).join('; ')})`);
   }
+  const plated = m.boxes.filter((b) => b.tone && b.plate);
+  if (plated.length) faults.push(`text on a plate: ${plated.map((b) => `"${b.text}"`).join(', ')}`);
   const notSolid = m.discs.filter((d) => !d.solid);
   if (notSolid.length) faults.push(`disc not solid: ${notSolid.map((d) => d.cls).join(', ')}`);
   const lowIcon = m.discs.filter((d) => d.ratio < ICON_CONTRAST_MIN);
@@ -307,12 +319,12 @@ export function jugerCarte(m) {
   return { ok: faults.length === 0, reason: faults.join(' ; ') };
 }
 
-/** One line: the worst box, the worst disc, how many plates, and the dots when stacked. */
+/** One line: the worst box, the worst disc, the poster's filter, and the dots when stacked. */
 export function resumerCarte(m) {
   const wb = m.boxes.reduce((a, b) => (b.ratio < a.ratio ? b : a), { ratio: Infinity });
   const wd = m.discs.reduce((a, d) => (d.ratio < a.ratio ? d : a), { ratio: Infinity });
   return `${m.size.width} × ${m.size.height}, worst text ${wb.ratio}:1 on "${wb.text}", worst icon ${wd.ratio}:1 `
-    + `(${wd.cls ?? 'no disc'}), ${m.boxes.filter((b) => b.plate).length}/${m.boxes.length} box(es) on a plate`
+    + `(${wd.cls ?? 'no disc'})${m.poster ? `, poster ${m.poster}` : ''}`
     + `${m.stack?.pill ? `, dots ${m.stack.pill.ratio}:1` : ''}`
     + `${m.spools ? `, ${m.spools.count} spool(s) ring ${m.spools.ring}:1` : ''}`;
 }

@@ -1167,7 +1167,7 @@ describe('creerMoteur — croisement d\'affiche média', () => {
  *  `affiche` optionnel — c'est la présence ou l'absence de ce champ qui décide si `rendu/media.ts`
  *  pose un `.carte-image` (fond CSS `background-image`) dans le gabarit. */
 /** Tones ready: the only state in which the card paints its poster layer (2026-10-24). */
-const PRETES: ToneState = { status: 'ready', tones: { text: '#000000', primary: '#303030',
+const PRETES: ToneState = { status: 'ready', tones: { text: '#000000', dim: 1, primary: '#303030',
   onPrimary: '#ffffff', secondary: '#e0e0e0', onSecondary: '#000000', worstContrast: 21 } };
 
 function sourceMedia(titre: string, affiche?: string): SourceResolue {

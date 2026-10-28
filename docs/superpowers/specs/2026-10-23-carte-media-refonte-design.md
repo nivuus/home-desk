@@ -132,6 +132,31 @@ de case vide.
   `http…`, que `vignetter()` laisse passer telle quelle : canvas « tainted »),
   la carte prend le rendu « sans pochette » plutôt que de deviner.
 
+### Amendement du 2026-10-28 : pochette floutée, plus de fond de texte
+
+Le propriétaire n'aime pas le fond posé sous chaque élément (« je suis pas fan
+du fond sur chaque élément ») ; il garde la disposition et choisit la pochette
+floutée. Ce qui remplace le **fond de texte conditionnel** ci-dessus :
+
+- La pochette est **floutée** (écart type de 24 px, `app/src/poster-filter.ts`),
+  le calque déborde de la carte de trois écarts types pour que le flou ne fonde
+  pas les bords vers la couleur du thème. Le flou écarte les arêtes de la
+  pochette, qui faisaient chuter le contraste au pire pixel : les rayures
+  passent seules (6,7:1 au lieu de 3,7:1).
+- Le flou ne suffit pas sur une pochette de luminance moyenne : une luminance
+  uniforme vers 0,18 plafonne toute couleur de texte à 4,6:1. Dans ce cas, et
+  seulement dans ce cas, le texte passe au ton clair et la pochette est
+  **assombrie du minimum** qui le porte à 5:1 (`brightness()`, cherché par
+  dichotomie sur les pixels réels, arrondi 8 bits pris du côté clair). Jamais
+  éclaircie : le voile clair reste refusé.
+- **Plus aucun fond derrière un texte.** Le contrôle de rendu en fait une
+  faute (« text on a plate »), avec ses contre-épreuves : pochette moyenne sans
+  son assombrissement, rayures non floutées, fond remis sous le titre.
+- Risque assumé à vérifier sur la tablette : un flou est une surface en
+  dégradé, que les dalles 6 bits des Fire 7 peuvent rendre en bandes (raison de
+  l'anti-objectif « dégradé sur grande surface »). Le choix est celui du
+  propriétaire ; si les bandes se voient, c'est ici qu'on le notera.
+
 ### Place à l'écran
 
 La carte C mesure environ 260 px contre 153 px (`hauteurs.blocHaut`), soit

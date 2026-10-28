@@ -13,7 +13,7 @@ const BASE: CardFrame = {
   background: { kind: 'solid', token: 'timer' },
 };
 const READY: ToneState = { status: 'ready', tones: {
-  text: '#101010', primary: '#303030', onPrimary: '#fafafa', secondary: '#e0e0e0',
+  text: '#101010', dim: 1, primary: '#303030', onPrimary: '#fafafa', secondary: '#e0e0e0',
   onSecondary: '#101010', worstContrast: 7 } };
 
 let hote: HTMLElement;
@@ -58,12 +58,12 @@ describe('card frame — anatomy', () => {
     expect(hote.querySelector('.sous-titre')).toBeNull();
   });
 
-  it('every header text is a tone box with its plate', () => {
+  it('every header text is a tone box, without a plate', () => {
     render(renderCardFrame(BASE), hote);
     for (const sel of ['.etiquette', '.titre', '.sous-titre']) {
       const el = hote.querySelector(sel)!;
       expect(el.hasAttribute('data-tone-box'), sel).toBe(true);
-      expect(el.classList.contains('plaque'), sel).toBe(true);
+      expect(el.classList.contains('plaque'), sel).toBe(false);
     }
   });
 

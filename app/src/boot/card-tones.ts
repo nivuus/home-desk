@@ -4,7 +4,7 @@
  *  those only exist once the card is laid out. So each paint uses what the PREVIOUS paint
  *  measured, and the card is measured again right after painting: when the measurement changed
  *  (first appearance, new image, a title on one more line, a wider time), the card is repainted
- *  with the new boxes. The plate and the image layer never change the layout (`cards.css`), so
+ *  with the new boxes. The image layer and its filter never change the layout (`cards.css`), so
  *  the measurement after that repaint is the same and no further paint follows.
  *
  *  The image is read once per URL; the tones of any boxes on it are then synchronous. So only a
