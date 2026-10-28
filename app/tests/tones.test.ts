@@ -38,6 +38,23 @@ function quant(rgba: Uint8ClampedArray): number[] {
 const lumHex = (h: string) => relativeLuminance(...hex(h));
 const ratioHex = (a: string, b: string) => contrastRatio(lumHex(a), lumHex(b));
 
+/** Worst contrast of `text` over every pixel of BOXES once the browser applies `brightness(dim)`,
+ *  each channel rounded up to 8 bits — the brighter side, as `tones.ts` assumes. */
+function dimmedWorst(rgba: Uint8ClampedArray, text: string, dim: number): number {
+  const lt = lumHex(text);
+  let worst = Infinity;
+  for (const b of BOXES) {
+    for (let y = b.y; y < b.y + b.h; y++) {
+      for (let x = b.x; x < b.x + b.w; x++) {
+        const i = (y * W + x) * 4;
+        const c = (v: number) => Math.min(255, Math.ceil(v * dim));
+        worst = Math.min(worst, contrastRatio(lt, relativeLuminance(c(rgba[i]), c(rgba[i + 1]), c(rgba[i + 2]))));
+      }
+    }
+  }
+  return worst;
+}
+
 const pastel = render((x, y) => ((x - 90) ** 2 + (y - 80) ** 2 < 55 * 55 ? '#ffffff' : '#f6d2c4'));
 const stripes = render((x, y) => {
   const phase = (((x - y) % 54) + 54) % 54;
@@ -61,28 +78,28 @@ describe('contrast helpers', () => {
 });
 
 describe('cardTones', () => {
-  it('pastel poster gets dark text and no plate', () => {
+  it('pastel poster gets dark text and is not dimmed', () => {
     const t = tones(pastel);
     expect(t.worstContrast).toBeGreaterThanOrEqual(5);
-    expect(t.plate).toBeUndefined();
+    expect(t.dim).toBe(1);
     expect(lumHex(t.text)).toBeLessThan(0.2);
   });
 
-  it('diagonal stripes need a plate and reach 5:1 on it', () => {
+  it('diagonal stripes: light text over the least dimming that reaches 5:1', () => {
     const t = tones(stripes);
-    expect(t.worstContrast).toBeLessThan(5);
-    expect(t.plate).toBeDefined();
-    expect(ratioHex(t.text, t.plate as string)).toBeGreaterThanOrEqual(5);
+    expect(lumHex(t.text)).toBeGreaterThan(0.5);
+    expect(t.dim).toBeLessThan(1);
+    expect(dimmedWorst(stripes, t.text, t.dim)).toBeGreaterThanOrEqual(5);
+    // The least: one CSS step brighter fails.
+    expect(dimmedWorst(stripes, t.text, t.dim + 0.002)).toBeLessThan(5);
+    expect(t.worstContrast).toBeCloseTo(dimmedWorst(stripes, t.text, t.dim), 5);
   });
 
-  it('dark poster gets light text', () => {
+  it('dark poster gets light text, dimmed just enough for the gold moon under the times', () => {
     const t = tones(night);
     expect(lumHex(t.text)).toBeGreaterThan(0.5);
-    // The gold moon sits under the time labels, so light text alone dips below 5:1 there: the
-    // plate (dark under light text) must make up for it.
-    expect(t.plate).toBeDefined();
-    expect(lumHex(t.plate as string)).toBeLessThan(0.05);
-    expect(ratioHex(t.text, t.plate as string)).toBeGreaterThanOrEqual(5);
+    expect(t.dim).toBeLessThan(1);
+    expect(dimmedWorst(night, t.text, t.dim)).toBeGreaterThanOrEqual(5);
   });
 
   it('icon contrast on every disc is at least 4.5:1', () => {

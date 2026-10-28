@@ -11,20 +11,24 @@ export type Box = { x: number; y: number; w: number; h: number };
 
 export type CardTones = {
   text: string;
-  /** Solid plate colour behind the text; set only when the text alone cannot reach 5:1. */
-  plate?: string;
+  /** Brightness factor of the image layer (`poster-filter.ts`): 1 leaves the blurred poster as it
+   *  is; below 1, the least dimming that lifts light text to 5:1 where nothing else could. */
+  dim: number;
   primary: string;
   onPrimary: string;
   secondary: string;
   onSecondary: string;
-  /** Worst-pixel contrast of the text over the boxes, WITHOUT the plate. */
+  /** Worst-pixel contrast of the text over the boxes, as painted (dimmed when `dim` < 1). */
   worstContrast: number;
 };
 
 const TEXT_TONES = [0, 5, 10, 95, 98, 100];
+const LIGHT_TEXT_TONES = TEXT_TONES.filter((t) => t > 50);
 const QUANT_COLORS = 128;
 const MIN_CHROMA = 36;
-const PLATE_THRESHOLD = 5;
+const TEXT_CONTRAST_MIN = 5;
+/** Halvings of the dimming search: 2^-16 is far below one 8-bit step of the painted pixel. */
+const DIM_SEARCH_STEPS = 16;
 
 const linear = (v: number): number => {
   const c = v / 255;
@@ -43,6 +47,44 @@ export function contrastRatio(l1: number, l2: number): number {
 
 const argbLuminance = (argb: number): number =>
   relativeLuminance((argb >> 16) & 255, (argb >> 8) & 255, argb & 255);
+
+/** `linear` for each 8-bit value: the dimming search reads it hundreds of thousands of times. */
+const LINEAR = Float64Array.from({ length: 256 }, (_, v) => linear(v));
+
+/** Brightest luminance under the boxes once the browser applies `brightness(k)`: each channel is
+ *  scaled by `k` then rounded UP to 8 bits, the brighter side of the painter's rounding, so the
+ *  contrast computed here is never better than the one on screen. */
+function brightestDimmed(rgba: Uint8ClampedArray, width: number, boxes: Box[], k: number): number {
+  let hi = 0;
+  for (const box of boxes) {
+    for (let y = box.y; y < box.y + box.h; y++) {
+      for (let x = box.x; x < box.x + box.w; x++) {
+        const i = (y * width + x) * 4;
+        const l = 0.2126 * LINEAR[Math.min(255, Math.ceil(rgba[i] * k))]
+          + 0.7152 * LINEAR[Math.min(255, Math.ceil(rgba[i + 1] * k))]
+          + 0.0722 * LINEAR[Math.min(255, Math.ceil(rgba[i + 2] * k))];
+        if (l > hi) hi = l;
+      }
+    }
+  }
+  return hi;
+}
+
+/** The largest brightness factor (the least dimming) at which text of luminance `textL` reaches
+ *  `TEXT_CONTRAST_MIN` over every pixel of the boxes. Dimming only darkens, so the contrast of
+ *  light text only grows as `k` falls: a bisection, kept on the side that passes. `k` = 0 (black)
+ *  always passes for the light tones (≥ 18:1). */
+function leastDimming(rgba: Uint8ClampedArray, width: number, boxes: Box[], textL: number): number {
+  let pass = 0;
+  let fail = 1;
+  for (let step = 0; step < DIM_SEARCH_STEPS; step++) {
+    const k = (pass + fail) / 2;
+    if (contrastRatio(textL, brightestDimmed(rgba, width, boxes, k)) >= TEXT_CONTRAST_MIN) pass = k;
+    else fail = k;
+  }
+  // Three decimals for the CSS value, rounded down: darker, so still passing.
+  return Math.floor(pass * 1000) / 1000;
+}
 
 /** Luminance range over EVERY pixel of every box: the worst case, not the average. */
 function luminanceRange(rgba: Uint8ClampedArray, width: number, boxes: Box[]): [number, number] {
@@ -72,7 +114,9 @@ export function posterPalette(quantPixels: number[]): TonalPalette {
 /**
  * Derives the card colours from the poster's palette: the text tone is the one with the best
  * worst-pixel contrast under the text boxes; buttons are solid discs whose icons are guaranteed
- * contrast whatever is behind them.
+ * contrast whatever is behind them. When no tone reaches 5:1 over the poster as it is, the text
+ * turns light and the poster is dimmed by the least amount that gets it there (`dim`), never
+ * lightened: a light veil on the poster was refused (spec 2026-10-23, anti-goals).
  */
 export function tonesOver(
   palette: TonalPalette,
@@ -92,13 +136,26 @@ export function tonesOver(
     }
   }
 
+  let dim = 1;
+  if (worstContrast < TEXT_CONTRAST_MIN) {
+    dim = -1;
+    for (const tone of LIGHT_TEXT_TONES) {
+      const textL = argbLuminance(palette.tone(tone));
+      const k = leastDimming(rgba, width, textBoxes, textL);
+      if (k > dim) {
+        dim = k;
+        bestTone = tone;
+        worstContrast = contrastRatio(textL, brightestDimmed(rgba, width, textBoxes, k));
+      }
+    }
+  }
+
   const darkText = bestTone < 50;
   const hexAt = (tone: number): string => hexFromArgb(palette.tone(tone));
-  const needsPlate = worstContrast < PLATE_THRESHOLD;
 
   return {
     text: hexAt(bestTone),
-    ...(needsPlate ? { plate: hexAt(darkText ? 92 : 15) } : {}),
+    dim,
     primary: hexAt(darkText ? 30 : 90),
     onPrimary: hexAt(darkText ? 98 : 10),
     secondary: hexAt(darkText ? 90 : 25),

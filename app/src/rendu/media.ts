@@ -110,8 +110,8 @@ function progressRow(a: Ancre | null): TemplateResult | '' {
     data-mvt="detail:media-progression">
     <div class="media-barre"><div class="media-barre-plein"></div></div>
     <div class="media-temps">
-      <span class="media-ecoule plaque" data-tone-box>${formatMediaTime(elapsed)}</span>
-      <span class="media-reste plaque" data-tone-box>${remaining(a, elapsed)}</span>
+      <span class="media-ecoule" data-tone-box>${formatMediaTime(elapsed)}</span>
+      <span class="media-reste" data-tone-box>${remaining(a, elapsed)}</span>
     </div>
   </div>`;
 }

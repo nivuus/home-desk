@@ -949,7 +949,8 @@ body {
    - `--mc-*`: the tones of an image card, set only when they are ready (`tones.ts`);
    - `--c-*`: a solid card, pointed at its token's `--carte-<token>-*` values below.
    Never a gradient on any surface here — a gradient bands on the 6-bit panels of the Fire 7
-   tablets (`base.css`) — and the image is shown untouched: no veil, no reduced opacity. */
+   tablets (`base.css`). The image is blurred, and dimmed only when its text needs it
+   (`poster-filter.ts`, owner's choice of 2026-10-28): never a veil, never a plate. */
 .carte { position: relative; overflow: hidden; isolation: isolate; box-sizing: border-box;
   width: 311px; height: 264px; flex: none; border-radius: 28px; padding: 8px 16px;
   background: var(--c-fond, var(--md-primary-container));
@@ -957,9 +958,10 @@ body {
   display: flex; flex-direction: column; gap: 8px; }
 /* The image: a `cover` background layer UNDER the content (`z-index: -1` inside the stacking
    context `isolation` opens), never an <img> in the flow. Its pixels are what
-   `poster-sampler.ts` measures under the text boxes: the layer must stay exactly the card's
-   border box, so no inset, no transform. */
-.carte-image { position: absolute; inset: 0; z-index: -1; background-size: cover;
+   `poster-sampler.ts` measures under the text boxes, so its overhang (`inset`) and its `filter`
+   are set inline by `rendu/card-frame.ts` from `poster-filter.ts`, never here, and the layer
+   takes no transform. */
+.carte-image { position: absolute; z-index: -1; background-size: cover;
   background-position: center; }
 
 /* Every ancestor of a tone box up to `.carte` stays unpositioned: `boot/card-tones.ts` measures
@@ -988,14 +990,9 @@ body {
 .carte .sous-titre { font-size: 12px; font-weight: 500; line-height: 1.2; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; }
 
-/* The text plate (spec 2026-10-23, "Fond de texte conditionnel"): a solid background fitted to
-   the text, painted only when the text alone cannot reach 5:1 over the image. Its padding is
-   ALWAYS there — only its background changes — so the plate never moves the layout, and the
-   boxes `boot/card-tones.ts` measures are the same with and without it. The negative margin
-   keeps the text itself aligned with the discs below. */
-.carte .plaque { display: block; width: fit-content; max-width: calc(100% + 12px);
-  box-sizing: border-box; padding: 1px 6px; margin-inline: -6px; border-radius: 6px;
-  background: var(--mc-plate, transparent); }
+/* A tone box is fitted to its text: `tones.ts` measures the pixels under it, and a box as wide
+   as its row would bill the dimming for pixels no letter covers. */
+.carte [data-tone-box] { display: block; width: fit-content; max-width: 100%; }
 
 /* Three fixed 62 px columns: the primary stays centred and the side buttons keep their edge
    whichever of them exist. */
@@ -1026,7 +1023,7 @@ body {
    the page. Its dots sit inside the card, at the end of the label row (a row under the card would
    add to the 264 px the budget bills): a solid pill in the disc pair, so the dots keep the icons'
    4.5:1 on any picture (`verifier-carte-media.mjs`), the current one elongated. The pill is never
-   taller than the label line (11 px × 1.2 + the plate's 2 px). Flat: no shadow, no gradient. */
+   taller than the label line (11 px × 1.2). Flat: no shadow, no gradient. */
 .pile > .carte { touch-action: pan-y; }
 .carte .ligne-etiquette { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .carte .ligne-etiquette .etiquette { flex: 0 1 auto; min-width: 0; }
@@ -1098,7 +1095,7 @@ body {
   overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
 /* The media card (`rendu/media.ts`), redesigned on 2026-10-24 (spec 2026-10-23, "piste C"):
-   its own rows only. The frame — size, padding, header, plates, discs, poster layer — is the
+   its own rows only. The frame — size, padding, header, tone boxes, discs, poster layer — is the
    shared card frame's (`cards.css`); the media card's root carries `.carte.media`.
 
    COLOURS. Each colour is a `--mc-*` custom property set on the card ONLY when the poster's tones

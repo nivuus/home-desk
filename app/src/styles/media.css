@@ -1,5 +1,5 @@
 /* The media card (`rendu/media.ts`), redesigned on 2026-10-24 (spec 2026-10-23, "piste C"):
-   its own rows only. The frame — size, padding, header, plates, discs, poster layer — is the
+   its own rows only. The frame — size, padding, header, tone boxes, discs, poster layer — is the
    shared card frame's (`cards.css`); the media card's root carries `.carte.media`.
 
    COLOURS. Each colour is a `--mc-*` custom property set on the card ONLY when the poster's tones

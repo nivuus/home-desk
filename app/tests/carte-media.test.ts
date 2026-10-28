@@ -10,6 +10,7 @@ import type { SourceResolue } from '../src/media';
 import type { ToneState } from '../src/rendu/poster-sampler';
 import type { CardTones } from '../src/tones';
 import { PENDING_MS } from '../src/rendu/media-volume';
+import { POSTER_BLEED_PX, posterFilter } from '../src/poster-filter';
 
 const BASE: SourceResolue = {
   nom: 'Télévision', piece: 'Chambre', joue: true, active: true, allumee: true,
@@ -23,7 +24,7 @@ const BASE: SourceResolue = {
 };
 
 const TONES: CardTones = {
-  text: '#101010', primary: '#303030', onPrimary: '#fafafa', secondary: '#e0e0e0',
+  text: '#101010', dim: 1, primary: '#303030', onPrimary: '#fafafa', secondary: '#e0e0e0',
   onSecondary: '#101010', worstContrast: 7,
 };
 const READY: ToneState = { status: 'ready', tones: TONES };
@@ -132,11 +133,9 @@ describe('media card — layout', () => {
     expect(boites).toEqual(['etiquette', 'titre', 'sous-titre', 'media-ecoule', 'media-reste', 'media-niveau-texte']);
   });
 
-  it('the plate is always there, on every text box', () => {
+  it('no text box has a plate any more (refused on 2026-10-28)', () => {
     for (const tones of [READY, PENDING]) {
-      for (const el of Array.from(rendre(BASE, tones).querySelectorAll('[data-tone-box]'))) {
-        expect(el.classList.contains('plaque')).toBe(true);
-      }
+      expect(rendre(BASE, tones).querySelector('.plaque')).toBeNull();
     }
   });
 });
@@ -178,18 +177,23 @@ describe('media card — poster tones', () => {
     expect(sans.style.getPropertyValue('--mc-primary')).toBe('');
   });
 
-  it('plate background only when tones carry a plate', () => {
-    expect(rendre(BASE, READY).style.getPropertyValue('--mc-plate')).toBe('');
-    const c = rendre(BASE, { status: 'ready', tones: { ...TONES, plate: '#eeeeee' } });
-    expect(c.style.getPropertyValue('--mc-plate')).toBe('#eeeeee');
+  it('the poster layer takes the shared blur and bleed, and the dimming only when asked', () => {
+    // Read from the attribute: jsdom's CSSOM drops `inset` and `filter` values it does not know.
+    const layer = (tones: ToneState) => rendre(BASE, tones).querySelector('.carte-image')!.getAttribute('style')!;
+    expect(layer(READY)).toContain(`inset:-${POSTER_BLEED_PX}px`);
+    expect(layer(READY)).toContain(`filter:${posterFilter(1)}`);
+    expect(layer(READY)).not.toContain('brightness');
+    expect(layer({ status: 'ready', tones: { ...TONES, dim: 0.82 } })).toContain(`filter:${posterFilter(0.82)}`);
+    expect(posterFilter(0.82)).toMatch(/^blur\(\d+px\) brightness\(0\.82\)$/);
   });
 
-  it('the plate rule reads --mc-plate and is transparent by default, the padding unconditional', () => {
-    const css = readFileSync(join(process.cwd(), 'src/styles/cards.css'), 'utf8');
-    const regle = /\.carte \.plaque\s*\{([^}]*)\}/.exec(css);
-    expect(regle, '.carte .plaque rule').not.toBeNull();
-    expect(regle![1]).toMatch(/background:\s*var\(--mc-plate,\s*transparent\)/);
-    expect(regle![1]).toMatch(/padding:/);
+  it('a tone box is fitted to its text and has no background of its own', () => {
+    const css = readFileSync(join(process.cwd(), 'src/styles/cards.css'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+    const regle = /\.carte \[data-tone-box\]\s*\{([^}]*)\}/.exec(css);
+    expect(regle, '.carte [data-tone-box] rule').not.toBeNull();
+    expect(regle![1]).toMatch(/width:\s*fit-content/);
+    expect(css).not.toMatch(/--mc-plate|\.plaque/);
   });
 
   it('no gradient, no opacity on the poster, no veil', () => {
@@ -316,9 +320,16 @@ describe('urlSure (poster hardening)', () => {
   });
 
   it('the rendered attribute cannot leave its CSS declaration', () => {
+    // The layer's own declarations (poster, bleed, filter) are those of a harmless URL: a hostile
+    // one must not add any.
+    const proprietes = (affiche: string) => {
+      const couche = rendre({ ...BASE, affiche }).querySelector('.carte-image') as HTMLElement;
+      return Array.from({ length: couche.style.length }, (_, i) => couche.style.item(i));
+    };
     const couche = rendre({ ...BASE, affiche: "/x.png');opacity:0;--y:('" })
       .querySelector('.carte-image') as HTMLElement;
     expect(couche.style.opacity).toBe('');
-    expect(couche.style.length, `declarations: ${couche.getAttribute('style')}`).toBe(1);
+    expect(proprietes("/x.png');opacity:0;--y:('"), `declarations: ${couche.getAttribute('style')}`)
+      .toEqual(proprietes('/x.png'));
   });
 });
