@@ -26,6 +26,16 @@ export const ENTREE_MS = 350;
 /** TOUJOURS plus courte que l'entrée : un écran doit se remplir, pas se vider. */
 export const SORTIE_MS = 120;
 export const CROISEMENT_MS = 320;
+/** MD3's FADE THROUGH, for a block or a tile whose box changes (the car card replaced by the door
+ *  alert, the tall door tile that becomes a short one): the old content leaves FIRST, then the new
+ *  one comes in. Crossing them at the same time printed one text over the other, both half
+ *  transparent, with the page showing through. Same total as `CROISEMENT_MS`. */
+export const FONDU_SORTANT_MS = 90;
+export const FONDU_ENTRANT_MS = 230;
+/** The easing of a full-screen slide: a deceleration that never passes its target. The spatial
+ *  spring (`SPATIAL`) overshoots by 8 % — on a 343 px view, 27 px past the edge, which uncovered a
+ *  strip of the view underneath on the opposite side. */
+export const EFFET_VUE = 'cubic-bezier(.05, .7, .1, 1)';
 export const TRAVERSEE_MS = 320;
 export const ROULEMENT_MS = 140;
 export const DEPLACEMENT_MS = 350;

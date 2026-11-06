@@ -28,6 +28,12 @@ export type Marque = {
    *  SOUS le même nœud (`chiffre` — et, tâche 7, `bloc`) en ont besoin ; les autres n'en paient pas
    *  le coût. */
   copie?: HTMLElement;
+  /** The declarations of this mark's MARKED ancestors, read at the survey while the tree is whole.
+   *  `comparer()` decides with them that a mark leaves or enters WITH its container: checking
+   *  containment on the elements afterwards fails as soon as `lit` reuses the container node and
+   *  drops the child (the media card turned into another card by a swipe: its volume buttons,
+   *  detached, were no longer "inside" anything and left as ghosts of their own). */
+  ancetres: string[];
 };
 
 /** Rôles dont le glyphe/contenu peut être réécrit EN PLACE par `lit`, d'où le besoin d'une copie
@@ -147,7 +153,17 @@ export function lireMarques(
       el, position: positionDe(el, racine), taille: tailleDe(el),
       rang: rang++,
       copie: ROLES_AVEC_COPIE.includes(role) ? copieFigee(el) : undefined,
+      ancetres: ancetresMarques(el, racine),
     });
   }
   return marques;
+}
+
+/** The `data-mvt` declarations of the marked ancestors of `el`, up to `racine` excluded. */
+function ancetresMarques(el: HTMLElement, racine: HTMLElement): string[] {
+  const out: string[] = [];
+  for (let p = el.parentElement; p !== null && p !== racine; p = p.parentElement) {
+    if (p.dataset.mvt) out.push(p.dataset.mvt);
+  }
+  return out;
 }

@@ -11,7 +11,7 @@ import { sourceOf } from '../cards/media';
 import { timerOf } from '../cards/timer';
 import { frameCard } from '../stack/collect';
 import { followStack, touchStack, RETURN_MS } from '../stack/follow';
-import { attachSwipe, type SwipeHandlers } from '../stack/swipe';
+import { attachSwipe, SLIDE_MS, type SwipeHandlers } from '../stack/swipe';
 import type { Card } from '../stack/types';
 import { afterCardPaint } from './card-tones';
 import { horlogeMonotone } from './constants';
@@ -74,7 +74,11 @@ function bindSwipe(s: ScreenState, pile: HTMLElement | null): void {
     s.stackSwipe.h.index = index;
     return;
   }
-  const h: SwipeHandlers = { count, index, onChange: (i) => choose(s, i), onTouch: () => touched(s) };
+  const h: SwipeHandlers = {
+    count, index, onChange: (i) => choose(s, i), onTouch: () => touched(s),
+    // The leaving card follows the finger out; the engine then leaves this change to the swipe.
+    onLeave: (direction) => s.moteur.emporter(pile, direction, SLIDE_MS),
+  };
   s.stackSwipe = { el: pile, h, detach: attachSwipe(pile, h, s.d.minuteurFn) };
 }
 

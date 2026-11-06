@@ -326,13 +326,12 @@ body {
   height: 64px; border-radius: var(--sh-xl); padding: 0 15px; display: flex;
   align-items: center; gap: 11px; background: var(--mvt-fond-inactif);
   color: var(--md-on-surface);
-  /* `color 0s .3s` — le texte bascule à la FIN du fondu de fond, jamais pendant. `lit` peint la
-     tuile dans son état d'arrivée avant tout mouvement : sans ce délai, le texte prend la couleur
-     d'arrivée à la première image pendant que le fond porte encore celle du départ — du blanc sur
-     `#d8dee0`, soit environ 1,6:1 contre un plancher projet de 5:1. Fondre les deux couleurs
-     ENSEMBLE a été essayé et mesuré : à mi-parcours elles se moyennent et le texte devient plus
-     terne que le défaut qu'on corrige. Il tient, puis il cède. */
-  transition: background .3s, color 0s .3s, border-radius .2s var(--ressort);
+  /* No transition of background or colour (2026-11-06): a state change swaps the WHOLE tile in
+     the motion engine (`mutation` of `tuile`, `mouvement/croisement.ts`), so background, text,
+     icon and gauge always belong to one same state. The former `background .3s, color 0s .3s`
+     protected switching ON and broke switching OFF: white text on a nearly white tile for
+     150 ms, then a snap to black. */
+  transition: border-radius .2s var(--ressort);
   /* `.s` (ci-dessous) est bornée à 2 lignes : sans cet `overflow: hidden`, un état texte long
      déborderait du cadre de 150,5 px de la tuile au lieu d'y rester tenu dedans. */
   overflow: hidden; }

@@ -168,25 +168,25 @@ describe('smoke rendreCorps', () => {
     expect(commandes).toHaveLength(1);   // seule light.lumiere_salon reste
   });
 
-  // Tâche 3 (mouvement, 2026-08-22) — LE BALAYAGE A DISPARU. `data-mvt-etat` sur la tuile n'avait
-  // plus qu'un seul lecteur (`moteur.ts`, pour NOMMER les deux couches du balayage) : leur
-  // suppression rend cet attribut mort sur la tuile, jamais recopié à tort par un futur ajout de
-  // rôle qui en aurait encore besoin (`chiffre`/`bloc`, eux, le posent toujours ailleurs).
-  //
-  // I3 (revue finale) — DÉSARMÉ EN SILENCE avec `[data-mvt^="tuile:"]` seul : depuis le marquage
-  // des ambiances (tâche 7), la PREMIÈRE tuile en ordre document est une tuile d'ambiance
-  // (`tuile:amb-<entité>`, `corps.ts`), qui n'a JAMAIS porté `data-mvt-etat` — l'assertion restait
-  // donc vraie quelle que soit l'implémentation de la tuile de commande, la seule que ce test
-  // prétend couvrir. `.commande[data-mvt^="tuile:"]` ancre le sélecteur sur la classe de
-  // l'élément visé, pas sur le premier `tuile:` rencontré dans le document.
-  it('une tuile de commande ne porte plus d\'état de mouvement — le balayage a disparu', () => {
-    const etat = new Etat();
-    etat.appliquer(ev('light.lumiere_salon', 'on'));
-    const div = document.createElement('div');
-    render(rendreCorps(etat, ECRANS.salon), div);
-    const tuile = div.querySelector('.commande[data-mvt^="tuile:"]') as HTMLElement;
-    expect(tuile).not.toBeNull();
-    expect(tuile.dataset.mvtEtat).toBeUndefined();
+  // 2026-11-06 — the tile carries again a motion state, for another reader: the engine swaps the
+  // whole tile when what it SHOWS of its state changes (colour, label, gauge, height), so these
+  // never change one after the other. `.commande[data-mvt^="tuile:"]`: the first `tuile:` in
+  // document order is an ambience tile, which carries no state.
+  it('une tuile de commande porte tout ce qu\'elle montre de son état, et en change avec lui', () => {
+    const lire = (etatLampe: string) => {
+      const etat = new Etat();
+      etat.appliquer(ev('light.lumiere_salon', etatLampe));
+      const div = document.createElement('div');
+      render(rendreCorps(etat, ECRANS.salon), div);
+      const tuile = div.querySelector(
+        '.commande[data-mvt="tuile:light.lumiere_salon"]') as HTMLElement;
+      return { etat: tuile.dataset.mvtEtat, libelle: tuile.querySelector('.s')!.textContent! };
+    };
+    const allumee = lire('on');
+    const eteinte = lire('off');
+    expect(allumee.etat).toContain(allumee.libelle);
+    expect(eteinte.etat).toContain(eteinte.libelle);
+    expect(allumee.etat).not.toBe(eteinte.etat);
   });
 
   it('ligneSynthese reste permanente (texte non vide) même sans aucune entité', () => {
