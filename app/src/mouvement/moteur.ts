@@ -1,16 +1,16 @@
 import { render } from 'lit';
-import { AMPLITUDE_PX, DEPLACEMENT_MS, DETAIL_MS, EFFET, EFFET_SORTIE, EFFET_VUE, ENTREE_MS,
+import { AMPLITUDE_PX, DEPLACEMENT_MS, DETAIL_MS, EFFET, EFFET_SORTIE, VIEW_EASING, ENTREE_MS,
          GARDE_MS, GLISSE_VUE_PX, ROULEMENT_MS, SORTIE_MS, SPATIAL, TRAVERSEE_MS,
          retardCascade, type Role } from './grammaire';
 import { lireMarques, positionReelle, tailleReelle,
          type Marque, type Position, type Taille } from './marques';
 import { comparer, type Verdict } from './diff';
 import { creerCalque } from './fantomes';
-import { creerCroiseur, type AnimationLike } from './croisement';
-import { creerPalette } from './palette';
+import { createSwapper, type AnimationLike } from './swap';
+import { createPaletteFade } from './palette-fade';
 import { niveauDemande, type Niveau } from '../mouvement';
 
-export type { AnimationLike } from './croisement';
+export type { AnimationLike } from './swap';
 
 export type OptionsMoteur = {
   rendre?: (gabarit: unknown, hote: HTMLElement) => void;
@@ -50,12 +50,12 @@ export type Moteur = {
    *  peinture repart alors comme une première : elle mémorise et se tait, exactement comme au
    *  montage. */
   oublier: () => void;
-  /** Takes `el` off the screen in the direction of a swipe (`sens`: -1 left, 1 right), from where
+  /** Takes `el` off the screen in the direction of a swipe (-1 left, 1 right), from where
    *  the finger left it, and keeps the NEXT painting from animating anything inside `el` — the
    *  swipe carries that change, its new content slides in from the other side. Without it, the
    *  card the finger had pushed aside reappeared at once in the middle, opaque, as the ghost of a
    *  block crossing (the engine reads layout positions, which ignore the finger's transform). */
-  emporter: (el: HTMLElement, sens: -1 | 1, dureeMs: number) => void;
+  carryOff: (el: HTMLElement, direction: -1 | 1, durationMs: number) => void;
 };
 
 const animationReelle = (
@@ -149,10 +149,10 @@ export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): M
   racine.appendChild(hoteFond);
   const calqueFond = creerCalque(hoteFond);
   const decoder = options.decoder ?? ((img: HTMLImageElement) => img.decode());
-  const basculerPalette = creerPalette(racine, estMasquee, minuteurFn);
-  const croiseur = creerCroiseur({ calque, animer, minuteurFn, decoder });
-  /** The element whose content the next painting must not animate (`emporter`). */
-  let silence: HTMLElement | null = null;
+  const basculerPalette = createPaletteFade(racine, estMasquee, minuteurFn);
+  const swapper = createSwapper({ layer: calque, animate: animer, timer: minuteurFn, decode: decoder });
+  /** The element whose content the next painting must not animate (`carryOff`). */
+  let muted: HTMLElement | null = null;
 
   // Tâche 8 — la traversée de vue n'a pas de `marque` au sens des autres verdicts (elle porte
   // `sortante`/`entrante`, jamais `marque`) : on la fonde sur le rôle `vue`, seul rôle qu'aucune
@@ -248,7 +248,7 @@ export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): M
       // que rendre le geste flou. Un seul objet bouge, et il vient d'un bord.
       const a = animer(v.entrante.el,
         [{ transform: `translateX(${signe * GLISSE_VUE_PX}px)` }, { transform: 'none' }],
-        { duration: TRAVERSEE_MS, easing: EFFET_VUE });
+        { duration: TRAVERSEE_MS, easing: VIEW_EASING });
       // Relâché sur la fin de l'animation de L'ENTRANTE — c'est elle qui porte le geste
       // maintenant, et le fond n'a plus de raison d'être une fois qu'elle est en place. Sans ce
       // `finished`, le clone survivrait jusqu'au minuteur de garde : il porte encore les `class` et
@@ -263,26 +263,26 @@ export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): M
       return;
     }
     if (v.type === 'croisement') {
-      croiseur.changer(v.sortante, v.entrante);
+      swapper.swap(v.sortante, v.entrante);
       return;
     }
-    // v.type === 'mutation'. `v.marque` is the survey AFTER the painting: `lit` has already
-    // rewritten the node. The old content only lives in `avant`, frozen before this `render()`.
-    const ancienne = avant.get(`${v.marque.role}:${v.marque.cle}`);
-    if (v.marque.role === 'bloc') { croiseur.changerApresAffiche(ancienne, v.marque); return; }
+    // v.type === 'mutation'. Its mark is the survey AFTER the painting: `lit` has already
+    // rewritten the node. The old content only lives in the survey taken before this `render()`.
+    const old = avant.get(`${v.marque.role}:${v.marque.cle}`);  // policy: allow-fr
+    if (v.marque.role === 'bloc') { swapper.swapAfterPoster(old, v.marque); return; }
     // A command tile that changes state (colour, label, gauge, height): the whole tile swaps, so
     // its text, its icon, its background and its gauge always belong to one same state. The CSS
     // transitions it replaces faded the background alone, switched the text colour at the END of
     // that fade (`color 0s .3s`) and changed the label and the gauge at once: switching a light
     // off left white text on a nearly white tile for 150 ms, then snapped it to black.
-    if (v.marque.role === 'tuile') { croiseur.changer(ancienne, v.marque); return; }
+    if (v.marque.role === 'tuile') { swapper.swap(old, v.marque); return; }
     if (v.marque.role !== 'chiffre') return;
     // Never touch `lit`'s text node (what froze the screen half a day in the time of
-    // `animerNombres`, see `src/mouvement.ts`). The old glyph leaves as a clone, the new one —
+    // the old number animator, see `src/mouvement.ts`). The old glyph leaves as a clone, the new one —
     // already rendered — comes in from below. Both are CLIPPED to the glyph's box (`clip-path`,
     // animated with the translation): unclipped, the old minute rose over the header while the
     // new one climbed through it.
-    const f = ancienne ? calque.fantomer(ancienne) : null;
+    const f = old ? calque.fantomer(old) : null;
     if (f !== null) {
       const a = animer(f,
         [{ transform: 'none', opacity: 1, clipPath: 'inset(0 0 0 0)' },
@@ -395,12 +395,12 @@ export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): M
 
     // Le rendu lui-même : jamais rejoué s'il vient d'échouer (`rendreSansExploser` l'a déjà
     // consigné et désactivé le moteur) — un seul appel à `rendre` par peinture, réussi ou non.
-    // The content a swipe already carries (`emporter`): one painting, then the engine is back.
-    const tu = silence;
-    silence = null;
-    let tues: Set<string>;
+    // The content a swipe already carries (`carryOff`): one painting, then the engine is back.
+    const mutedEl = muted;
+    muted = null;
+    let mutedKeys: Set<string>;
     try {
-      tues = preparerAvant(avant, tu);
+      mutedKeys = prepareBefore(avant, mutedEl);  // policy: allow-fr
     } catch (e) {
       desactiver(e);
       rendreSansExploser(gabarit);
@@ -414,8 +414,8 @@ export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): M
       const apres = lireMarques(racine, positionDe, tailleDe);
       // Première peinture : rien à comparer, on mémorise et on se tait.
       if (precedentes !== null) {
-        for (const v of comparer(avant, apres)) {
-          if (tu === null || !touche(v, tu, tues)) jouer(v, avant);
+        for (const v of comparer(avant, apres)) {  // policy: allow-fr
+          if (mutedEl === null || !isMuted(v, mutedEl, mutedKeys)) jouer(v, avant);  // policy: allow-fr
         }
       }
       precedentes = apres;
@@ -429,53 +429,53 @@ export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): M
    *  - a TILE is rewritten in place by `lit`, so its old look is cloned now, just before the
    *    painting — never at the previous survey, which a gauge slid by the finger since then
    *    (`geste.ts` writes `--jauge` directly) would contradict;
-   *  - the declarations inside the silenced element are listed while they are still inside it:
+   *  - the declarations inside the muted element are listed while they are still inside it:
    *    after the painting, the nodes that left are detached and inside nothing. */
-  function preparerAvant(avant: Map<string, Marque>, tu: HTMLElement | null): Set<string> {
-    const tues = new Set<string>();
-    for (const [decl, m] of avant) {
+  function prepareBefore(before: Map<string, Marque>, mutedEl: HTMLElement | null): Set<string> {
+    const keys = new Set<string>();
+    for (const [decl, m] of before) {
       if (m.role === 'tuile' && m.el.isConnected) m.copie = m.el.cloneNode(true) as HTMLElement;
-      if (tu !== null && tu.contains(m.el)) tues.add(decl);
+      if (mutedEl !== null && mutedEl.contains(m.el)) keys.add(decl);
     }
-    return tues;
+    return keys;
   }
 
-  /** True when the verdict concerns content inside the silenced element. */
-  function touche(v: Verdict, tu: HTMLElement, tues: Set<string>): boolean {
-    const dedans = (m: Marque) => tues.has(`${m.role}:${m.cle}`) || tu.contains(m.el);
+  /** True when the verdict concerns content inside the muted element. */
+  function isMuted(v: Verdict, mutedEl: HTMLElement, keys: Set<string>): boolean {
+    const inside = (m: Marque) => keys.has(`${m.role}:${m.cle}`) || mutedEl.contains(m.el);
     if (v.type === 'traversee') return false;
-    if (v.type === 'croisement') return dedans(v.sortante) || dedans(v.entrante);
-    return dedans(v.marque);
+    if (v.type === 'croisement') return inside(v.sortante) || inside(v.entrante);
+    return inside(v.marque);
   }
 
-  function emporter(el: HTMLElement, sens: -1 | 1, dureeMs: number): void {
-    silence = el;
-    let masquee = false;
-    try { masquee = !actif || niveauInitial === 'aucun' || estMasquee(); } catch { masquee = true; }
-    if (masquee) return;
+  function carryOff(el: HTMLElement, direction: -1 | 1, durationMs: number): void {
+    muted = el;
+    let hidden = false;
+    try { hidden = !actif || niveauInitial === 'aucun' || estMasquee(); } catch { hidden = true; }
+    if (hidden) return;
     try {
       // Where the finger left it: the bounding rect includes the swipe's transform, which the
       // layout positions of the survey ignore. The clone drops that transform, its box carries it.
       const r = el.getBoundingClientRect();
       const o = racine.getBoundingClientRect();
-      const copie = el.cloneNode(true) as HTMLElement;
-      copie.style.transform = '';
-      const f = calque.fantomer({
-        role: 'bloc', cle: 'emporte', etat: null, el, copie, rang: 0, ancetres: [],
-        position: [r.left - o.left, r.top - o.top], taille: [r.width, r.height],
+      const clone = el.cloneNode(true) as HTMLElement;
+      clone.style.transform = '';
+      const ghost = calque.fantomer({
+        role: 'bloc', cle: 'carried', etat: null, el, copie: clone, rang: 0, ancetres: [],
+        position: [r.left - o.left, r.top - o.top], taille: [r.width, r.height],  // policy: allow-fr
       });
-      if (f === null) return;
+      if (ghost === null) return;
       // To fully past the edge of the screen on the side it was pushed towards.
-      const distance = sens < 0 ? -(r.right - o.left) : o.right - r.left;
-      const a = animer(f, [{ transform: 'none' }, { transform: `translateX(${distance}px)` }],
-        { duration: dureeMs, easing: 'ease-out', fill: 'forwards' });
-      a.finished.finally(() => calque.relacher(f)).catch(() => {});
-      minuteurFn(() => calque.relacher(f), dureeMs + GARDE_MS);
+      const distance = direction < 0 ? -(r.right - o.left) : o.right - r.left;
+      const a = animer(ghost, [{ transform: 'none' }, { transform: `translateX(${distance}px)` }],
+        { duration: durationMs, easing: 'ease-out', fill: 'forwards' });
+      a.finished.finally(() => calque.relacher(ghost)).catch(() => {});
+      minuteurFn(() => calque.relacher(ghost), durationMs + GARDE_MS);
     } catch (e) {
       desactiver(e);
     }
   }
 
-  return { peindre, actif: () => actif, basculerPalette, emporter,
+  return { peindre, actif: () => actif, basculerPalette, carryOff,
            oublier: () => { precedentes = null; } };
 }

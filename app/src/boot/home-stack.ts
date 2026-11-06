@@ -77,7 +77,7 @@ function bindSwipe(s: ScreenState, pile: HTMLElement | null): void {
   const h: SwipeHandlers = {
     count, index, onChange: (i) => choose(s, i), onTouch: () => touched(s),
     // The leaving card follows the finger out; the engine then leaves this change to the swipe.
-    onLeave: (direction) => s.moteur.emporter(pile, direction, SLIDE_MS),
+    onLeave: (direction) => s.moteur.carryOff(pile, direction, SLIDE_MS),
   };
   s.stackSwipe = { el: pile, h, detach: attachSwipe(pile, h, s.d.minuteurFn) };
 }

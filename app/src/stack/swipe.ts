@@ -26,7 +26,7 @@ const END_RESISTANCE = 0.25;
 export type SwipeHandlers = {
   count: number; index: number; onChange(index: number): void; onTouch(): void;
   /** Called just before `onChange`, while the card is still where the finger left it: the card
-   *  that leaves goes on towards `direction` (the motion engine's `emporter`). */
+   *  that leaves goes on towards `direction` (the motion engine's `carryOff`). */
   onLeave?(direction: -1 | 1): void;
 };
 

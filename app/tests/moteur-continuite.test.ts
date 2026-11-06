@@ -4,7 +4,7 @@
  *  slide overshooting the edge, and the swiped card coming back in the middle of the stack. */
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { creerMoteur, type OptionsMoteur } from '../src/mouvement/moteur';
-import { EFFET_VUE } from '../src/mouvement/grammaire';
+import { VIEW_EASING } from '../src/mouvement/grammaire';
 import { attachSwipe } from '../src/stack/swipe';
 
 afterEach(() => { document.body.innerHTML = ''; });
@@ -56,9 +56,9 @@ describe('traversée de vue sans dépassement', () => {
     moteur.peindre('<div data-mvt="vue:accueil"></div>');
     moteur.peindre('<div data-mvt="vue:maison"></div>');
     expect(appels).toHaveLength(1);
-    expect(appels[0].options.easing).toBe(EFFET_VUE);
+    expect(appels[0].options.easing).toBe(VIEW_EASING);
     // A cubic-bezier never leaves [0, 1] when both its control ordinates stay inside it.
-    const ordonnees = /cubic-bezier\(([^)]*)\)/.exec(EFFET_VUE)![1].split(',').map(Number);
+    const ordonnees = /cubic-bezier\(([^)]*)\)/.exec(VIEW_EASING)![1].split(',').map(Number);
     expect([ordonnees[1], ordonnees[3]].every((y) => y >= 0 && y <= 1)).toBe(true);
   });
 });
@@ -75,7 +75,7 @@ describe('carte emportée par le glissé', () => {
     // jsdom lays nothing out: the box the finger left the card in, 200 px to the left.
     el.getBoundingClientRect = () => ({ left: -184, right: 127, top: 205, bottom: 469,
       width: 311, height: 264 }) as DOMRect;
-    moteur.emporter(el, -1, 180);
+    moteur.carryOff(el, -1, 180);
     // The clone keeps no transform of its own: its box is where the finger left the card.
     const parti = appels[0];
     expect(parti.el.parentElement?.id).toBe('mvt-fantomes');

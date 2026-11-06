@@ -27,9 +27,13 @@ const sensVers = (cle: string): 'droite' | 'gauche' => (cle === 'accueil' ? 'gau
  *
  *  Only for entries and exits. A move or a mutation under a parent that only moves is still
  *  played: a digit that rolls inside a block that moves are two distinct gestures. */
-function sousUnAncetre(m: Marque, ensemble: ReadonlySet<string>): boolean {
-  return m.ancetres.some((d) => ensemble.has(d));
+function sousUnAncetre(m: Marque, ensemble: Iterable<Marque>): boolean {
+  const keys = new Set([...ensemble].map(keyOf));
+  return m.ancetres.some((d) => keys.has(d));
 }
+
+/** The declaration of a mark, the key of a survey. */
+const keyOf = (m: Marque): string => `${m.role}:${m.cle}`;
 
 export function comparer(avant: Map<string, Marque>, apres: Map<string, Marque>): Verdict[] {
   const vAvant = vueDe(avant);
@@ -53,8 +57,8 @@ export function comparer(avant: Map<string, Marque>, apres: Map<string, Marque>)
   // Calculée UNE SEULE FOIS, hors de la boucle : `sousUnAncetre` est en O(n) par appel, et
   // recalculer les entrantes à chaque itération transformerait ce O(n) en O(n²) — un coût que la
   // tâche 7, qui fait grimper `n` d'un facteur important, rendrait sensible.
-  const entrantes = new Set([...apres.keys()]
-    .filter((d) => apres.get(d)!.role !== 'vue' && !avant.has(d)));
+  const entrantes = [...apres.values()]
+    .filter((m) => m.role !== 'vue' && !avant.has(`${m.role}:${m.cle}`));
 
   const verdicts: Verdict[] = [];
   for (const [decl, m] of apres) {
@@ -69,10 +73,9 @@ export function comparer(avant: Map<string, Marque>, apres: Map<string, Marque>)
     }
     if (a.etat !== m.etat) verdicts.push({ type: 'mutation', marque: m, avant: a.etat });
   }
-  const sortantes = new Set([...avant.keys()]
-    .filter((d) => avant.get(d)!.role !== 'vue' && !apres.has(d)));
-  for (const d of sortantes) {
-    const m = avant.get(d)!;
+  const sortantes = [...avant.values()]
+    .filter((m) => m.role !== 'vue' && !apres.has(`${m.role}:${m.cle}`));
+  for (const m of sortantes) {
     if (!sousUnAncetre(m, sortantes)) verdicts.push({ type: 'sortie', marque: m });
   }
 
