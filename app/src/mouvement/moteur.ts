@@ -8,6 +8,7 @@ import { comparer, type Verdict } from './diff';
 import { creerCalque } from './fantomes';
 import { createSwapper, type AnimationLike } from './swap';
 import { createPaletteFade } from './palette-fade';
+import { isMuted, prepareBefore, swapsOnChange } from './before-paint';
 import { niveauDemande, type Niveau } from '../mouvement';
 
 export type { AnimationLike } from './swap';
@@ -286,8 +287,9 @@ export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): M
     // its text, its icon, its background and its gauge always belong to one same state. The CSS
     // transitions it replaces faded the background alone, switched the text colour at the END of
     // that fade (`color 0s .3s`) and changed the label and the gauge at once: switching a light
-    // off left white text on a nearly white tile for 150 ms, then snapped it to black.
-    if (v.marque.role === 'tuile') { swapper.swap(old, v.marque); return; }
+    // off left white text on a nearly white tile for 150 ms, then snapped it to black. Any other
+    // mark opts in with `data-mvt-swap` (the summary line, a card, a chip: `before-paint.ts`).
+    if (v.marque.role === 'tuile' || swapsOnChange(v.marque.el)) { swapper.swap(old, v.marque); return; }
     if (v.marque.role !== 'chiffre') return;
     // Never touch `lit`'s text node (what froze the screen half a day in the time of
     // the old number animator, see `src/mouvement.ts`). The old glyph leaves as a clone, the new one —
@@ -435,29 +437,6 @@ export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): M
       desactiver(e);
       precedentes = null;
     }
-  }
-
-  /** Run on the survey BEFORE a painting, while its nodes still show the old content:
-   *  - a TILE is rewritten in place by `lit`, so its old look is cloned now, just before the
-   *    painting — never at the previous survey, which a gauge slid by the finger since then
-   *    (`geste.ts` writes `--jauge` directly) would contradict;
-   *  - the declarations inside the muted element are listed while they are still inside it:
-   *    after the painting, the nodes that left are detached and inside nothing. */
-  function prepareBefore(before: Map<string, Marque>, mutedEl: HTMLElement | null): Set<string> {
-    const keys = new Set<string>();
-    for (const [decl, m] of before) {
-      if (m.role === 'tuile' && m.el.isConnected) m.copie = m.el.cloneNode(true) as HTMLElement;
-      if (mutedEl !== null && mutedEl.contains(m.el)) keys.add(decl);
-    }
-    return keys;
-  }
-
-  /** True when the verdict concerns content inside the muted element. */
-  function isMuted(v: Verdict, mutedEl: HTMLElement, keys: Set<string>): boolean {
-    const inside = (m: Marque) => keys.has(`${m.role}:${m.cle}`) || mutedEl.contains(m.el);
-    if (v.type === 'traversee' || v.type === 'dissolve') return false;
-    if (v.type === 'croisement') return inside(v.sortante) || inside(v.entrante);
-    return inside(v.marque);
   }
 
   function carryOff(el: HTMLElement, direction: -1 | 1, durationMs: number): void {

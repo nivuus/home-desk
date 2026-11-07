@@ -45,11 +45,14 @@ import { S } from '../cards/strings';
  *  étant portée par la tuile « Recette » de la grille. Une NOTE (« Reste quinoa + légumes ») ou un
  *  simple produit n'a pas de recette : le bloc l'affiche mais reste inerte — un bloc qui répond au
  *  contact sans rien ouvrir serait le bouton mort que ce projet traque partout. */
+/** The motion state of each default block below is what it shows: the engine swaps the block
+ *  when it changes (`mouvement/swap.ts`), where its text used to change at once. */
 export function renderNextMeal(r: NextMeal | undefined): TemplateResult | undefined {
   if (!r || r.plat.trim() === '') return undefined;
   const ouvrable = r.recetteId !== null;
   return html`
     <div class="mode-bloc" data-zone="blocCentral" data-mvt="bloc:repas"
+         data-mvt-etat=${`${r.etiquette}|${r.plat}`}
          @pointerdown=${ouvrable ? () => { location.hash = '#recette'; } : null}>
       ${icone('repas')}
       <div class="mode-texte">
@@ -131,7 +134,8 @@ export function rendreEntretien(items: { uid: string; texte: string }[]): Templa
   const nommees = items.filter((i) => i.texte.trim() !== '');
   if (nommees.length === 0) return undefined;
   return html`
-    <div class="mode-bloc" data-zone="blocCentral" data-mvt="bloc:entretien">${icone('entretien')}
+    <div class="mode-bloc" data-zone="blocCentral" data-mvt="bloc:entretien"
+         data-mvt-etat=${nommees.map((i) => i.texte).join('|')}>${icone('entretien')}
       <div class="mode-texte">
         <div class="t">Entretien — ${nommees.length} tâche${nommees.length > 1 ? 's' : ''}</div>
         <div class="v deux-lignes">${nommees.map((i) => i.texte).join(' · ')}</div>
@@ -148,7 +152,8 @@ export function rendreProchainRdv(evenements: Evenement[], maintenant: Date): Te
     .sort((a, b) => a.quand - b.quand)[0];
   if (!prochain) return undefined;
   return html`
-    <div class="mode-bloc" data-zone="blocCentral" data-mvt="bloc:agenda">${icone('agenda')}
+    <div class="mode-bloc" data-zone="blocCentral" data-mvt="bloc:agenda"
+         data-mvt-etat=${`${prochain.e.debut}|${prochain.e.resume}`}>${icone('agenda')}
       <div class="mode-texte">
         <div class="t">Rendez-vous</div>
         <div class="v deux-lignes">${heureCourte(prochain.e.debut)} — ${prochain.e.resume}</div>

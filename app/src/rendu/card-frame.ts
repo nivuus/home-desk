@@ -33,6 +33,10 @@ export type CardButton = {
   icon: string; label: string; primary?: true; act: () => void; inert?: true;
   /** Motion-engine key of the button (`data-mvt`), when it animates on its own. */
   mvt?: string;
+  /** With `mvt`: what the button shows, under a key that stays (`media.ts`, play and pause share
+   *  one slot): the engine swaps its look when it changes, instead of an exit and an entry on a
+   *  node `lit` has already rewritten. */
+  state?: string;
   /** What holding the button does (`cardPress`): repeat, or its own `fire`. */
   hold?: HoldPress;
 };
@@ -95,8 +99,34 @@ function slot(b: CardButton | undefined): TemplateResult {
   const p = b.inert ? NO_PRESS : cardPress(b.act, b.hold);
   return html`<div class="bouton disque ${b.primary ? 'primaire' : ''} ${b.inert ? 'inerte' : ''}"
     role="button" aria-label=${b.label} ?inert=${b.inert === true} data-mvt=${ifDefined(b.mvt)}
+    data-mvt-etat=${ifDefined(b.state)} ?data-mvt-swap=${b.state !== undefined}
     @pointerdown=${p.onpointerdown} @pointermove=${p.onpointermove}
     @pointerup=${p.onpointerup} @pointercancel=${p.onpointercancel}>${icone(b.icon)}</div>`;
+}
+
+/** Collects the visible values of a template: its static strings and the values it renders,
+ *  nested templates and directive arguments included. Functions (event listeners) show nothing. */
+function collect(v: unknown, out: string[]): void {
+  if (v === null || v === undefined || typeof v === 'function' || typeof v === 'symbol') return;
+  if (typeof v !== 'object') { out.push(String(v)); return; }
+  if (Array.isArray(v)) { for (const x of v) collect(x, out); return; }
+  const t = v as { strings?: readonly string[]; values?: unknown };
+  if (t.strings !== undefined) out.push(t.strings.join('\u0002'));
+  if (Array.isArray(t.values)) collect(t.values, out);
+}
+
+/** What a card SHOWS, as one value, for a card that names no motion state of its own: the engine
+ *  swaps the whole card when it changes (`mouvement/swap.ts`). Without it, a card's content —
+ *  the car's charge, the printer's progress, a pantry list — changed at once under a stable key.
+ *  A card whose content changes every second states its own (`cards/timer.ts`), or each tick
+ *  would replay the swap. Hashed, so the attribute stays short (FNV-1a, 32 bits). */
+export function shownState(f: CardFrame): string {
+  const out = [f.label, f.title, f.subtitle ?? '', f.className ?? '', JSON.stringify(f.background)];
+  for (const b of f.buttons) out.push(b === undefined ? '-' : `${b.icon}/${b.inert ? 1 : 0}/${b.primary ? 1 : 0}`);
+  collect(f.middle, out);
+  let h = 0x811c9dc5;
+  for (const c of out.join('\u0001')) h = Math.imul(h ^ c.codePointAt(0)!, 0x01000193);
+  return (h >>> 0).toString(36);
 }
 
 /** `position`: the stack's dots (`rendu/stack.ts`), drawn at the end of the label row so the
@@ -113,7 +143,8 @@ export function renderCardFrame(f: CardFrame, position?: TemplateResult): Templa
   // card that is no longer late (paused, a minute added) gets its colour back.
   return html`<section class="carte ${f.className ?? ''} ${image !== undefined ? 'avec-image' : ''}"
       style=${live(style)} data-zone="blocCentral" data-card=${f.key}
-      data-mvt=${ifDefined(f.motion?.block)} data-mvt-etat=${ifDefined(f.motion?.state)}>
+      data-mvt=${ifDefined(f.motion?.block)}
+      data-mvt-etat=${ifDefined(f.motion === undefined ? undefined : f.motion.state ?? shownState(f))}>
     ${image !== undefined
       // A background layer, never an <img> in the flow: a replaced element would take part in the
       // layout, and `poster-sampler.ts` measures exactly this layer, blur included.

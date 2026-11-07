@@ -131,3 +131,56 @@ describe('carte emportée par le glissé', () => {
     expect(onLeave).not.toHaveBeenCalled();
   });
 });
+
+import { html } from 'lit';
+import { shownState, type CardFrame } from '../src/rendu/card-frame';
+import { frame as timerFrame } from '../src/cards/timer';
+import { frameWith, screenWith, running } from './card-aides';
+
+describe('fondu croisé sur demande (data-mvt-swap)', () => {
+  it('une ligne qui le demande croise son texte ; sans la demande, rien ne joue', () => {
+    const { moteur, appels } = moteurDeTest();
+    moteur.peindre('<div data-mvt="ligne:synthese" data-mvt-swap data-mvt-etat="a">rideau ouvert</div>'
+      + '<div data-mvt="ligne:t1" data-mvt-etat="repos"></div>');
+    moteur.peindre('<div data-mvt="ligne:synthese" data-mvt-swap data-mvt-etat="b">tout est fermé</div>'
+      + '<div data-mvt="ligne:t1" data-mvt-etat="armee"></div>');
+    expect(appels).toHaveLength(1);
+    expect(appels[0].el.textContent).toBe('rideau ouvert');
+    expect(appels[0].trames).toEqual([{ opacity: 1 }, { opacity: 0 }]);
+  });
+
+  // A card button takes its disc colour from custom properties set on the card: reparented under
+  // the ghost layer, its clone would lose them.
+  it('le fantôme garde les couleurs résolues de l\'élément, qu\'il perdrait hors de ses ancêtres', () => {
+    const { racine, moteur, appels } = moteurDeTest();
+    racine.style.setProperty('--disque', 'rgb(1, 2, 3)');
+    moteur.peindre('<div data-mvt="detail:tr-middle" data-mvt-swap data-mvt-etat="pause" '
+      + 'style="background-color: var(--disque); color: rgb(4, 5, 6)">II</div>');
+    moteur.peindre('<div data-mvt="detail:tr-middle" data-mvt-swap data-mvt-etat="lecture" '
+      + 'style="background-color: var(--disque); color: rgb(4, 5, 6)">▶</div>');
+    const fantome = appels[0].el;
+    expect(fantome.textContent).toBe('II');
+    expect(fantome.style.color).toBe('rgb(4, 5, 6)');
+  });
+});
+
+describe('état de mouvement des cartes', () => {
+  const carte = (km: string, act = () => {}): CardFrame => ({
+    key: 'voiture', label: 'Voiture', title: '85 %', middle: html`<b>${km}</b> km`,
+    buttons: [{ icon: 'clim', label: 'Clim', act }, undefined, undefined],
+    background: { kind: 'solid', token: 'neutral' }, motion: { block: 'bloc:voiture' },
+  });
+
+  it('change avec ce que la carte montre, jamais avec ses gestionnaires', () => {
+    expect(shownState(carte('250'))).not.toBe(shownState(carte('248')));
+    expect(shownState(carte('250', () => 1))).toBe(shownState(carte('250', () => 2)));
+  });
+
+  it('le minuteur nomme le sien, sans son décompte : chaque seconde rejouerait le fondu', () => {
+    const card = { key: 'minuteur:timer.cuisine', type: 'minuteur', rank: 1 } as const;
+    const a = timerFrame(card, frameWith({ timers: [running('timer.cuisine', 300)] }), screenWith());
+    const b = timerFrame(card, frameWith({ timers: [running('timer.cuisine', 299)] }), screenWith());
+    expect(a.motion?.state).toBeDefined();
+    expect(a.motion?.state).toBe(b.motion?.state);
+  });
+});

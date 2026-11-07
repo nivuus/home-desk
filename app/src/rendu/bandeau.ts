@@ -62,7 +62,7 @@ export function rendreBandeau(
           <div class="date">${date}</div>
         </div>
         ${dedans ? html`<div class="phrase" data-mvt="detail:dedans">Il fait
-          <b class="val">${dedans}°</b> ici.</div>` : ''}
+          <b class="val chiffre" data-mvt="chiffre:dedans" data-mvt-etat=${dedans}>${dedans}°</b> ici.</div>` : ''}
       </div>
       <!-- Colonne droite : c'est ELLE qui était vide sous la température. La pastille s'y
            range, jamais en pleine largeur sous la phrase — sinon le vide reste. -->

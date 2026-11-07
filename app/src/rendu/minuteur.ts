@@ -97,6 +97,7 @@ export function rendreReglageMinuteur(
         <div class="mn-etiquettes" data-mvt="detail:mn-etiquettes">
           ${etiquettes.map((e) => html`
             <div class="mn-etiquette ${e === etiquette ? 'choisie' : ''}"
+                 data-mvt="detail:mn-label-${e}" data-mvt-swap data-mvt-etat=${e === etiquette ? '+' : '-'}
                  @pointerdown=${() => actions.choisirEtiquette(e)}>${e}</div>`)}
         </div>` : nothing}
       <div class="mn-nouveau" data-action="demarrer" data-mvt="detail:mn-nouveau"

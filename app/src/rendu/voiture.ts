@@ -54,8 +54,12 @@ export function rendreVoiture(etat: Etat, v: Voiture, enVol: EnVolClim): Templat
   const libelleBouton = enVol === 'demarrage' ? 'Démarrage…'
     : enVol === 'arret' ? 'Arrêt…'
     : marche ? 'Arrêter la clim' : 'Lancer la clim';
+  // Everything the block shows, as its motion state: the engine swaps the block when it changes.
+  // Without it the charge, the range and the label changed at once under a stable key.
+  const shown = [niveau === null ? '' : Math.round(niveau), autonomie === null ? '' : Math.round(autonomie),
+    libelleEtat(etat, v), libelleBouton, enVol ?? ''].join('|');
   return html`
-    <div class="voiture" data-zone="blocCentral" data-mvt="bloc:voiture">
+    <div class="voiture" data-zone="blocCentral" data-mvt="bloc:voiture" data-mvt-etat=${shown}>
       <div class="vt-chiffres">
         ${niveau !== null
           ? html`<span class="vt-niveau" data-mvt="detail:vt-niveau">${Math.round(niveau)} %</span>`

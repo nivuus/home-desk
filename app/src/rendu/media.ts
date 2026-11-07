@@ -72,11 +72,14 @@ function transportButton(
   name: keyof typeof TRANSPORT_LABEL, entity: string, service: string, primary: boolean,
   before?: () => void,
 ): CardButton {
-  // `name` is the icon name, hence already the button's functional identity: two transport
-  // buttons never share it in one render (pause and play are exclusive), and it depends on no
-  // array index — which is what the motion engine keys the button by.
+  // The motion key depends on no array index. Previous and next are keyed by their name; pause
+  // and play are exclusive in ONE slot, whose node `lit` reuses: keyed apart, the swap read as an
+  // exit (cloned from the node already showing the new icon) and an entry — a plain jump.
+  // Play and pause share the middle slot: one key, and what it shows as its state.
+  const middle = name === 'pause' || name === 'lecture';
   return {
-    icon: name, label: TRANSPORT_LABEL[name], mvt: `detail:tr-${name}`,
+    icon: name, label: TRANSPORT_LABEL[name],
+    ...(middle ? { mvt: 'detail:tr-middle', state: name } : { mvt: `detail:tr-${name}` }),
     act: () => { before?.(); agir('media_player', service, entity); },
     ...(primary ? { primary: true as const } : {}),
   };
