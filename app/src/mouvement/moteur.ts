@@ -1,17 +1,17 @@
 import { render } from 'lit';
-import { AFFICHE_ATTENTE_MAX_MS, AMPLITUDE_PX, CROISEMENT_MS,
-         DEPLACEMENT_MS, DETAIL_MS, EFFET, EFFET_SORTIE, ENTREE_MS, GARDE_MS, PALETTE_MS,
-         GLISSE_VUE_PX, ROULEMENT_MS, SORTIE_MS, SPATIAL, TRAVERSEE_MS,
+import { AMPLITUDE_PX, DEPLACEMENT_MS, DETAIL_MS, EFFET, EFFET_SORTIE, VIEW_EASING, ENTREE_MS,
+         GARDE_MS, GLISSE_VUE_PX, NIGHT_FADE_MS, ROULEMENT_MS, SORTIE_MS, SPATIAL, TRAVERSEE_MS,
          retardCascade, type Role } from './grammaire';
 import { lireMarques, positionReelle, tailleReelle,
          type Marque, type Position, type Taille } from './marques';
 import { comparer, type Verdict } from './diff';
 import { creerCalque } from './fantomes';
+import { createSwapper, type AnimationLike } from './swap';
+import { createPaletteFade } from './palette-fade';
+import { isMuted, prepareBefore, swapsOnChange } from './before-paint';
 import { niveauDemande, type Niveau } from '../mouvement';
 
-/** Le sous-ensemble de `Animation` dont ce moteur a besoin. Déclaré plutôt qu'importé de la lib
- *  DOM : jsdom n'implémente pas les animations, les tests fournissent donc un double. */
-export type AnimationLike = { finished: Promise<unknown>; cancel: () => void };
+export type { AnimationLike } from './swap';
 
 export type OptionsMoteur = {
   rendre?: (gabarit: unknown, hote: HTMLElement) => void;
@@ -51,34 +51,17 @@ export type Moteur = {
    *  peinture repart alors comme une première : elle mémorise et se tait, exactement comme au
    *  montage. */
   oublier: () => void;
+  /** Takes `el` off the screen in the direction of a swipe (-1 left, 1 right), from where
+   *  the finger left it, and keeps the NEXT painting from animating anything inside `el` — the
+   *  swipe carries that change, its new content slides in from the other side. Without it, the
+   *  card the finger had pushed aside reappeared at once in the middle, opaque, as the ghost of a
+   *  block crossing (the engine reads layout positions, which ignore the finger's transform). */
+  carryOff: (el: HTMLElement, direction: -1 | 1, durationMs: number) => void;
 };
 
 const animationReelle = (
   el: HTMLElement, trames: Keyframe[], options: KeyframeAnimationOptions,
 ): AnimationLike => el.animate(trames, options);
-
-/** Le croisement du bloc média part sur la PREMIÈRE des deux causes — image décodée ou plafond
- *  `AFFICHE_ATTENTE_MAX_MS` atteint — et jamais deux fois : sans ce verrou, une image lente
- *  produirait deux fantômes du même bloc (une fois sur le `.then()`, une fois sur le minuteur). */
-function uneSeuleFois(f: () => void): () => void {
-  let fait = false;
-  return () => { if (!fait) { fait = true; f(); } };
-}
-
-/** Ronde de correction 1 — extrait l'URL d'un `background-image: url(...)`, posé par
- *  le cadre de carte (`rendu/card-frame.ts`) sur `.carte-image`. Le bloc média ne pose JAMAIS de `<img>` dans son flux
- *  (cf. le commentaire de `rendreCarteMedia` : « un élément remplacé participerait à la mise en
- *  page et ferait varier la hauteur du bloc ») — c'est donc la SEULE façon de savoir si une
- *  affiche existe et où la précharger. `style.backgroundImage`, une fois posé via un attribut
- *  `style`, est TOUJOURS normalisé par le navigateur en `url("…")` ou `url('…')` — on retire juste
- *  les guillemets qui l'entourent, jamais un découpage au caractère près sur la chaîne brute. */
-function urlAffiche(bloc: HTMLElement): string | null {
-  const affiche = bloc.querySelector<HTMLElement>('.carte-image');
-  const valeur = affiche?.style.backgroundImage;
-  if (!valeur) return null;
-  const m = /^url\((['"]?)([\s\S]*)\1\)$/.exec(valeur.trim());
-  return m ? m[2] : null;
-}
 
 export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): Moteur {
   const rendre = options.rendre ?? ((g, hote) => render(g as any, hote));
@@ -155,11 +138,6 @@ export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): M
   const hoteFantomes = document.createElement('div');
   hoteFantomes.id = 'mvt-fantomes';
   racine.appendChild(hoteFantomes);
-  // M10 (revue finale) — la durée du fondu de palette n'est plus écrite deux fois. `base.css`
-  // (`.fondu-palette`) lit `--mvt-palette` ; c'est la MÊME constante que le minuteur qui retire la
-  // classe, plus bas. Posée une fois au montage, sur `<html>` : la classe `.fondu-palette` y est
-  // posée aussi, et une propriété personnalisée hérite jusqu'à `.fondu-palette *`.
-  document.documentElement.style.setProperty('--mvt-palette', `${PALETTE_MS}ms`);
   const calque = creerCalque(hoteFantomes);
   // Le calque de FOND (`z-index: -1`, cf. `base.css`) : il n'accueille que la vue sortante d'une
   // traversée, qui sert de fond à l'écran qui arrive. Un second calque, et non un `z-index` posé
@@ -172,128 +150,18 @@ export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): M
   racine.appendChild(hoteFond);
   const calqueFond = creerCalque(hoteFond);
   const decoder = options.decoder ?? ((img: HTMLImageElement) => img.decode());
-
-  // `false`, jamais `null` : au montage, `racine` n'a pas la classe `sombre` (ni son équivalent
-  // côté serveur) — la palette de repos EST la palette claire. Un `null` initial ferait rejouer
-  // le fondu au tout premier `basculerPalette(false)` de la page (rien à faire, la classe n'a pas
-  // bougé), ce que le test « ne refond rien quand la palette ne change pas » interdit.
-  let sombreCourant = false;
-
-  /** L'UNIQUE entorse à la règle transform/opacity, et elle est bornée : la classe est posée,
-   *  la palette bascule, puis la classe est RETIRÉE. Jamais une transition de couleur permanente
-   *  sur tout l'arbre — elle croiserait aussi chaque changement d'état de tuile, doublant sa
-   *  transition CSS `background`/`color` (`base.css`, `.commande`) et coûtant du repaint toute la
-   *  journée. La garde `sombreCourant === sombre`
-   *  (dessiner() est rappelée par chaque rafale de state_changed, et toutes les 20 s par
-   *  l'horloge) évite de reposer la classe en continu, ce qui rendrait l'entorse permanente.
-   *
-   *  Ronde de correction 1 — Important : appelée depuis `dessiner()` (`demarrage.ts`), HORS du
-   *  chemin `peindre()`, seul endroit où `estMasquee()` était consultée jusqu'ici (écran éteint ET
-   *  `prefers-reduced-motion: reduce`). Avant cette tâche le toggle `.sombre` était instantané, la
-   *  question ne se posait pas ; cette tâche introduit la SEULE transition de couleur du projet,
-   *  et rien ne justifie qu'elle échappe au SEUL filet que le reste du fichier applique
-   *  systématiquement à toute animation. Sous cette préférence, la palette bascule SEC — l'écran
-   *  reste JUSTE (la bonne palette), seule l'animation est sautée.
-   *
-   *  I4 (revue finale) — CORRECTION D'UNE AFFIRMATION FAUSSE. Ce commentaire disait « exactement la
-   *  même discipline que `peindre()` ». Ce n'en est PAS une : `peindre()` DÉSACTIVE tout le moteur
-   *  sur exception (`desactiver()`, plus rien ne s'anime jusqu'au rechargement) ; ici on rattrape
-   *  et on continue, la fonction suivante réessaiera `estMasquee()`. C'est délibéré — un fondu de
-   *  palette raté ne justifie pas de perdre les cinq verdicts —, mais ce n'est pas la même règle,
-   *  et le prochain lecteur ne doit pas croire qu'il peut raisonner de l'un vers l'autre. */
-  function basculerPalette(sombre: boolean): void {
-    if (sombreCourant === sombre) return;
-    sombreCourant = sombre;
-    // `estMasquee` est une injection comme une autre (surchargée par les tests, et par autre
-    // chose demain) : appelée ici HORS de `peindre()`, elle n'a aucun filet automatique — c'est
-    // cette fonction qui doit se protéger elle-même. Sur exception, on se comporte comme si rien
-    // n'était masqué (le fondu normal) : jamais de palette fausse à l'écran pour autant.
-    let masquee = false;
-    try { masquee = estMasquee(); } catch { masquee = false; }
-    if (masquee) {
-      racine.classList.toggle('sombre', sombre);
-      document.documentElement.classList.toggle('sombre', sombre);
-      return;
-    }
-    racine.classList.add('fondu-palette');
-    document.documentElement.classList.add('fondu-palette');
-    racine.classList.toggle('sombre', sombre);
-    document.documentElement.classList.toggle('sombre', sombre);
-    minuteurFn(() => {
-      racine.classList.remove('fondu-palette');
-      document.documentElement.classList.remove('fondu-palette');
-    }, PALETTE_MS);
-  }
-
-  // Ronde de correction 1 — compteur de génération par bloc, un seul patron déjà connu de ce
-  // projet : l'ancien `animerNombres` (cf. son historique dans `src/mouvement.ts`) tenait des
-  // générations par élément pour la même raison. Sans lui, deux morceaux enchaînés plus vite que
-  // `AFFICHE_ATTENTE_MAX_MS` (ou que le décodage de la première affiche) produiraient deux
-  // `croiser` concurrents sur le MÊME nœud réel (`lit` réutilise `.media` d'un rendu à l'autre,
-  // verrouillé par le test « avec lit RÉEL » ci-dessus) — le premier, retardé, repartirait en
-  // fondu APRÈS que le second a déjà pris sa place : un clignotement visible sur le mur, pas
-  // seulement un défaut théorique.
-  const generationsBloc = new Map<string, number>();
-  /** Le masque (I5) ACTUELLEMENT en vol pour chaque bloc, pour pouvoir l'annuler quand un morceau
-   *  plus récent en pose un autre. Sans cette carte, deux mutations rapprochées laissaient DEUX
-   *  tenues à `opacity: 0` sur le MÊME nœud : celle du morceau périmé n'était annulée que par son
-   *  propre `croiser` (jusqu'à `AFFICHE_ATTENTE_MAX_MS` plus tard), donc bien APRÈS que le
-   *  croisement courant avait fini de faire entrer le nouveau bloc — un bloc média resté invisible
-   *  jusqu'à 800 ms alors que son fondu d'entrée était déjà joué. Le compteur de génération
-   *  ci-dessus protégeait le CROISEMENT du morceau périmé, pas son masque. */
-  const masquesBloc = new Map<string, AnimationLike>();
-
-  /** Le corps du croisement du bloc média (étape 4 du brief) : le fantôme porte l'ancienne
-   *  affiche déjà peinte (`ancienne`, capturée au relevé « avant » via `Marque.copie`), le nœud
-   *  réel (déjà réécrit par `lit`) entre en fondu. Extrait de `jouer()` pour rester lisible une
-   *  fois le compteur de génération et le préchargement de l'affiche ajoutés autour de lui
-   *  (ronde de correction 1). */
-  function croiserBloc(el: HTMLElement, ancienne: Marque | undefined): void {
-    const f = ancienne ? calque.fantomer(ancienne) : null;
-    if (f !== null) {
-      const a = animer(f, [{ opacity: 1 }, { opacity: 0 }],
-        { duration: CROISEMENT_MS, easing: EFFET_SORTIE, fill: 'forwards' });
-      a.finished.finally(() => calque.relacher(f)).catch(() => {});
-      minuteurFn(() => calque.relacher(f), CROISEMENT_MS + GARDE_MS);
-    }
-    animer(el, [{ opacity: 0 }, { opacity: 1 }], { duration: CROISEMENT_MS, easing: EFFET });
-  }
-
-  /** I5 (revue finale) — MASQUE LE BLOC MÉDIA ENTRE SA PEINTURE ET LE DÉPART DU CROISEMENT.
-   *  `lit` a déjà affiché le nouveau morceau quand la mutation est jouée, et le croisement est
-   *  ensuite différé jusqu'au décodage de l'affiche (ou `AFFICHE_ATTENTE_MAX_MS`) : sur une
-   *  affiche lente, la tablette montrait le nouveau bloc, PUIS le voyait retomber à `opacity: 0`
-   *  et refondre pendant que le fantôme de l'ancien apparaissait par-dessus. Le plafond bornait le
-   *  dégât, il ne l'évitait pas.
-   *
-   *  Une ANIMATION plutôt qu'un `el.style.opacity = '0'` : `lit` possède l'attribut `style` de
-   *  `.media` (il y écrit `--progression` à chaque peinture, cf. `rendu/media.ts`) et l'aurait
-   *  effacé au premier redessin — c'est-à-dire à la première rafale de `state_changed` pendant
-   *  l'attente, donc précisément dans le cas que ce masque existe pour couvrir. Une animation, elle,
-   *  s'applique AU-DESSUS des styles en ligne et ne se bat avec personne.
-   *
-   *  Deux images identiques à `opacity: 0` et `fill: 'both'` : le masque tient du premier instant
-   *  jusqu'à son annulation. Le minuteur de garde est la même ceinture-et-bretelles que partout
-   *  ailleurs ici — sans lui, un croisement qui ne partirait jamais laisserait le bloc invisible.
-   *
-   *  Re-revue — CETTE FONCTION NE RETIRE PLUS LE MASQUE PRÉCÉDENT, et c'est délibéré : elle n'est
-   *  appelée que sur le chemin qui attend une affiche, alors que le masque de la génération d'avant
-   *  doit tomber à CHAQUE mutation, affiche ou pas (cf. `masquesBloc` et l'appelant). L'annulation
-   *  enfermée ici laissait fuir l'enchaînement « morceau avec pochette → morceau sans pochette ». */
-  function masquerBloc(cle: string, el: HTMLElement): AnimationLike {
-    const masque = animer(el, [{ opacity: 0 }, { opacity: 0 }],
-      { duration: AFFICHE_ATTENTE_MAX_MS, fill: 'both' });
-    masquesBloc.set(cle, masque);
-    minuteurFn(() => masque.cancel(), AFFICHE_ATTENTE_MAX_MS + GARDE_MS);
-    return masque;
-  }
+  const basculerPalette = createPaletteFade(racine, estMasquee, minuteurFn);
+  const swapper = createSwapper({ layer: calque, animate: animer, timer: minuteurFn, decode: decoder });
+  /** The element whose content the next painting must not animate (`carryOff`). */
+  let muted: HTMLElement | null = null;
 
   // Tâche 8 — la traversée de vue n'a pas de `marque` au sens des autres verdicts (elle porte
   // `sortante`/`entrante`, jamais `marque`) : on la fonde sur le rôle `vue`, seul rôle qu'aucune
   // déclaration `data-mvt` ne porte jamais SUR LA TUILE elle-même, mais qui gouverne quand même
   // l'écran entier qui glisse (brief tâche 8, point d'attention 1).
   const roleDuVerdict = (v: Verdict): Role =>
-    v.type === 'traversee' ? 'vue' : v.type === 'croisement' ? 'bloc' : v.marque.role;
+    v.type === 'traversee' || v.type === 'dissolve' ? 'vue'
+      : v.type === 'croisement' ? 'bloc' : v.marque.role;
 
   // `avant` : le relevé D'AVANT de CETTE peinture, nécessaire aux rôles `chiffre` ET `bloc`
   // (mutation, ci-dessous, tâche 7) — `v.marque` (fourni par `comparer()`) est TOUJOURS le relevé
@@ -382,7 +250,7 @@ export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): M
       // que rendre le geste flou. Un seul objet bouge, et il vient d'un bord.
       const a = animer(v.entrante.el,
         [{ transform: `translateX(${signe * GLISSE_VUE_PX}px)` }, { transform: 'none' }],
-        { duration: TRAVERSEE_MS, easing: SPATIAL });
+        { duration: TRAVERSEE_MS, easing: VIEW_EASING });
       // Relâché sur la fin de l'animation de L'ENTRANTE — c'est elle qui porte le geste
       // maintenant, et le fond n'a plus de raison d'être une fois qu'elle est en place. Sans ce
       // `finished`, le clone survivrait jusqu'au minuteur de garde : il porte encore les `class` et
@@ -396,101 +264,51 @@ export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): M
       }
       return;
     }
+    if (v.type === 'dissolve') {
+      // The leaving view's clone, over everything, dissolves into the new view — opaque from the
+      // first frame, so the screen never shows the page background in between.
+      const ghost = calque.fantomer(v.leaving);
+      if (ghost === null) return;
+      const a = animer(ghost, [{ opacity: 1 }, { opacity: 0 }],
+        { duration: NIGHT_FADE_MS, easing: EFFET, fill: 'forwards' });
+      a.finished.finally(() => calque.relacher(ghost)).catch(() => {});
+      minuteurFn(() => calque.relacher(ghost), NIGHT_FADE_MS + GARDE_MS);
+      return;
+    }
     if (v.type === 'croisement') {
-      // Même corps que la mutation du bloc média : le clone porte l'ancien contenu déjà peint, le
-      // nœud réel entre en fondu. Aucune fente ne se referme.
-      croiserBloc(v.entrante.el, v.sortante);
+      swapper.swap(v.sortante, v.entrante);
       return;
     }
-    // v.type === 'mutation'
-    // Chiffre (roulement) et bloc (croisement, tâche 7) partagent la même contrainte : leur
-    // contenu peut être réécrit EN PLACE par `lit` SANS changer de clé, donc `v.marque` (le
-    // relevé D'APRÈS, fourni par `comparer()`) porte déjà la valeur NEUVE au moment où `jouer()`
-    // s'exécute. L'ancien contenu ne vit plus que dans `avant` (transmis par `peindre()`), figé
-    // par `lireMarques` avant que CE `render()` ne réécrive le nœud — `fantomer` s'en sert
-    // (`m.copie ?? m.el`, `fantomes.ts`), jamais d'une relecture de `v.marque.el`.
-    // Clé dérivée de `v.marque.role`, jamais d'un littéral : c'est ce qui a permis d'étendre ce
-    // mécanisme de `chiffre` à `bloc` sans dupliquer cette ligne pour chaque rôle.
-    if (v.marque.role === 'chiffre' || v.marque.role === 'bloc') {
-      const ancienne = avant.get(`${v.marque.role}:${v.marque.cle}`);
-      if (v.marque.role === 'bloc') {
-        // Le bloc média change de contenu sans changer de clé : c'est une mutation, pas une
-        // sortie suivie d'une entrée. On croise donc le bloc ENTIER — le fantôme porte déjà
-        // l'ancienne affiche PEINTE, il n'y a rien à précharger de ce côté (`croiserBloc`).
-        //
-        // Ronde de correction 1 — génération : deux morceaux enchaînés plus vite que l'attente
-        // ci-dessous partageraient le MÊME nœud réel (`lit` le réutilise) — un `croiser` périmé,
-        // résolu tardivement, ne doit RIEN faire, sinon il repartirait en fondu par-dessus un
-        // contenu déjà affiché (cf. `generationsBloc`, plus haut).
-        const cle = `${v.marque.role}:${v.marque.cle}`;
-        const generation = (generationsBloc.get(cle) ?? 0) + 1;
-        generationsBloc.set(cle, generation);
-        // Lue AVANT le masque : c'est elle qui décide s'il y a seulement quelque chose à masquer.
-        const url = urlAffiche(v.marque.el);
-        // I5 — posé AVANT toute attente, donc dès la peinture : c'est tout l'objet du masque
-        // (cf. `masquerBloc`). Annulé par `croiser`, quel que soit le chemin qui l'y amène —
-        // y compris périmé, sinon CE masque-ci resterait en vol pour rien.
-        //
-        // Ronde de correction (reprise de la vague I5) — MASQUÉ SEULEMENT SUR LE CHEMIN DIFFÉRÉ.
-        // Le défaut que le masque existe pour couvrir (le nouveau morceau montré, puis rejeté à
-        // `opacity: 0` jusqu'à 800 ms plus tard) n'existe QUE quand le croisement attend le
-        // décodage d'une affiche. Sans affiche — YouTube n'en fournit aucune —, `croiser()` part
-        // dans la MÊME tâche JS que cette peinture : le navigateur n'a rien peint entre les deux,
-        // il n'y a rien à masquer, et poser puis annuler une animation dans la même tâche était du
-        // travail pur perte sur une Fire 7. La version d'origine masquait les deux chemins.
-        //
-        // Re-revue — L'ANNULATION DU MASQUE PRÉCÉDENT EST ICI, ET INCONDITIONNELLE. Enfermée dans
-        // `masquerBloc`, elle ne s'exécutait que si CETTE mutation-ci avait elle-même une affiche à
-        // attendre : un morceau à pochette suivi d'une source qui n'en a pas (YouTube, la télé)
-        // laissait donc le masque du premier tenir `.media` invisible jusqu'à 800 ms après le fondu
-        // d'entrée du second. Ce qui décide qu'un masque doit tomber, c'est qu'une mutation plus
-        // récente survienne — jamais la forme de cette mutation-là.
-        masquesBloc.get(cle)?.cancel();
-        masquesBloc.delete(cle);
-        const masque = url === null ? null : masquerBloc(cle, v.marque.el);
-        const croiser = uneSeuleFois(() => {
-          // Retiré de la carte avant d'être annulé, pour qu'une mutation ultérieure ne rappelle pas
-          // `cancel()` sur un masque déjà mort — sans effet, mais c'est un mensonge de moins dans
-          // ce que la carte prétend contenir.
-          if (masque !== null && masquesBloc.get(cle) === masque) masquesBloc.delete(cle);
-          masque?.cancel();
-          if (generationsBloc.get(cle) !== generation) return;   // périmé : le suivant a pris le relais
-          croiserBloc(v.marque.el, ancienne);
-        });
-        // Le risque est l'inverse d'un fantôme périmé : croiser vers une affiche NEUVE pas
-        // encore chargée, donc vers un aplat, puis la voir surgir d'un coup une seconde plus
-        // tard. `rendu/media.ts` ne pose JAMAIS de `<img>` — l'affiche est un fond CSS sur
-        // `.carte-image` (cf. son commentaire) — on précharge donc l'URL extraite de ce fond
-        // (`urlAffiche`) sur une image fabriquée ici, et on attend `decoder()` dessus, plafonné
-        // à `AFFICHE_ATTENTE_MAX_MS` : un mur ne reste pas bloqué sur une image qui ne vient
-        // pas. Sans affiche du tout (YouTube n'en fournit aucune), rien à attendre.
-        if (url === null) { croiser(); return; }
-        const precharge = new Image();
-        precharge.src = url;
-        decoder(precharge).then(croiser).catch(croiser);
-        minuteurFn(croiser, AFFICHE_ATTENTE_MAX_MS);
-        return;
-      }
-      // On ne touche JAMAIS au nœud de texte de `lit` : c'est très exactement ce qui a figé
-      // l'écran une demi-journée du temps d'`animerNombres` (cf. l'historique de
-      // `src/mouvement.ts`). L'ancien glyphe part en clone, le nouveau — déjà rendu par `lit` —
-      // entre par en dessous. Le DOM réel porte toujours la valeur exacte.
-      const f = ancienne ? calque.fantomer(ancienne) : null;
-      if (f !== null) {
-        const a = animer(f,
-          [{ transform: 'none', opacity: 1 },
-           { transform: 'translateY(-100%)', opacity: 0 }],
-          { duration: ROULEMENT_MS, easing: EFFET_SORTIE, fill: 'forwards' });
-        // `.finally()`, comme les deux autres verdicts fantômes de ce fichier (sortie, traversée) :
-        // une seule voie de relâchement, jamais deux abonnements séparés sur le succès et l'échec.
-        a.finished.finally(() => calque.relacher(f)).catch(() => {});
-        minuteurFn(() => calque.relacher(f), ROULEMENT_MS + GARDE_MS);
-      }
-      animer(v.marque.el,
-        [{ transform: 'translateY(100%)', opacity: 0 }, { transform: 'none', opacity: 1 }],
-        { duration: ROULEMENT_MS, easing: SPATIAL });
-      return;
+    // v.type === 'mutation'. Its mark is the survey AFTER the painting: `lit` has already
+    // rewritten the node. The old content only lives in the survey taken before this `render()`.
+    const old = avant.get(`${v.marque.role}:${v.marque.cle}`);  // policy: allow-fr
+    if (v.marque.role === 'bloc') { swapper.swapAfterPoster(old, v.marque); return; }
+    // A command tile that changes state (colour, label, gauge, height): the whole tile swaps, so
+    // its text, its icon, its background and its gauge always belong to one same state. The CSS
+    // transitions it replaces faded the background alone, switched the text colour at the END of
+    // that fade (`color 0s .3s`) and changed the label and the gauge at once: switching a light
+    // off left white text on a nearly white tile for 150 ms, then snapped it to black. Any other
+    // mark opts in with `data-mvt-swap` (the summary line, a card, a chip: `before-paint.ts`).
+    if (v.marque.role === 'tuile' || swapsOnChange(v.marque.el)) { swapper.swap(old, v.marque); return; }
+    if (v.marque.role !== 'chiffre') return;
+    // Never touch `lit`'s text node (what froze the screen half a day in the time of
+    // the old number animator, see `src/mouvement.ts`). The old glyph leaves as a clone, the new one —
+    // already rendered — comes in from below. Both are CLIPPED to the glyph's box (`clip-path`,
+    // animated with the translation): unclipped, the old minute rose over the header while the
+    // new one climbed through it.
+    const f = old ? calque.fantomer(old) : null;
+    if (f !== null) {
+      const a = animer(f,
+        [{ transform: 'none', opacity: 1, clipPath: 'inset(0 0 0 0)' },
+         { transform: 'translateY(-100%)', opacity: 0, clipPath: 'inset(100% 0 0 0)' }],
+        { duration: ROULEMENT_MS, easing: EFFET_SORTIE, fill: 'forwards' });
+      a.finished.finally(() => calque.relacher(f)).catch(() => {});
+      minuteurFn(() => calque.relacher(f), ROULEMENT_MS + GARDE_MS);
     }
+    animer(v.marque.el,
+      [{ transform: 'translateY(100%)', opacity: 0, clipPath: 'inset(0 0 100% 0)' },
+       { transform: 'none', opacity: 1, clipPath: 'inset(0 0 0 0)' }],
+      { duration: ROULEMENT_MS, easing: EFFET });
   }
 
   /** Un mur qui ne s'anime plus est un désagrément ; un mur figé est une demi-journée. Toute
@@ -591,13 +409,28 @@ export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): M
 
     // Le rendu lui-même : jamais rejoué s'il vient d'échouer (`rendreSansExploser` l'a déjà
     // consigné et désactivé le moteur) — un seul appel à `rendre` par peinture, réussi ou non.
+    // The content a swipe already carries (`carryOff`): one painting, then the engine is back.
+    const mutedEl = muted;
+    muted = null;
+    let mutedKeys: Set<string>;
+    try {
+      mutedKeys = prepareBefore(avant, mutedEl);  // policy: allow-fr
+    } catch (e) {
+      desactiver(e);
+      rendreSansExploser(gabarit);
+      precedentes = null;
+      return;
+    }
+
     if (!rendreSansExploser(gabarit)) { precedentes = null; return; }
 
     try {
       const apres = lireMarques(racine, positionDe, tailleDe);
       // Première peinture : rien à comparer, on mémorise et on se tait.
       if (precedentes !== null) {
-        for (const v of comparer(avant, apres)) jouer(v, avant);
+        for (const v of comparer(avant, apres)) {  // policy: allow-fr
+          if (mutedEl === null || !isMuted(v, mutedEl, mutedKeys)) jouer(v, avant);  // policy: allow-fr
+        }
       }
       precedentes = apres;
     } catch (e) {
@@ -606,6 +439,34 @@ export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): M
     }
   }
 
-  return { peindre, actif: () => actif, basculerPalette,
+  function carryOff(el: HTMLElement, direction: -1 | 1, durationMs: number): void {
+    muted = el;
+    let hidden = false;
+    try { hidden = !actif || niveauInitial === 'aucun' || estMasquee(); } catch { hidden = true; }
+    if (hidden) return;
+    try {
+      // Where the finger left it: the bounding rect includes the swipe's transform, which the
+      // layout positions of the survey ignore. The clone drops that transform, its box carries it.
+      const r = el.getBoundingClientRect();
+      const o = racine.getBoundingClientRect();
+      const clone = el.cloneNode(true) as HTMLElement;
+      clone.style.transform = '';
+      const ghost = calque.fantomer({
+        role: 'bloc', cle: 'carried', etat: null, el, copie: clone, rang: 0, ancetres: [],
+        position: [r.left - o.left, r.top - o.top], taille: [r.width, r.height],  // policy: allow-fr
+      });
+      if (ghost === null) return;
+      // To fully past the edge of the screen on the side it was pushed towards.
+      const distance = direction < 0 ? -(r.right - o.left) : o.right - r.left;
+      const a = animer(ghost, [{ transform: 'none' }, { transform: `translateX(${distance}px)` }],
+        { duration: durationMs, easing: 'ease-out', fill: 'forwards' });
+      a.finished.finally(() => calque.relacher(ghost)).catch(() => {});
+      minuteurFn(() => calque.relacher(ghost), durationMs + GARDE_MS);
+    } catch (e) {
+      desactiver(e);
+    }
+  }
+
+  return { peindre, actif: () => actif, basculerPalette, carryOff,
            oublier: () => { precedentes = null; } };
 }

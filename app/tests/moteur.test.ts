@@ -140,7 +140,7 @@ describe('positionReelle (C1 — repère de racine, pas d\'offsetParent)', () =>
 describe('comparer', () => {
   const marque = (decl: string, position: [number, number] = [0, 0], etat: string | null = null) => {
     const [role, cle] = decl.split(':');
-    return { role, cle, etat, el: document.createElement('div'), position, rang: 0 } as any;
+    return { role, cle, etat, el: document.createElement('div'), position, rang: 0, ancetres: [] } as any;
   };
   const carte = (...m: any[]) => new Map(m.map((x) => [`${x.role}:${x.cle}`, x]));
 
@@ -184,12 +184,16 @@ describe('comparer', () => {
     expect((v[0] as any).sens).toBe('gauche');
   });
 
-  // L'écran de nuit est hors traversée : à 23 h c'est le fondu de palette qui porte le changement
-  // (tâche 7). Deux mouvements simultanés sur le plus gros changement de la journée feraient
-  // désordre — et « rien ne bouge dans le noir » s'applique d'abord ici.
-  it('n\'anime aucune traversée vers ou depuis l\'écran de nuit', () => {
-    expect(comparer(carte(marque('vue:accueil')), carte(marque('vue:nuit')))).toEqual([]);
-    expect(comparer(carte(marque('vue:nuit')), carte(marque('vue:accueil')))).toEqual([]);
+  // 2026-11-06 — the night screen never slides, and no longer changes at once either: the
+  // evening palette is already dark, so at 23:00 (and on a wake) nothing carried the change. The
+  // whole view dissolves into the other one, and nothing inside it plays on its own.
+  it('fond l\'écran de nuit dans la vue suivante, et inversement, sans aucun verdict interne', () => {
+    const versNuit = comparer(carte(marque('vue:accueil'), marque('tuile:a')), carte(marque('vue:nuit')));
+    expect(versNuit).toEqual([expect.objectContaining({ type: 'dissolve' })]);
+    expect((versNuit[0] as any).leaving.cle).toBe('accueil');
+    const reveil = comparer(carte(marque('vue:nuit')), carte(marque('vue:accueil'), marque('tuile:a')));
+    expect(reveil).toEqual([expect.objectContaining({ type: 'dissolve' })]);
+    expect((reveil[0] as any).entering.cle).toBe('accueil');
   });
 
   it('un enfant marqué ne sort pas quand son parent marqué sort — un geste, un clone', () => {
@@ -284,7 +288,10 @@ describe('comparer', () => {
     });
   });
 
-  it('deux blocs à des places différentes restent une sortie et une entrée', () => {
+  // 2026-11-06 — paired in document order, never on the measured position: the position moves
+  // as soon as anything above changes in the same pass (the door tile that shrinks when the media
+  // card arrives), and the pairing then failed into an exit, a hole and a late entry.
+  it('deux blocs à des places différentes deviennent quand même UN croisement', () => {
     const racine = document.createElement('div');
     const a = document.createElement('div');
     a.dataset.mvt = 'bloc:alerte';
@@ -297,8 +304,28 @@ describe('comparer', () => {
     racine2.appendChild(b);
     const apres = lireMarques(racine2, () => [0, 300], () => [300, 90]);
 
-    const types = comparer(avant, apres).map((x) => x.type).sort();
-    expect(types).toEqual(['entree', 'sortie']);
+    expect(comparer(avant, apres)).toEqual([
+      expect.objectContaining({ type: 'croisement', sortante: expect.objectContaining({ cle: 'alerte' }),
+        entrante: expect.objectContaining({ cle: 'voiture' }) }),
+    ]);
+  });
+
+  // The swipe that turns the media card into another card: `lit` reuses the card's node and drops
+  // its volume buttons, which are then inside nothing. Their ancestry, recorded at the survey,
+  // still says they leave WITH the card.
+  it('un enfant marqué détaché par lit sort avec son bloc, jamais en fantôme à part', () => {
+    const racine = document.createElement('div');
+    const carte = document.createElement('section');
+    carte.dataset.mvt = 'bloc:media';
+    const bouton = document.createElement('div');
+    bouton.dataset.mvt = 'detail:volume-plus';
+    carte.appendChild(bouton);
+    racine.appendChild(carte);
+    const avant = lireMarques(racine, () => [0, 0], () => [10, 10]);
+    carte.removeChild(bouton);                  // what lit does to the reused node
+    carte.dataset.mvt = 'bloc:garde-manger';
+    const apres = lireMarques(racine, () => [0, 0], () => [10, 10]);
+    expect(comparer(avant, apres).map((v) => v.type)).toEqual(['croisement']);
   });
 
   // Piège d'appariement (revue tâche 6) : le code retire des éléments de `verdicts` avec
@@ -719,11 +746,25 @@ describe('creerMoteur — traversée de vue', () => {
     expect(appels[0].trames[0].transform).toBe('translateX(-343px)');
   });
 
-  it('ne pousse rien vers l\'écran de nuit', () => {
+  // Nothing moves in the dark: the leaving view's clone dissolves over the night screen, opacity
+  // only, and the night screen itself is never animated (opaque from the first frame).
+  it('ne pousse rien vers l\'écran de nuit : la vue quittée s\'y dissout, sans déplacement', () => {
     const { moteur, appels } = moteurDeTest(() => ({}));
-    moteur.peindre('<div data-mvt="vue:accueil"></div>');
-    moteur.peindre('<div data-mvt="vue:nuit"></div>');
-    expect(appels).toEqual([]);
+    moteur.peindre('<div data-mvt="vue:accueil">jour</div>');
+    moteur.peindre('<div data-mvt="vue:nuit">nuit</div>');
+    expect(appels).toHaveLength(1);
+    expect(appels[0].el.textContent).toBe('jour');
+    expect(appels[0].trames).toEqual([{ opacity: 1 }, { opacity: 0 }]);
+    expect(appels[0].options.duration).toBe(500);
+  });
+
+  it('le réveil fond l\'écran de nuit dans l\'accueil de la même façon', () => {
+    const { moteur, appels } = moteurDeTest(() => ({}));
+    moteur.peindre('<div data-mvt="vue:nuit">nuit</div>');
+    moteur.peindre('<div data-mvt="vue:accueil">soir</div>');
+    expect(appels).toHaveLength(1);
+    expect(appels[0].el.textContent).toBe('nuit');
+    expect(appels[0].trames).toEqual([{ opacity: 1 }, { opacity: 0 }]);
   });
 
 });
@@ -737,11 +778,36 @@ describe('creerMoteur — traversée de vue', () => {
 // n'appelle plus `animer()` du tout : le fondu CSS, seul, porte le geste.
 describe('creerMoteur — mutation de tuile (balayage retiré, tâche 3)', () => {
   it('ne pose plus aucune couche de balayage quand une tuile change d\'état', () => {
-    const { racine, moteur, appels } = moteurDeTest(() => ({}));
+    const { racine, moteur } = moteurDeTest(() => ({}));
     moteur.peindre('<div data-mvt="tuile:a" data-mvt-etat="inactif" class="commande"></div>');
     moteur.peindre('<div data-mvt="tuile:a" data-mvt-etat="actif" class="commande"></div>');
     expect(racine.querySelectorAll('.mvt-balayage')).toHaveLength(0);
-    expect(appels).toEqual([]);
+  });
+
+  // 2026-11-06 — the whole tile swaps: its old look (cloned just before the painting) dissolves
+  // over the new one, which stays opaque. The CSS transition it replaces switched the text colour
+  // at the END of the background fade, white on a nearly white tile when a light went off.
+  it('croise la tuile ENTIÈRE : l\'ancienne se dissout au-dessus de la nouvelle, restée opaque', () => {
+    const { moteur, appels } = moteurDeTest(() => ({}));
+    moteur.peindre('<div data-mvt="tuile:a" data-mvt-etat="1|Allumées" class="commande">Allumées</div>');
+    moteur.peindre('<div data-mvt="tuile:a" data-mvt-etat="0|Éteint" class="commande">Éteint</div>');
+    expect(appels).toHaveLength(1);
+    expect(appels[0].el.parentElement?.id).toBe('mvt-fantomes');
+    expect(appels[0].el.textContent).toBe('Allumées');
+    expect(appels[0].trames).toEqual([{ opacity: 1 }, { opacity: 0 }]);
+  });
+
+  it('une tuile qui change de hauteur passe en fondu enchaîné : l\'ancienne part, puis la nouvelle vient', () => {
+    let hauteur = 138;
+    const { moteur, appels } = moteurDeTest(() => ({}), { tailleDe: () => [151, hauteur] as const });
+    moteur.peindre('<div data-mvt="tuile:porte" data-mvt-etat="haute" class="commande">Porte</div>');
+    hauteur = 64;
+    moteur.peindre('<div data-mvt="tuile:porte" data-mvt-etat="basse" class="commande">Porte</div>');
+    const fantome = appels.find((x) => x.el.parentElement?.id === 'mvt-fantomes')!;
+    const reelle = appels.find((x) => x !== fantome)!;
+    expect(fantome.options.duration).toBe(90);
+    expect(reelle.trames).toEqual([{ opacity: 0 }, { opacity: 1 }]);
+    expect(reelle.options).toMatchObject({ delay: 90, fill: 'backwards' });
   });
 
   // Conservé de l'ancienne suite balayage : la garde sur le rôle n'a plus lieu d'être dans
@@ -1137,16 +1203,33 @@ describe('creerMoteur — fondu de palette', () => {
 });
 
 describe('creerMoteur — croisement d\'affiche média', () => {
-  it('croise le bloc entier quand le média change', () => {
+  // Same box: the old card dissolves OVER the new one, which is never animated. Fading the new one
+  // in at the same time left both half transparent: the page showed through the card.
+  it('croise le bloc entier quand le média change, sans jamais rendre la carte neuve transparente', () => {
     const { moteur, appels } = moteurDeTest(() => ({}));
     moteur.peindre('<div data-mvt="bloc:media" data-mvt-etat="piste-1">Weird Fishes</div>');
     moteur.peindre('<div data-mvt="bloc:media" data-mvt-etat="piste-2">Nude</div>');
-    const sortant = appels.find((x) => x.el.parentElement?.id === 'mvt-fantomes')!;
+    expect(appels).toHaveLength(1);
+    const sortant = appels[0];
+    expect(sortant.el.parentElement?.id).toBe('mvt-fantomes');
     expect(sortant.el.textContent).toBe('Weird Fishes');
-    expect(sortant.trames[1].opacity).toBe(0);
+    expect(sortant.trames).toEqual([{ opacity: 1 }, { opacity: 0 }]);
+    expect(sortant.options.duration).toBe(320);
+  });
+
+  // A block replaced by a block of another size (car → door alert): fade through.
+  it('un bloc remplacé par un bloc d\'une autre taille part d\'abord, puis le nouveau entre', () => {
+    let hauteur = 150;
+    const { moteur, appels } = moteurDeTest(() => ({}), { tailleDe: () => [311, hauteur] as const });
+    moteur.peindre('<div data-mvt="bloc:voiture">85 %</div>');
+    hauteur = 50;
+    moteur.peindre('<div data-mvt="bloc:alerte">Porte déverrouillée</div>');
+    const sortant = appels.find((x) => x.el.parentElement?.id === 'mvt-fantomes')!;
     const entrant = appels.find((x) => x !== sortant)!;
-    expect(entrant.trames[0].opacity).toBe(0);
-    expect(entrant.options.duration).toBe(320);
+    expect(sortant.el.textContent).toBe('85 %');
+    expect(sortant.options.duration).toBe(90);
+    expect(entrant.el.textContent).toBe('Porte déverrouillée');
+    expect(entrant.options).toMatchObject({ delay: 90, fill: 'backwards' });
   });
 });
 
@@ -1224,8 +1307,18 @@ describe('creerMoteur — croisement d\'affiche média, avec lit RÉEL (verrouil
 // page ») : `querySelector('img')` renvoie donc TOUJOURS `null` en production, et l'attente
 // écrite avec un `<img>` fabriqué à la main ne protégeait rien de réel — seulement la fixture du
 // test. Ces tests exercent désormais le VRAI gabarit de `rendreCarteMedia`, affiche comprise.
+/** The ghosts on screen and the animations played on them. */
+const fantomesDe = (racine: HTMLElement) => Array.from(racine.querySelectorAll('#mvt-fantomes > *'));
+const dissolutions = (appels: { el: HTMLElement; trames: any }[]) =>
+  // A ghost whose dissolution finished (the test double resolves at once) is already released.
+  appels.filter((x) => (x.el.parentElement?.id === 'mvt-fantomes' || !x.el.isConnected)
+    && x.trames[1]?.opacity === 0 && x.trames[0]?.opacity === 1);
+
+// 2026-11-06 — while the new poster loads, the OLD card's ghost holds the screen, opaque. Until
+// then the NEW card was masked instead, with no ghost yet: the slot stayed empty for as long as
+// the poster took (up to 800 ms).
 describe('creerMoteur — l\'affiche est attendue, mais pas indéfiniment', () => {
-  it('diffère le croisement jusqu\'à ce que le fond CSS de la nouvelle affiche soit décodé',
+  it('garde l\'ancienne carte à l\'écran jusqu\'au décodage de la nouvelle affiche, puis croise',
     async () => {
       let decoder!: () => void;
       const { racine, moteur, appels } = moteurReel({
@@ -1233,21 +1326,12 @@ describe('creerMoteur — l\'affiche est attendue, mais pas indéfiniment', () =
       });
       moteur.peindre(rendreCarteMedia(sourceMedia('a', '/aff-a.jpg'), 0, PRETES));
       moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg'), 0, PRETES));
-      // I5 (revue finale) — LE CONTRAT A CHANGÉ ICI, et le nouveau est plus exigeant que
-      // l'ancien. `expect(appels).toEqual([])` disait « rien ne bouge » ; c'était vrai du moteur,
-      // et faux de l'écran : `lit` avait DÉJÀ peint le nouveau morceau au moment où la mutation
-      // est jouée, si bien que la tablette montrait le morceau neuf, puis le voyait retomber à
-      // `opacity: 0` et refondre jusqu'à 800 ms plus tard, quand l'affiche finissait par se
-      // décoder. Le moteur pose donc désormais un MASQUE dès la peinture — une tenue à
-      // `opacity: 0` sur le bloc — et c'est la SEULE chose qui doit exister tant que l'affiche
-      // n'est pas prête : surtout aucun fantôme, aucun fondu.
-      expect(appels).toHaveLength(1);
-      expect(appels[0].trames).toEqual([{ opacity: 0 }, { opacity: 0 }]);
-      expect(appels[0].options.duration).toBe(800);
-      expect(racine.querySelectorAll('#mvt-fantomes > *')).toHaveLength(0);
+      expect(fantomesDe(racine)).toHaveLength(1);
+      expect(fantomesDe(racine)[0].querySelector('.titre')?.textContent).toBe('a');
+      expect(appels).toEqual([]);                 // held still: nothing fades yet, nothing is masked
       decoder();
       await Promise.resolve(); await Promise.resolve();
-      expect(appels.length).toBeGreaterThan(1);
+      expect(dissolutions(appels)).toHaveLength(1);
     });
 
   // Un mur ne reste pas bloqué sur une image qui ne vient pas.
@@ -1259,15 +1343,11 @@ describe('creerMoteur — l\'affiche est attendue, mais pas indéfiniment', () =
     });
     moteur.peindre(rendreCarteMedia(sourceMedia('a', '/aff-a.jpg'), 0, PRETES));
     moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg'), 0, PRETES));
-    // Le masque (I5) compte pour une animation dès la peinture : c'est bien un croisement DE PLUS
-    // qu'on attend ici, jamais « au moins une animation », qui serait vrai sans rien croiser.
-    expect(appels).toHaveLength(1);
+    expect(appels).toEqual([]);
     differes.find((d) => d.ms === 800)!.cb();
-    expect(appels.length).toBeGreaterThan(1);
+    expect(dissolutions(appels)).toHaveLength(1);
   });
 
-  // Piège signalé en relecture : un décodage qui ÉCHOUE (image cassée, 404…) doit croiser tout de
-  // suite — pas rester bloqué jusqu'au plafond alors que l'échec est déjà connu.
   it('croise dès que le décodage échoue, sans attendre le plafond de 800 ms', async () => {
     const { moteur, appels } = moteurReel({
       decoder: () => Promise.reject(new Error('échec de décodage')),
@@ -1275,8 +1355,7 @@ describe('creerMoteur — l\'affiche est attendue, mais pas indéfiniment', () =
     moteur.peindre(rendreCarteMedia(sourceMedia('a', '/aff-a.jpg'), 0, PRETES));
     moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg'), 0, PRETES));
     await Promise.resolve(); await Promise.resolve();
-    // Idem : au-delà du masque posé dès la peinture (I5), donc un croisement réellement joué.
-    expect(appels.length).toBeGreaterThan(1);
+    expect(dissolutions(appels)).toHaveLength(1);
   });
 
   it('précharge l\'URL extraite du fond CSS, jamais un <img> qui n\'existe pas', () => {
@@ -1290,91 +1369,51 @@ describe('creerMoteur — l\'affiche est attendue, mais pas indéfiniment', () =
   });
 });
 
-// Ronde de correction 1 — deux morceaux enchaînés plus vite que l'attente de l'affiche (ou que son
-// décodage) partageaient jusqu'ici le MÊME nœud `.media` (`lit` le réutilise, prouvé plus haut)
-// sans qu'aucun mécanisme n'empêche le premier croisement, retardé, de partir APRÈS que le second
-// a déjà pris sa place — un clignotement visible sur le mur, jamais un défaut seulement théorique.
-describe('creerMoteur — deux croisements de bloc média rapprochés', () => {
-  it('un croisement périmé, résolu tardivement, ne rejoue rien par-dessus le morceau déjà affiché',
+describe('creerMoteur — deux morceaux rapprochés', () => {
+  it('un décodage périmé ne croise rien ; le fantôme déjà à l\'écran tient jusqu\'au morceau courant',
     async () => {
       const decodeurs: (() => void)[] = [];
-      const { moteur, appels } = moteurReel({
+      const { racine, moteur, appels } = moteurReel({
         decoder: () => new Promise<void>((r) => { decodeurs.push(r); }),
       });
       moteur.peindre(rendreCarteMedia(sourceMedia('a', '/aff-a.jpg'), 0, PRETES));
-      moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg'), 0, PRETES));   // 1re mutation
-      moteur.peindre(rendreCarteMedia(sourceMedia('c', '/aff-c.jpg'), 0, PRETES));   // 2e, avant que la 1re ait croisé
-      // I5 (revue finale) : chaque mutation pose son masque dès la peinture — deux masques, et
-      // RIEN d'autre. Le décompte remplace l'ancien `toEqual([])`, qui ne pouvait plus tenir sans
-      // renoncer au masque ; ce qu'il vérifiait — aucun croisement joué — est ci-dessous.
-      expect(appels).toHaveLength(2);
-      expect(appels.every((x) => x.options.duration === 800)).toBe(true);
-      const croisements = () => appels.filter((x) => x.options.duration !== 800);
+      moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg'), 0, PRETES));
+      moteur.peindre(rendreCarteMedia(sourceMedia('c', '/aff-c.jpg'), 0, PRETES));
+      // ONE ghost, the card the wall actually shows — never a second one of "b", never shown.
+      expect(fantomesDe(racine)).toHaveLength(1);
+      expect(fantomesDe(racine)[0].querySelector('.titre')?.textContent).toBe('a');
 
-      decodeurs[0]();                          // le décodage PÉRIMÉ (a → b) résout enfin, tard
+      decodeurs[0]();
       await Promise.resolve(); await Promise.resolve();
-      // Rien ne doit avoir bougé : la génération courante du bloc est déjà celle de b → c.
-      expect(croisements()).toEqual([]);
+      expect(dissolutions(appels)).toEqual([]);
 
-      decodeurs[1]();                          // le décodage COURANT (b → c) résout
+      decodeurs[1]();
       await Promise.resolve(); await Promise.resolve();
-      expect(croisements().length).toBeGreaterThan(0);
+      expect(dissolutions(appels)).toHaveLength(1);
     });
 
-  // Ronde de correction (reprise de la vague I5) — le masque périmé survivait au croisement
-  // courant. `generationsBloc` protégeait le CROISEMENT du morceau dépassé, jamais son MASQUE :
-  // celui-ci n'était annulé que par son propre `croiser`, donc jusqu'à 800 ms plus tard. Sur le
-  // mur : le nouveau morceau finissait son fondu d'entrée puis redevenait invisible, et le bloc
-  // média restait un trou jusqu'à ce que le décodage périmé daigne aboutir.
-  it('le masque du morceau dépassé est annulé dès qu\'un morceau plus récent en pose un autre',
-    () => {
-      const posees: number[] = [];
-      const annules: number[] = [];
-      const { moteur } = moteurReel({
-        decoder: () => new Promise<void>(() => {}),
-        // Double d'animation qui ne finit JAMAIS : c'est la seule façon d'observer un `cancel()`,
-        // le double par défaut de `moteurReel` résolvant tout de suite.
-        animer: () => {
-          const mien = posees.length;
-          posees.push(mien);
-          return { finished: new Promise(() => {}), cancel: () => annules.push(mien) } as any;
-        },
-      });
-      moteur.peindre(rendreCarteMedia(sourceMedia('a', '/aff-a.jpg'), 0, PRETES));
-      moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg'), 0, PRETES));   // masque n° 0
-      moteur.peindre(rendreCarteMedia(sourceMedia('c', '/aff-c.jpg'), 0, PRETES));   // masque n° 1
-      expect(posees).toHaveLength(2);
-      // Le premier masque, et lui seul : le second tient toujours le bloc invisible en attendant
-      // l'affiche de « c ».
-      expect(annules).toEqual([0]);
-    });
-
-  // Re-revue — LE MÊME DÉFAUT PAR LA PORTE D'À CÔTÉ, et il n'existait pas avant cette vague
-  // (il n'y avait aucun masque). L'annulation du masque précédent vivait DANS `masquerBloc`, qui
-  // n'est appelée que lorsqu'il y a une affiche à attendre. Enchaînement réel : un morceau de
-  // musique avec sa jaquette, puis une source qui n'en fournit aucune (YouTube, la télé) — même
-  // nœud `bloc:media`. Le masque du premier n'était alors annulé ni par `masquerBloc` (jamais
-  // rappelée) ni par le `croiser` du second (dont la fermeture porte `masque = null`) : il tenait
-  // `.media` à `opacity: 0` jusqu'à 800 ms APRÈS que le fondu d'entrée du second avait fini de
-  // jouer. Un trou noir à la place du lecteur, exactement le symptôme fermé sur le chemin voisin.
-  it('le masque tombe aussi quand le morceau suivant n\'a PAS d\'affiche à attendre', () => {
-    const posees: number[] = [];
+  // Fade through (the card changes size): the new card is masked while the ghost holds. A newer
+  // track cancels the previous mask, with or without a poster of its own.
+  it('le masque du morceau dépassé tombe, que le suivant ait une affiche ou non', () => {
+    const posees: { trames: any }[] = [];
     const annules: number[] = [];
+    let hauteur = 264;
     const { moteur } = moteurReel({
-      decoder: () => new Promise<void>(() => {}),   // l'affiche de « b » ne viendra jamais
-      animer: () => {
+      decoder: () => new Promise<void>(() => {}),
+      tailleDe: () => [311, hauteur] as const,
+      animer: (_el, trames) => {
         const mien = posees.length;
-        posees.push(mien);
+        posees.push({ trames });
         return { finished: new Promise(() => {}), cancel: () => annules.push(mien) } as any;
       },
     });
     moteur.peindre(rendreCarteMedia(sourceMedia('a', '/aff-a.jpg'), 0, PRETES));
-    moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg'), 0, PRETES));   // masque n° 0, en attente
-    moteur.peindre(rendreCarteMedia(sourceMedia('c'), 0, PRETES));                 // SANS affiche : croise net
-
-    // Le croisement de « c » est parti tout de suite (fantôme + fondu d'entrée), donc le masque
-    // de « b » n'a plus rien à masquer : il doit être tombé.
-    expect(posees.length).toBeGreaterThan(1);
+    hauteur = 200;
+    moteur.peindre(rendreCarteMedia(sourceMedia('b', '/aff-b.jpg'), 0, PRETES));   // mask n° 0
+    expect(posees[0].trames).toEqual([{ opacity: 0 }, { opacity: 0 }]);
+    hauteur = 150;
+    moteur.peindre(rendreCarteMedia(sourceMedia('c'), 0, PRETES));                 // no poster: now
     expect(annules).toContain(0);
+    expect(posees.some((p) => p.trames[0].opacity === 0 && p.trames[1].opacity === 1)).toBe(true);
   });
 });

@@ -92,7 +92,7 @@ describe('media card — layout', () => {
   it('shows the three transport buttons, play/pause as the primary disc', () => {
     const boutons = Array.from(transport(rendre(BASE)));
     expect(boutons.map((b) => b.getAttribute('data-mvt')))
-      .toEqual(['detail:tr-precedent', 'detail:tr-pause', 'detail:tr-suivant']);
+      .toEqual(['detail:tr-precedent', 'detail:tr-middle', 'detail:tr-suivant']);
     expect(boutons.map((b) => b.classList.contains('primaire'))).toEqual([false, true, false]);
   });
 
@@ -267,7 +267,7 @@ describe('media card — actions', () => {
     const pin = vi.fn();
     brancherMedia(act, pin);
     const c = rendre(BASE, READY, true);
-    tap(c.querySelector('[data-mvt="detail:tr-pause"]')!);
+    tap(c.querySelector('[data-mvt="detail:tr-middle"][data-mvt-etat="pause"]')!);
     expect(pin).toHaveBeenCalledWith(sourceKey(BASE));
     expect(act).toHaveBeenCalledWith('media_player', 'media_pause', 'media_player.tv');
   });
@@ -276,7 +276,7 @@ describe('media card — actions', () => {
     const pin = vi.fn();
     brancherMedia(vi.fn(), pin);
     const c = rendre(BASE, READY, false);
-    tap(c.querySelector('[data-mvt="detail:tr-pause"]')!);
+    tap(c.querySelector('[data-mvt="detail:tr-middle"][data-mvt-etat="pause"]')!);
     expect(pin).not.toHaveBeenCalled();
   });
 

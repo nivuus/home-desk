@@ -54,7 +54,9 @@ export type TuileMinuteur = (dansGrille: boolean) => TemplateResult;
  *  ici), lisible d'un coup d'œil depuis l'autre bout de la pièce ; la seconde garde la phrase
  *  complète (`a.texte`). */
 export function rendreAlerte(a: Alerte): TemplateResult {
-  return html`<div class="alerte" data-zone="blocCentral" data-mvt="bloc:alerte">${icone('lock')}
+  // Its text as its motion state: another alert replacing this one swaps the block, never a jump.
+  return html`<div class="alerte" data-zone="blocCentral" data-mvt="bloc:alerte"
+    data-mvt-etat=${`${a.sujet}|${a.texte}`}>${icone('lock')}
     <div><div class="t">${a.sujet}</div><div class="v">${a.texte}</div></div></div>`;
 }
 
@@ -354,7 +356,7 @@ export function rendreCorps(
              .synthese-texte et .ecart, qui sont ses descendants : la règle d'imbrication veut
              un ancêtre STRICT qui bouge dans la même différence, pas une marque sur chaque nœud. -->
         <div class="synthese ${syntheseReduite ? 'reduite' : ''}" data-zone="synthese"
-             data-mvt="ligne:synthese"
+             data-mvt="ligne:synthese" data-mvt-swap data-mvt-etat=${`${s.texte}|${s.ecarts.join(',')}`}
              @pointerdown=${() => (location.hash = '#taches')}>${icone('lock')}
           <div class="synthese-texte">${s.texte} <span class="ecart">${s.ecarts.join(', ')}</span></div>
         </div>`;

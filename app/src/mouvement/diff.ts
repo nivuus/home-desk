@@ -6,7 +6,10 @@ export type Verdict =
   | { type: 'deplacement'; marque: Marque; depuis: readonly [number, number] }
   | { type: 'mutation'; marque: Marque; avant: string | null }
   | { type: 'traversee'; sortante: Marque; entrante: Marque; sens: 'droite' | 'gauche' }
-  | { type: 'croisement'; sortante: Marque; entrante: Marque };
+  | { type: 'croisement'; sortante: Marque; entrante: Marque }
+  | { type: 'dissolve'; leaving: Mark; entering: Mark };
+
+type Mark = Marque;  // policy: allow-fr
 
 const vueDe = (m: Map<string, Marque>): Marque | undefined =>
   [...m.values()].find((x) => x.role === 'vue');
@@ -15,29 +18,35 @@ const vueDe = (m: Map<string, Marque>): Marque | undefined =>
  *  déjà en place dans `base.css` avant ce moteur (`entree-droite`/`entree-gauche`). */
 const sensVers = (cle: string): 'droite' | 'gauche' => (cle === 'accueil' ? 'gauche' : 'droite');
 
-/** Vrai si un ANCÊTRE de `m` figure parmi `ensemble`. C'est ce qui empêche l'exhaustivité de
- *  coûter deux fois : quand le bloc média sort, il emporte son sous-titre, ses trois boutons de
- *  transport et son rail de volume — neuf verdicts et neuf clones pour un seul geste, plus des
- *  animations imbriquées qui se composent sur un élément déjà en train de disparaître. C'est aussi
- *  ce qui permet de garder `FANTOMES_MAX` à 12 malgré la couverture exhaustive : les sorties en
- *  rafale viennent presque toujours d'un conteneur commun.
+/** True when a marked ANCESTOR of `m` is part of `ensemble` (declarations). This keeps
+ *  exhaustiveness from paying twice: when the media block leaves, it takes its subtitle, its three
+ *  transport buttons and its volume rail with it — one gesture, one ghost, not nine ghosts and
+ *  nested animations composing on an element already disappearing. It is also what keeps
+ *  `FANTOMES_MAX` at 12: exits in bursts nearly always come from a common container.
  *
- *  Ne vaut QUE pour les entrées et les sorties. Un déplacement ou une mutation sous un parent qui
- *  ne fait que bouger reste joué : un chiffre qui roule dans un bloc qui se déplace, ce sont bien
- *  deux gestes distincts. */
+ *  Decided on the ancestry RECORDED at the survey (`Marque.ancetres`), never on the live DOM:
+ *  `lit` may reuse the container node for the new content and drop the child, which is then
+ *  inside nothing any more and would leave as a ghost of its own.
+ *
+ *  Only for entries and exits. A move or a mutation under a parent that only moves is still
+ *  played: a digit that rolls inside a block that moves are two distinct gestures. */
 function sousUnAncetre(m: Marque, ensemble: Iterable<Marque>): boolean {
-  for (const autre of ensemble) {
-    if (autre !== m && autre.el !== m.el && autre.el.contains(m.el)) return true;
-  }
-  return false;
+  const keys = new Set([...ensemble].map(keyOf));
+  return m.ancetres.some((d) => keys.has(d));
 }
+
+/** The declaration of a mark, the key of a survey. */
+const keyOf = (m: Marque): string => `${m.role}:${m.cle}`;
 
 export function comparer(avant: Map<string, Marque>, apres: Map<string, Marque>): Verdict[] {
   const vAvant = vueDe(avant);
   const vApres = vueDe(apres);
   if (vAvant && vApres && vAvant.cle !== vApres.cle) {
-    // L'écran de nuit ne traverse jamais : cf. le test, et la tâche 7.
-    if (vAvant.cle === 'nuit' || vApres.cle === 'nuit') return [];
+    // The night screen never slides: it dissolves into the next view, and the next view into it.
+    // Until 2026-11-06 it changed at once, on the idea that the palette fade carried the change at
+    // 23:00 — but the evening palette is already dark, so nothing faded, at 23:00 nor on a wake.
+    const night = (m: Mark) => m.cle === 'nuit';  // policy: allow-fr
+    if (night(vAvant) || night(vApres)) return [{ type: 'dissolve', leaving: vAvant, entering: vApres }];  // policy: allow-fr
     return [{ type: 'traversee', sortante: vAvant, entrante: vApres, sens: sensVers(vApres.cle) }];
   }
 
@@ -76,21 +85,19 @@ export function comparer(avant: Map<string, Marque>, apres: Map<string, Marque>)
     if (!sousUnAncetre(m, sortantes)) verdicts.push({ type: 'sortie', marque: m });
   }
 
-  // Un bloc central qui en remplace un autre (repas → voiture, agenda → alerte) est UN geste, pas
-  // une sortie plus une entrée : la fente ne doit ni se refermer ni se rouvrir. C'est le
-  // *container transform* de MD3 — le bloc média le faisait déjà seul, on l'étend au rôle entier.
-  //
-  // « Même place » se lit sur la POSITION relevée, pas sur le rang : deux blocs de rangs différents
-  // peuvent occuper la même fente quand des éléments les précèdent apparaissent ou disparaissent
-  // dans la même passe. Si l'appariement échoue, on retombe sur le couple sortie + entrée —
-  // dégradation lisible, jamais une erreur.
+  // A block that replaces another one (meal → car, car → door alert, one card of the stack →
+  // the next) is ONE gesture, not an exit plus an entry: MD3's fade through. Leaving blocks and
+  // entering blocks are paired IN DOCUMENT ORDER — never on their measured position, which moves
+  // as soon as anything above them changes in the same pass (the door tile that shrinks when the
+  // media card arrives): the pairing then failed, and the block left, a hole stayed open for the
+  // entry's cascade delay, and the new one appeared on its own. A surplus on either side keeps
+  // its plain exit or entry.
   const sorties = verdicts.filter((v) => v.type === 'sortie' && v.marque.role === 'bloc');
-  for (const s of sorties) {
-    if (s.type !== 'sortie') continue;                       // affine le type pour TypeScript
-    const e = verdicts.find((v) => v.type === 'entree' && v.marque.role === 'bloc'
-      && v.marque.position[0] === s.marque.position[0]
-      && v.marque.position[1] === s.marque.position[1]);
-    if (e === undefined || e.type !== 'entree') continue;
+  const entrees = verdicts.filter((v) => v.type === 'entree' && v.marque.role === 'bloc');
+  const paires = Math.min(sorties.length, entrees.length);
+  for (let i = 0; i < paires; i++) {
+    const s = sorties[i], e = entrees[i];
+    if (s.type !== 'sortie' || e.type !== 'entree') continue;   // narrows the type for TypeScript
     verdicts.splice(verdicts.indexOf(s), 1);
     verdicts.splice(verdicts.indexOf(e), 1);
     verdicts.push({ type: 'croisement', sortante: s.marque, entrante: e.marque });

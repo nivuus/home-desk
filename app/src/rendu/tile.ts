@@ -77,9 +77,14 @@ export const bouton = (etat: Etat, b: Bouton, actif: boolean, classe: string) =>
   // entity without a value keeps its navigation live.
   const absente = !etat.isPresent(b.entite);
   const inerte = absente || (!b.service && !b.lien && !b.vue && !d);
+  const libelle = etiquette(etat, b);
+  // Everything the tile SHOWS of its state, in one value: the motion engine swaps the whole tile
+  // when it changes (`mutation`, `mouvement/croisement.ts`) — the colour, the label, the gauge and
+  // the height together, never one after the other.
+  const etatVisible = `${actif ? 1 : 0}|${inerte ? 1 : 0}|${b.haute ? 1 : 0}|${fraction}|${libelle}`;
   return html`
   <div class="${classe} ${actif ? 'actif' : ''} ${d ? 'jauge' : ''} ${inerte ? 'inerte' : ''} ${absente ? 'absent' : ''} ${b.haute ? 'haute' : ''}"
-       data-mvt="tuile:${b.entite}"
+       data-mvt="tuile:${b.entite}" data-mvt-etat=${etatVisible}
        style="--jauge:${fraction}"
        @pointerdown=${(ev: PointerEvent) => geste(ev, b.entite, () => appuyer(etat, b))}>
     ${icone(b.icone)}
@@ -90,7 +95,7 @@ export const bouton = (etat: Etat, b: Bouton, actif: boolean, classe: string) =>
            data-mvt-etat — none of its possible verdicts (entry/exit, mutation) can therefore
            happen. It was not free for all that: two layout reads (offsetLeft/offsetWidth) per
            tile and per painting, for a verdict that never comes. -->
-      <div class="s">${etiquette(etat, b)}</div></div>
+      <div class="s">${libelle}</div></div>
   </div>`;
 };
 

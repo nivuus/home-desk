@@ -25,6 +25,9 @@ const END_RESISTANCE = 0.25;
 
 export type SwipeHandlers = {
   count: number; index: number; onChange(index: number): void; onTouch(): void;
+  /** Called just before `onChange`, while the card is still where the finger left it: the card
+   *  that leaves goes on towards `direction` (the motion engine's `carryOff`). */
+  onLeave?(direction: -1 | 1): void;
 };
 
 /** Makes `el` (the `.pile` that holds the displayed card) swipeable. `h` is read at each gesture, so the caller may
@@ -92,11 +95,15 @@ export function attachSwipe(
 
   function up(e: PointerEvent) {
     if (!mine(e)) return;
+    const changes = g !== null && g.phase === 'swiping'
+      && inStack(target(g.dx)) && Math.abs(g.dx) >= SEUIL_PX;
+    // Before `end()` resets the offset: the leaving card is taken from where the finger left it.
+    if (changes) h.onLeave?.(g!.dx < 0 ? -1 : 1);
     const done = end();
     if (done === null || done.phase !== 'swiping') return;
     const next = target(done.dx);
     // Brought back near its start, the finger changed its mind: the card stays.
-    if (!inStack(next) || Math.abs(done.dx) < SEUIL_PX) { slide(offset(done.dx)); return; }
+    if (!changes) { slide(offset(done.dx)); return; }
     h.onChange(next);
     // The new card comes in from the side opposite the push, as if the stack slid under the finger.
     slide(-Math.sign(done.dx) * el.getBoundingClientRect().width);

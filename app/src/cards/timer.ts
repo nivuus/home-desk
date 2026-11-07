@@ -65,6 +65,9 @@ export function frame(card: Card, f: Frame, _s: ScreenState): CardFrame {
       { icon: 'stop', label: S.timerStop, act: () => actionsMinuteur().annuler(v.slot) },
     ],
     background: { kind: 'solid', token: timerToken(v.actif, v.restantS) },
-    motion: { block: 'bloc:minuteur-solo' },
+    // Its own state, without the countdown: the per-second tick writes the countdown in place,
+    // and a swap of the whole card at every painting would blur it.
+    motion: { block: 'bloc:minuteur-solo',
+      state: `${v.actif ? 1 : 0}|${libelle(v)}|${timerToken(v.actif, v.restantS)}|${others}` },
   };
 }

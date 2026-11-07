@@ -30,6 +30,8 @@ function rooms(v: VacuumState): TemplateResult {
         const rang = v.chosen.findIndex((c) => c.entite === r.entite && c.zone === p.zone);
         return html`
           <div class="mn-etiquette ${rang >= 0 ? 'choisie' : ''}" data-zone-ha=${p.zone}
+               data-mvt="detail:asp-${r.entite}-${p.zone}" data-mvt-swap
+               data-mvt-etat=${rang < 0 ? '-' : v.chosen.length > 1 ? String(rang + 1) : '+'}
                @pointerdown=${() => act.toggle(r.entite, p.zone)}>${p.nom}${
                  v.chosen.length > 1 && rang >= 0 ? html`<span class="asp-rang">${rang + 1}</span>` : nothing}</div>`;
       })}
@@ -45,6 +47,7 @@ function passes(v: VacuumState): TemplateResult | typeof nothing {
       <div class="mn-etiquettes" data-mvt="detail:asp-passages">
         ${choix.map((n) => html`
           <div class="mn-etiquette ${n === v.passes ? 'choisie' : ''}" data-passages=${n}
+               data-mvt="detail:asp-passes-${n}" data-mvt-swap data-mvt-etat=${n === v.passes ? '+' : '-'}
                @pointerdown=${() => act.passes(n)}>${n}</div>`)}
       </div>`;
   }

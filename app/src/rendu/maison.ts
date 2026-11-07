@@ -114,8 +114,14 @@ export function rendreMaison(etat: Etat, piece: Ecran, horsLigne = false): Templ
             // Absent means missing or `unavailable`: an `unknown` indicator (no meal planned)
             // leaves the pantry panel reachable (see `Etat.isPresent`).
             const absente = !etat.isPresent(b.entite);
+            const on = !absente && etat.lire(b.entite)!.etat === 'on';
+            // Everything the tile shows of its state: the engine swaps the whole tile when it
+            // changes (`mouvement/swap.ts`). A CSS transition faded its background alone while its
+            // text switched colour on the first frame: white on a still pale tile.
+            const shown = `${on ? 1 : 0}|${absente ? 1 : 0}|${fraction}`;
             return html`
-            <div class="tuile ${!absente && etat.lire(b.entite)!.etat === 'on' ? 'actif' : ''} ${d ? 'jauge' : ''} ${absente ? 'absent' : ''}"
+            <div class="tuile ${on ? 'actif' : ''} ${d ? 'jauge' : ''} ${absente ? 'absent' : ''}"
+                 data-mvt="tuile:maison-${b.entite}" data-mvt-etat=${shown}
                  style="--jauge:${fraction}"
                  @pointerdown=${(ev: PointerEvent) => (absente ? undefined
                     : geste(ev, b.entite, () => appuyer(etat, b)))}>
