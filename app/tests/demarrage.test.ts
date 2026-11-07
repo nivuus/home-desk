@@ -1039,6 +1039,9 @@ describe('réveil de l\'écran de nuit', () => {
     expect(m.racine.querySelector('.nuit')).not.toBeNull();
 
     m.racine.querySelector<HTMLElement>('.nuit')!.dispatchEvent(new Event('pointerdown'));
+    // The night screen now dissolves into the woken view: its clone stays in `#mvt-fantomes` for
+    // the length of that fade. `vider()` lets the test double's animation conclude first.
+    await vider();
     expect(m.racine.querySelector('.nuit')).toBeNull();
     expect(m.racine.querySelector('.corps')).not.toBeNull();
 
@@ -1057,6 +1060,7 @@ describe('réveil de l\'écran de nuit', () => {
   it('réarme le délai à chaque contact', async () => {
     const m = await monterDemarrage(ECRANS.cuisine, { maintenant: nuit });
     m.racine.querySelector<HTMLElement>('.nuit')!.dispatchEvent(new Event('pointerdown'));
+    await vider();   // the night screen's dissolving clone, as in the test above
     const premier = m.minuteurFn.mock.calls.filter((c: any[]) => c[1] === 45_000).pop()!;
     m.racine.querySelector<HTMLElement>('.corps')!.dispatchEvent(new Event('pointerdown'));
     const second = m.minuteurFn.mock.calls.filter((c: any[]) => c[1] === 45_000).pop()!;

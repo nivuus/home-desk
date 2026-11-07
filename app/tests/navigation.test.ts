@@ -199,6 +199,9 @@ describe('navigation (nuit / toute la maison)', () => {
 
     maintenant = new Date(2026, 7, 1, 23, 0);   // l'heure bascule, aucun contact entre-temps
     rappelHorloge!();
+    // The whole-house view dissolves into the night screen: its clone lives in `#mvt-fantomes`
+    // for the length of that fade, until the test double's animation concludes.
+    await vider();
 
     expect(racine.querySelector('.nuit')).not.toBeNull();
     expect(racine.querySelector('.grille')).toBeNull();

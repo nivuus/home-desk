@@ -6,7 +6,10 @@ export type Verdict =
   | { type: 'deplacement'; marque: Marque; depuis: readonly [number, number] }
   | { type: 'mutation'; marque: Marque; avant: string | null }
   | { type: 'traversee'; sortante: Marque; entrante: Marque; sens: 'droite' | 'gauche' }
-  | { type: 'croisement'; sortante: Marque; entrante: Marque };
+  | { type: 'croisement'; sortante: Marque; entrante: Marque }
+  | { type: 'dissolve'; leaving: Mark; entering: Mark };
+
+type Mark = Marque;  // policy: allow-fr
 
 const vueDe = (m: Map<string, Marque>): Marque | undefined =>
   [...m.values()].find((x) => x.role === 'vue');
@@ -39,8 +42,11 @@ export function comparer(avant: Map<string, Marque>, apres: Map<string, Marque>)
   const vAvant = vueDe(avant);
   const vApres = vueDe(apres);
   if (vAvant && vApres && vAvant.cle !== vApres.cle) {
-    // L'écran de nuit ne traverse jamais : cf. le test, et la tâche 7.
-    if (vAvant.cle === 'nuit' || vApres.cle === 'nuit') return [];
+    // The night screen never slides: it dissolves into the next view, and the next view into it.
+    // Until 2026-11-06 it changed at once, on the idea that the palette fade carried the change at
+    // 23:00 — but the evening palette is already dark, so nothing faded, at 23:00 nor on a wake.
+    const night = (m: Mark) => m.cle === 'nuit';  // policy: allow-fr
+    if (night(vAvant) || night(vApres)) return [{ type: 'dissolve', leaving: vAvant, entering: vApres }];  // policy: allow-fr
     return [{ type: 'traversee', sortante: vAvant, entrante: vApres, sens: sensVers(vApres.cle) }];
   }
 

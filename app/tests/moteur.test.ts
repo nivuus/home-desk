@@ -184,12 +184,16 @@ describe('comparer', () => {
     expect((v[0] as any).sens).toBe('gauche');
   });
 
-  // L'écran de nuit est hors traversée : à 23 h c'est le fondu de palette qui porte le changement
-  // (tâche 7). Deux mouvements simultanés sur le plus gros changement de la journée feraient
-  // désordre — et « rien ne bouge dans le noir » s'applique d'abord ici.
-  it('n\'anime aucune traversée vers ou depuis l\'écran de nuit', () => {
-    expect(comparer(carte(marque('vue:accueil')), carte(marque('vue:nuit')))).toEqual([]);
-    expect(comparer(carte(marque('vue:nuit')), carte(marque('vue:accueil')))).toEqual([]);
+  // 2026-11-06 — the night screen never slides, and no longer changes at once either: the
+  // evening palette is already dark, so at 23:00 (and on a wake) nothing carried the change. The
+  // whole view dissolves into the other one, and nothing inside it plays on its own.
+  it('fond l\'écran de nuit dans la vue suivante, et inversement, sans aucun verdict interne', () => {
+    const versNuit = comparer(carte(marque('vue:accueil'), marque('tuile:a')), carte(marque('vue:nuit')));
+    expect(versNuit).toEqual([expect.objectContaining({ type: 'dissolve' })]);
+    expect((versNuit[0] as any).leaving.cle).toBe('accueil');
+    const reveil = comparer(carte(marque('vue:nuit')), carte(marque('vue:accueil'), marque('tuile:a')));
+    expect(reveil).toEqual([expect.objectContaining({ type: 'dissolve' })]);
+    expect((reveil[0] as any).entering.cle).toBe('accueil');
   });
 
   it('un enfant marqué ne sort pas quand son parent marqué sort — un geste, un clone', () => {
@@ -742,11 +746,25 @@ describe('creerMoteur — traversée de vue', () => {
     expect(appels[0].trames[0].transform).toBe('translateX(-343px)');
   });
 
-  it('ne pousse rien vers l\'écran de nuit', () => {
+  // Nothing moves in the dark: the leaving view's clone dissolves over the night screen, opacity
+  // only, and the night screen itself is never animated (opaque from the first frame).
+  it('ne pousse rien vers l\'écran de nuit : la vue quittée s\'y dissout, sans déplacement', () => {
     const { moteur, appels } = moteurDeTest(() => ({}));
-    moteur.peindre('<div data-mvt="vue:accueil"></div>');
-    moteur.peindre('<div data-mvt="vue:nuit"></div>');
-    expect(appels).toEqual([]);
+    moteur.peindre('<div data-mvt="vue:accueil">jour</div>');
+    moteur.peindre('<div data-mvt="vue:nuit">nuit</div>');
+    expect(appels).toHaveLength(1);
+    expect(appels[0].el.textContent).toBe('jour');
+    expect(appels[0].trames).toEqual([{ opacity: 1 }, { opacity: 0 }]);
+    expect(appels[0].options.duration).toBe(500);
+  });
+
+  it('le réveil fond l\'écran de nuit dans l\'accueil de la même façon', () => {
+    const { moteur, appels } = moteurDeTest(() => ({}));
+    moteur.peindre('<div data-mvt="vue:nuit">nuit</div>');
+    moteur.peindre('<div data-mvt="vue:accueil">soir</div>');
+    expect(appels).toHaveLength(1);
+    expect(appels[0].el.textContent).toBe('nuit');
+    expect(appels[0].trames).toEqual([{ opacity: 1 }, { opacity: 0 }]);
   });
 
 });

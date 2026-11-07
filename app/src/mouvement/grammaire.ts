@@ -35,6 +35,10 @@ export const FADE_IN_MS = 230;
 /** The easing of a full-screen slide: a deceleration that never passes its target. The spatial
  *  spring (`SPATIAL`) overshoots by 8 % — on a 343 px view, 27 px past the edge, which uncovered a
  *  strip of the view underneath on the opposite side. */
+/** Into and out of the night screen (23:00, 05:00, a touch that wakes it): the whole view
+ *  dissolves into the other one, without any movement — nothing moves in the dark. Slower than a
+ *  crossfade: it is the biggest change of the day, and at 23:00 nobody is waiting for it. */
+export const NIGHT_FADE_MS = 500;
 export const VIEW_EASING = 'cubic-bezier(.05, .7, .1, 1)';
 export const TRAVERSEE_MS = 320;
 export const ROULEMENT_MS = 140;

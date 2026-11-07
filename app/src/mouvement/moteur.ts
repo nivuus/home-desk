@@ -1,6 +1,6 @@
 import { render } from 'lit';
 import { AMPLITUDE_PX, DEPLACEMENT_MS, DETAIL_MS, EFFET, EFFET_SORTIE, VIEW_EASING, ENTREE_MS,
-         GARDE_MS, GLISSE_VUE_PX, ROULEMENT_MS, SORTIE_MS, SPATIAL, TRAVERSEE_MS,
+         GARDE_MS, GLISSE_VUE_PX, NIGHT_FADE_MS, ROULEMENT_MS, SORTIE_MS, SPATIAL, TRAVERSEE_MS,
          retardCascade, type Role } from './grammaire';
 import { lireMarques, positionReelle, tailleReelle,
          type Marque, type Position, type Taille } from './marques';
@@ -159,7 +159,8 @@ export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): M
   // déclaration `data-mvt` ne porte jamais SUR LA TUILE elle-même, mais qui gouverne quand même
   // l'écran entier qui glisse (brief tâche 8, point d'attention 1).
   const roleDuVerdict = (v: Verdict): Role =>
-    v.type === 'traversee' ? 'vue' : v.type === 'croisement' ? 'bloc' : v.marque.role;
+    v.type === 'traversee' || v.type === 'dissolve' ? 'vue'
+      : v.type === 'croisement' ? 'bloc' : v.marque.role;
 
   // `avant` : le relevé D'AVANT de CETTE peinture, nécessaire aux rôles `chiffre` ET `bloc`
   // (mutation, ci-dessous, tâche 7) — `v.marque` (fourni par `comparer()`) est TOUJOURS le relevé
@@ -260,6 +261,17 @@ export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): M
         a.finished.finally(() => calqueFond.relacher(f)).catch(() => {});
         minuteurFn(() => calqueFond.relacher(f), TRAVERSEE_MS + GARDE_MS);
       }
+      return;
+    }
+    if (v.type === 'dissolve') {
+      // The leaving view's clone, over everything, dissolves into the new view — opaque from the
+      // first frame, so the screen never shows the page background in between.
+      const ghost = calque.fantomer(v.leaving);
+      if (ghost === null) return;
+      const a = animer(ghost, [{ opacity: 1 }, { opacity: 0 }],
+        { duration: NIGHT_FADE_MS, easing: EFFET, fill: 'forwards' });
+      a.finished.finally(() => calque.relacher(ghost)).catch(() => {});
+      minuteurFn(() => calque.relacher(ghost), NIGHT_FADE_MS + GARDE_MS);
       return;
     }
     if (v.type === 'croisement') {
@@ -443,7 +455,7 @@ export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): M
   /** True when the verdict concerns content inside the muted element. */
   function isMuted(v: Verdict, mutedEl: HTMLElement, keys: Set<string>): boolean {
     const inside = (m: Marque) => keys.has(`${m.role}:${m.cle}`) || mutedEl.contains(m.el);
-    if (v.type === 'traversee') return false;
+    if (v.type === 'traversee' || v.type === 'dissolve') return false;
     if (v.type === 'croisement') return inside(v.sortante) || inside(v.entrante);
     return inside(v.marque);
   }
