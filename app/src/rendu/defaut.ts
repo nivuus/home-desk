@@ -146,7 +146,8 @@ export function rendreEntretien(items: { uid: string; texte: string }[]): Templa
 export function rendreProchainRdv(evenements: Evenement[], maintenant: Date): TemplateResult | undefined {
   const t = maintenant.getTime();
   const prochain = evenements
-    .filter((e) => !e.estAnniversaire && estCeJour(e.debut, maintenant))
+    // An all-day event has no hour to give (`journeeEntiere`), whatever the time zone.
+    .filter((e) => !e.estAnniversaire && !e.journeeEntiere && estCeJour(e.debut, maintenant))
     .map((e) => ({ e, quand: new Date(e.debut).getTime() }))
     .filter(({ quand }) => quand > t)
     .sort((a, b) => a.quand - b.quand)[0];

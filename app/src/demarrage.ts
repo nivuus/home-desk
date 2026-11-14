@@ -152,6 +152,45 @@ export async function startWithScreen(
   );
   s.house = house;
 
+  /** The permanent intervals of the screen, armed ONCE for the lifetime of the page under the
+   *  `initialise` guard, like the wiring. They used to be armed after the connect step, so any
+   *  failure after it — a paint that throws — sent `tenter()` back to its beginning and each retry
+   *  added four more intervals that never stop. Their callbacks need no connection to be armed:
+   *  each load already survives a closed socket. */
+  function armerIntervalles(): void {
+    d.intervalFn(s.dessiner, 20_000);   // the clock moves on even without an entity change
+    d.intervalFn(() => chargerMeteo(s), 15 * 60_000);
+    // Task 12: the same cadence as the weather. A quarter of an hour is enough for a badge that
+    // announces an appointment up to three hours ahead (`FENETRE_MS`, `agenda.ts`), and that is
+    // as many requests fewer on a tablet with 130 MB free.
+    d.intervalFn(() => chargerAgenda(s), 15 * 60_000);
+    // Task 17: that reasoning no longer holds for the two rooms whose central block may display
+    // those same tasks PERMANENTLY (`replEntretien`, `boot/home.ts`) — with nothing to refresh
+    // the cache, the home view would indefinitely show the list of the start-up instant, and a
+    // wall tablet stays on for weeks.
+    //
+    // Task 17 bis (review, defect D1): THE MAIN FRESHNESS PATH IS NO LONGER THIS ONE, it is the
+    // reload triggered by the pushed state of `todo.maintenance` (`cx.surChangement`,
+    // `boot/wiring.ts`). The previous version of this comment claimed that a task checked off
+    // elsewhere "arrives through NO pushed path": that was FALSE. `todo/item/list` indeed has no
+    // counterpart in `subscribe_events`, and the pushed state only carries a counter, never the
+    // labels — but that counter is indeed pushed (it is consumed by the summary line, `{etat}`,
+    // see `ecran.ts`), and it is enough as a SIGNAL to go and fetch the labels again.
+    //
+    // This 15-minute callback REMAINS, as a safety net, for the only case the signal does not
+    // cover: Home Assistant emits no `state_changed` when the state and the attributes are
+    // identical — a synchronisation that closes one task and opens another in the same pass
+    // leaves the counter unchanged and pushes nothing, whereas the labels have changed. The same
+    // cadence as the weather/calendar/meal and `chargerTaches` as is, never a second loader
+    // dedicated to `todo.maintenance`: that would be a second read path for the same data, and
+    // the tasks view benefits along the way. The living room, whose central block is the car in
+    // all circumstances, has nothing to gain from it: one more websocket command every 15 min on
+    // a Fire 7 with 130 MB free, for a result it never renders.
+    if (s.agencement.blocDefaut === 'repas' || s.agencement.blocDefaut === 'agenda') {
+      d.intervalFn(() => chargerTaches(s), 15 * 60_000);
+    }
+  }
+
   async function tenter(): Promise<void> {
     try {
       if (!initialise) {
@@ -162,18 +201,13 @@ export async function startWithScreen(
         // under (`home_desk/ecran` resolves it by exact match), the very name the service
         // targets. Same once-only guard as `wireScreen`: `abonner` is replayed on reconnection.
         armerAnimations(s.cx, piece.nom, s);
+        armerIntervalles();
         initialise = true;
       }
       await s.cx.connecter();
       attempt = 0;
-      d.intervalFn(s.dessiner, 20_000);   // the clock moves on even without an entity change
       void chargerMeteo(s);
-      d.intervalFn(() => chargerMeteo(s), 15 * 60_000);
-      // Task 12: the same cadence as the weather. A quarter of an hour is enough for a badge that
-      // announces an appointment up to three hours ahead (`FENETRE_MS`, `agenda.ts`), and that is
-      // as many requests fewer on a tablet with 130 MB free.
       void chargerAgenda(s);
-      d.intervalFn(() => chargerAgenda(s), 15 * 60_000);
       // Batch 6: NO MORE interval for the meal. It comes from an entity attribute, so it arrives
       // through `subscribe_events` — already subscribed, already coalesced (`Etat.notifier`), and
       // up to date to the second rather than to the quarter of an hour. The 15-minute callback
@@ -188,31 +222,6 @@ export async function startWithScreen(
       // Page reloaded while the pantry was open (Fully killed, tablet rebooted): no `hashchange`
       // happens, so the view is entered here, once connected.
       if (location.hash === '#garde-manger') enterPantry(s);
-      // Task 17: that reasoning no longer holds for the two rooms whose central block may display
-      // those same tasks PERMANENTLY (`replEntretien`, `boot/home.ts`) — with nothing to refresh
-      // the cache, the home view would indefinitely show the list of the start-up instant, and a
-      // wall tablet stays on for weeks.
-      //
-      // Task 17 bis (review, defect D1): THE MAIN FRESHNESS PATH IS NO LONGER THIS ONE, it is the
-      // reload triggered by the pushed state of `todo.maintenance` (`cx.surChangement`,
-      // `boot/wiring.ts`). The previous version of this comment claimed that a task checked off
-      // elsewhere "arrives through NO pushed path": that was FALSE. `todo/item/list` indeed has no
-      // counterpart in `subscribe_events`, and the pushed state only carries a counter, never the
-      // labels — but that counter is indeed pushed (it is consumed by the summary line, `{etat}`,
-      // see `ecran.ts`), and it is enough as a SIGNAL to go and fetch the labels again.
-      //
-      // This 15-minute callback REMAINS, as a safety net, for the only case the signal does not
-      // cover: Home Assistant emits no `state_changed` when the state and the attributes are
-      // identical — a synchronisation that closes one task and opens another in the same pass
-      // leaves the counter unchanged and pushes nothing, whereas the labels have changed. The same
-      // cadence as the weather/calendar/meal and `chargerTaches` as is, never a second loader
-      // dedicated to `todo.maintenance`: that would be a second read path for the same data, and
-      // the tasks view benefits along the way. The living room, whose central block is the car in
-      // all circumstances, has nothing to gain from it: one more websocket command every 15 min on
-      // a Fire 7 with 130 MB free, for a result it never renders.
-      if (s.agencement.blocDefaut === 'repas' || s.agencement.blocDefaut === 'agenda') {
-        d.intervalFn(() => chargerTaches(s), 15 * 60_000);
-      }
       s.dessiner();
     } catch {
       render(startupError(), racine);
@@ -312,9 +321,8 @@ export async function startScreen(
   // Home Assistant unreachable at cold start (production gate of 2026-09-28, defect B). `prete()`
   // only settles at the first `auth_ok` and never rejects, because `Connexion` reconnects on its
   // own: awaiting it alone left the tablet on the waiting screen forever, and the `catch` below
-  // was unreachable for that failure. Making `prete()` reject would not help: the next attempt
-  // would call `connecter()` while the internal reconnection is already opening a socket — a
-  // second websocket. So the start-up path OBSERVES the connection instead of racing it: the
+  // was unreachable for that failure. Making `prete()` reject would not help: the connection is
+  // already retrying by itself, and a retry here has nothing to add but a second chain. So the start-up path OBSERVES the connection instead of racing it: the
   // silence watch is the signal `Connexion` already gives for "the house does not answer", and
   // `SEUIL_MUET_MS` is the threshold the mounted body uses for the same verdict (grey screen plus
   // offline banner) — one definition of "unreachable", not a second, arbitrary timeout. Past it,
@@ -340,9 +348,17 @@ export async function startScreen(
   };
 
   let attempt = 0;
+  // The connection is asked for ONCE. A failed attempt is retried by `Connexion` itself
+  // (`reconnecter`, single-flight `connecter()`), so the retries of this routine only wait for it
+  // to authenticate: calling `connecter()` again from here ran a second retry chain next to the
+  // connection's own, and the two raced to open sockets.
+  let connectionRequested = false;
   const tenterChargement = async (): Promise<void> => {
     try {
-      await cx.connecter();
+      if (!connectionRequested) {
+        connectionRequested = true;
+        await cx.connecter();
+      }
       await cx.prete();
       authenticated = true;
 

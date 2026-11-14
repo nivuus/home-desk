@@ -38,7 +38,7 @@ export function poserPointsInjection(s: ScreenState): void {
     }
   };
   // `evenements` does NOT arrive through an HA state (`Etat.appliquer`, above): the calendar goes
-  // through a REST request (`chargerAgenda`), out of reach of `__injecter`. These injection
+  // through a service call (`chargerAgenda`), out of reach of `__injecter`. These injection
   // points, under the SAME test-mode URL guard (same write surface as `__injecter`, absent on the
   // three real tablets), give the render checker (in `outils/`) a deterministic way to
   // measure the WORST CASE without depending on the real state of the installation at the time

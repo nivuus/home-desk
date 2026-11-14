@@ -61,47 +61,46 @@ export function connexionFactice(...sequence: ('succes' | 'echec')[]): Connexion
   };
 }
 
-/** Ce que le double de `fetch` doit répondre. Tout ce qui n'est pas déclaré ici répond 404 :
- *  `chargerMeteo`/`chargerAgenda` doivent traverser une absence de donnée sans casser l'écran,
- *  et c'est le cas par défaut d'un test qui ne s'intéresse pas à la météo. */
+/** What Home Assistant answers to the loaders' service calls (`call_service` with
+ *  `return_response`, `src/boot/loaders.ts`). Anything not declared here answers an empty window:
+ *  `chargerMeteo`/`chargerAgenda` must get through an absence of data without breaking the
+ *  screen, and that is the default of a test that does not care about the weather. */
 export type ReponsesReseau = {
   /** Prévisions `daily`, TELLES QUELLES. Revue tâche 12 : ce double rendait auparavant un
    *  `[aujourd'hui, demain]` fabriqué à partir d'un seul `demain`, ce qui encodait l'hypothèse
    *  « la 2e entrée est le lendemain » — le double ne pouvait donc pas contredire le code. Il
    *  rend maintenant la liste que le test lui donne, y compris une liste sans le jour courant. */
   quotidien?: Prevision[];
-  /** Par entité de calendrier, les événements bruts renvoyés par `/api/calendars/...`. */
+  /** Per calendar entity, the raw events `calendar.get_events` returns. `debut` is the event's
+   *  `start` as Home Assistant serialises it: a date-time, or a bare date for an all-day event. */
   calendriers?: Record<string, { resume: string; debut: string }[]>;
 };
 
-let restaurerFetch: (() => void) | undefined;
-
-function reponse(corps: unknown) {
-  return { ok: true, status: 200, json: async () => corps } as unknown as Response;
+/** The `response` of a loader's service call, or `undefined` when `charge` is not one. */
+export function reponseService(r: ReponsesReseau, charge: Record<string, unknown>): unknown {
+  if (charge.type !== 'call_service' || charge.return_response !== true) return undefined;
+  const entite = String((charge.target as { entity_id?: unknown } | undefined)?.entity_id ?? '');
+  if (charge.domain === 'weather' && charge.service === 'get_forecasts') {
+    return { context: {}, response: { [entite]: { forecast: r.quotidien ?? [] } } };
+  }
+  if (charge.domain === 'calendar' && charge.service === 'get_events') {
+    const evts = r.calendriers?.[entite] ?? [];
+    return { context: {}, response: { [entite]: { events: evts.map((e) => ({ summary: e.resume, start: e.debut })) } } };
+  }
+  return undefined;
 }
 
-/** Remplace `globalThis.fetch` par un double hors ligne. Jamais de vraie requête depuis un test :
- *  `chargerMeteo` vise une URL relative, qui lèverait dans jsdom (rattrapé silencieusement) — on
- *  ne saurait alors pas distinguer « la météo n'a rien répondu » de « le double n'a pas été
- *  posé ». */
-export function installerReseau(r: ReponsesReseau = {}): void {
+let restaurerFetch: (() => void) | undefined;
+
+/** Replaces `globalThis.fetch` with a spy that REJECTS: the screen reads nothing over REST any
+ *  more (`src/boot/loaders.ts`), so any call is a regression — and must never become a real
+ *  request from a test. */
+export function installerReseau(): void {
   restaurerReseau();
   const original = globalThis.fetch;
   restaurerFetch = () => { globalThis.fetch = original; };
-  globalThis.fetch = (async (url: RequestInfo | URL, _init?: RequestInit) => {
-    const u = String(url);
-    // Tâche 14 : plus qu'un seul type de prévision demandé (`daily`) depuis que le mode
-    // `previsions` (`hourly`) a disparu — `chargerMeteo` (`demarrage.ts`) ne demande plus jamais
-    // `hourly`, ce double n'a donc plus besoin de le distinguer.
-    if (u.includes('/api/services/weather/get_forecasts')) {
-      return reponse({ service_response: { 'weather.maison': { forecast: r.quotidien ?? [] } } });
-    }
-    const cal = /\/api\/calendars\/([^?]+)/.exec(u);
-    if (cal) {
-      const evts = r.calendriers?.[decodeURIComponent(cal[1])] ?? [];
-      return reponse(evts.map((e) => ({ summary: e.resume, start: { dateTime: e.debut } })));
-    }
-    return { ok: false, status: 404, json: async () => ({}) } as unknown as Response;
+  globalThis.fetch = (async (url: RequestInfo | URL) => {
+    throw new Error(`unexpected REST request from a test: ${String(url)}`);
   }) as typeof fetch;
 }
 
@@ -204,7 +203,7 @@ export type Montage = {
 /** Monte `startScreen()` sur un `#app` neuf, avec toutes ses dépendances injectées et aucun minuteur
  *  réel. Rend de quoi pousser un état, simuler un silence et inspecter les appels de service. */
 export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}): Promise<Montage> {
-  installerReseau(options.reseau ?? {});
+  installerReseau();
   const racine = document.createElement('div');
   let emettre: (e: EvenementEtat) => void = () => {};
   let silencer: (ms: number) => void = () => {};
@@ -218,6 +217,8 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
   // Lit `options.commandes` À CHAQUE APPEL, même raison que `listerTaches` : un test peut changer
   // ce que « répond Home Assistant » pendant que l'écran est allumé.
   const envoyerCommande = vi.fn(async (charge: Record<string, unknown>) => {
+    const service = reponseService(options.reseau ?? {}, charge);
+    if (service !== undefined) return service;
     const reponse = options.commandes?.[String(charge.type)];
     if (!reponse) throw new Error(`commande non doublée : ${String(charge.type)}`);
     return reponse(charge);

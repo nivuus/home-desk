@@ -76,6 +76,11 @@ export function wireScreen(s: ScreenState, jetons: Jetons): void {
     }
   });
   s.etat.surMaj(s.dessiner);
+  // `dessiner()` paints nothing while the document is hidden; coming back paints once, and only
+  // if a paint was actually skipped.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && s.paintSkippedWhileHidden) s.dessiner();
+  });
   // "Plus tard" is shared by every tablet: the set comes from the integration, its own presses
   // included, and a displayed card that leaves gives way through the stack's usual `followStack`.
   subscribeSnoozes(s.cx, (keys) => { s.snoozed = keys; s.dessiner(); },
