@@ -10,7 +10,7 @@ import asyncio
 import json
 
 import pytest
-from pytest_homeassistant_custom_component.common import (
+from pytest_homeassistant.common import (
     async_fire_mqtt_message,
     async_mock_service,
 )

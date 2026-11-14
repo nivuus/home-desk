@@ -117,7 +117,7 @@ d'actions ne le trouvera pas.
 4. **Un aller-retour réseau s'ajoute au démarrage** (les deux commandes
    websocket), là où le bundle affichait immédiatement.
 5. **Une dépendance de test lourde entre**
-   (`pytest-homeassistant-custom-component`), qui épingle une version de
+   (`pytest-homeassistant`, published from home-assistant/core), qui épingle une version de
    HA et qu'il faudra suivre — voir `make test-composant` ci-dessous.
 
 ## Installation

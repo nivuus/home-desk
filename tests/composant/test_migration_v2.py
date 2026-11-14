@@ -12,7 +12,7 @@ to drop (and left `cuisine` at version 1), or that dropped too much, fails
 on one of the two."""
 import copy
 
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.home_desk import migration
 from custom_components.home_desk.const import DOMAIN, SUBENTRY_SCREEN

@@ -6,7 +6,7 @@ kept byte for byte. The rewrite happens at load time, before the transport
 reads the house: `validate_house` refuses any other version."""
 import copy
 
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.home_desk import migration
 from custom_components.home_desk.const import DOMAIN, SUBENTRY_HOUSE

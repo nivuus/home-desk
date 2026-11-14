@@ -9,7 +9,8 @@ from homeassistant.setup import async_setup_component
 from custom_components.home_desk.const import DOMAIN, SUBENTRY_SCREEN
 from custom_components.home_desk.list_fields import SECTIONS
 
-pytest_plugins = "pytest_homeassistant_custom_component"
+# The `pytest-homeassistant` harness registers its pytest plugin by itself
+# (entry point): no `pytest_plugins` line here.
 
 # La sous-entree minimale d'identite : `temperature` est requis (ronde 1 de
 # relecture, tache 6 — un champ racine du contrat qu'aucune tache ne portait

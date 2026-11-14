@@ -14,7 +14,7 @@ la meme fonction d'ancre independante). `VERSION_CONFIG` reste importee :
 ce n'est pas une epellation de protocole, seulement une valeur de
 round-trip interne a Python."""
 from conftest import IDENTITE_MINIMALE, _creer_ecran, _init_reconfigure
-from pytest_homeassistant_custom_component.common import async_capture_events
+from pytest_homeassistant.common import async_capture_events
 
 from custom_components.home_desk.const import DOMAIN, VERSION_CONFIG
 
