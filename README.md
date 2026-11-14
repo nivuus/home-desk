@@ -43,6 +43,10 @@ porte est épinglée, pourquoi un mode existe) vivent dans `.storage`, hors de
 git. Deux services les font voyager vers un fichier versionnable,
 `config/home_desk_ecrans.yaml` :
 
+Both services are admin-only: they write (the file, or every screen and the
+house), so a non-admin user, the tablets' account included, is refused.
+Automations and scripts, which call without a user, still run them.
+
 - **`home_desk.exporter`** écrit tous les écrans actuels dans ce fichier —
   les `note` y redeviennent des **commentaires** (`# ...`), jamais des
   champs : un `note: "..."` au milieu des données serait une chaîne de

@@ -32,6 +32,7 @@ import yaml
 
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.helpers.service import async_register_admin_service
 
 from . import garde_ecran, yaml_ecrans
 from .const import DOMAIN, SCREENS_EXPORT_FILE, SERVICE_EXPORTER, SERVICE_IMPORTER
@@ -164,9 +165,14 @@ _SCHEMA_SANS_CHAMP = vol.Schema({})
 
 def async_setup_services(hass: HomeAssistant) -> None:
     """Registers the two services -- called by `__init__.async_setup_entry`,
-    so after the entry exists (see `_entree`)."""
-    hass.services.async_register(DOMAIN, SERVICE_EXPORTER, _async_exporter, schema=_SCHEMA_SANS_CHAMP)
-    hass.services.async_register(DOMAIN, SERVICE_IMPORTER, _async_importer, schema=_SCHEMA_SANS_CHAMP)
+    so after the entry exists (see `_entree`).
+
+    Both are ADMIN services: the importer replaces every screen and the
+    house, the exporter overwrites the export file. A call carrying a
+    non-admin user (the tablets' account) raises `Unauthorized`; a call
+    without a user (an automation, a script) runs as before."""
+    async_register_admin_service(hass, DOMAIN, SERVICE_EXPORTER, _async_exporter, schema=_SCHEMA_SANS_CHAMP)
+    async_register_admin_service(hass, DOMAIN, SERVICE_IMPORTER, _async_importer, schema=_SCHEMA_SANS_CHAMP)
 
 
 def async_unload_services(hass: HomeAssistant) -> None:
