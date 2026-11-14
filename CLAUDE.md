@@ -135,7 +135,7 @@ rien d'autre. **Cette règle est restreinte à `make test`** (décision 8 de
 la spec `docs/superpowers/specs/2026-09-12-config-ecrans-depuis-ha-design.md`),
 pas supprimée : `custom_components/home_desk/` a apporté une **troisième**
 suite, `make test-composant` (`tests/composant/`), qui **est** pytest et
-tire `pytest-homeassistant-custom-component` (Home Assistant complet) —
+tire `pytest-homeassistant` (full Home Assistant; successor of pytest-homeassistant-custom-component) —
 nécessaire pour tester un composant HA, impossible en scripts autonomes.
 La suite vitest de l'application garde sa propre cible, `make test-app`.
 Relevé en relecture finale de branche : cette règle disait encore

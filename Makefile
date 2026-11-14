@@ -16,11 +16,11 @@
 # tests/composant/requirements.txt), donc ni `test` (qui doit rester
 # lancable sur la cible d'installation) ni `test-app` (qui n'a rien a voir
 # avec Home Assistant) ne peuvent l'accueillir sans perdre ce qui les rend
-# lancables la ou elles le sont. La version epinglee de
-# pytest-homeassistant-custom-component y exige Python >= 3.14 ; la cible
-# elle-meme le verifie et nomme le geste complet avant d'echouer (voir le
-# garde-fou en tete de `test-composant`), plutot que de laisser un mur de
-# `pip install` sans issue.
+# lancables la ou elles le sont.
+# The pinned pytest-homeassistant release requires Python >= 3.14.2; the
+# target checks it itself and names the complete gesture before failing (see
+# the guard at the top of `test-composant`), rather than leaving a wall of
+# `pip install` errors with no way out.
 #
 # NIVUUS_INSTALLER_DIR fait valider le manifeste par le VRAI parseur du moteur.
 #   make test NIVUUS_INSTALLER_DIR=$$HOME/Projects/Nivuus/packages/installer
@@ -53,9 +53,14 @@ test-app:
 # la variable a passer.
 test-composant:
 	@interpreteur=$$( [ -x $(COMPOSANT_VENV)/bin/python3 ] && echo $(COMPOSANT_VENV)/bin/python3 || echo $(PYTHON) ); \
-	if ! $$interpreteur -c 'import sys; sys.exit(0 if sys.version_info >= (3, 14) else 1)' 2>/dev/null; then \
-	    echo "test-composant exige Python >= 3.14 ($$interpreteur ne convient pas) : tests/composant/requirements.txt epingle une version de pytest-homeassistant-custom-component qui le requiert."; \
-	    echo "Geste complet : rm -rf $(COMPOSANT_VENV) && make test-composant PYTHON=<python3.14 ou plus recent>"; \
+	if ! $$interpreteur -c 'import sys; sys.exit(0 if sys.version_info >= (3, 14, 2) else 1)' 2>/dev/null; then \
+	    echo "test-composant needs Python >= 3.14.2 ($$interpreteur does not qualify): tests/composant/requirements.txt pins a pytest-homeassistant release that requires it."; \
+	    echo "Complete gesture: rm -rf $(COMPOSANT_VENV) && make test-composant PYTHON=<python3.14.2 or newer>"; \
+	    exit 1; \
+	fi
+	@if [ -d $(COMPOSANT_VENV)/lib ] && find $(COMPOSANT_VENV)/lib -maxdepth 3 -name 'pytest_homeassistant_custom_component' | grep -q .; then \
+	    echo "$(COMPOSANT_VENV) still holds pytest-homeassistant-custom-component, which must not be installed next to pytest-homeassistant (overlapping fixtures)."; \
+	    echo "Complete gesture: rm -rf $(COMPOSANT_VENV) && make test-composant PYTHON=<python3.14.2 or newer>"; \
 	    exit 1; \
 	fi
 	@test -d $(COMPOSANT_VENV) || $(PYTHON) -m venv $(COMPOSANT_VENV)

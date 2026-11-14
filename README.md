@@ -43,6 +43,10 @@ porte est épinglée, pourquoi un mode existe) vivent dans `.storage`, hors de
 git. Deux services les font voyager vers un fichier versionnable,
 `config/home_desk_ecrans.yaml` :
 
+Both services are admin-only: they write (the file, or every screen and the
+house), so a non-admin user, the tablets' account included, is refused.
+Automations and scripts, which call without a user, still run them.
+
 - **`home_desk.exporter`** écrit tous les écrans actuels dans ce fichier —
   les `note` y redeviennent des **commentaires** (`# ...`), jamais des
   champs : un `note: "..."` au milieu des données serait une chaîne de
@@ -113,7 +117,7 @@ d'actions ne le trouvera pas.
 4. **Un aller-retour réseau s'ajoute au démarrage** (les deux commandes
    websocket), là où le bundle affichait immédiatement.
 5. **Une dépendance de test lourde entre**
-   (`pytest-homeassistant-custom-component`), qui épingle une version de
+   (`pytest-homeassistant`, published from home-assistant/core), qui épingle une version de
    HA et qu'il faudra suivre — voir `make test-composant` ci-dessous.
 
 ## Installation

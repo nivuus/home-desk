@@ -1,8 +1,14 @@
-# Epingle une version de Home Assistant. Celle-ci doit correspondre a la 2026.9.1
-# du conteneur `homeassistant` de cette maison, verifiee le 2026-09-12 par
-#   docker exec homeassistant python -c "from homeassistant.const import __version__; print(__version__)"
-# La faire deriver, c'est tester le composant contre une API que la production
-# n'a pas. Version etablie le 2026-09-12 par l'API JSON de PyPI (requires_dist
-# de chaque version, jusqu'a trouver celle qui epingle homeassistant==2026.9.1)
-# — cf. rapport de la tache 3.
-pytest-homeassistant-custom-component==0.13.364
+# Pins the Home Assistant release the component is tested against. It must
+# follow the release the production instance runs (2026.11.x on 2026-11-14):
+# testing against an older one checks an API production no longer has.
+#
+# `pytest-homeassistant` is the harness published from home-assistant/core
+# itself, one release per Home Assistant release (this one pins
+# homeassistant==2026.11.1). It replaces pytest-homeassistant-custom-component,
+# whose last release (0.13.375, 2026-10-25) stops at Home Assistant 2026.10.4;
+# the two must not be installed together (overlapping fixtures).
+pytest-homeassistant==2026.11.1
+# The new harness no longer pulls integration libraries in by itself. The
+# MQTT tests (test_aspirateurs.py) load mqtt's config flow, which imports
+# hassio: its requirement, at the version hassio's manifest pins in 2026.11.1.
+aiohasupervisor==0.8.1

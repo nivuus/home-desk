@@ -9,7 +9,7 @@ import voluptuous as vol
 from homeassistant import config_entries, data_entry_flow
 from homeassistant.config_entries import ConfigSubentry
 from homeassistant.setup import async_setup_component
-from pytest_homeassistant_custom_component.common import async_capture_events
+from pytest_homeassistant.common import async_capture_events
 
 from conftest import _creer_ecran
 from custom_components.home_desk import garde_ecran

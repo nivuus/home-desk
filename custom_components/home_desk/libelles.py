@@ -14,28 +14,26 @@ not go through a selector but through an error text.
 
 READS the SAME source as the frontend (`translations/*.json`), never a
 second table that could diverge — exactly the prohibition this project
-applies everywhere else (schema.py, budget.py). The language comes from
-`hass.config.language`: the Home Assistant INSTANCE setting (not a
-per-visitor choice — a config flow has no other reliable signal), defaulting
-to "en" (checked in `homeassistant/core_config.py`)."""
+applies everywhere else (schema.py, budget.py). It reads them through Home
+Assistant's translation cache (`translation.async_get_cached_translations`,
+as `registre.avertissement_entites_inconnues` does), loaded outside the event
+loop when the integration is set up: a call reads no file. The language is
+`hass.config.language`, the instance setting (a config flow has no other
+reliable signal), and a key missing in it falls back the way Home Assistant
+does, to English, key by key -- this module chooses no language itself."""
 from __future__ import annotations
 
-import json
-import pathlib
+from homeassistant.helpers import translation
 
-CHEMIN_TRADUCTIONS = pathlib.Path(__file__).parent / "translations"
+from .const import DOMAIN, SUBENTRY_HOUSE
 
-
-def _traductions(langue: str) -> dict:
-    chemin = CHEMIN_TRADUCTIONS / f"{langue}.json"
-    if not chemin.exists():
-        chemin = CHEMIN_TRADUCTIONS / "fr.json"
-    return json.loads(chemin.read_text(encoding="utf-8"))
+_CATEGORY = "config_subentries"
 
 
-def _langue(hass) -> str:
-    config = getattr(hass, "config", None)
-    return getattr(config, "language", None) or "fr"
+def _label(hass, key: str) -> str | None:
+    cached = translation.async_get_cached_translations(
+        hass, hass.config.language, _CATEGORY, DOMAIN)
+    return cached.get(f"component.{DOMAIN}.{_CATEGORY}.{key}")
 
 
 def section(hass, cle: str) -> str:
@@ -45,12 +43,12 @@ def section(hass, cle: str) -> str:
     two "object" sections (agencement, voiture). Falls back to `cle` itself
     if absent: must never happen for a real key, but must never raise
     either (a degraded text is better than a broken flow)."""
-    menu = _traductions(_langue(hass))["config_subentries"]["ecran"]["step"]["reconfigure"]["menu_options"]
-    return menu.get(cle, cle)
+    return _label(hass, f"ecran.step.reconfigure.menu_options.{cle}") or cle
 
 
 def house_title(hass) -> str:
     """The title of the house subentry, in the instance's language: the
     subentry type's own name (`config_subentries.maison.entry_type`), so
-    the integration page lists it under the word it was added with."""
-    return _traductions(_langue(hass))["config_subentries"]["maison"]["entry_type"]
+    the integration page lists it under the word it was added with. Falls
+    back to the raw subentry type, like `section` falls back to its key."""
+    return _label(hass, f"{SUBENTRY_HOUSE}.entry_type") or SUBENTRY_HOUSE

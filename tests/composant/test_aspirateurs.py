@@ -10,7 +10,7 @@ import asyncio
 import json
 
 import pytest
-from pytest_homeassistant_custom_component.common import (
+from pytest_homeassistant.common import (
     async_fire_mqtt_message,
     async_mock_service,
 )
@@ -206,3 +206,26 @@ async def test_un_robot_injoignable_dit_pourquoi_un_seul_passage(
     passages = reponse["result"][0]["passages"]
     assert (passages["min"], passages["max"]) == (1, 1)
     assert "192.168.0.170" in passages["raison"]
+
+
+@_TIMER_MQTT_SIMULE
+async def test_several_passes_need_the_callers_permission_to_control_the_vacuum(
+        hass, robot_valetudo, ws_client, hass_ws_client, hass_read_only_access_token,
+        aioclient_mock):
+    """The single pass goes through `vacuum.clean_area` with the caller's
+    context, which checks it; the Valetudo publish must check the same
+    permission before anything reaches the robot."""
+    (cuisine,) = _zones(hass, "Cuisine")
+    _cartographier(hass, "vacuum.robot_rdc", {cuisine: ["19"]})
+    aioclient_mock.get(f"http://192.168.0.170{PROPRIETES}",
+                       json={"iterationCount": {"min": 1, "max": 3}, "customOrderSupport": True})
+    robot_valetudo.async_publish.reset_mock()
+    read_only = await hass_ws_client(hass, hass_read_only_access_token)
+
+    await read_only.send_json_auto_id({"type": "home_desk/aspirer", "entite": "vacuum.robot_rdc",
+                                       "zones": [cuisine], "passages": 2})
+    reponse = await _avec_ips(hass, read_only.receive_json())
+
+    assert reponse["success"] is False, reponse
+    assert reponse["error"]["code"] == "nettoyage_refuse"
+    robot_valetudo.async_publish.assert_not_called()

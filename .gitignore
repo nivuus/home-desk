@@ -24,3 +24,8 @@ registre-commentaires.tsv
 # Cache du detecteur de design impeccable (regenere a chaque lancement).
 # `config.json`, lui, est VERSIONNE : il porte les exceptions et LEUR RAISON.
 .impeccable/hook.cache.json
+
+# Configuration directory of the pytest-homeassistant harness (its default,
+# `<rootdir>/tests/testing_config`): Home Assistant writes blueprints and the
+# export tests write home_desk_ecrans.yaml there while the component suite runs.
+tests/testing_config/

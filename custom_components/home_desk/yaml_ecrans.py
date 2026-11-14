@@ -84,12 +84,31 @@ CLE_RACINE = "ecrans"
 CLE_MAISON = "maison"
 
 
+class _ScalarDumper(yaml.SafeDumper):
+    """SafeDumper whose strings always fit on ONE line: a string carrying a
+    line break is double-quoted (the break becomes an escape such as `\\n`),
+    never a multi-line scalar whose continuation lines would land wherever
+    PyYAML indents them, not where `_rendre_champ` grafts the value."""
+
+
+def _represent_str(dumper: yaml.SafeDumper, value: str) -> yaml.ScalarNode:
+    # `str.splitlines` covers every YAML line break (\r, \x85, \u2028,
+    # \u2029, not only \n), plus a few controls, harmlessly quoted too.
+    style = '"' if value.splitlines() != [value] else None
+    return dumper.represent_scalar("tag:yaml.org,2002:str", value, style=style)
+
+
+_ScalarDumper.add_representer(str, _represent_str)
+
+
 def _scalaire(value: Any) -> str:
-    """The YAML rendering of a single-line VALUE (str/int/float/bool/None),
-    correctly escaped -- delegated to PyYAML (`yaml.safe_dump` on a
-    single-key dict, of which only the part after "v: " is kept) rather than
-    rewritten by hand."""
-    rendu = yaml.safe_dump({"v": value}, allow_unicode=True, default_flow_style=False)
+    """The YAML rendering of a VALUE (str/int/float/bool/None) on a single
+    line, correctly escaped -- delegated to PyYAML (a single-key dict, of
+    which only the part after "v: " is kept) rather than rewritten by hand.
+    `width=inf`: PyYAML folds plain scalars past column 80 by default, and a
+    folded continuation line ends up left of the mapping it belongs to."""
+    rendu = yaml.dump({"v": value}, Dumper=_ScalarDumper, allow_unicode=True,
+                      default_flow_style=False, width=float("inf"))
     return rendu[len("v: "):].rstrip("\n")
 
 

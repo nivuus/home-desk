@@ -430,7 +430,10 @@ class SectionsObjetMixin:
                             description_placeholders=description_placeholders
                         )
 
+        # The step description carries `{entites_inconnues}`: Home Assistant
+        # must receive it on every display, the first one included (same
+        # default as the list sections, list_sections.py).
         return reafficher(
             self, "aspirateur_maison", SCHEMA_ASPIRATEUR_MAISON,
-            displayed_values, errors, description_placeholders,
+            displayed_values, errors, {"entites_inconnues": "", **description_placeholders},
         )

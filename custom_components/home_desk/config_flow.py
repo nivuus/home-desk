@@ -190,6 +190,12 @@ SCHEMA_IDENTITE = vol.Schema(
 )
 
 
+# Derived from the schema's markers, so a future optional field is cleared
+# the same way without being listed here.
+_OPTIONAL_IDENTITY_KEYS = frozenset(
+    str(cle) for cle in SCHEMA_IDENTITE.schema if isinstance(cle, vol.Optional))
+
+
 def _valider_identite(user_input: dict[str, Any], *, noms_existants: frozenset[str] = frozenset()) -> tuple[dict[str, str], dict[str, str], dict[str, Any] | None]:
     """The FOUR guards common to CREATION and RECONFIGURATION
     (`async_step_user`/`async_step_identite`): name not empty, name not ALREADY
@@ -425,8 +431,10 @@ class EcranSubentryFlow(ListSectionsMixin, SectionsObjetMixin, ConfigSubentryFlo
             if identity_data is not None:
                 new_data = dict(subentry.data)
                 new_data.update(identity_data)
-                if "note" not in identity_data:
-                    new_data.pop("note", None)
+                # The frontend omits an emptied field: an optional key absent
+                # from the submission is a field the user cleared.
+                for cle in _OPTIONAL_IDENTITY_KEYS - identity_data.keys():
+                    new_data.pop(cle, None)
                 entites = [
                     v for v in (
                         new_data.get("temperature"),

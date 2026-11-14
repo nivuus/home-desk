@@ -16,6 +16,8 @@ the tablet then says why it offers a single one instead of hiding it.
 is Home Assistant's standard `vacuum.clean_area`, called with the tablet
 user's context; several passes go through `valetudo.py`, the only door that
 knows how to say "twice".
+Several passes publish to the robot directly, so the caller's permission to
+control the vacuum is checked first, as `clean_area` checks it.
 """
 from __future__ import annotations
 
@@ -23,9 +25,10 @@ from typing import Any
 
 import voluptuous as vol
 
+from homeassistant.auth.permissions.const import POLICY_CONTROL
 from homeassistant.components import websocket_api
-from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.core import Context, HomeAssistant
+from homeassistant.exceptions import HomeAssistantError, Unauthorized, UnknownUser
 from homeassistant.helpers import area_registry as ar, entity_registry as er
 
 from . import valetudo
@@ -80,6 +83,19 @@ async def lister(hass: HomeAssistant) -> list[dict[str, Any]]:
     return sorted(robots, key=lambda r: r["nom"])
 
 
+async def _check_control(hass: HomeAssistant, entity_id: str, context: Context) -> None:
+    """The permission check `vacuum.clean_area` applies to the caller, for the
+    path that publishes to the robot directly. A call without a user (an
+    automation) is not restricted, as for any Home Assistant service."""
+    if context.user_id is None:
+        return
+    user = await hass.auth.async_get_user(context.user_id)
+    if user is None:
+        raise UnknownUser(context=context, entity_id=entity_id, permission=POLICY_CONTROL)
+    if not user.permissions.check_entity(entity_id, POLICY_CONTROL):
+        raise Unauthorized(context=context, entity_id=entity_id, permission=POLICY_CONTROL)
+
+
 class Refus(Exception):
     """A launch refused before anything reached the robot."""
 
@@ -89,7 +105,7 @@ class Refus(Exception):
 
 
 async def lancer(hass: HomeAssistant, entity_id: str, zones: list[str], passages: int,
-                 context: Any) -> None:
+                 context: Context) -> None:
     """Cleans `zones` with `entity_id`, `passages` times over."""
     entree = er.async_get(hass).async_get(entity_id)
     if entree is None or entree.domain != "vacuum":
@@ -104,6 +120,7 @@ async def lancer(hass: HomeAssistant, entity_id: str, zones: list[str], passages
             "vacuum", "clean_area", {"entity_id": entity_id, "cleaning_area_id": zones},
             blocking=True, context=context)
         return
+    await _check_control(hass, entity_id, context)
     cible = valetudo.robot(hass, entity_id)
     if cible is None:
         raise Refus(ERROR_PASSES_OUT_OF_BOUNDS, f"{entity_id} cleans in a single pass only")

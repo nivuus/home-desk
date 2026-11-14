@@ -1,48 +1,64 @@
-"""libelles.py affirme dans sa propre docstring qu'il RELIT la MEME source que
-le frontend (`translations/*.json`), "jamais une seconde table qui pourrait
-diverger". Ronde 3 de relecture (point 3) : cette these n'etait gardee par
-aucun test — remplacer le corps de `section()` par un dictionnaire fige en
-dur laissait 154/154 verts. Meme idiome que `test_schema_lit_reellement_
-son_contrat_embarque` (schema.py) et `test_budget_lit_reellement_son_contrat_
-embarque` (budget.py) : on espionne `pathlib.Path.read_text` et on verifie
-qu'un appel reel declenche une lecture sous CHEMIN_TRADUCTIONS, pas un retour
-calcule sans jamais toucher le disque."""
+"""libelles.py renders labels from the SAME source as the frontend
+(`translations/*.json`), through Home Assistant's translation cache -- loaded
+once, outside the event loop, when the integration is set up. A call must
+therefore read no file at all (a file read in the event loop blocks it), and
+an unknown language must fall back the way Home Assistant does (English, key
+by key), never to a language chosen here."""
 import pathlib
 
+import pytest
+from homeassistant.helpers import translation
+
 from custom_components.home_desk import libelles
+from custom_components.home_desk.const import DOMAIN
 
 
-def test_libelles_section_lit_reellement_les_traductions_embarquees(monkeypatch):
-    """Contrairement a schema.py/budget.py (lus a l'IMPORT), libelles.py lit a
-    l'APPEL (`_traductions()` est invoquee depuis `section()`, pas au
-    chargement du module) : pas besoin d'`importlib.reload`, un espionnage le
-    temps de l'appel suffit a prouver la lecture reelle."""
-    chemins_lus = []
-    lire_original = pathlib.Path.read_text
+async def _use_language(hass, language: str) -> None:
+    hass.config.language = language
+    await translation.async_get_translations(hass, language, "config_subentries", {DOMAIN})
 
-    def lire_espion(self, *args, **kwargs):
-        if self.suffix == ".json":
-            chemins_lus.append(pathlib.Path(self))
-        return lire_original(self, *args, **kwargs)
 
-    monkeypatch.setattr(pathlib.Path, "read_text", lire_espion)
+@pytest.fixture
+def file_reads(monkeypatch):
+    reads: list[pathlib.Path] = []
+    original_read_text = pathlib.Path.read_text
+    original_read_bytes = pathlib.Path.read_bytes
 
-    class _ConfigFactice:
-        language = "en"
+    def read_text(self, *args, **kwargs):
+        reads.append(pathlib.Path(self))
+        return original_read_text(self, *args, **kwargs)
 
-    class _HassFactice:
-        config = _ConfigFactice()
+    def read_bytes(self, *args, **kwargs):
+        reads.append(pathlib.Path(self))
+        return original_read_bytes(self, *args, **kwargs)
 
-    rendu = libelles.section(_HassFactice(), "agencement")
+    def spy_open(*args, **kwargs):
+        reads.append(pathlib.Path(str(args[0])))
+        return original_open(*args, **kwargs)
 
-    assert rendu == "Blocks and modes"
-    assert chemins_lus, "aucune lecture JSON detectee lors de l'appel a section()"
-    for chemin in chemins_lus:
-        assert chemin.resolve().is_relative_to(libelles.CHEMIN_TRADUCTIONS.parent), (
-            f"libelles.section() a lu {chemin}, hors de {libelles.CHEMIN_TRADUCTIONS.parent} : "
-            "une these de lecture embarquee qui n'est pas gardee n'est qu'une affirmation."
-        )
-    assert any(chemin.name == "en.json" for chemin in chemins_lus), (
-        "section() avec langue 'en' doit lire translations/en.json, pas une autre table."
-    )
+    import builtins
+    original_open = builtins.open
+    monkeypatch.setattr(pathlib.Path, "read_text", read_text)
+    monkeypatch.setattr(pathlib.Path, "read_bytes", read_bytes)
+    return reads, lambda: monkeypatch.setattr(builtins, "open", spy_open)
 
+
+@pytest.mark.parametrize(("language", "label"), [
+    ("en", "Blocks and modes"),
+    ("fr", "Blocs et modes"),
+])
+async def test_labels_come_from_the_translation_cache_without_reading_a_file(
+        hass, entree, file_reads, language, label):
+    await _use_language(hass, language)
+    reads, spy_open = file_reads
+    spy_open()
+    assert libelles.section(hass, "agencement") == label
+    assert libelles.house_title(hass)
+    assert reads == [], f"translation file read at call time: {reads}"
+
+
+async def test_an_unknown_language_falls_back_to_english_like_home_assistant(hass, entree):
+    await _use_language(hass, "xx")
+    assert libelles.section(hass, "agencement") == "Blocks and modes"
+    en = await translation.async_get_translations(hass, "en", "config_subentries", {DOMAIN})
+    assert libelles.house_title(hass) == en[f"component.{DOMAIN}.config_subentries.maison.entry_type"]

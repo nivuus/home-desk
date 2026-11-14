@@ -10,9 +10,12 @@ tablettes afficheraient l'ancienne version pour toujours.
 Ce test exige Node. Il SAUTE proprement quand Node est absent — il tourne alors
 sur la machine de developpement et en CI, pas sur la cible d'installation, ou
 il n'aurait aucun sens.
+When the CI environment variable is set, a missing Node or node_modules FAILS
+the test instead of skipping it.
 
 Run: python3 tests/test_dist_a_jour.py
 """
+import os
 import pathlib
 import shutil
 import subprocess
@@ -22,14 +25,21 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 APP = REPO / "app"
 DIST = REPO / "dist"
 
+# In CI the skip would be a check that cannot fail: CI provisions Node and
+# `npm ci` precisely so that this test runs, so a missing prerequisite there
+# is a failure of the job, not a reason to pass.
+SKIP_STATUS = 1 if os.environ.get("CI") else 0
+
 if shutil.which("npm") is None:
-    print("test_dist_a_jour: SAUTE (npm absent)")
-    sys.exit(0)
+    print("test_dist_a_jour: SAUTE (npm absent)"
+          + (" -- CI is set: failing instead of skipping" if SKIP_STATUS else ""))
+    sys.exit(SKIP_STATUS)
 
 if not (APP / "node_modules").is_dir():
     print("test_dist_a_jour: SAUTE (node_modules absent — lancer `npm ci` "
-          "dans app/ pour activer ce test)")
-    sys.exit(0)
+          "dans app/ pour activer ce test)"
+          + (" -- CI is set: failing instead of skipping" if SKIP_STATUS else ""))
+    sys.exit(SKIP_STATUS)
 
 # Ronde de correction 1 (2026-09-13) — precondition AVANT tout `unlink`. Ce test reconstruit
 # dist/ (il supprime les pages HTML puis relance le build) : lance sur un dist/ deja porteur de
