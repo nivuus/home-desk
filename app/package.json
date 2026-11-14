@@ -6,6 +6,7 @@
     "jetons": "node scripts/generer-jetons.mjs > src/styles/jetons.css",
     "build": "npm run jetons && rollup -c && npm run assets && node scripts/generer-pages.mjs && npm run contrats && node scripts/versionner.mjs",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.src.json",
     "assets": "node scripts/copier-assets.mjs",
     "contrats": "node scripts/generer-contrats.mjs"
   },
