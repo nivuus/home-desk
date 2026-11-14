@@ -19,6 +19,40 @@ export class Etat {
 
   surMaj(cb: () => void) { this.rappels.push(cb); }
 
+  /** The entity ids the last COMPLETE paint read, or `null` when unknown (no paint yet, or the
+   *  last one threw): then every change notifies.
+   *
+   *  The connection subscribes to every `state_changed` of the installation, and each applied
+   *  state used to schedule a full repaint. Which entities a screen shows is decided by its
+   *  renderers — the screen configuration, the house, the card detectors, the named constants —
+   *  and every one of them reads through this object. Recording those reads derives the set from
+   *  what the renderers actually read, never from a second list kept by hand: an entity a paint
+   *  did not read cannot change that paint, and a branch that would read it is taken only after
+   *  an entity the paint DID read has changed. */
+  private lusParLaPeinture: Set<string> | null = null;
+  private lectureEnCours: Set<string> | null = null;
+
+  /** Runs `peindre`, recording every entity it reads (see `lusParLaPeinture`). */
+  suivreLectures(peindre: () => void): void {
+    const lus = new Set<string>();
+    this.lectureEnCours = lus;
+    let complete = false;
+    try {
+      peindre();
+      complete = true;
+    } finally {
+      this.lectureEnCours = null;
+      this.lusParLaPeinture = complete ? lus : null;
+    }
+  }
+
+  private noterLecture(id: string) { this.lectureEnCours?.add(id); }
+
+  /** Would a change of this entity change what is painted? */
+  private estPeinte(id: string): boolean {
+    return this.lusParLaPeinture === null || this.lusParLaPeinture.has(id);
+  }
+
   /** Un état venu de HA fait autorité : il écrase toujours un état optimiste. */
   appliquer(e: EvenementEtat) {
     const avant = this.entites.get(e.entity_id);
@@ -31,7 +65,7 @@ export class Etat {
     this.entites.set(e.entity_id, {
       etat: e.state, attributs: e.attributes, changeLe: Number.isFinite(reported) ? reported : changeLe,
     });
-    this.notifier();
+    if (this.estPeinte(e.entity_id)) this.notifier();
   }
 
   optimiste(id: string, etat: string) {
@@ -44,15 +78,17 @@ export class Etat {
   }
 
   confirme(id: string): boolean {
+    this.noterLecture(id);
     const e = this.entites.get(id);
     return e ? e.optimisteDepuis === undefined : false;
   }
 
-  lire(id: string): Entite | undefined { return this.entites.get(id); }
+  lire(id: string): Entite | undefined { this.noterLecture(id); return this.entites.get(id); }
 
   /** Une entité absente ou muette n'est jamais rendue : sa tuile est masquée plutôt que de
    *  faire échouer l'écran entier. */
   estUtilisable(id: string): boolean {
+    this.noterLecture(id);
     const e = this.entites.get(id);
     return e !== undefined && !INUTILISABLES.has(e.etat);
   }
@@ -66,6 +102,7 @@ export class Etat {
    *  integration, and saying so of an installed one is a false diagnosis (production gate of
    *  2026-09-28, defect A: "Garde-manger non installé" with `home_stock` loaded). */
   isPresent(id: string): boolean {
+    this.noterLecture(id);
     const e = this.entites.get(id);
     return e !== undefined && e.etat !== 'unavailable';
   }

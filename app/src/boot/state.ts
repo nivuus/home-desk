@@ -231,10 +231,28 @@ export class ScreenState {
    *  canvas does not stop). */
   lecteurLottie: { destroy(): void } | null = null;
 
+  /** A paint was skipped while the document was hidden: the next `visibilitychange` to visible
+   *  paints once (`wireScreen`). */
+  paintSkippedWhileHidden = false;
+
   /** Redraws the screen. An arrow property, not a method, so that it can be handed out as a
    *  callback (`etat.surMaj`, `d.intervalFn`, `armer`...) exactly like the hoisted `dessiner`
-   *  function of the former closure. */
-  readonly dessiner = (): void => { this.peintre(this); };
+   *  function of the former closure.
+   *
+   *  Nothing is painted while the document is hidden (screen off, kiosk in the background): the
+   *  paint and the motion engine's layout reads around it would be work nobody sees, every few
+   *  seconds, on a device with 130 MB free. The paint records the entities it reads
+   *  (`Etat.suivreLectures`), so that a state change elsewhere in the installation does not
+   *  repaint. */
+  readonly dessiner = (): void => {
+    if (typeof document !== 'undefined' && document.hidden) {
+      this.paintSkippedWhileHidden = true;
+      return;
+    }
+    this.paintSkippedWhileHidden = false;
+    if (this.etat) this.etat.suivreLectures(() => this.peintre(this));
+    else this.peintre(this);
+  };
 
   constructor(
     /** `#app`: never rewritten by `render()` — only its children are. */
