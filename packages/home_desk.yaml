@@ -76,10 +76,13 @@ automation:
     below: 30
   - trigger: time_pattern
     minutes: /10
-  conditions: []
+  # An unknown or unavailable reading is not darkness: leave the brightness as it is.
+  conditions:
+  - condition: template
+    value_template: '{{ states(''sensor.capteur_humain_eclairement'') | is_number }}'
   actions:
   - variables:
-      lux: '{{ states(''sensor.capteur_humain_eclairement'') | float(0) }}'
+      lux: '{{ states(''sensor.capteur_humain_eclairement'') | float }}'
   - repeat:
       for_each:
       - entite: number.tablette_cuisine_screen_brightness
