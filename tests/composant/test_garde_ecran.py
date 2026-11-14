@@ -166,25 +166,21 @@ def test_section_courante_differente_de_la_section_fautive_ne_redirige_pas():
     assert placeholders == {"section": "voiture"}
 
 
-def test_hass_fourni_traduit_la_section_en_libelle_humain():
+async def test_hass_fourni_traduit_la_section_en_libelle_humain(hass, entree):
     """Point 3 de la ronde 2 (deuxieme moitie) : `{section}` interpolait
     l'identifiant BRUT du contrat ("minuteurs"), jamais traduit — la meme
     faute que le mineur 6 de la ronde 1 fermait deja pour les options de
     `SelectSelector`. Sans `hass`, le MECANISME reste testable seul
-    (l'identifiant brut, comme avant) ; avec un `hass` (ici un objet
-    minimal portant `config.language`), la section rendue est le libelle
-    HUMAIN du menu de reconfiguration."""
-    class _ConfigFactice:
-        language = "en"
-
-    class _HassFactice:
-        config = _ConfigFactice()
-
+    (l'identifiant brut, comme avant). With a real `hass` whose integration
+    is loaded (its translations are then in Home Assistant's cache, which
+    `libelles` reads), the rendered section is the HUMAN label of the
+    reconfiguration menu."""
+    assert hass.config.language == "en"
     ecran = {
         **_ECRAN_BASE,
         "agencement": {"zones": ["commandes"], "modes": ["defaut", "minuteur"], "modulateurs": []},
     }
-    errors, placeholders = garde_ecran.check_complete_screen(ecran, hass=_HassFactice())
+    errors, placeholders = garde_ecran.check_complete_screen(ecran, hass=hass)
     assert errors == {"base": ERROR_SCREEN_WOULD_BECOME_INVALID}
     assert placeholders == {"section": "Timers"}, "le libelle EN du menu, jamais l'identifiant brut"
 
