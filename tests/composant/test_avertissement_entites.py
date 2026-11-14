@@ -121,19 +121,63 @@ def test_ce_que_le_code_calcule_est_visible_sur_un_ecran_atteignable(langue):
     )
 
 
-@pytest.mark.parametrize("langue", ["fr", "en"])
-def test_ce_qui_est_visible_est_reellement_fourni_par_le_code(langue):
-    """Le pendant : un placeholder que porterait une description SANS
-    qu'aucun site ne le calcule resterait litteralement `{x}` a l'ecran, ou
-    vide sans que personne n'ait choisi de le vider -- les deux moities de
-    C1, apparieees dans les deux sens."""
-    traductions = json.loads((CHEMIN_TRADUCTIONS / f"{langue}.json").read_text(encoding="utf-8"))
-    visibles = _cles_dans_les_ecrans_visibles(traductions)
-    calculees = _cles_calculees_par_le_code()
-    orphelines = visibles - calculees
-    assert not orphelines, (
-        f"{langue}: placeholder(s) affiche(s) qu'AUCUN site du code ne fournit : {orphelines}"
-    )
+def _steps_with_placeholders() -> list[tuple[str, str, frozenset[str]]]:
+    """Every (subentry type, step) whose description carries a placeholder,
+    in any shipped language -- derived from the translation files, never a
+    list of steps written here."""
+    found: dict[tuple[str, str], set[str]] = {}
+    for chemin in sorted(CHEMIN_TRADUCTIONS.glob("*.json")):
+        traductions = json.loads(chemin.read_text(encoding="utf-8"))
+        for subentry_type, sous_entree in traductions.get("config_subentries", {}).items():
+            for step_id, step in sous_entree.get("step", {}).items():
+                if names := _placeholders(step.get("description", "")):
+                    found.setdefault((subentry_type, step_id), set()).update(names)
+    return [(t, s, frozenset(n)) for (t, s), n in sorted(found.items())]
+
+
+async def _first_display(hass, entree, subentry_type: str, step_id: str):
+    """Drives the REAL flow to the first display of `step_id`: create the
+    subentry, open its reconfigure flow, then follow the menu when the step
+    is not the one shown first. A step this cannot reach fails the test: a
+    step with a placeholder that no route displays is itself a finding."""
+    flow = await hass.config_entries.subentries.async_init(
+        (entree.entry_id, subentry_type), context={"source": config_entries.SOURCE_USER})
+    if flow["type"] is data_entry_flow.FlowResultType.FORM:
+        flow = await hass.config_entries.subentries.async_configure(
+            flow["flow_id"], IDENTITE_MINIMALE)
+    assert flow["type"] is data_entry_flow.FlowResultType.CREATE_ENTRY, flow
+    entry = hass.config_entries.async_get_entry(entree.entry_id)
+    subentry_id = next(
+        sid for sid, s in entry.subentries.items() if s.subentry_type == subentry_type)
+
+    result = await hass.config_entries.subentries.async_init(
+        (entree.entry_id, subentry_type),
+        context={"source": config_entries.SOURCE_RECONFIGURE, "subentry_id": subentry_id})
+    if result["step_id"] == step_id:
+        return result
+    assert result["type"] is data_entry_flow.FlowResultType.MENU, (
+        f"{subentry_type}/{step_id}: not reachable from the reconfigure flow")
+    assert step_id in result["menu_options"], (
+        f"{subentry_type}/{step_id}: not offered by the {result['step_id']!r} menu")
+    return await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {"next_step_id": step_id})
+
+
+@pytest.mark.parametrize(
+    ("subentry_type", "step_id", "names"), _steps_with_placeholders(),
+    ids=lambda v: v if isinstance(v, str) else None)
+async def test_each_step_supplies_its_placeholders_on_first_display(
+        hass, entree, subentry_type, step_id, names):
+    """Per step, not per component: a step whose description carries a
+    placeholder must receive it from its very first display. Comparing the
+    SETS of names across the whole component could not see one step that
+    omits a name another step supplies (the room vacuum step did)."""
+    hass.states.async_set("sensor.temp_salon", "20")
+    result = await _first_display(hass, entree, subentry_type, step_id)
+    assert result["step_id"] == step_id
+    supplied = set(result.get("description_placeholders") or {})
+    assert names <= supplied, (
+        f"{subentry_type}/{step_id}: missing {sorted(names - supplied)} on first display")
 
 
 # ---------------------------------------------------------------------------
