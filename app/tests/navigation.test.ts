@@ -616,7 +616,9 @@ describe('vue recette (#recette)', () => {
   };
   /** Les commandes `home_stock/*` réellement parties, dans l'ordre. */
   const envoyees = (m: { envoyerCommande: { mock: { calls: unknown[][] } } }) =>
-    m.envoyerCommande.mock.calls.map((c) => c[0] as Record<string, unknown>);
+    m.envoyerCommande.mock.calls.map((c) => c[0] as Record<string, unknown>)
+      // The weather and calendar loaders share the same channel (`call_service`), not this view.
+      .filter((c) => String(c.type).startsWith('home_stock/'));
 
   it('affiche le repas suivant sur l accueil et l ouvre au contact', async () => {
     const m = await monterCuisine();

@@ -126,9 +126,9 @@ export class ScreenState {
    *  "Terminer" has just closed. */
   recetteRestauree = false;
 
-  // Weather forecasts: loaded apart from the websocket (`weather.maison` is not pushed by
-  // `subscribe_events` with its forecasts), through a plain REST request. `jours` lives here to be
-  // read by `dessiner()`.
+  // Weather forecasts: not pushed by `subscribe_events` with the entity's state, so loaded on
+  // demand by a service call over the websocket (`chargerMeteo`, `boot/loaders.ts`). `jours` lives
+  // here to be read by `dessiner()`.
   // Task 9, correction 1 (coordinator, 2026-08-02): `demain` had been removed from here, having
   // become dead once `rendreCorps` lost its `demain` parameter. Task 12: RESTORED, with the
   // `type: 'daily'` request that feeds it — it is the PERMANENT fallback of the header badge
@@ -143,12 +143,15 @@ export class ScreenState {
   // mode that was its only reader (`rendreCorps`) — no caller left, see `chargerMeteo`.
   jours: Prevision[] = [];
 
-  // Calendar: loaded apart from the websocket like the weather (`/api/calendars` has no
-  // counterpart pushed by `subscribe_events`). Empty until the first request has answered — the
-  // badge then falls back on "Tomorrow", never a broken screen, same discipline as `taches`.
+  // Calendar: loaded on demand like the weather (`calendar.get_events` has no counterpart pushed
+  // by `subscribe_events`). Empty until the first request has answered — the badge then falls
+  // back on "Tomorrow", never a broken screen, same discipline as `taches`.
   // Task 14: also the source of the next appointment of the office (`rendreProchainRdv`,
   // `rendu/defaut.ts`) — the same data as the badge, never a second request.
   evenements: Evenement[] = [];
+  /** The last SUCCESSFUL answer of each calendar, by entity: a calendar whose request fails keeps
+   *  contributing these to `evenements` rather than none (see `chargerAgenda`). */
+  evenementsParCalendrier: Record<string, Evenement[]> = {};
 
   // Task 9: switched on transition only (not on every `surSilence` callback, every 5 s) —
   // `dessiner()` only needs to be called back when the displayed value must actually change,

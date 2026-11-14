@@ -1262,7 +1262,10 @@ describe('bloc par défaut : repas et agenda', () => {
     // reste une commande à part, comptée ailleurs.
     const m = await monterDemarrage(ECRANS.cuisine, { etats: POULET });
     expect(m.racine.querySelector('.mode-bloc .v')?.textContent).toBe('Poulet rôti');
-    expect(m.envoyerCommande).not.toHaveBeenCalled();
+    // The weather and calendar loaders use the same channel at start-up; nothing else may.
+    const commands = m.envoyerCommande.mock.calls.map((c: any[]) => c[0] as Record<string, unknown>);
+    expect(commands.filter((c) => c.type !== 'call_service')).toEqual([]);
+    expect(commands.map((c) => c.domain).sort()).toEqual(['calendar', 'calendar', 'calendar', 'calendar', 'weather']);
   });
 });
 
