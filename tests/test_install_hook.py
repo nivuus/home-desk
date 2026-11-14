@@ -101,7 +101,9 @@ with tempfile.TemporaryDirectory() as root:
 
     # --- 6. Silence quand les deux lignes sont declarees -------------------
     sortie = lancer(root).stdout
-    if "vignette:" in sortie and "manque" in sortie.lower():
+    # The hook's only `vignette:` output is the signal itself (it quotes
+    # VIGNETTE_DECLARATION): when the key is declared, the word must not appear.
+    if "vignette:" in sortie:
         failures.append("signale `vignette:` alors qu'elle est declaree")
     if "include_dir_named" in sortie:
         failures.append("signale `packages:` alors qu'elle est declaree")
