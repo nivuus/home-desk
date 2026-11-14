@@ -186,3 +186,27 @@ def test_yaml_round_trip_keeps_appliances():
     ]}
     texte = yaml_ecrans.rendre([], maison)
     assert yaml_ecrans.lire(texte) == ([], maison)
+
+
+# A value past PyYAML's default 80-column width, and values carrying a line
+# break of each kind Python's `str.splitlines` knows: the export must never
+# fold a scalar, and a line break must stay inside one quoted scalar.
+_LONG = "Long tile label " * 8
+_BREAKS = ["first line\nsecond line", "a\r\nb", "trailing break\n", "x y"]
+
+
+@pytest.mark.parametrize("value", [_LONG.strip(), *_BREAKS])
+def test_a_long_or_multiline_string_round_trips_at_screen_level(value):
+    ecran = {"titre": value, "nom": value, "hauteurUtile": 585}
+    assert yaml_ecrans.lire(yaml_ecrans.rendre([ecran]))[0] == [ecran]
+
+
+@pytest.mark.parametrize("value", [_LONG.strip(), *_BREAKS])
+def test_a_long_or_multiline_string_round_trips_inside_a_list_item(value):
+    ecran = {
+        "titre": "Salon", "nom": "Salon",
+        "commandes": [{"libelle": value, "icone": "bulb", "entite": "light.salon"}],
+        "ouvrants": [value],
+        "agencement": {"zones": [value]},
+    }
+    assert yaml_ecrans.lire(yaml_ecrans.rendre([ecran]))[0] == [ecran]
