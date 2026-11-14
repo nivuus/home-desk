@@ -24,8 +24,7 @@ export const CAPTEURS_MOUVEMENT = [
  *  `on` prouve un mouvement à l'instant T, indépendamment de la dernière fois où `Etat.appliquer`
  *  a horodaté ce même capteur. Sans capteur utilisable du tout (aucun état encore reçu), rend 0 :
  *  l'alerte se replie immédiatement plutôt que de rester bloquée au premier plan faute de preuve
- *  de mouvement (cf. `etat.appliquer`, qui horodate `changeLe` lui-même — HA ne le fournit pas
- *  ici sous une forme exploitable). */
+ *  de mouvement (`changeLe` is Home Assistant's `last_changed`, see `etat.appliquer`). */
 export function lastMotion(etat: Etat): number {
   let plusRecent = 0;
   for (const id of CAPTEURS_MOUVEMENT) {

@@ -9,7 +9,18 @@ export type Jetons = {
 
 export type EvenementEtat = {
   entity_id: string; state: string; attributes: Record<string, unknown>;
+  /** When the STATE last changed, as Home Assistant reports it (ISO 8601). Carried by every state
+   *  object, in `get_states` as in `state_changed`; absent from states the page makes up itself. */
+  last_changed?: string;
 };
+
+/** The fields of a Home Assistant state object this page reads. */
+function versEvenement(n: { entity_id: string; state: string; attributes: Record<string, unknown>; last_changed?: unknown }): EvenementEtat {
+  return {
+    entity_id: n.entity_id, state: n.state, attributes: n.attributes,
+    ...(typeof n.last_changed === 'string' ? { last_changed: n.last_changed } : {}),
+  };
+}
 
 /** A refusal from Home Assistant, with ITS CODE.
  *
@@ -313,8 +324,7 @@ export class Connexion {
         // Home Assistant's code (`unknown_command` = a component too old for this page).
         console.error('abonnement refusé', m.error?.code, m.error?.message);
       } else if (m.type === 'event' && m.event?.data?.new_state) {
-        const n = m.event.data.new_state;
-        this.emettre({ entity_id: n.entity_id, state: n.state, attributes: n.attributes });
+        this.emettre(versEvenement(m.event.data.new_state));
       } else if (m.type === 'result' && this.enAttenteCommandes.has(m.id)) {
         const p = this.enAttenteCommandes.get(m.id)!;
         this.enAttenteCommandes.delete(m.id);
@@ -324,8 +334,7 @@ export class Connexion {
           m.error?.message ?? 'commande refusée',
         ));
       } else if (m.type === 'result' && Array.isArray(m.result)) {
-        for (const n of m.result)
-          this.emettre({ entity_id: n.entity_id, state: n.state, attributes: n.attributes });
+        for (const n of m.result) this.emettre(versEvenement(n));
       }
     };
     ws.onclose = () => { if (ws === this.ws) this.reconnecter(); };

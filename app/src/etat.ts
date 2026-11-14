@@ -3,9 +3,10 @@ import type { EvenementEtat } from './connexion';
 export type Entite = {
   etat: string;
   attributs: Record<string, unknown>;
-  /** Horodaté par nous : les événements `state_changed` portent `last_changed` hors des
-   *  attributs, et `get_states` ne le donne pas dans la même forme. La tâche 8 bis en a
-   *  besoin pour savoir depuis quand la maison ne bouge plus. */
+  /** When the state last changed, in ms: Home Assistant's `last_changed`, which both
+   *  `get_states` and `state_changed` carry on every state object (outside the attributes). The
+   *  reception time stands in for it only when it is missing — a state made up by the page.
+   *  Task 8 bis needs it to know since when the house has stopped moving. */
   changeLe: number;
   optimisteDepuis?: number;
 };
@@ -25,7 +26,11 @@ export class Etat {
     // (get_states après reconnexion) ne doit pas faire croire que la maison vient de bouger.
     const changeLe = avant && avant.etat === e.state && avant.optimisteDepuis === undefined
       ? avant.changeLe : Date.now();
-    this.entites.set(e.entity_id, { etat: e.state, attributs: e.attributes, changeLe });
+    // Home Assistant's own time wins; the reception time above only stands in when it is absent.
+    const reported = e.last_changed === undefined ? NaN : Date.parse(e.last_changed);
+    this.entites.set(e.entity_id, {
+      etat: e.state, attributs: e.attributes, changeLe: Number.isFinite(reported) ? reported : changeLe,
+    });
     this.notifier();
   }
 
