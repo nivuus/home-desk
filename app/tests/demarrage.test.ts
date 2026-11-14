@@ -185,6 +185,9 @@ describe('startScreen', () => {
   // fuite) avec un `fetchFn` qui refuse systématiquement le rafraîchissement, pour forcer
   // plusieurs tentatives échouées de suite.
   it('plusieurs tentatives échouées de suite ne posent qu un seul minuteur de silence (pas de fuite)', async () => {
+    // The connection retries a failed attempt by itself (global `setTimeout`): a fake clock keeps
+    // that retry from firing after the test, and lets the test count it.
+    vi.useFakeTimers();
     const racine = document.createElement('div');
     const intervalFn = vi.fn();
     const minuteurFn = vi.fn();
@@ -211,6 +214,7 @@ describe('startScreen', () => {
       }),
       minuteurFn: minuteurFn as any,
     });
+    const timersAfterFirstFailure = vi.getTimerCount();
 
     // Six tentatives programmées de plus, déclenchées à la main sans attendre les délais réels
     // (6 plutôt que 5 : la dernière valeur de `delaiReconnexion` atteint déjà le plafond de
@@ -233,6 +237,10 @@ describe('startScreen', () => {
     // isolément dans `connexion.test.ts` mais jamais exercé ici en conditions réelles de retry.
     const delais = minuteurFn.mock.calls.map(([, delai]) => delai);
     expect(delais).toEqual([1000, 2000, 4000, 8000, 16000, 30000, 30000]);
+    // Six more failed attempts leave no more pending timers than the first one did: the
+    // connection keeps ONE pending retry of its own, never a chain per failure.
+    expect(vi.getTimerCount()).toBe(timersAfterFirstFailure);
+    vi.useRealTimers();
   });
 
   // Ronde de correction 3 (IMPORTANT) : `createConnection`, `cx.surChangement(...)` et

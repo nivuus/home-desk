@@ -146,6 +146,12 @@ export class Connexion {
    *  guard, each reconnection stacked one more `setInterval` — fatal on a tablet with 130 MB
    *  free that regularly drops off the Wi-Fi. */
   private silenceArme = false;
+  /** The attempt in progress (token refresh, then socket creation), returned to every caller
+   *  that arrives meanwhile: two overlapping calls must never open two sockets. */
+  private ouverture: Promise<void> | null = null;
+  /** A retry timer is pending: every failure — a socket that closes, an attempt that throws —
+   *  goes through `reconnecter()`, and without this guard each one started a chain of its own. */
+  private reconnexionPrevue = false;
   private readonly deps: DependancesConnexion;
 
   constructor(jetons: Jetons, deps: Partial<DependancesConnexion> = {}) {
@@ -236,20 +242,37 @@ export class Connexion {
     }, 5000);
   }
 
-  async connecter(): Promise<void> {
+  /** Opens the connection, SINGLE-FLIGHT: a call while an attempt is in progress returns that
+   *  attempt, and a call while the socket is CONNECTING or OPEN returns at once.
+   *
+   *  `startScreen()` connects to resolve the configuration, then passes THE SAME instance to the
+   *  body, which calls `connecter()` again; and the start-up retry, the body's retry and this
+   *  object's own reconnection may all ask at the same time after a Home Assistant restart or a
+   *  Wi-Fi drop. The guard used to recognise an OPEN socket only: a socket still CONNECTING, or an
+   *  attempt still refreshing its token, let a second socket through — the older one's handlers
+   *  then wrote to the newer one, and each such race leaked an idle authenticated socket.
+   *
+   *  A CLOSED (or CLOSING) socket does not hold the guard: that is the real reconnection. A test
+   *  double without `readyState` passes the guard as before.
+   *
+   *  The caller still learns about a failure (the promise rejects), but it no longer has to
+   *  retry: a failed attempt is retried by this object, on the same backoff as a dropped socket
+   *  (`reconnecter`). */
+  connecter(): Promise<void> {
     this.armerSurveillanceSilence();
+    if (this.ouverture) return this.ouverture;
+    const etat = this.ws?.readyState;
+    if (etat === 0 || etat === 1) return Promise.resolve();
+    const tentative = this.ouvrir();
+    this.ouverture = tentative;
+    tentative.then(
+      () => { this.ouverture = null; },
+      () => { this.ouverture = null; this.reconnecter(); },
+    );
+    return tentative;
+  }
 
-    // Idempotent on purpose: `startScreen()` connects to resolve the configuration, then passes
-    // THE SAME instance to the body, which calls `connecter()` again. Without this guard, the
-    // second opening would replace `this.ws`; the old socket would fire its `onclose`, hence
-    // `reconnecter()`, and the page would go into a reconnection loop without any drop having
-    // happened.
-    //
-    // The guard does NOT hinder real reconnection: when `ws.onclose` calls `connecter()` again,
-    // `readyState` is CLOSED (3), never OPEN. And a test double without `readyState`
-    // (`undefined !== 1`) passes the guard as before.
-    if (this.ws && this.ws.readyState === 1) return;
-
+  private async ouvrir(): Promise<void> {
     if (doitRafraichir(this.jetons, Date.now())) {
       this.jetons = await rafraichir(this.jetons, this.deps.fetchFn, Date.now());
       this.deps.stockage.setItem('hassTokens', JSON.stringify(this.jetons));
@@ -263,7 +286,10 @@ export class Connexion {
     this.etatsDemandes = false;
     this.authentifiee = false;
 
+    // Every handler acts on ITS socket only: a socket that is no longer the current one (dropped
+    // and replaced) must neither write to its successor nor start a reconnection of its own.
     ws.onmessage = (ev) => {
+      if (ws !== this.ws) return;
       this.lastMessageAt = Date.now();
       const m = JSON.parse(ev.data);
       if (m.type === 'auth_required') {
@@ -302,30 +328,29 @@ export class Connexion {
           this.emettre({ entity_id: n.entity_id, state: n.state, attributes: n.attributes });
       }
     };
-    ws.onclose = () => this.reconnecter();
+    ws.onclose = () => { if (ws === this.ws) this.reconnecter(); };
   }
 
-  /** Task 9: single entry point of the internal reconnection, called both by `ws.onclose`
-   *  (websocket drop) and by the `.catch` below when the attempt itself fails. Before this fix,
-   *  only `ws.onclose` rescheduled anything: `setTimeout(() => void this.connecter(), d)` caught
-   *  nothing, so if `connecter()` threw — `rafraichir()` refuses the refresh token (revoked), or
-   *  the network drops at the wrong moment — the rejection became unobserved (silent in
-   *  production) AND the reconnection chain stopped for good: since `connecter()` had thrown
-   *  before creating a new websocket, no `ws.onclose` was set again to retry later. On a Wi-Fi
-   *  drop lasting as long as it takes an access token to expire (30 min, the HA server is also
-   *  the house's access point), the screen then stayed frozen on stale data, silently, without
-   *  ever retrying again — the failure path this task targets.
+  /** Task 9: single entry point of the internal reconnection, reached both from `ws.onclose`
+   *  (websocket drop) and from `connecter()` when an attempt itself fails (`rafraichir()` refuses
+   *  the refresh token, or the network drops at the wrong moment). Before task 9, a throwing
+   *  attempt stopped the reconnection chain for good, silently, and the screen stayed frozen on
+   *  stale data.
    *
-   *  This internal reconnection deliberately bypasses the orchestration of `demarrage.ts`
-   *  (`tenter()`, which only watches the very first connection `await cx.connecter()`): it will
-   *  therefore never display `startupError()`, whatever the number of failures. It is not what
-   *  makes a lasting failure visible — that is `surSilence`, wired by `demarrage.ts` onto the
-   *  timer armed only once at the top of `connecter()` (`armerSurveillanceSilence`), which keeps
-   *  running without interruption whatever happens here, as long as the `Connexion` object
-   *  exists. */
+   *  At most ONE timer is pending (`reconnexionPrevue`): a failure arriving while a retry is
+   *  already scheduled joins it instead of starting a second chain.
+   *
+   *  This internal reconnection never displays `startupError()`. It is not what makes a lasting
+   *  failure visible — that is `surSilence`, wired by `demarrage.ts` onto the timer armed only
+   *  once at the top of `connecter()` (`armerSurveillanceSilence`), which keeps running whatever
+   *  happens here, as long as the `Connexion` object exists. */
   private reconnecter() {
+    if (this.reconnexionPrevue) return;
+    this.reconnexionPrevue = true;
     const d = delaiReconnexion(this.attempt++);
-    setTimeout(() => { void this.connecter().catch(() => this.reconnecter()); }, d);
+    // The attempt's own failure is handled inside `connecter()` (it schedules the next retry),
+    // so the promise is deliberately not awaited here.
+    setTimeout(() => { this.reconnexionPrevue = false; void this.connecter(); }, d);
   }
 
   private emettre(e: EvenementEtat) { for (const cb of this.rappelsEtat) cb(e); }

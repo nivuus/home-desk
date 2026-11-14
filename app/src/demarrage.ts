@@ -312,9 +312,8 @@ export async function startScreen(
   // Home Assistant unreachable at cold start (production gate of 2026-09-28, defect B). `prete()`
   // only settles at the first `auth_ok` and never rejects, because `Connexion` reconnects on its
   // own: awaiting it alone left the tablet on the waiting screen forever, and the `catch` below
-  // was unreachable for that failure. Making `prete()` reject would not help: the next attempt
-  // would call `connecter()` while the internal reconnection is already opening a socket — a
-  // second websocket. So the start-up path OBSERVES the connection instead of racing it: the
+  // was unreachable for that failure. Making `prete()` reject would not help: the connection is
+  // already retrying by itself, and a retry here has nothing to add but a second chain. So the start-up path OBSERVES the connection instead of racing it: the
   // silence watch is the signal `Connexion` already gives for "the house does not answer", and
   // `SEUIL_MUET_MS` is the threshold the mounted body uses for the same verdict (grey screen plus
   // offline banner) — one definition of "unreachable", not a second, arbitrary timeout. Past it,
@@ -340,9 +339,17 @@ export async function startScreen(
   };
 
   let attempt = 0;
+  // The connection is asked for ONCE. A failed attempt is retried by `Connexion` itself
+  // (`reconnecter`, single-flight `connecter()`), so the retries of this routine only wait for it
+  // to authenticate: calling `connecter()` again from here ran a second retry chain next to the
+  // connection's own, and the two raced to open sockets.
+  let connectionRequested = false;
   const tenterChargement = async (): Promise<void> => {
     try {
-      await cx.connecter();
+      if (!connectionRequested) {
+        connectionRequested = true;
+        await cx.connecter();
+      }
       await cx.prete();
       authenticated = true;
 
