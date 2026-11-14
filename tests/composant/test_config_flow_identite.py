@@ -8,6 +8,7 @@ depassait 500 lignes) — meme couture que `test_config_flow_objets.py` a la
 ronde 1 : ces six tests forment un groupe coherent (UN step, ses gardes,
 son renommage) plutot qu'un decoupage arbitraire.
 """
+import pytest
 from homeassistant import data_entry_flow
 
 from conftest import IDENTITE_MINIMALE, _creer_ecran, _init_reconfigure
@@ -72,8 +73,18 @@ async def test_reconfigurer_l_identite_preremplit_les_valeurs_stockees(hass, ent
     assert marqueurs["note"].description == {"suggested_value": "Une note"}
 
 
-async def test_reconfigurer_l_identite_vide_la_note_existante(hass, entree):
-    """Ronde 2 de relecture (point 6) : deux mutations survivaient sur
+@pytest.mark.parametrize(("champ", "valeur"), [
+    ("note", "Une note qui doit partir"),
+    ("aspirateur", "vacuum.robot_salon"),
+])
+async def test_reconfigurer_l_identite_vide_un_champ_facultatif_existant(
+        hass, entree, champ, valeur):
+    """Clearing an optional identity field: the frontend OMITS an emptied
+    field from the submission (it never sends `""`), so the payload below
+    carries no key at all for it -- and the stored value must go. Every
+    optional field of the identity schema is exercised, not only `note`.
+
+    Ronde 2 de relecture (point 6) : Ronde 2 de relecture (point 6) : deux mutations survivaient sur
     `async_step_identite`, toutes deux invisibles sur CE seul test.
     (a) retirer la ligne `if "note" not in identity_data: new_data.pop
     ("note", None)` — une note videe restait persistee telle quelle. (b)
@@ -83,15 +94,18 @@ async def test_reconfigurer_l_identite_vide_la_note_existante(hass, entree):
     — une UNION qui NE RETIRE JAMAIS de cle garderait alors l'ancienne note.
     Une note EXISTANTE, videe puis resoumise, doit disparaitre : ce test
     tombe sous les DEUX mutations."""
-    subentry_id = await _creer_ecran(hass, entree, note="Une note qui doit partir")
+    subentry_id = await _creer_ecran(hass, entree, **{champ: valeur})
+    stored = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
+    assert stored.data[champ] == valeur
     flow = await _init_reconfigure(hass, entree, subentry_id)
     await hass.config_entries.subentries.async_configure(
         flow["flow_id"], {"next_step_id": "identite"})
+    assert champ not in IDENTITE_MINIMALE
     resultat = await hass.config_entries.subentries.async_configure(
-        flow["flow_id"], {**IDENTITE_MINIMALE, "note": ""})
+        flow["flow_id"], dict(IDENTITE_MINIMALE))
     assert resultat["type"] is data_entry_flow.FlowResultType.MENU
     subentry = hass.config_entries.async_get_entry(entree.entry_id).subentries[subentry_id]
-    assert "note" not in subentry.data
+    assert champ not in subentry.data
 
 
 async def test_reconfigurer_l_identite_refuse_un_nom_deja_pris_par_un_autre_ecran(hass, entree):
@@ -166,3 +180,13 @@ async def test_reconfigurer_l_identite_renomme_le_titre_de_la_sous_entree(hass, 
     assert resultat["type"] is data_entry_flow.FlowResultType.MENU
     entry = hass.config_entries.async_get_entry(entree.entry_id)
     assert entry.subentries[subentry_id].title == "Cuisine renommee"
+
+
+def test_every_optional_identity_field_is_covered_by_the_clearing_test():
+    import voluptuous as vol
+
+    from custom_components.home_desk.config_flow import SCHEMA_IDENTITE
+    optional = {str(k) for k in SCHEMA_IDENTITE.schema if isinstance(k, vol.Optional)}
+    marks = test_reconfigurer_l_identite_vide_un_champ_facultatif_existant.pytestmark
+    covered = {champ for champ, _ in marks[0].args[1]}
+    assert optional == covered
