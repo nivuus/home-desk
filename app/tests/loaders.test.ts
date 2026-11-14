@@ -159,3 +159,25 @@ describe('calendar loader on a long-lived socket', () => {
     expect(s.evenements.map((e) => e.resume)).toEqual(['Dentist']);
   });
 });
+
+describe('calendar loader — all-day events', () => {
+  it('flags a bare-date start as all day, and keeps only those of today', async () => {
+    const { ws, s } = await connectionOpenFor45Minutes();
+    const loading = chargerAgenda(s);
+    await flush();
+    for (const m of ws.sent.filter((x) => x.type === 'call_service' && x.domain === 'calendar')) {
+      const events = m.target.entity_id === 'calendar.famille' ? [
+        { summary: 'Holiday', start: '2026-11-14', end: '2026-11-15' },
+        { summary: 'Trip', start: '2026-11-15', end: '2026-11-16' },
+        { summary: 'Dentist', start: '2026-11-14T11:00:00+01:00', end: '2026-11-14T12:00:00+01:00' },
+      ] : [];
+      ws.receive({ id: m.id, type: 'result', success: true,
+        result: { context: {}, response: { [m.target.entity_id]: { events } } } });
+    }
+    await loading;
+
+    expect(s.evenements.map((e) => [e.resume, e.journeeEntiere])).toEqual([
+      ['Holiday', true], ['Dentist', false],
+    ]);
+  });
+});

@@ -77,7 +77,7 @@ type RawCalendarEvent = { summary?: unknown; start?: unknown };
  *
  *  The queried window spans 24 h, whereas `pastilleBandeau` trusts its caller to hand it only
  *  TODAY's birthday: a birthday of tomorrow, returned by the same request, would be shown as
- *  "Today". It is therefore discarded HERE, at the source — on every load, cached events included,
+ *  "Today" — and so would any all-day event of tomorrow. It is therefore discarded HERE, at the source — on every load, cached events included,
  *  since the day may have changed since they were fetched. */
 export async function chargerAgenda(s: ScreenState): Promise<void> {
   // `d.maintenant()` and not `new Date()`, like everywhere else in `boot/`: a single, injectable
@@ -89,11 +89,17 @@ export async function chargerAgenda(s: ScreenState): Promise<void> {
       start_date_time: maintenant.toISOString(), end_date_time: fin.toISOString(),
     });
     if (!Array.isArray(part.events)) throw new Error(`calendar.get_events: no events for ${entite}`);
-    return (part.events as RawCalendarEvent[]).map((e): Evenement => ({
-      resume: String(e.summary ?? ''),
-      debut: String(e.start ?? ''),
-      estAnniversaire: entite === 'calendar.anniversaires',
-    }));
+    return (part.events as RawCalendarEvent[]).map((e): Evenement => {
+      const debut = String(e.start ?? '');
+      return {
+        resume: String(e.summary ?? ''),
+        debut,
+        estAnniversaire: entite === 'calendar.anniversaires',
+        // Home Assistant serialises an all-day start as a bare ISO date (`date.isoformat()`) and a
+        // timed one as a date-time, which always carries the `T` separator.
+        journeeEntiere: debut !== '' && !debut.includes('T'),
+      };
+    });
   }));
   reponses.forEach((r, i) => {
     if (r.status === 'fulfilled') s.evenementsParCalendrier[CALENDRIERS[i]] = r.value;
@@ -102,6 +108,7 @@ export async function chargerAgenda(s: ScreenState): Promise<void> {
   s.evenements = CALENDRIERS
     .flatMap((entite) => s.evenementsParCalendrier[entite] ?? [])
     .filter((e) => e.resume !== '' && e.debut !== '')
-    .filter((e) => !e.estAnniversaire || estCeJour(e.debut, maintenant));
+    // A birthday or any other all-day event is a DAY: only today's belongs on the wall.
+    .filter((e) => !(e.estAnniversaire || e.journeeEntiere) || estCeJour(e.debut, maintenant));
   s.dessiner();
 }

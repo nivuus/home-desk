@@ -11,6 +11,10 @@ export type Evenement = {
   /** ISO 8601 local, tel que HA le rend dans `calendar/event/list`. */
   debut: string;
   estAnniversaire: boolean;
+  /** An all-day event: `debut` is a bare date, a DAY in the house's calendar, never an instant.
+   *  Set by the loader from the shape Home Assistant serialises (`chargerAgenda`). Reading it
+   *  through `new Date` gives UTC midnight — a time that depends on the viewer's time zone. */
+  journeeEntiere?: boolean;
 };
 
 /** `accent` : le préfixe EXACT de `valeur` que le bandeau colore (`rendu/bandeau.ts`). Posé ici,
@@ -114,7 +118,7 @@ export function pastilleBandeau(
     if (!masquerRdv) {
       const t = maintenant.getTime();
       const proches = evenements
-        .filter((e) => !e.estAnniversaire)
+        .filter((e) => !e.estAnniversaire && !e.journeeEntiere)
         .map((e) => ({ e, quand: new Date(e.debut).getTime() }))
         .filter(({ quand }) => quand > t && quand - t <= FENETRE_MS)
         .sort((a, b) => a.quand - b.quand);
@@ -122,6 +126,13 @@ export function pastilleBandeau(
         return { etiquette: heureCourte(proches[0].e.debut), valeur: proches[0].e.resume };
       }
     }
+    // Today's all-day event: announced for the day, like a birthday, after the timed appointments
+    // (an hour to keep matters more than a day already under way). Compared by DATE, never as an
+    // instant, so the rule holds in any time zone. `masquerRdv` does not apply: the central block
+    // that takes timed appointments never shows an all-day event.
+    const allDayToday = evenements.find((e) => e.journeeEntiere && !e.estAnniversaire && estCeJour(e.debut, maintenant));
+    // `Pastille`'s existing field names and the birthday branch's label: policy: allow-fr
+    if (allDayToday) return { etiquette: 'Aujourd\'hui', valeur: allDayToday.resume };   // policy: allow-fr
   }
   // Repli permanent (tâche 13) : le premier jour dont la condition dominante diffère de celle
   // d'aujourd'hui prime sur « Demain » — demande du propriétaire, cf. `prochainChangement`
