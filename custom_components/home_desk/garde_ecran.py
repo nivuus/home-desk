@@ -202,6 +202,7 @@ def persister_si_valide(
         errors.update(errors_ecran)
         description_placeholders.update(placeholders_ecran)
         return False
+    house_update = _house_after_rename(entry, subentry.data.get("nom"), complete_screen_data.get("nom"))
     kwargs: dict[str, Any] = {}
     if titre is not None:
         kwargs["title"] = titre
@@ -209,7 +210,32 @@ def persister_si_valide(
         flow._async_update(entry=entry, subentry=subentry, data_updates=data_updates, **kwargs)
     else:
         flow._async_update(entry=entry, subentry=subentry, data=complete_screen_data, **kwargs)
+    if house_update is not None:
+        # Same gesture as the screen write: both are synchronous and nothing
+        # awaits in between, so no other code ever sees the screen renamed
+        # while its appliances still name the old room.
+        house, house_data = house_update
+        flow.hass.config_entries.async_update_subentry(entry, house, data=house_data)
     return True
+
+
+def _house_after_rename(entry: Any, old_name: Any, new_name: Any) -> tuple[Any, dict] | None:
+    """The house subentry and its validated data with every appliance whose
+    `piece` is OLD_NAME moved to NEW_NAME, or `None` when the screen keeps its
+    name or no appliance names it. The tablet matches `piece` to the screen
+    `nom` exactly (`appliancesFor`), and the importer refuses an appliance
+    whose room is no screen (`_check_appliance_rooms`): a rename that left
+    them behind would hide their cards and make the next export unreadable.
+    Source `piece` values are labels, not matched to a screen, and stay."""
+    house = house_subentry(entry)
+    if old_name == new_name or house is None:
+        return None
+    appareils = house.data.get("appareils", [])
+    if not any(a.get("piece") == old_name for a in appareils):
+        return None
+    moved = [{**a, "piece": new_name} if a.get("piece") == old_name else a for a in appareils]
+    # The stored house was valid and only a non-empty room name changes.
+    return house, schema.validate_house({**house.data, "appareils": moved})
 
 
 def importer_ecrans(hass: Any, entry: Any, ecrans: list[tuple[str, dict]], maison: dict | None) -> None:
