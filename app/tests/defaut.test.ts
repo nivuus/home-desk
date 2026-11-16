@@ -17,7 +17,10 @@ let hote: HTMLElement;
 beforeEach(() => { hote = document.createElement('div'); document.body.appendChild(hote); });
 
 describe('rendreProchainRdv', () => {
-  const maintenant = new Date('2026-08-03T14:00:00+02:00');
+  // Wall-clock times of the tablet, in whatever zone the suite runs: the block shows an event at
+  // the tablet's local hour, so the instants are written without an offset (local time), never
+  // as Paris instants that read "16:30" only when the machine is in Paris.
+  const maintenant = new Date(2026, 7, 3, 14, 0);
 
   it('rend undefined sans aucun événement', () => {
     expect(rendreProchainRdv([], maintenant)).toBeUndefined();
@@ -26,7 +29,7 @@ describe('rendreProchainRdv', () => {
   it('affiche l\'heure et le résumé du prochain rendez-vous du jour', () => {
     const div = document.createElement('div');
     const evenements: Evenement[] = [
-      { resume: 'Réunion client', debut: '2026-08-03T16:30:00+02:00', estAnniversaire: false },
+      { resume: 'Réunion client', debut: '2026-08-03T16:30:00', estAnniversaire: false },
     ];
     render(rendreProchainRdv(evenements, maintenant)!, div);
     expect(div.querySelector('.mode-bloc .t')?.textContent).toBe('Rendez-vous');
@@ -36,8 +39,8 @@ describe('rendreProchainRdv', () => {
   it('choisit le plus proche parmi plusieurs rendez-vous à venir aujourd\'hui', () => {
     const div = document.createElement('div');
     const evenements: Evenement[] = [
-      { resume: 'Le plus tard', debut: '2026-08-03T19:00:00+02:00', estAnniversaire: false },
-      { resume: 'Le plus proche', debut: '2026-08-03T15:00:00+02:00', estAnniversaire: false },
+      { resume: 'Le plus tard', debut: '2026-08-03T19:00:00', estAnniversaire: false },
+      { resume: 'Le plus proche', debut: '2026-08-03T15:00:00', estAnniversaire: false },
     ];
     render(rendreProchainRdv(evenements, maintenant)!, div);
     expect(div.querySelector('.mode-bloc .v')?.textContent).toBe('15:00 — Le plus proche');
@@ -45,14 +48,14 @@ describe('rendreProchainRdv', () => {
 
   it('ignore un rendez-vous déjà commencé', () => {
     const evenements: Evenement[] = [
-      { resume: 'Déjà passé', debut: '2026-08-03T13:00:00+02:00', estAnniversaire: false },
+      { resume: 'Déjà passé', debut: '2026-08-03T13:00:00', estAnniversaire: false },
     ];
     expect(rendreProchainRdv(evenements, maintenant)).toBeUndefined();
   });
 
   it('ignore un rendez-vous du lendemain', () => {
     const evenements: Evenement[] = [
-      { resume: 'Demain', debut: '2026-08-04T09:00:00+02:00', estAnniversaire: false },
+      { resume: 'Demain', debut: '2026-08-04T09:00:00', estAnniversaire: false },
     ];
     expect(rendreProchainRdv(evenements, maintenant)).toBeUndefined();
   });
@@ -70,7 +73,7 @@ describe('rendreProchainRdv', () => {
   it('ne rend jamais de .mode-action (aucune action possible sur ce bloc)', () => {
     const div = document.createElement('div');
     const evenements: Evenement[] = [
-      { resume: 'Réunion', debut: '2026-08-03T16:30:00+02:00', estAnniversaire: false },
+      { resume: 'Réunion', debut: '2026-08-03T16:30:00', estAnniversaire: false },
     ];
     render(rendreProchainRdv(evenements, maintenant)!, div);
     expect(div.querySelector('.mode-action')).toBeNull();
