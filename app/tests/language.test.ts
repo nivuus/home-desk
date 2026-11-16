@@ -73,7 +73,7 @@ describe('startScreen applies the reported language', () => {
       stockage: stockageAvecSession,
       createConnection: () => ({
         connecter: () => Promise.resolve(), prete: () => Promise.resolve(),
-        surChangement: () => {}, surSilence: () => {},
+        suivreEntites: () => {}, surChangement: () => {}, surSilence: () => {},
         appelerService: vi.fn(), listerTaches: vi.fn(async () => []), envoyerCommande: vi.fn(),
         abonner: () => {},
       }),

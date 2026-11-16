@@ -207,8 +207,8 @@ describe('Connexion — abonnement par une commande de l intégration', () => {
 
     const envoyee = ws.envoyes.find((m) => m.type === 'home_desk/abonner');
     expect(envoyee).toMatchObject({ type: 'home_desk/abonner', nom: 'cuisine' });
-    expect(ws.envoyes.filter((m) => m.type === 'subscribe_events').map((m) => m.event_type))
-      .toEqual(['state_changed']);
+    // No bus subscription at all: states come through `subscribe_entities` (`suivreEntites`).
+    expect(ws.envoyes.filter((m) => m.type === 'subscribe_events')).toEqual([]);
 
     ws.recevoir({ type: 'event', id: envoyee.id, event: { nom: 'cuisine' } });
     expect(vus).toEqual([{ nom: 'cuisine' }]);
@@ -278,23 +278,22 @@ describe('Connexion — abonnement par une commande de l intégration', () => {
     erreur.mockRestore();
   });
 
-  it('laisse INTACT le chemin state_changed, qui ne passe pas par abonner', async () => {
-    // Contre-épreuve : les 1049 tests existants reposent sur `surChangement`. Un abonnement
-    // générique qui détournerait `state_changed` les casserait tous d'un coup.
+  it('leaves the entity states path INTACT: it does not go through abonner', async () => {
+    // Counter-check: the existing suites rely on `surChangement`. A generic subscription that
+    // took the entity subscription's events would break them all at once.
     const cx = connexionDeTest();
     const etats: unknown[] = [];
+    const vus: unknown[] = [];
     cx.surChangement((e) => etats.push(e));
+    cx.abonner({ type: 'home_desk/abonner', nom: 'cuisine' }, (e) => vus.push(e));
+    cx.suivreEntites(['light.x']);
     await cx.connecter();
     const ws = WsCapture.derniere!;
     ws.recevoir({ type: 'auth_ok' });
-    ws.recevoir({
-      type: 'event',
-      event: {
-        event_type: 'state_changed',
-        data: { new_state: { entity_id: 'light.x', state: 'on', attributes: { a: 1 } } },
-      },
-    });
+    const id = ws.envoyes.find((m) => m.type === 'subscribe_entities').id;
+    ws.recevoir({ type: 'event', id, event: { a: { 'light.x': { s: 'on', a: { a: 1 } } } } });
     expect(etats).toEqual([{ entity_id: 'light.x', state: 'on', attributes: { a: 1 } }]);
+    expect(vus).toEqual([]);
   });
 });
 
@@ -427,45 +426,35 @@ describe('Connexion — un abonné aux états posé APRÈS la connexion', () => 
   // `abonner`, dans cette même classe, traite DÉJÀ le cas de l'abonnement tardif
   // (`if (this.authentifiee) this.envoyerAbonnement(...)`) ; `surChangement` était le frère resté
   // sans filet.
-  it('reçoit quand même l état courant, au lieu de rater l instantané initial', async () => {
+  it('receives the current state anyway, from what the connection already received', async () => {
     const cx = connexionDeTest();
+    cx.suivreEntites(['light.hotte']);
     await cx.connecter();
     const ws = WsCapture.derniere!;
     ws.recevoir({ type: 'auth_ok' });
 
-    // L'instantané initial part ICI, et personne n'est encore abonné : il tombe dans le vide.
-    const premier = ws.envoyes.find((m) => m.type === 'get_states');
-    expect(premier).toBeDefined();
-    ws.recevoir({
-      type: 'result', id: premier.id, success: true,
-      result: [{ entity_id: 'light.hotte', state: 'off', attributes: {} }],
-    });
+    // The initial states go out HERE, and nobody is subscribed yet.
+    const souscription = ws.envoyes.find((m) => m.type === 'subscribe_entities');
+    ws.recevoir({ type: 'event', id: souscription.id, event: { a: { 'light.hotte': { s: 'off', a: {}, lc: 1 } } } });
 
-    // C'est l'ordre exact de `startScreen()` : connecter, résoudre l'écran, PUIS monter le corps.
+    // The exact order of `startScreen()`: connect, resolve the screen, THEN mount the body.
     const vus: string[] = [];
-    cx.surChangement((e) => vus.push(e.entity_id));
-
-    const demandes = ws.envoyes.filter((m) => m.type === 'get_states');
-    expect(demandes).toHaveLength(2);
-
-    ws.recevoir({
-      type: 'result', id: demandes[1].id, success: true,
-      result: [{ entity_id: 'light.hotte', state: 'off', attributes: {} }],
-    });
-    expect(vus).toEqual(['light.hotte']);
+    cx.surChangement((e) => vus.push(`${e.entity_id}=${e.state}`));
+    expect(vus).toEqual(['light.hotte=off']);
+    // Handed from what was received: nothing is asked of Home Assistant again.
+    expect(ws.envoyes.filter((m) => m.type === 'subscribe_entities')).toHaveLength(1);
   });
 
-  it('ne redemande RIEN quand l abonné est posé AVANT la connexion', async () => {
-    // Contre-épreuve : la branche `data-piece` s'abonne avant de connecter, et les 1 148 tests
-    // existants montent par là. Un rattrapage qui partirait aussi dans ce cas doublerait
-    // l'instantané initial sur le chemin normal — un aller-retour payé pour rien sur une Fire 7.
+  it('asks for nothing more when the subscriber is set BEFORE the connection', async () => {
     const cx = connexionDeTest();
     cx.surChangement(() => {});
+    cx.suivreEntites(['light.hotte']);
     await cx.connecter();
     const ws = WsCapture.derniere!;
     ws.recevoir({ type: 'auth_ok' });
 
-    expect(ws.envoyes.filter((m) => m.type === 'get_states')).toHaveLength(1);
+    expect(ws.envoyes.filter((m) => m.type === 'subscribe_entities')).toHaveLength(1);
+    expect(ws.envoyes.filter((m) => m.type === 'get_states')).toEqual([]);
   });
 });
 

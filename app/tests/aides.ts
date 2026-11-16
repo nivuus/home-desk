@@ -41,7 +41,7 @@ export function connexionFactice(...sequence: ('succes' | 'echec')[]): Connexion
         : Promise.reject(new Error('token refresh refused: 400'));
     },
     prete: () => Promise.resolve(),
-    surChangement: (_cb: (e: EvenementEtat) => void) => {},
+    suivreEntites: () => {}, surChangement: (_cb: (e: EvenementEtat) => void) => {},
     // Depuis la tâche 7, `ConnexionLike` porte aussi `appelerService` (retour optimiste,
     // cf. `interaction.ts`) : aucun des tests existants n'appuie sur une tuile, donc ce double
     // n'a jamais besoin de faire autre chose que satisfaire le type.
@@ -235,7 +235,7 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
     createConnection: options.createConnection ?? (() => ({
       connecter: () => Promise.resolve(),
       prete: () => Promise.resolve(),
-      surChangement: (cb) => { emettre = cb; },
+      suivreEntites: () => {}, surChangement: (cb) => { emettre = cb; },
       appelerService,
       surSilence: (cb) => { silencer = cb; },
       listerTaches,

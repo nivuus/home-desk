@@ -10,17 +10,29 @@ export type Jetons = {
 export type EvenementEtat = {
   entity_id: string; state: string; attributes: Record<string, unknown>;
   /** When the STATE last changed, as Home Assistant reports it (ISO 8601). Carried by every state
-   *  object, in `get_states` as in `state_changed`; absent from states the page makes up itself. */
+   *  Home Assistant sends; absent from states the page makes up itself. */
   last_changed?: string;
+  /** The entity left Home Assistant (`r` of `subscribe_entities`). */
+  removed?: true;
 };
 
-/** The fields of a Home Assistant state object this page reads. */
-function versEvenement(n: { entity_id: string; state: string; attributes: Record<string, unknown>; last_changed?: unknown }): EvenementEtat {
-  return {
-    entity_id: n.entity_id, state: n.state, attributes: n.attributes,
-    ...(typeof n.last_changed === 'string' ? { last_changed: n.last_changed } : {}),
-  };
-}
+/** Home Assistant's own rule for an entity id (`VALID_ENTITY_ID`, `homeassistant/core.py`). The
+ *  `entity_ids` of `subscribe_entities` go through it (`cv.entity_ids`), and ONE malformed id
+ *  refuses the whole command: an id that breaks it can never have a state, so it is not sent. */
+const ENTITY_ID = /^(?!.+__)(?!_)[\da-z_]+(?<!_)\.(?!_)[\da-z_]+(?<!_)$/;
+
+/** Without any message for this long, the socket is asked for a `pong`: the silence watch must
+ *  measure the link, not how busy the house is, now that only the screen's entities arrive. */
+const SONDE_MS = 10_000;
+
+/** A state as `subscribe_entities` compresses it (`as_compressed_state`, Home Assistant core):
+ *  `s` state, `a` attributes, `lc` last changed (epoch seconds). */
+type EtatCompresse = { s: string; a?: Record<string, unknown>; lc?: number };
+/** A change: what is added or replaced (`+`), and the attribute keys removed (`-`). */
+type DiffCompresse = { '+'?: { s?: string; a?: Record<string, unknown>; lc?: number }; '-'?: { a?: string[] } };
+type MajEntites = { a?: Record<string, EtatCompresse>; c?: Record<string, DiffCompresse>; r?: string[] };
+
+const isoDe = (secondes: number): string => new Date(secondes * 1000).toISOString();
 
 /** A refusal from Home Assistant, with ITS CODE.
  *
@@ -126,12 +138,19 @@ export class Connexion {
    *  anything but `auth` before that, so a subscription registered in the meantime waits for
    *  `auth_ok`, which sends it. */
   private authentifiee = false;
-  /** Has the initial snapshot (`get_states`) already been requested on the current socket?
-   *
-   *  Used by `surChangement`: a subscriber registered AFTER `auth_ok` missed that snapshot, which
-   *  was distributed to an empty callback list and lost without any error. Reset to `false` on
-   *  every socket opening, so that a reconnection starts again from the right state. */
-  private etatsDemandes = false;
+  /** The entities this page follows (`suivreEntites`): the ids the screen has asked about. Only
+   *  these are subscribed to (`subscribe_entities` with `entity_ids`), never the whole house: a
+   *  wall tablet with ~130 MB free used to receive, parse and keep every `state_changed` of the
+   *  installation (~1 700 entities), and a full `get_states` after every Wi-Fi drop. */
+  private entitesSuivies = new Set<string>();
+  /** The `id`s of the `subscribe_entities` requests sent on the CURRENT socket. */
+  private souscriptionsEntites = new Set<number>();
+  /** The last state of each followed entity, kept to apply the changes Home Assistant sends as
+   *  differences, and to hand a late subscriber what it missed (`surChangement`). */
+  private etatsSuivis = new Map<string, EvenementEtat>();
+  /** The subscription sent at `auth_ok` with every followed entity: its first message is the
+   *  complete picture, and an entity the cache holds that it does not name left meanwhile. */
+  private souscriptionComplete: number | null = null;
   /** Resolved on the first `auth_ok`, NEVER put back to pending on reconnection.
    *
    *  `prete()` answers "can a command be sent?" for the FIRST command, the startup one — the only
@@ -187,14 +206,24 @@ export class Connexion {
    *  configuration, and only mounts the body afterwards) — same contract as `abonner` just
    *  below.
    *
-   *  The catch-up is not a convenience: without it, a subscriber registered after `auth_ok` only
-   *  receives the `state_changed` events, hence only the entities that CHANGE. All the others —
-   *  a hood that is off, a still curtain, the weather, `sun.sun` — NEVER resolve. That is the
-   *  defect that made step 5 of the 2026-09-14 production rollout fail: the tablet rendered its
-   *  structure and not a single state. */
+   *  The catch-up is not a convenience: without it, a subscriber registered late only receives
+   *  the entities that CHANGE. All the others — a hood that is off, a still curtain, the weather,
+   *  `sun.sun` — NEVER resolve. That is the defect that made step 5 of the 2026-09-14 production
+   *  rollout fail: the tablet rendered its structure and not a single state. It is handed the
+   *  states already received, from the cache, without asking Home Assistant again. */
   surChangement(cb: (e: EvenementEtat) => void) {
     this.rappelsEtat.push(cb);
-    if (this.etatsDemandes) this.demanderEtats();
+    for (const e of this.etatsSuivis.values()) cb(e);
+  }
+
+  /** Follows these entities from now on: Home Assistant sends their current state, then every
+   *  change of theirs, and nothing of any other entity. Callable before `connecter()`; the ids
+   *  already followed are not sent again, and a reconnection subscribes to all of them at once. */
+  suivreEntites(ids: Iterable<string>) {
+    const nouvelles = [...ids].filter((id) => ENTITY_ID.test(id) && !this.entitesSuivies.has(id));
+    if (nouvelles.length === 0) return;
+    for (const id of nouvelles) this.entitesSuivies.add(id);
+    if (this.authentifiee) this.souscrireEntites(nouvelles);
   }
   surSilence(cb: (ms: number) => void) { this.rappelsSilence.push(cb); }
 
@@ -219,15 +248,51 @@ export class Connexion {
     if (this.authentifiee) this.envoyerAbonnement(abonnement);
   }
 
-  /** The snapshot request, in the singular: `auth_ok` sends it for the new socket, and
-   *  `surChangement` sends it again for a subscriber that arrived too late. Two wordings of the
-   *  same send would end up diverging. */
-  private demanderEtats() {
-    this.ws?.send(JSON.stringify({ id: this.id++, type: 'get_states' }));
+  private souscrireEntites(ids: string[]): number {
+    const id = this.id++;
+    this.souscriptionsEntites.add(id);
+    this.ws?.send(JSON.stringify({ id, type: 'subscribe_entities', entity_ids: ids }));
+    return id;
   }
 
-  private souscrire(type: string) {
-    this.ws?.send(JSON.stringify({ id: this.id++, type: 'subscribe_events', event_type: type }));
+  /** Applies one message of a `subscribe_entities` subscription, as Home Assistant's own client
+   *  does (`home-assistant-js-websocket`, `lib/states.ts`): `a` full states, `c` differences
+   *  against the last state, `r` entities gone. Each resulting state goes to the subscribers. */
+  private recevoirEntites(id: number, maj: MajEntites) {
+    if (id === this.souscriptionComplete) {
+      this.souscriptionComplete = null;
+      for (const entite of [...this.etatsSuivis.keys()]) {
+        if (maj.a?.[entite] === undefined) this.oublier(entite);
+      }
+    }
+    for (const [entite, n] of Object.entries(maj.a ?? {})) {
+      this.retenir({
+        entity_id: entite, state: n.s, attributes: n.a ?? {},
+        ...(typeof n.lc === 'number' ? { last_changed: isoDe(n.lc) } : {}),
+      });
+    }
+    for (const [entite, diff] of Object.entries(maj.c ?? {})) {
+      const avant = this.etatsSuivis.get(entite);
+      if (avant === undefined) continue;   // a change of a state never received: nothing to apply it to
+      const ajout = diff['+'] ?? {};
+      const attributes = ajout.a || diff['-']?.a ? { ...avant.attributes, ...ajout.a } : avant.attributes;
+      for (const cle of diff['-']?.a ?? []) delete attributes[cle];
+      this.retenir({
+        ...avant, state: ajout.s ?? avant.state, attributes,
+        ...(typeof ajout.lc === 'number' ? { last_changed: isoDe(ajout.lc) } : {}),
+      });
+    }
+    for (const entite of maj.r ?? []) this.oublier(entite);
+  }
+
+  private retenir(e: EvenementEtat) {
+    this.etatsSuivis.set(e.entity_id, e);
+    this.emettre(e);
+  }
+
+  private oublier(entite: string) {
+    if (!this.etatsSuivis.delete(entite)) return;
+    this.emettre({ entity_id: entite, state: '', attributes: {}, removed: true });
   }
 
   private envoyerAbonnement(abonnement: { commande: Record<string, unknown>; cb: RappelAbonnement }) {
@@ -249,6 +314,8 @@ export class Connexion {
     this.lastMessageAt = Date.now();
     this.deps.intervalFn(() => {
       const ms = Date.now() - this.lastMessageAt;
+      // A quiet house sends nothing for minutes: a `ping` keeps the measure about the link.
+      if (ms >= SONDE_MS && this.authentifiee) this.ws?.send(JSON.stringify({ id: this.id++, type: 'ping' }));
       for (const cb of this.rappelsSilence) cb(ms);
     }, 5000);
   }
@@ -291,10 +358,9 @@ export class Connexion {
     const url = this.deps.origineWs + '/api/websocket';
     const ws = new this.deps.WebSocketImpl(url);
     this.ws = ws;
-    // New socket: its snapshot has not gone out yet. Without this reset, a subscriber arriving
-    // during a reconnection would believe it had missed it and would request a second one,
-    // which `auth_ok` would send anyway.
-    this.etatsDemandes = false;
+    // New socket: the subscription ids of the previous one mean nothing on it.
+    this.souscriptionsEntites.clear();
+    this.souscriptionComplete = null;
     this.authentifiee = false;
 
     // Every handler acts on ITS socket only: a socket that is no longer the current one (dropped
@@ -308,13 +374,15 @@ export class Connexion {
       } else if (m.type === 'auth_ok') {
         this.attempt = 0;
         this.authentifiee = true;
-        this.souscrire('state_changed');
+        if (this.entitesSuivies.size > 0) this.souscriptionComplete = this.souscrireEntites([...this.entitesSuivies]);
         this.abonnementsParId.clear();
         for (const abonnement of this.abonnements) this.envoyerAbonnement(abonnement);
-        this.demanderEtats();
-        this.etatsDemandes = true;
         this.resoudrePrete?.();
         this.resoudrePrete = null;
+      } else if (m.type === 'event' && this.souscriptionsEntites.has(m.id)) {
+        this.recevoirEntites(m.id, m.event ?? {});
+      } else if (m.type === 'result' && this.souscriptionsEntites.has(m.id) && !m.success) {
+        console.error('entity subscription refused', m.error?.code, m.error?.message);
       } else if (m.type === 'event' && this.abonnementsParId.has(m.id)) {
         // Checked BEFORE the `new_state` branch: a subscription's `event` is recognised by its
         // `id`, whatever it carries.
@@ -323,8 +391,6 @@ export class Connexion {
         // A refused subscription is the silent failure this method exists to end: say it, with
         // Home Assistant's code (`unknown_command` = a component too old for this page).
         console.error('subscription refused', m.error?.code, m.error?.message);
-      } else if (m.type === 'event' && m.event?.data?.new_state) {
-        this.emettre(versEvenement(m.event.data.new_state));
       } else if (m.type === 'result' && this.enAttenteCommandes.has(m.id)) {
         const p = this.enAttenteCommandes.get(m.id)!;
         this.enAttenteCommandes.delete(m.id);
@@ -333,8 +399,6 @@ export class Connexion {
           typeof m.error?.code === 'string' ? m.error.code : 'inconnu',
           m.error?.message ?? 'command refused',
         ));
-      } else if (m.type === 'result' && Array.isArray(m.result)) {
-        for (const n of m.result) this.emettre(versEvenement(n));
       }
     };
     ws.onclose = () => { if (ws === this.ws) this.reconnecter(); };

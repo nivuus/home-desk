@@ -68,7 +68,7 @@ function connexionFactice(): ConnexionLike {
   return {
     connecter: () => Promise.resolve(),
     prete: () => Promise.resolve(),
-    surChangement: (_cb: (e: EvenementEtat) => void) => {},
+    suivreEntites: () => {}, surChangement: (_cb: (e: EvenementEtat) => void) => {},
     appelerService: vi.fn(),
     // Depuis la tâche 9, `ConnexionLike` porte aussi `surSilence` : aucun des tests de ce
     // fichier ne teste le grisage, donc pas besoin de faire autre chose que satisfaire le type.
@@ -510,7 +510,7 @@ describe('navigation (nuit / toute la maison)', () => {
         createConnection: () => ({
           connecter: () => Promise.resolve(),
           prete: () => Promise.resolve(),
-          surChangement: (cb) => { emettre = cb; },
+          suivreEntites: () => {}, surChangement: (cb) => { emettre = cb; },
           appelerService: vi.fn(),
           surSilence: (_cb: (ms: number) => void) => {},
           listerTaches: async () => [],
