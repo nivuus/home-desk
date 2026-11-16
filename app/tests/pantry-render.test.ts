@@ -218,8 +218,21 @@ describe('sheet', () => {
   });
 
   it('shows home-stock’s message', () => {
-    const div = sheet({ message: 'Il ne reste que 100 g.' });
+    const div = sheet({ notice: { kind: 'refused', reason: 'Il ne reste que 100 g.' } });
     expect(div.querySelector('.etiquette')?.textContent).toContain('Il ne reste que 100 g.');
+  });
+
+  it('says a refusal without a reason removed nothing', () => {
+    const div = sheet({ notice: { kind: 'refused', reason: null } });
+    expect(div.querySelector('.etiquette')?.textContent).toBe('home-stock a refusé — rien n’a été retiré');
+  });
+
+  // A lost answer is an unknown outcome: home-stock may have applied the removal. Saying "nothing
+  // was removed" sent people to remove the product again by voice or from the panel, with
+  // another key — a double removal.
+  it('says the outcome of an unanswered removal is uncertain, never that nothing was removed', () => {
+    const div = sheet({ notice: { kind: 'unanswered' } });
+    expect(div.querySelector('.etiquette')?.textContent).toBe('home-stock ne répond pas — retrait incertain');
   });
 });
 

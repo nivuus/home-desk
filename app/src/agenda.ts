@@ -5,6 +5,7 @@
  *  Fonctions pures : `maintenant` est toujours reçu en paramètre, jamais lu d'une horloge
  *  implicite — même discipline que `contexte.ts` et `modes.ts`. */
 import { phraseDemain, temperatureCourte, texteCondition, type Prevision } from './meteo';
+import { t, dateTimeFormat } from './i18n';
 
 export type Evenement = {
   resume: string;
@@ -51,8 +52,7 @@ export function estCeJour(debut: string, maintenant: Date): boolean {
 // Tâche 14 : exportée pour `rendu/defaut.ts` (« Rendez-vous » du bureau) — même formatage que la
 // pastille du bandeau, jamais une seconde fonction qui dirait la même chose.
 export function heureCourte(iso: string): string {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return dateTimeFormat({ hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 }
 
 /** Au-delà, on ne promet rien : la fenêtre `daily` de cette installation en porte 7 (aujourd'hui
@@ -89,8 +89,8 @@ export function prochainChangement(
 
   const jourStr = String(change.datetime).slice(0, 10);
   const jour = jourStr === demainStr
-    ? 'Demain'
-    : new Date(change.datetime).toLocaleDateString('fr-FR', { weekday: 'long' });
+    ? t().agenda.tomorrow
+    : dateTimeFormat({ weekday: 'long' }).format(new Date(change.datetime));
 
   return { jour, condition: change.condition, temperature: change.temperature };
 }
@@ -113,7 +113,7 @@ export function pastilleBandeau(
   // regarde que Maxime. On retombe sur « Demain », qui ne dit rien de personne.
   if (!masquerPerso) {
     const anniversaire = evenements.find((e) => e.estAnniversaire);
-    if (anniversaire) return { etiquette: 'Aujourd\'hui', valeur: anniversaire.resume };
+    if (anniversaire) return { etiquette: t().agenda.today, valeur: anniversaire.resume };   // policy: allow-fr (`Pastille` field names)
 
     if (!masquerRdv) {
       const t = maintenant.getTime();
@@ -131,8 +131,7 @@ export function pastilleBandeau(
     // instant, so the rule holds in any time zone. `masquerRdv` does not apply: the central block
     // that takes timed appointments never shows an all-day event.
     const allDayToday = evenements.find((e) => e.journeeEntiere && !e.estAnniversaire && estCeJour(e.debut, maintenant));
-    // `Pastille`'s existing field names and the birthday branch's label: policy: allow-fr
-    if (allDayToday) return { etiquette: 'Aujourd\'hui', valeur: allDayToday.resume };   // policy: allow-fr
+    if (allDayToday) return { etiquette: t().agenda.today, valeur: allDayToday.resume };   // policy: allow-fr (`Pastille` field names)
   }
   // Repli permanent (tâche 13) : le premier jour dont la condition dominante diffère de celle
   // d'aujourd'hui prime sur « Demain » — demande du propriétaire, cf. `prochainChangement`
@@ -156,7 +155,7 @@ export function pastilleBandeau(
   const demain = jours.find((p) => String(p?.datetime ?? '').slice(0, 10) > aujourdHui);
   if (!demain) return null;
   return {
-    etiquette: 'Demain',
+    etiquette: t().agenda.tomorrow,
     valeur: phraseDemain(demain),
     accent: temperatureCourte(demain.temperature),
   };

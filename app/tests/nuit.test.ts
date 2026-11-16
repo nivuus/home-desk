@@ -13,7 +13,7 @@ const ev = (id: string, etat: string, attributes: Record<string, unknown> = {}) 
   ({ entity_id: id, state: etat, attributes });
 
 describe('rendreNuit', () => {
-  it('affiche l heure, la temperature (virgule francaise) et la serrure fermee', () => {
+  it('affiche l heure, la temperature (virgule francaise), la piece telle que HA la nomme et la serrure fermee', () => {
     const etat = new Etat();
     etat.appliquer(ev('sensor.capteur_humain_temperature', '19.6'));
     etat.appliquer(ev('lock.aqara_smart_lock_u200_lite', 'locked'));
@@ -21,7 +21,7 @@ describe('rendreNuit', () => {
     render(rendreNuit(etat, new Date(2026, 7, 1, 23, 42), ECRANS.salon), div);
 
     expect(div.querySelector('.hn')?.textContent).toBe('23:42');
-    expect(div.querySelector('.tn')?.textContent).toBe('19,6° salon');
+    expect(div.querySelector('.tn')?.textContent).toBe('19,6° Salon');
     expect(div.querySelector('.on')?.textContent).toContain('Tout est fermé');
   });
 

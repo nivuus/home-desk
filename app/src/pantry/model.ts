@@ -2,6 +2,7 @@
  *  (`home_stock/batches/list`), grouped by location then aisle, sorted by best-before date and cut
  *  into pages of six rows. PURE — no DOM, no Home Assistant — like `cochage.ts`: everything here is
  *  testable without a browser, and the views (`rendu/pantry-lists.ts`) only lay it out. */
+import { compareText, t } from '../i18n';
 
 export type Batch = {
   id: number; productId: number; product: string; remaining: number;
@@ -17,8 +18,6 @@ export type Batch = {
  *  `batches/list` only carries open batches. */
 export type KnownLocation = { id: number; name: string; position: number };
 
-/** The label of the products that have no aisle. Shown last, never dropped. */
-export const NO_AISLE = 'Sans rayon';
 
 /** Six rows of 64 px per page, the budget of every list view of the app (see `cochage.ts`,
  *  `MAX_LIGNES_TACHES`). */
@@ -88,7 +87,7 @@ export function hasAisles(batches: Batch[]): boolean {
   return batches.some((b) => WITH_AISLES.has(b));
 }
 
-const byText = (a: string, b: string) => a.localeCompare(b, 'fr');
+const byText = compareText;
 
 export type LocationGroup = { locationId: number; name: string; count: number };
 
@@ -111,7 +110,7 @@ export function locations(batches: Batch[], known: KnownLocation[] = []): Locati
 export type AisleGroup = { aisleId: number | null; name: string; count: number };
 
 /** The non-empty aisles of one location, by aisle position then name; the products without an
- *  aisle are grouped under "Sans rayon", always last. */
+ *  aisle are grouped under the "no aisle" label of the catalog, always last. */
 export function aislesOf(batches: Batch[], locationId: number): AisleGroup[] {
   const groups = new Map<number | null, AisleGroup & { position: number }>();
   for (const b of batches) {
@@ -120,7 +119,7 @@ export function aislesOf(batches: Batch[], locationId: number): AisleGroup[] {
     const g = groups.get(key);
     if (g) { g.count++; continue; }
     groups.set(key, {
-      aisleId: key, name: key === null ? NO_AISLE : (b.aisle ?? NO_AISLE), count: 1,
+      aisleId: key, name: key === null ? t().pantry.noAisle : (b.aisle ?? t().pantry.noAisle), count: 1,
       position: key === null ? Number.POSITIVE_INFINITY : (b.aislePosition ?? Number.MAX_SAFE_INTEGER),
     });
   }

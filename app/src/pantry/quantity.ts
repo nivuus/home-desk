@@ -4,6 +4,8 @@
  *  home-stock's base units are 'g', 'ml' and 'piece' (`const.BASE_UNITS`, and the CHECK of the
  *  `product.base_unit` column). An unknown unit is shown as sent, never guessed. */
 
+import { t, numberFormat } from '../i18n';
+
 export type Fraction = 'all' | 'half' | 'quarter';
 
 /** Rounds to two decimals: 0.1 + 0.2 must never reach the screen or the command as
@@ -36,12 +38,12 @@ export function increment(q: number, remaining: number, unit: string, dir: 1 | -
   return next >= step ? next : Math.min(q, step);
 }
 
-const NUMBER = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2, useGrouping: false });
-
-/** "350 g", "250 ml", "1,5 pièce", "3 pièces": at most two decimals, none when whole. French
- *  writes the singular below two ("1,5 pièce"). */
+/** "350 g", "250 ml", "1,5 pièce", "1.5 pieces": at most two decimals, none when whole, in the
+ *  person's locale. The piece is counted by the catalog's plural rules (French writes the
+ *  singular below two, English the plural for anything but one); 'g' and 'ml' are SI symbols,
+ *  written as they are in every language. */
 export function formatQuantity(q: number, unit: string): string {
-  const n = NUMBER.format(q);
-  if (unit === 'piece') return `${n} ${Math.abs(q) >= 2 ? 'pièces' : 'pièce'}`;
+  const n = numberFormat({ maximumFractionDigits: 2, useGrouping: false }).format(q);
+  if (unit === 'piece') return t().pantry.pieces(Math.abs(q), n);
   return unit === '' ? n : `${n} ${unit}`;
 }
