@@ -154,10 +154,11 @@ describe('Connexion — le code d un refus survit jusqu à l appelant', () => {
       error: { code: 'version_inconnue', message: 'la sous-entree ne porte aucune version' },
     });
 
+    // `rejects` first: an `expect` inside `.catch()` never runs when the promise resolves, and a
+    // test with zero assertions passes.
     await expect(promesse).rejects.toBeInstanceOf(RefusHA);
-    await promesse.catch((e: RefusHA) => {
-      expect(e.code).toBe('version_inconnue');
-      expect(e.message).toBe('la sous-entree ne porte aucune version');
+    await expect(promesse).rejects.toMatchObject({
+      code: 'version_inconnue', message: 'la sous-entree ne porte aucune version',
     });
   });
 
@@ -169,10 +170,8 @@ describe('Connexion — le code d un refus survit jusqu à l appelant', () => {
     const promesse = cx.envoyerCommande({ type: 'peu/importe' });
     const envoye = ws.envoyes.find((m) => m.type === 'peu/importe')!;
     ws.recevoir({ id: envoye.id, type: 'result', success: false });
-    await promesse.catch((e: RefusHA) => {
-      expect(e.code).toBe('inconnu');
-      expect(e.message).toBe('commande refusée');
-    });
+    await expect(promesse).rejects.toBeInstanceOf(RefusHA);
+    await expect(promesse).rejects.toMatchObject({ code: 'inconnu', message: 'commande refusée' });
   });
 });
 
@@ -316,7 +315,7 @@ describe('Connexion — une commande sans réponse ne pend pas pour toujours', (
     rappel!();
 
     await expect(promesse).rejects.toBeInstanceOf(RefusHA);
-    await promesse.catch((e: RefusHA) => expect(e.code).toBe('delai_depasse'));
+    await expect(promesse).rejects.toMatchObject({ code: 'delai_depasse' });
   });
 
   it('n arme aucun rejet tardif quand la réponse arrive à temps', async () => {
@@ -356,9 +355,8 @@ describe('Connexion — une commande sans réponse ne pend pas pour toujours', (
     expect(minuteurFn.mock.calls[0][1]).toBe(3000);
     rappel!();
 
-    await promesse.catch((e: RefusHA) => {
-      expect(e.message).toBe("Home Assistant n'a pas répondu en 3 s");
-    });
+    await expect(promesse).rejects.toBeInstanceOf(RefusHA);
+    await expect(promesse).rejects.toMatchObject({ message: "Home Assistant n'a pas répondu en 3 s" });
   });
 });
 
