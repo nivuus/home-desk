@@ -6,25 +6,22 @@ Home Assistant depuis `config/www/wallpanel/`.
 
 ## ⚠️ Ce package est propre à UNE maison
 
-Ce n'est pas une base paramétrable, et ce n'est pas un oubli.
+Ce n'est pas une base paramétrable, et ce n'est pas un oubli : installé ailleurs, il
+affiche des entités inexistantes.
 
-- `app/src/` cite **66 `entity_id` en dur**, répartis en 18 domaines.
-- `app/src/ecran.ts` déclare `ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran>` —
-  les trois pièces sont un **type TypeScript**, pas une donnée de configuration.
+La configuration des écrans (quelles commandes, quelles tuiles, quel agencement), elle,
+vit désormais **dans Home Assistant** : l'application la lit par les commandes websocket
+`home_desk/ecran` et `home_desk/ecrans` de l'intégration `custom_components/home_desk`
+(section suivante) quand l'URL porte `?ecran=<nom>`. Ce qui reste propre à cette maison :
 
-Installé ailleurs, il affiche un écran d'entités inexistantes. La
-paramétrisation coûterait une refonte de `ecran.ts`, `modes.ts` et des 41
-fichiers de tests, pour zéro bénéfice sur l'unique installation existante
-(décision 4 de la spec).
-
-**La couture est nommée** : `app/src/ecran.ts` est le point **unique** où la
-maison entre dans l'application. Le jour où une deuxième maison existe, c'est
-le seul fichier à ouvrir.
-
-> **En cours de renversement.** La spec du 2026-09-12
-> (`docs/superpowers/specs/2026-09-12-config-ecrans-depuis-ha-design.md`)
-> annule cette décision : la donnée part chez Home Assistant, le type reste ici.
-> Ce plan-ci (1/3) ne déplace encore aucune donnée.
+- `app/src/ecran.ts` déclare encore `ECRANS: Record<'salon' | 'bureau' | 'cuisine', Ecran>` —
+  les trois pièces sont un **type TypeScript**, avec leurs `entity_id` en dur. Ce littéral ne
+  sert plus que la **branche de transition** de `app/src/page.ts` (`data-piece=<clé>`, pour
+  les trois anciennes pages `salon.html`, `bureau.html`, `cuisine.html`) et le test
+  `contrat-schema.test.ts`. Son retrait est l'étape 8 du plan 3c (non faite).
+- `ecran.ts` n'est **pas** la seule couture vers la maison : d'autres fichiers de
+  `app/src/` citent des `entity_id` (listes communes, capteurs d'ambiance, alertes). L'inventaire
+  mesuré est dans `CLAUDE.md` (« `app/src/ecran.ts` est la couture PRINCIPALE… »).
 
 ## Configuration des écrans depuis Home Assistant (`custom_components/home_desk`)
 
@@ -161,8 +158,8 @@ Le hook n'écrit **jamais** dans `configuration.yaml` : il signale, vous ajoutez
 ```bash
 cd app && npm ci
 npm run build        # ecrit dans ../dist/, SUIVI PAR GIT
-npm test             # 47 fichiers vitest, 1048 tests
-cd .. && make test            # les 5 scripts du package (python3 + PyYAML)
+npm test             # vitest : les fichiers `app/tests/*.test.ts` (103 au 2026-11-16)
+cd .. && make test            # les 6 scripts du package (python3 + PyYAML), voir le Makefile
 make test-composant           # custom_components/home_desk (pytest + Home Assistant, voir ci-dessus)
 ```
 
