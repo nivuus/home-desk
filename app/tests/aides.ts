@@ -246,6 +246,7 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
     // résolution, délégation — donc chacun des 292 sites en est une épreuve de plus.
     chargerEcran: async () => ({ ok: true, value: piece }),
     loadHouse: async () => ({ ok: true, value: { sources: options.house ?? [], appareils: options.appareils ?? [] } }),
+    loadLanguage: async () => ({ ok: true as const, value: 'fr' }),
     intervalFn: intervalFn as any,
     minuteurFn: minuteurFn as any,
     maintenant: options.maintenant ?? (() => new Date(2026, 7, 1, 14, 0)),

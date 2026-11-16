@@ -40,6 +40,8 @@ import { ScreenState } from './boot/state';
 import { wireScreen } from './boot/wiring';
 import { armerAnimations } from './boot/animation';
 import { chargerTaches, chargerMeteo, chargerAgenda } from './boot/loaders';
+import { loadLanguage as loadLanguageHA } from './boot/language';
+import { setLanguage } from './i18n';
 import { enterPantry } from './boot/pantry';
 import { dessiner } from './boot/draw';
 import { SEUIL_MUET_MS } from './boot/constants';
@@ -90,11 +92,12 @@ export async function startWithScreen(
     minuteurFn: deps.minuteurFn ?? minuteurFnParDefaut,
     maintenant: deps.maintenant ?? (() => new Date()),
     // `startWithScreen` never calls them (it receives an already resolved screen and house):
-    // these three fields only exist here so that `d` satisfies `DependancesDemarrage` in full, the
+    // these four fields only exist here so that `d` satisfies `DependancesDemarrage` in full, the
     // same bag of dependencies that `startScreen()` below passes on to it as is.
     chargerEcran: deps.chargerEcran ?? chargerEcranHA,
     listerEcrans: deps.listerEcrans ?? listerEcransHA,
     loadHouse: deps.loadHouse ?? loadHouseHA,
+    loadLanguage: deps.loadLanguage ?? loadLanguageHA,
     chargerLottie: deps.chargerLottie ?? (() => chargerLottie()),
   };
 
@@ -278,6 +281,7 @@ export async function startScreen(
   const chargerEcranFn = deps.chargerEcran ?? chargerEcranHA;
   const listerEcransFn = deps.listerEcrans ?? listerEcransHA;
   const loadHouseFn = deps.loadHouse ?? loadHouseHA;
+  const loadLanguageFn = deps.loadLanguage ?? loadLanguageHA;
 
   const jetons = lireJetons(stockage);
   if (!jetons) {
@@ -361,6 +365,12 @@ export async function startScreen(
       }
       await cx.prete();
       authenticated = true;
+
+      // Before anything is rendered from the house: every screen below, the screen list
+      // included, speaks the language Home Assistant reports for this user.
+      const reported = await loadLanguageFn(cx);
+      if (!reported.ok) throw new Error(reported.panne);
+      setLanguage(reported.value);
 
       // `?ecran=` absent: we already know the answer, no point asking for a screen named "".
       if (nomEcran === '') { await offerScreenList(); return; }

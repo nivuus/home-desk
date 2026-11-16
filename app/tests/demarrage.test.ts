@@ -1580,6 +1580,7 @@ describe('startScreen — la coquille résout l écran avant de déléguer', () 
       // The bare `envoyerCommande` double answers nothing: without this, the house list would come
       // back corrupt and the body would never mount behind the screen these tests resolve.
       loadHouse: async () => ({ ok: true as const, value: { sources: [], appareils: [] } }),
+      loadLanguage: async () => ({ ok: true as const, value: 'fr' }),
       ...sur,
     };
   }

@@ -62,6 +62,7 @@ function mount() {
   }));
   void startScreen(racine, 'Cuisine', {
     stockage: storage, createConnection, chargerEcran, loadHouse, recharger,
+    loadLanguage: async () => ({ ok: true as const, value: 'fr' }),
     intervalFn: vi.fn() as unknown as typeof setInterval,
     minuteurFn: vi.fn() as unknown as typeof setTimeout,
     maintenant: () => new Date(2026, 7, 1, 14, 0),

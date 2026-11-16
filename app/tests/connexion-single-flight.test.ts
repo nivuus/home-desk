@@ -112,6 +112,7 @@ describe('startScreen — the start-up retry opens no connection of its own', ()
       createConnection: () => cx,
       chargerEcran,
       loadHouse: async () => ({ ok: true as const, value: { sources: [], appareils: [] } }),
+      loadLanguage: async () => ({ ok: true as const, value: 'fr' }),
       minuteurFn: ((cb: () => Promise<void>) => { retries.push(cb); }) as any,
       intervalFn: vi.fn() as any, recharger: vi.fn(),
       maintenant: () => new Date(2026, 10, 14, 9, 0),

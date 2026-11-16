@@ -58,6 +58,9 @@ export type DependancesDemarrage = {
   /** The media sources and appliances shared by the house (`home_desk/maison`), loaded with the
    *  screen. */
   loadHouse: (cx: TransportConfig) => Promise<Result<House>>;
+  /** The language Home Assistant reports for the tablet's user (`boot/language.ts`), read before
+   *  the first render of the screen. */
+  loadLanguage: (cx: TransportConfig) => Promise<Result<string>>;
   /** Resolves the Lottie player, loading its bundle on first use (`lottie.ts`). Injectable so
    *  that the tests never inject a real `<script>`. */
   chargerLottie: () => ReturnType<typeof chargerLottie>;
