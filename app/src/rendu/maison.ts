@@ -22,6 +22,7 @@ import type { Etat } from '../etat';
 import type { Bouton, Ecran } from '../screen-types';
 import { icone } from './icones';
 import { descripteurJauge, fractionJauge } from '../jauge';
+import { t } from '../i18n';
 
 /** The generic `TOUTE_LA_MAISON` entry that `piece.aspirateurMaison` REPLACES when it is
  *  declared (never one more tile — the owner's ruling, 2026-08-03).
@@ -95,7 +96,7 @@ export function rendreMaison(etat: Etat, piece: Ecran, horsLigne = false): Templ
   ];
   return html`
     <div class="corps" data-mvt="vue:maison">
-      <div class="etiquette ${horsLigne ? 'hl' : ''}">${horsLigne ? 'Hors ligne' : 'Toute la maison'}</div>
+      <div class="etiquette ${horsLigne ? 'hl' : ''}">${horsLigne ? t().offline : t().home.wholeHouse}</div>
       <div class="grille">
         ${boutons
           // Same rule as in `rendu/corps.ts`: what names its absence is never
@@ -129,6 +130,6 @@ export function rendreMaison(etat: Etat, piece: Ecran, horsLigne = false): Templ
                 absente ? html`<span class="abs">${b.absenceNommee}</span>` : ''}</div>`;
           })}
       </div>
-      <div class="xl" @pointerdown=${() => (location.hash = '')}>${icone('home')}Retour</div>
+      <div class="xl" @pointerdown=${() => (location.hash = '')}>${icone('home')}${t().back}</div>
     </div>`;
 }

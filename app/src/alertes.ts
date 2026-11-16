@@ -5,6 +5,7 @@
  *  la maison est calme. */
 import type { Etat } from './etat';
 import type { Alerte } from './contexte';
+import { t, type Messages } from './i18n';
 
 /** Les six capteurs qui définissent « ça bouge dans la maison ». Écartés délibérément :
  *  `binary_sensor.radiateur_presence_state`, dérivé du VersatileThermostat, qui pourrait se
@@ -68,17 +69,21 @@ export function lastMotion(etat: Etat): number {
  *  fond porte déjà cette information, cf. `commandeActive` dans `rendu/corps.ts` : « c'est la
  *  couleur qui porte l'information, jamais un code à retenir »). Porté par la règle elle-même,
  *  à côté de son `texte`, plutôt que déduit ailleurs (depuis `cle`, par exemple). */
-const REGLES: { cle: string; entite: string; declenche: (e: string) => boolean; sujet: string; texte: string }[] = [
+/** The name of this house's cat, the one fact of the fountain's sentence that is not a word. */
+const ANIMAL = 'Soraya';
+
+type Mots = { sujet: string; texte: string };
+const REGLES: { cle: string; entite: string; declenche: (e: string) => boolean; mots: (m: Messages) => Mots }[] = [
   { cle: 'croquettes', entite: 'binary_sensor.distributeur_de_croquettes_probleme',
-    declenche: (e) => e === 'on', sujet: 'Croquettes', texte: 'Distributeur de croquettes en panne' },
+    declenche: (e) => e === 'on', mots: (m) => ({ sujet: m.alerts.feeder.subject, texte: m.alerts.feeder.text }) },
   { cle: 'eau', entite: 'binary_sensor.eversweet_3_pro_uvc_niveau_d_eau',
-    declenche: (e) => e === 'on', sujet: 'Fontaine', texte: 'Fontaine de Soraya à remplir' },
+    declenche: (e) => e === 'on', mots: (m) => ({ sujet: m.alerts.fountain.subject, texte: m.alerts.fountain.text(ANIMAL) }) },
   { cle: 'serrure', entite: 'lock.aqara_smart_lock_u200_lite',
-    declenche: (e) => e === 'unlocked', sujet: 'Porte', texte: 'Porte déverrouillée' },
+    declenche: (e) => e === 'unlocked', mots: (m) => ({ sujet: m.alerts.door.subject, texte: m.alerts.door.text }) },
 ];
 
 export function collecterAlertes(etat: Etat, maintenant: number): Alerte[] {
   return REGLES
     .filter((r) => etat.estUtilisable(r.entite) && r.declenche(etat.lire(r.entite)!.etat))
-    .map((r) => ({ cle: r.cle, sujet: r.sujet, texte: r.texte, depuis: maintenant }));
+    .map((r) => ({ cle: r.cle, ...r.mots(t()), depuis: maintenant }));
 }

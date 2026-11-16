@@ -11,5 +11,5 @@ export const declaresView = (s: ScreenState, view: string): boolean => s.piece.c
 /** The shopping button, when the screen lists the shopping list in its tasks view. */
 export function shoppingButton(s: ScreenState): CardButton | undefined {
   if (!(s.piece.listesTachesExtra ?? []).includes(LISTE_COURSES)) return undefined;
-  return { icon: 'list', label: S.shopping, act: () => { location.hash = '#taches'; } };
+  return { icon: 'list', label: S().shopping, act: () => { location.hash = '#taches'; } };
 }

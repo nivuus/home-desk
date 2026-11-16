@@ -15,6 +15,7 @@
  *  échoue au contrôle de contraste 5:1), plafonnement des images, retrait de tout ce qui est
  *  exécutable. Pas de DOM persistant ici : `DOMParser` sert de parseur, on rend des chaînes —
  *  c'est ce qui garde ces fonctions testables sans navigateur. */
+import { numberFormat, t } from './i18n';
 
 // REVUE FINALE (2026-08-17) : `extraireTags` a été SUPPRIMÉE de ce fichier. Elle n'avait aucun
 // appelant en production — la tâche 8 a choisi un scan hors-balise interne à `rendu/recette.ts`
@@ -138,8 +139,7 @@ export function pagesDepuisEtapes(etapes: EtapeRecette[]): string[] {
   return liste.map((e, i) => {
     const numero = typeof e?.position === 'number' && Number.isFinite(e.position)
       ? e.position : i + 1;
-    const titre = typeof e?.title === 'string' && e.title.trim() !== ''
-      ? ` — ${echapper(e.title)}` : '';
+    const titre = typeof e?.title === 'string' && e.title.trim() !== '' ? e.title : undefined;
     const puces = (Array.isArray(e?.instructions) ? e.instructions : []).map((p) => {
       const tag = typeof p?.timer_label === 'string' && p.timer_label.trim() !== ''
         && typeof p?.timer_seconds === 'number' && Number.isFinite(p.timer_seconds)
@@ -148,6 +148,8 @@ export function pagesDepuisEtapes(etapes: EtapeRecette[]): string[] {
     }).join('');
     const image = typeof e?.image_url === 'string' && e.image_url !== ''
       ? `<img src="${echapper(e.image_url)}">` : '';
-    return `${image}<h3>Étape ${echapper(numero)}${titre}</h3><ol>${puces}</ol>`;
+    // The heading is the catalog's sentence, escaped whole: the recipe's title is text from
+    // home-stock, never markup.
+    return `${image}<h3>${echapper(t().recipe.step(numberFormat().format(numero), titre))}</h3><ol>${puces}</ol>`;
   });
 }

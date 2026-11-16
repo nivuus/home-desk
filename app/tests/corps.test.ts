@@ -651,7 +651,7 @@ describe('etiquette des commandes serrure et rideau — francais partout, jamais
     ['cover.rideau_salon', 'open', { current_position: 100 }, 'Ouvert'],
     // Rideau à moitié ouvert : « Ouvert 42 % », pas juste « Ouvert » (le brief : « un rideau à
     // moitié ouvert mérite mieux que "Ouvert" ») — même attribut que `descripteurRideau` (jauge.ts).
-    ['cover.rideau_salon', 'open', { current_position: 42 }, 'Ouvert 42 %'],
+    ['cover.rideau_salon', 'open', { current_position: 42 }, 'Ouvert 42\u00a0%'],
     // `current_position` absent (volet sans SET_POSITION) : pas de pourcentage à inventer.
     ['cover.rideau_salon', 'open', {}, 'Ouvert'],
     ['cover.rideau_salon', 'un-jeton-jamais-vu', undefined, 'État inconnu'],

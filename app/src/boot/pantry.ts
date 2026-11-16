@@ -15,6 +15,7 @@ import {
   type Batch, type KnownLocation,
 } from '../pantry/model';
 import { fromFraction, increment, formatQuantity, type Fraction } from '../pantry/quantity';
+import { t } from '../i18n';
 import type { ConnexionLike } from './types';
 
 export type Reason = 'consumption' | 'discard' | 'expired';
@@ -38,9 +39,11 @@ export type PantryState = {
   pageIndex: number;
   selected?: Batch;
   quantity: number;
-  /** What home-stock answered to a refused or unanswered consumption, shown on the sheet. */
-  message?: string;
-  /** "Mangé : 175 g de Yaourt nature", shown briefly after a confirmed consumption. */
+  /** The outcome of a send that did not succeed, shown on the sheet: home-stock refused it
+   *  (with its own reason, or none), or did not answer: an UNKNOWN outcome, never "nothing was
+   *  removed". Kept as an outcome, not as text: the sheet words it in the active language. */
+  notice?: PantryNotice;
+  /** "Eaten: 175 g of Plain yoghurt", shown briefly after a confirmed consumption. */
   banner?: string;
   /** Drawn at the first arming of a sheet. A send that went unanswered keeps it in `unresolved`. */
   pendingKey?: string;
@@ -58,6 +61,8 @@ export type PantryState = {
 
 export type Unresolved = { key: string; quantity: number; reason: Reason };
 
+export type PantryNotice = { kind: 'unanswered' } | { kind: 'refused'; reason: string | null };
+
 export type PantryHost = {
   cx: Pick<ConnexionLike, 'envoyerCommande' | 'listerTaches'>;
   horsLigne: boolean;
@@ -67,13 +72,13 @@ export type PantryHost = {
   dessiner: () => void;
 };
 
-export const SILENCE_MESSAGE = 'home-stock ne répond pas — rien n’a été retiré';
-const REFUSAL_FALLBACK = 'home-stock a refusé — rien n’a été retiré';
 const BANNER_MS = 4000;
 
-export const REASON_LABELS: Record<Reason, string> = {
-  consumption: 'Mangé', discard: 'Jeté', expired: 'Périmé',
-};
+/** The sheet's text for a notice, in the active language. */
+export function noticeText(n: PantryNotice): string {
+  if (n.kind === 'unanswered') return t().pantry.noAnswer;
+  return n.reason ?? t().pantry.refused;
+}
 
 export function newPantryState(soonList?: string): PantryState {
   return {
@@ -87,7 +92,7 @@ async function optional<T>(p: () => Promise<T>, fallback: T): Promise<T> {
 }
 
 /** Reads the stock, ONCE — on opening the view and after each confirmed consumption, never
- *  periodically. Never throws: a failed read shows "Garde-manger indisponible", never a blank
+ *  periodically. Never throws: a failed read shows "Pantry unavailable", never a blank
  *  screen. The locations (to show the empty ones) and the soon list are optional: without them the
  *  view still works, only less informed. */
 export async function loadPantry(s: PantryHost): Promise<void> {
@@ -184,7 +189,7 @@ export function enterPantry(s: PantryHost): void {
   p.selected = undefined;
   p.retry = undefined;
   p.pendingKey = undefined;
-  p.message = undefined;
+  p.notice = undefined;
   p.banner = undefined;
   s.armementStock.desarmer();
   void loadPantry(s);
@@ -239,7 +244,7 @@ export function openBatch(s: PantryHost, batch: Batch): void {
   p.selected = batch;
   p.retry = p.unresolved.get(batch.id);
   p.quantity = p.retry?.quantity ?? fromFraction('all', batch.remaining);
-  p.message = p.retry ? SILENCE_MESSAGE : undefined;
+  p.notice = p.retry ? { kind: 'unanswered' } : undefined;
   p.pendingKey = p.retry?.key;
   p.level = 'sheet';
   s.armementStock.desarmer();
@@ -253,12 +258,12 @@ export function back(s: PantryHost): void {
   if (p.level === 'sheet') {
     // A refusal or a silence says the list may be stale (the batch was consumed elsewhere, or
     // this very send was applied): read it again rather than offer the same row as before.
-    const stale = p.message !== undefined;
+    const stale = p.notice !== undefined;
     p.level = 'batches';
     p.selected = undefined;
     p.retry = undefined;
     p.pendingKey = undefined;
-    p.message = undefined;
+    p.notice = undefined;
     if (stale) void loadPantry(s);
   } else if (p.level === 'batches') {
     if (p.pageIndex > 0) p.pageIndex--;
@@ -299,18 +304,12 @@ function newKey(): string {
   return `mur-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-/** "de Yaourt", "d’Abricots": French elides "de" before a vowel. Not before a y ("de yaourt")
- *  nor an h, which may be aspirated ("de haricots") — no elision is the safe default. */
-function ofProduct(name: string): string {
-  // French elision rules, applied to a French UI sentence.
-  return /^[aeiouàâäéèêëîïôöùûüœæ]/i.test(name) ? `d’${name}` : `de ${name}`;   // policy: allow-fr
-}
-
-/** A refusal from home-stock (translated into French there) — as opposed to a silence: the
- *  timeout of `envoyerCommande` (`delai_depasse`) or a connection gone. */
-function refusalMessage(e: unknown): string | undefined {
-  if (!(e instanceof RefusHA) || e.code === 'delai_depasse') return undefined;
-  return e.message.trim() !== '' ? e.message : REFUSAL_FALLBACK;
+/** A refusal from home-stock, with its reason as home-stock words it, as opposed to a silence:
+ *  the timeout of `envoyerCommande` (`delai_depasse`) or a connection gone, whose outcome is
+ *  unknown. */
+function outcomeOf(e: unknown): PantryNotice {
+  if (!(e instanceof RefusHA) || e.code === 'delai_depasse') return { kind: 'unanswered' };
+  return { kind: 'refused', reason: e.message.trim() !== '' ? e.message : null };
 }
 
 function showBanner(s: PantryHost, text: string): void {
@@ -324,7 +323,7 @@ function showBanner(s: PantryHost, text: string): void {
   }, BANNER_MS);
 }
 
-/** "Mangé", "Jeté" or "Périmé": the first press arms, the second sends
+/** Eaten, thrown away or expired: the first press arms, the second sends
  *  `home_stock/stock/consume` for the selected batch. Offline: nothing is armed, nothing is sent
  *  (the buttons are greyed out, see `rendu/pantry-sheet.ts`). */
 export async function pressReason(s: PantryHost, reason: Reason): Promise<void> {
@@ -341,7 +340,7 @@ export async function pressReason(s: PantryHost, reason: Reason): Promise<void> 
   const batch = p.selected;
   const sent: Unresolved = { key: p.pendingKey as string, quantity: p.quantity, reason };
   p.sending = true;
-  p.message = undefined;
+  p.notice = undefined;
   s.dessiner();
   // The user may press Back, or open another batch, while this send is in flight: its answer then
   // only updates what is not on screen (the unresolved sends, the banner, the list), never the
@@ -354,14 +353,14 @@ export async function pressReason(s: PantryHost, reason: Reason): Promise<void> 
     });
   } catch (e) {
     p.sending = false;
-    const refusal = refusalMessage(e);
+    const outcome = outcomeOf(e);
     // A refusal is an answer: nothing was applied under this key. A silence is not.
-    if (refusal === undefined) p.unresolved.set(batch.id, sent);
+    if (outcome.kind === 'unanswered') p.unresolved.set(batch.id, sent);
     else p.unresolved.delete(batch.id);
     if (stillHere()) {
       p.retry = p.unresolved.get(batch.id);
       p.pendingKey = p.retry?.key;
-      p.message = refusal ?? SILENCE_MESSAGE;
+      p.notice = outcome;
     }
     s.dessiner();
     return;
@@ -374,7 +373,8 @@ export async function pressReason(s: PantryHost, reason: Reason): Promise<void> 
     p.pendingKey = undefined;
     p.level = 'batches';
   }
-  showBanner(s, `${REASON_LABELS[reason]} : ${formatQuantity(sent.quantity, batch.unit)} ${ofProduct(batch.product)}`);
+  const m = t().pantry;
+  showBanner(s, m.removed(m.reasons[reason], formatQuantity(sent.quantity, batch.unit), batch.product));
   s.dessiner();
   await loadPantry(s);
 }

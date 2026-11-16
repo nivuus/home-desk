@@ -8,6 +8,8 @@ import {
   estDureeValide, PAS_FIN_MINUTEUR_S, PAS_MINUTEUR_S, type VueMinuteur,
 } from '../minuteur';
 import { icone } from './icones';
+import { t } from '../i18n';
+import { minutes } from '../cards/format';
 
 export type ActionsMinuteur = {
   ouvrir(): void;
@@ -89,8 +91,8 @@ export function rendreReglageMinuteur(
 ): TemplateResult {
   return html`
     <div class="minuteurs mn-reglage" data-mvt="vue:minuteur">
-      <div class="mn-nom">Minuteur</div>
-      <div class="mn-duree">${dureeMinutes} min</div>
+      <div class="mn-nom">${t().timer.title}</div>
+      <div class="mn-duree">${minutes(dureeMinutes)}</div>
       ${pas('reglage', PAS_MINUTEUR_S / 60, PAS_FIN_MINUTEUR_S / 60,
             (delta) => actions.changerDuree(delta), (delta) => estDureeValide(dureeMinutes + delta))}
       ${etiquettes.length ? html`
@@ -102,8 +104,8 @@ export function rendreReglageMinuteur(
         </div>` : nothing}
       <div class="mn-nouveau" data-action="demarrer" data-mvt="detail:mn-nouveau"
            @pointerdown=${() => actions.start()}>
-        ${icone('lecture')}Démarrer</div>
-      <div class="xl" @pointerdown=${() => actions.fermer()}>${icone('home')}Retour</div>
+        ${icone('lecture')}${t().timer.start}</div>
+      <div class="xl" @pointerdown=${() => actions.fermer()}>${icone('home')}${t().back}</div>
     </div>`;
 }
 
@@ -118,10 +120,10 @@ export function tuileMinuteur(sature: boolean, dansGrille = false): TemplateResu
     // Saturated in the grid, it is an inert control (`.commande.inerte`, `base.css`): no feedback.
     ? html`<div class="commande tuile-minuteur ${sature ? 'inerte' : ''}" data-minuteur-entree
              data-mvt="tuile:minuteur" @pointerdown=${ouvrir}>
-        ${icone('minuteur')}<div><div class="t">Minuteur</div></div></div>`
+        ${icone('minuteur')}<div><div class="t">${t().timer.title}</div></div></div>`
     : html`<div class="ambiance ${sature ? 'inactif' : ''}" data-minuteur-entree
              data-mvt="tuile:minuteur" @pointerdown=${ouvrir}>
-        ${icone('minuteur')}<span>Minuteur</span></div>`;
+        ${icone('minuteur')}<span>${t().timer.title}</span></div>`;
 }
 
 /** Écrit un temps dans un nœud RENDU PAR LIT sans détruire son marqueur.

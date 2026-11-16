@@ -8,6 +8,7 @@ import { pagesDepuisEtapes, type EtapeRecette } from '../recette';
 import type { LigneIngredient } from '../rendu/recette';
 import { writeRecipeProgress, clearRecipeProgress, readRecipeProgress } from '../recette-en-cours';
 import type { ScreenState } from './state';
+import { t } from '../i18n';
 
 /** The next meal as the screen must show it NOW. PURE (`nextMeal` receives `Etat` and the clock),
  *  hence callable at will at no cost. */
@@ -16,12 +17,20 @@ export function currentMeal(s: ScreenState): NextMeal | undefined {
   return nextMeal(s.etat, s.d.maintenant());
 }
 
-/** The message of a server refusal, as the component wrote it (`messages.py` already translates
- *  into French). Generic fallback if the answer carries nothing readable: never an empty message,
- *  which would leave the screen silent about a gesture that did not happen. */
-function messageDeRefus(e: unknown): string {
+/** Why a confirmation did not go through: the meal left the plan, or home-stock refused it, with
+ *  its own message when it gave one (shown as home-stock wrote it, in the language it speaks). */
+export type RecipeProblem = { kind: 'notPlanned' } | { kind: 'refused'; text: string | null };
+
+/** The message of a server refusal, as the component wrote it, or `null` when the answer carries
+ *  nothing readable: the view then says the catalog's generic refusal, never an empty message. */
+function messageDeRefus(e: unknown): string | null {
   const m = (e as { message?: unknown })?.message;
-  return typeof m === 'string' && m.trim() !== '' ? m : 'La validation a été refusée.';
+  return typeof m === 'string' && m.trim() !== '' ? m : null;
+}
+
+/** The problem in the words of the wall, at render time. */
+export function recipeMessage(p: RecipeProblem): string {
+  return p.kind === 'notPlanned' ? t().recipe.notPlanned : p.text ?? t().recipe.refused;
 }
 
 /** The two reads of opening a recipe, ONE-OFF — never periodic, that is the lesson the former
@@ -49,7 +58,7 @@ function lignesDuPlan(preview: unknown): LigneIngredient[] {
   return brutes.map((l) => {
     const o = (l ?? {}) as Record<string, unknown>;
     return {
-      nom: String(o.product_name ?? o.raw_text ?? 'Ingrédient'),
+      nom: String(o.product_name ?? o.raw_text ?? t().recipe.ingredientFallback),
       quantite: String(o.label ?? ''),
       manque: o.status === 'short',
     };
@@ -231,9 +240,9 @@ export async function validerRepas(s: ScreenState): Promise<void> {
       // The recipe is still worth reading, but there is no meal left to validate: the next
       // "Terminer" takes the `mealEnCours === null` branch above and closes the view.
       s.mealEnCours = null;
-      s.messageRecette = "Ce repas n'est plus au plan.";
+      s.messageRecette = { kind: 'notPlanned' };
     } else {
-      s.messageRecette = messageDeRefus(e);
+      s.messageRecette = { kind: 'refused', text: messageDeRefus(e) };
     }
     s.dessiner();
     return;

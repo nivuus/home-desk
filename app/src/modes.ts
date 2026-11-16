@@ -16,6 +16,7 @@ import { AGENCEMENT_DEFAUT } from './agencement';
 import type { Zone } from './agencement';
 import { arrangement, BUDGET, type Arrangement } from './screen-budget';
 import type { CardType } from './stack/types';
+import { t } from './i18n';
 
 export type ModePrincipal =
   'alerte' | 'recette' | 'minuteur' | 'menage' | 'cinema' | 'media' | 'aeration' | 'voiture' | 'defaut';
@@ -284,7 +285,7 @@ export function ordreCommandes(
     // dix-neuf caractères y débordent — et la température est DÉJÀ dans le bandeau, alors que le
     // projet interdit la même donnée deux fois sur une même tablette.
     ordre = remonter(commandes, ['Rideau'])
-      .map((b) => (b.libelle === 'Rideau' ? { ...b, libelle: 'Fermer' } : b));
+      .map((b) => (b.libelle === 'Rideau' ? { ...b, libelle: t().tiles.closeCurtain } : b));
   }
   else if (c.serrureDeverrouillee) ordre = remonter(commandes, ['Porte']);
   // `Ambilight` n'a rien à faire sur l'accueil courant : déclaré au salon pour le mode cinéma

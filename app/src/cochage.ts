@@ -36,21 +36,16 @@ export function roomTodoLists(piece: Ecran): string[] {
   return Array.from(new Set([...deSynthese, ...(piece.listesTachesExtra ?? [])]));   // policy: allow-fr
 }
 
-/** Short name displayed as the subtitle of each row (see `TacheAffichee.list`) — without it, two
+/** The name displayed as the subtitle of each row (see `TacheAffichee.list`) — without it, two
  *  tasks from different lists would be indistinguishable on screen, exactly the defect already
  *  fixed once on the summary line itself (todo.maintenance vs todo.travail, "indistinguishable
- *  before this fix", see `ecran.ts`). Falls back to the raw entity name (without the `todo.`
- *  prefix) for a list not foreseen here — never an empty subtitle that would hide where the task
- *  comes from. */
-const LIST_LABELS: Record<string, string> = {
-  'todo.maintenance': 'Entretien',
-  'todo.travail': 'Travail',
-  'todo.home_stock_shopping': 'Courses',
-  'todo.home_stock_expirations': 'À consommer',
-};
-
-export function listLabel(entite: string): string {
-  return LIST_LABELS[entite] ?? entite.replace(/^todo\./, '');
+ *  before this fix", see `ecran.ts`). The list's name as Home Assistant names it (its
+ *  `friendly_name`, in the words its owner chose), never a table of names written here in one
+ *  language. Falls back to the raw entity name (without the `todo.` prefix) when Home Assistant
+ *  gives none — never an empty subtitle that would hide where the task comes from. */
+export function listLabel(entite: string, nameOf: (entite: string) => unknown = () => undefined): string {
+  const name = nameOf(entite);
+  return typeof name === 'string' && name.trim() !== '' ? name : entite.replace(/^todo\./, '');
 }
 
 export type TacheAffichee = { entite: string; uid: string; texte: string; list: string };
@@ -64,12 +59,13 @@ export function aplatirTaches(
   byList: Record<string, { uid: string; texte: string }[]>,
   entites: string[],
   estMasquee: (entite: string, uid: string) => boolean = () => false,
+  nameOf: (entite: string) => unknown = () => undefined,
 ): TacheAffichee[] {
   const result: TacheAffichee[] = [];
   for (const entite of entites) {
     for (const item of byList[entite] ?? []) {
       if (estMasquee(entite, item.uid)) continue;
-      result.push({ entite, uid: item.uid, texte: item.texte, list: listLabel(entite) });
+      result.push({ entite, uid: item.uid, texte: item.texte, list: listLabel(entite, nameOf) });
     }
   }
   return result;

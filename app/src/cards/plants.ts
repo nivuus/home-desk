@@ -22,6 +22,7 @@ import { numberOf } from './format';
 import { gauge } from './gauge';
 import { attributeOf, nameOf, stateOf } from './readings';
 import { S } from './strings';
+import { numberFormat } from '../i18n';
 
 const TYPE = 'plantes';
 /** The view a screen declares (as a command's `vue`) to show the plants in detail. */
@@ -66,7 +67,7 @@ function wateredButton(s: ScreenState, p: Plants, key: string): CardButton {
   const later = laterButton(s, key);
   const habit = stateOf(s.etat, p.habitude) !== undefined ? p.habitude : undefined;
   return {
-    icon: 'arrosoir', label: S.plantsWatered, primary: true,
+    icon: 'arrosoir', label: S().plantsWatered, primary: true,
     act: () => {
       if (habit !== undefined) cardAct('input_boolean', 'turn_on', habit);
       later.act();
@@ -77,7 +78,7 @@ function wateredButton(s: ScreenState, p: Plants, key: string): CardButton {
 function detailsButton(s: ScreenState): CardButton | undefined {
   const view = s.piece.commandes.find((c) => c.vue === PLANTS_VIEW)?.vue;
   return view === undefined ? undefined
-    : { icon: 'list', label: S.plantsDetails, act: () => { location.hash = view; } };
+    : { icon: 'list', label: S().plantsDetails, act: () => { location.hash = view; } };
 }
 
 export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
@@ -87,9 +88,9 @@ export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
   const extra = dry.length - MAX_GAUGES;
   return {
     key: card.key,
-    label: S.todo,
-    title: S.plants,
-    ...(extra > 0 ? { subtitle: S.plantsMore(new Intl.NumberFormat().format(extra)) } : {}),
+    label: S().todo,
+    title: S().plants,
+    ...(extra > 0 ? { subtitle: S().plantsMore(extra, numberFormat().format(extra)) } : {}),
     middle: html`${dry.slice(0, MAX_GAUGES).map((d) => gauge(nameOf(s.etat, d.id), d.value))}`,
     buttons: [laterButton(s, card.key, false), wateredButton(s, p, card.key), detailsButton(s)],
     background: { kind: 'solid', token: 'neutral' },

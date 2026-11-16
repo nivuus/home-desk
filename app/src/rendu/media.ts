@@ -21,6 +21,7 @@ import { renderCardFrame, type CardButton, type CardFrame } from './card-frame';
 import { S } from '../cards/strings';
 import { writeTime } from './minuteur';
 import { volumeRow } from './media-volume';
+import { t } from '../i18n';
 
 /** Filled once by `wireScreen` (`boot/wiring.ts`), same mechanism as `brancherAppui`. */
 let agir: (domaine: string, service: string, entite: string, donnees?: Record<string, unknown>) => void =
@@ -66,10 +67,13 @@ export function writeProgress(card: HTMLElement, a: Ancre, horlogeMs: number, mo
   if (moveRail && rail) rail.style.setProperty('--progression', String(fractionAncree(a, horlogeMs)));
 }
 
-const TRANSPORT_LABEL = { precedent: S.previous, pause: S.pause, lecture: S.play, suivant: S.next };
+type Transport = 'precedent' | 'pause' | 'lecture' | 'suivant';
+/** Read at render time, in the language of that render. */
+const transportLabel = (name: Transport): string =>
+  ({ precedent: S().previous, pause: S().pause, lecture: S().play, suivant: S().next })[name];   // policy: allow-fr (icon names)
 
 function transportButton(
-  name: keyof typeof TRANSPORT_LABEL, entity: string, service: string, primary: boolean,
+  name: Transport, entity: string, service: string, primary: boolean,
   before?: () => void,
 ): CardButton {
   // The motion key depends on no array index. Previous and next are keyed by their name; pause
@@ -78,7 +82,7 @@ function transportButton(
   // Play and pause share the middle slot: one key, and what it shows as its state.
   const middle = name === 'pause' || name === 'lecture';
   return {
-    icon: name, label: TRANSPORT_LABEL[name],
+    icon: name, label: transportLabel(name),
     ...(middle ? { mvt: 'detail:tr-middle', state: name } : { mvt: `detail:tr-${name}` }),
     act: () => { before?.(); agir('media_player', service, entity); },
     ...(primary ? { primary: true as const } : {}),
@@ -144,7 +148,7 @@ export function mediaFrame(
   return {
     key: `media:${sourceKey(s)}`,
     className: 'media',
-    label: s.piece ? `${S.mediaPlaying}${S.separator}${s.piece}` : S.mediaPlaying,
+    label: s.piece ? `${S().mediaPlaying}${t().separator}${s.piece}` : S().mediaPlaying,
     title: s.titre,
     ...(s.sousTitre ? { subtitle: s.sousTitre } : {}),
     middle: html`${progressRow(ancre)}${volumeRow(s.volume, agir, () => repeindre())}`,

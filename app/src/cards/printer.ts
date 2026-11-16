@@ -35,6 +35,7 @@ import { numberOf, percent } from './format';
 import { cameraButton, cameraOverlay } from './printer-camera';
 import { spoolRow } from './printer-spools';
 import { S } from './strings';
+import { dateTimeFormat, numberFormat } from '../i18n';
 
 const TYPE = 'imprimante';
 /** `print_status` → rank. Absent: no card (idle, init, offline, unknown). */
@@ -98,7 +99,7 @@ function endTime(f: Frame, etat: Etat, id: string | undefined): string | undefin
   const ms = Date.parse(stateOf(etat, id) ?? '');
   if (!Number.isFinite(ms)) return undefined;
   const sameDay = new Date(ms).toDateString() === new Date(f.maintenantMs).toDateString();
-  return S.printEnds(new Intl.DateTimeFormat(undefined,
+  return S().printEnds(dateTimeFormat(
     { ...(sameDay ? {} : { weekday: 'short' as const }), hour: 'numeric', minute: '2-digit' }).format(new Date(ms)));
 }
 
@@ -106,8 +107,8 @@ function layer(etat: Etat, p: Printer): string | undefined {
   const n = numberOf(stateOf(etat, p.couche));
   if (n === null) return undefined;
   const total = numberOf(stateOf(etat, p.couchesTotal));
-  const fmt = new Intl.NumberFormat();
-  return S.layer(fmt.format(n), total === null ? undefined : fmt.format(total));
+  const fmt = numberFormat();
+  return S().layer(fmt.format(n), total === null ? undefined : fmt.format(total));
 }
 
 function errorText(etat: Etat, p: Printer): string | undefined {
@@ -131,8 +132,8 @@ export function frame(card: Card, f: Frame, s: ScreenState): CardFrame {
   const overlay = camera === undefined ? undefined : cameraOverlay(card.key, camera);
   return {
     key: card.key,
-    label: erroring(s.etat, p) ? S.printerError : S.printerStates[st] ?? S.printer,
-    title: stateOf(s.etat, p.tache) ?? S.printer,
+    label: erroring(s.etat, p) ? S().printerError : S().printerStates[st] ?? S().printer,
+    title: stateOf(s.etat, p.tache) ?? S().printer,
     ...(error !== undefined ? { subtitle: error } : {}),
     // Every text here is a tone box: on the cover image, the tones keep each one at 5:1. The
     // details stand beside the figure, spools included: under it, a card with an error subtitle
@@ -147,11 +148,11 @@ export function frame(card: Card, f: Frame, s: ScreenState): CardFrame {
       </div>`,
     buttons: [
       camera === undefined ? undefined : cameraButton(s, card.key),
-      st === 'pause' ? press(s.etat, p.reprise, { icon: 'lecture', label: S.printerResume, primary: true })
-        : job ? press(s.etat, p.pause, { icon: 'pause', label: S.pause, primary: true })
+      st === 'pause' ? press(s.etat, p.reprise, { icon: 'lecture', label: S().printerResume, primary: true })
+        : job ? press(s.etat, p.pause, { icon: 'pause', label: S().pause, primary: true })
           // Finished or failed: nothing left to drive, only to dismiss until the plate is cleared.
           : laterButton(s, card.key),
-      press(s.etat, p.arret, { icon: 'stop', label: S.printerStop }),
+      press(s.etat, p.arret, { icon: 'stop', label: S().printerStop }),
     ],
     ...(cover !== undefined
       ? imageToPaint(card.key, cover, s.measuredCard)

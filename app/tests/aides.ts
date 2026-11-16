@@ -38,10 +38,10 @@ export function connexionFactice(...sequence: ('succes' | 'echec')[]): Connexion
       i++;
       return resultat === 'succes'
         ? Promise.resolve()
-        : Promise.reject(new Error('Rafraîchissement refusé : 400'));
+        : Promise.reject(new Error('token refresh refused: 400'));
     },
     prete: () => Promise.resolve(),
-    surChangement: (_cb: (e: EvenementEtat) => void) => {},
+    followEntities: () => {}, surChangement: (_cb: (e: EvenementEtat) => void) => {},
     // Depuis la tâche 7, `ConnexionLike` porte aussi `appelerService` (retour optimiste,
     // cf. `interaction.ts`) : aucun des tests existants n'appuie sur une tuile, donc ce double
     // n'a jamais besoin de faire autre chose que satisfaire le type.
@@ -147,6 +147,9 @@ export type OptionsMontage = {
    *  over `SocketFactice`, for a test about what goes over the wire (a replay on reconnection).
    *  `abonnements` and `diffuser` then stay empty: the subscriptions live in that connection. */
   createConnection?: DependancesDemarrage['createConnection'];
+  /** The language Home Assistant reports for the tablet's user. French by default: the suites
+   *  assert the French strings they were written against. */
+  language?: string;
 };
 
 /** A websocket double for a REAL `Connexion`: records every message it is sent, and plays Home
@@ -232,7 +235,7 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
     createConnection: options.createConnection ?? (() => ({
       connecter: () => Promise.resolve(),
       prete: () => Promise.resolve(),
-      surChangement: (cb) => { emettre = cb; },
+      followEntities: () => {}, surChangement: (cb) => { emettre = cb; },
       appelerService,
       surSilence: (cb) => { silencer = cb; },
       listerTaches,
@@ -246,6 +249,7 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
     // résolution, délégation — donc chacun des 292 sites en est une épreuve de plus.
     chargerEcran: async () => ({ ok: true, value: piece }),
     loadHouse: async () => ({ ok: true, value: { sources: options.house ?? [], appareils: options.appareils ?? [] } }),
+    loadLanguage: async () => ({ ok: true as const, value: { language: options.language ?? 'fr' } }),
     intervalFn: intervalFn as any,
     minuteurFn: minuteurFn as any,
     maintenant: options.maintenant ?? (() => new Date(2026, 7, 1, 14, 0)),

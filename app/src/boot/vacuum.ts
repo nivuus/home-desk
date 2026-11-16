@@ -25,19 +25,15 @@ export type VacuumState = {
   /** In the order they were tapped: the robot cleans them in that order. */
   chosen: Chosen[];
   passes: number;
-  message: string | null;
+  /** What went wrong, kept as a fact and worded when the view renders (`rendu/vacuum-choice.ts`),
+   *  in the language of that render. */
+  message: VacuumProblem | null;
 };
 
-/** The integration's refusal codes (`aspirateurs.py`), in the words of the wall. Anything else —
- *  a timeout, a closed socket — is the connection's fault, and said so. */
-const REFUS: Record<string, string> = {
-  robot_injoignable: 'le robot ne répond pas.',
-  passages_hors_bornes: 'le robot refuse ce nombre de passages.',
-  pieces_non_cartographiees: 'une pièce n’est plus associée à ce robot.',
-  aspirateur_inconnu: 'cet aspirateur n’existe plus dans Home Assistant.',
-  nettoyage_refuse: 'Home Assistant a refusé la commande.',
-};
-const CONNEXION = 'la maison ne répond pas.';
+/** Reading the rooms failed, or starting the cleaning did: `code` is the integration's refusal
+ *  code (`aspirateurs.py`), `null` when the connection failed (a timeout, a closed socket). */
+export type VacuumProblem = { kind: 'load' } | { kind: 'launch'; code: string | null };
+
 
 export const newVacuumState = (): VacuumState =>
   ({ status: 'idle', robots: [], chosen: [], passes: 1, message: null });
@@ -87,7 +83,7 @@ async function loadRobots(s: ScreenState): Promise<void> {
   } catch {
     if (s.vacuum !== v) return;
     v.status = 'failed';
-    v.message = 'Impossible de lire les pièces des aspirateurs.';
+    v.message = { kind: 'load' };
   }
   s.dessiner();
 }
@@ -124,8 +120,7 @@ async function launch(s: ScreenState): Promise<void> {
   } catch (error) {
     if (s.vacuum !== v) return;
     v.status = 'failed';
-    v.message = `Le ménage n’a pas démarré : ${
-      error instanceof RefusHA ? REFUS[error.code] ?? CONNEXION : CONNEXION}`;
+    v.message = { kind: 'launch', code: error instanceof RefusHA ? error.code : null };
     s.dessiner();
     return;
   }

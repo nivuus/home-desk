@@ -76,6 +76,10 @@ export function wireScreen(s: ScreenState, jetons: Jetons): void {
     }
   });
   s.etat.surMaj(s.dessiner);
+  // The tablet follows the entities its screen reads, never the whole house (performance P-5).
+  s.etat.onRequest((ids) => s.cx.followEntities(ids));
+  // The two entities the callback above reacts to, whether or not a paint reads them.
+  s.etat.follow(CAPTEUR_REPAS, ...(rechargerSurEtatEntretien ? [ENTITE_ENTRETIEN] : []));
   // `dessiner()` paints nothing while the document is hidden; coming back paints once, and only
   // if a paint was actually skipped.
   document.addEventListener('visibilitychange', () => {

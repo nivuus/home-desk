@@ -5,8 +5,8 @@ import { html } from 'lit';
 import type { ScreenState } from '../boot/state';
 import { numberOf } from './format';
 import { attributeOf, stateOf } from './readings';
+import { numberFormat } from '../i18n';
 
-const number = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
 
 /** The value of a sensor, or null when it is absent or not a number. */
 export const valueOf = (s: ScreenState, id: string | undefined): number | null => numberOf(stateOf(s.etat, id));
@@ -15,6 +15,6 @@ export const valueOf = (s: ScreenState, id: string | undefined): number | null =
 export function reading(s: ScreenState, id: string | undefined, value: number | null = valueOf(s, id)) {
   if (value === null) return undefined;
   const unit = attributeOf(s.etat, id, 'unit_of_measurement');
-  return html`<span>${number.format(value)}</span>${typeof unit === 'string' && unit !== ''
+  return html`<span>${numberFormat({ maximumFractionDigits: 1 }).format(value)}</span>${typeof unit === 'string' && unit !== ''
     ? html`<span dir="auto">${' '}${unit}</span>` : ''}`;
 }

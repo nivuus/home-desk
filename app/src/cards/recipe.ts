@@ -22,11 +22,11 @@ export function frame(card: Card, f: Frame, s: ScreenState): CardFrame {
   });
   return {
     key: card.key,
-    label: S.recipe,
-    title: s.platRecette || S.recipeFallback,
+    label: S().recipe,
+    title: s.platRecette || S().recipeFallback,
     middle: html`<div class="recette-etape">${line}</div>`,
     buttons: [undefined,
-      { icon: 'book', label: S.recipeOpen, primary: true, act: () => { location.hash = '#recette'; } },
+      { icon: 'book', label: S().recipeOpen, primary: true, act: () => { location.hash = '#recette'; } },
       undefined],
     background: { kind: 'solid', token: 'neutral' },
     motion: { block: 'bloc:recette' },

@@ -47,7 +47,7 @@ describe('airing card — frame', () => {
     const hote = document.createElement('div');
     render(fr.middle, hote);
     expect(hote.textContent).toContain(
-      new Intl.NumberFormat(undefined, { style: 'unit', unit: 'minute', unitDisplay: 'long' }).format(25));
+      new Intl.NumberFormat('fr', { style: 'unit', unit: 'minute', unitDisplay: 'long' }).format(25));
   });
 
   it('only the bracketed room code leaves the name: no word is stripped, in any language', () => {

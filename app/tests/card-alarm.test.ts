@@ -61,7 +61,7 @@ describe('alarm card — frame', () => {
       const [f, s] = alarm([['armed_away', null], ['armed_home', code]]);
       const fr = frame(CARD, f, s);
       expect(fr.buttons).toEqual([undefined, undefined, undefined]);
-      expect(text(fr).textContent).toContain(S.alarmCode);
+      expect(text(fr).textContent).toContain(S().alarmCode);
     }
   });
   it('a code format that is not published is not "no code"', () => {

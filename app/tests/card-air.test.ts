@@ -61,9 +61,9 @@ describe('air card — frame', () => {
     const fr = frame(CARD, f, s);
     const hote = document.createElement('div');
     render(fr.middle, hote);
-    expect(hote.textContent).toContain(new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(40));
+    expect(hote.textContent).toContain(new Intl.NumberFormat('fr', { maximumFractionDigits: 1 }).format(40));
     expect(hote.textContent).toContain('µg/m³');
-    expect(hote.textContent).toContain(new Intl.NumberFormat(undefined, { style: 'unit', unit: 'percent' }).format(60));
+    expect(hote.textContent).toContain(new Intl.NumberFormat('fr', { style: 'unit', unit: 'percent' }).format(60));
     expect(fr.background).toEqual({ kind: 'solid', token: 'air-bad' });
   });
   it('no motor percentage, no motor line', () => {

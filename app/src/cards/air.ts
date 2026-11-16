@@ -58,14 +58,14 @@ export function detect(_f: Frame, s: ScreenState): Card[] {
 function toggleButton(s: ScreenState, id: string): CardButton | undefined {
   const state = stateOf(s.etat, id);
   if (state === undefined) return undefined;
-  return { icon: 'purificateur', label: state === 'on' ? S.airOff : S.airOn, primary: true,
+  return { icon: 'purificateur', label: state === 'on' ? S().airOff : S().airOn, primary: true,
     act: () => cardAct('fan', 'toggle', id) };
 }
 
 function favouriteButton(s: ScreenState, id: string): CardButton | undefined {
   const presets = attributeOf(s.etat, id, 'preset_modes');
   if (stateOf(s.etat, id) === undefined || !Array.isArray(presets) || !presets.includes(FAVOURITE)) return undefined;
-  return { icon: 'etoile', label: S.airFavourite,
+  return { icon: 'etoile', label: S().airFavourite,
     act: () => cardAct('fan', 'set_preset_mode', id, { preset_mode: FAVOURITE }) };
 }
 
@@ -75,10 +75,10 @@ export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
   const motor = numberOf(attributeOf(s.etat, a.purificateur, 'percentage'));
   return {
     key: card.key,
-    label: S.airLabel,
-    title: S.air,
+    label: S().airLabel,
+    title: S().air,
     middle: html`<div class="carte-chiffres"><span class="carte-chiffre composee">${reading(s, a.pm25)}</span></div>
-      ${motor !== null ? html`<div class="carte-ligne">${S.airMotor(percent(motor))}</div>` : ''}`,
+      ${motor !== null ? html`<div class="carte-ligne">${S().airMotor(percent(motor))}</div>` : ''}`,
     buttons: [laterButton(s, card.key, false), toggleButton(s, a.purificateur), favouriteButton(s, a.purificateur)],
     background: { kind: 'solid', token: 'air-bad' },
     motion: { block: 'bloc:air' },

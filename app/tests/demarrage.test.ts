@@ -114,7 +114,7 @@ describe('startScreen', () => {
       createConnection: () => ({
         connecter: () => Promise.resolve(),
         prete: () => Promise.resolve(),
-        surChangement: (cb) => { emettre = cb; },
+        followEntities: () => {}, surChangement: (cb) => { emettre = cb; },
         appelerService: vi.fn(),
         surSilence: (_cb: (ms: number) => void) => {},
         listerTaches: async () => [],
@@ -298,7 +298,7 @@ describe('startScreen', () => {
       createConnection: () => ({
         connecter: () => Promise.resolve(),
         prete: () => Promise.resolve(),
-        surChangement: (cb) => { emettre = cb; },
+        followEntities: () => {}, surChangement: (cb) => { emettre = cb; },
         appelerService,
         surSilence: (_cb: (ms: number) => void) => {},
         listerTaches: async () => [],
@@ -353,7 +353,7 @@ describe('startScreen', () => {
         createConnection: () => ({
           connecter: () => Promise.resolve(),
           prete: () => Promise.resolve(),
-          surChangement: (cb) => { emettre = cb; },
+          followEntities: () => {}, surChangement: (cb) => { emettre = cb; },
           appelerService: vi.fn(),
           surSilence: (_cb: (ms: number) => void) => {},
           listerTaches: async () => [],
@@ -411,7 +411,7 @@ describe('startScreen', () => {
       createConnection: () => ({
         connecter: () => Promise.resolve(),
         prete: () => Promise.resolve(),
-        surChangement: () => {},
+        followEntities: () => {}, surChangement: () => {},
         appelerService,
         surSilence: (_cb: (ms: number) => void) => {},
         listerTaches: async () => [{ uid: 'u1', texte: 'Changer une pile' }],
@@ -1570,7 +1570,7 @@ describe('startScreen — la coquille résout l écran avant de déléguer', () 
       createConnection: () => ({
         connecter: () => Promise.resolve(),
         prete: () => Promise.resolve(),
-        surChangement: () => {}, surSilence: () => {},
+        followEntities: () => {}, surChangement: () => {}, surSilence: () => {},
         appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
         abonner: () => {},
       }),
@@ -1580,6 +1580,7 @@ describe('startScreen — la coquille résout l écran avant de déléguer', () 
       // The bare `envoyerCommande` double answers nothing: without this, the house list would come
       // back corrupt and the body would never mount behind the screen these tests resolve.
       loadHouse: async () => ({ ok: true as const, value: { sources: [], appareils: [] } }),
+      loadLanguage: async () => ({ ok: true as const, value: { language: 'fr' } }),
       ...sur,
     };
   }
@@ -1699,7 +1700,7 @@ describe('startScreen — la coquille résout l écran avant de déléguer', () 
     // fermée, rouverte par la coquille.
     const createConnection = vi.fn(() => ({
       connecter: () => Promise.resolve(), prete: () => Promise.resolve(),
-      surChangement: () => {}, surSilence: () => {},
+      followEntities: () => {}, surChangement: () => {}, surSilence: () => {},
       appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
       abonner: () => {},
     }));
@@ -1725,7 +1726,7 @@ describe('startScreen — la coquille résout l écran avant de déléguer', () 
       createConnection: () => ({
         connecter: () => Promise.resolve(),
         prete: () => pretePromesse,
-        surChangement: () => {}, surSilence: () => {},
+        followEntities: () => {}, surChangement: () => {}, surSilence: () => {},
         appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
         abonner: () => {},
       }),
@@ -1745,7 +1746,7 @@ describe('startScreen — la coquille résout l écran avant de déléguer', () 
   // Défaut Important trouvé en relecture : `tests/rechargement.test.ts` garde solidement le
   // MODULE `armerRechargement` en isolation, mais rien ne prouvait que la coquille l'appelle
   // réellement — retirer l'appel de câblage dans `startScreen()` laissait toute la suite verte.
-  // Capture le rappel passé à `abonner` (même patron que `surChangement: (cb) => { emettre
+  // Capture le rappel passé à `abonner` (même patron que `followEntities: () => {}, surChangement: (cb) => { emettre
   // = cb; }` ci-dessus) et injecte un `recharger` espion par `deps.recharger`, pour qu'aucun
   // `location.reload()` réel ne parte pendant le test. Décor à DEUX noms d'écran, même raison
   // que dans `tests/rechargement.test.ts` : avec un seul, un branchement qui rechargerait sur
@@ -1760,7 +1761,7 @@ describe('startScreen — la coquille résout l écran avant de déléguer', () 
       createConnection: () => ({
         connecter: () => Promise.resolve(),
         prete: () => Promise.resolve(),
-        surChangement: () => {}, surSilence: () => {},
+        followEntities: () => {}, surChangement: () => {}, surSilence: () => {},
         appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
         abonner: (commande: Record<string, unknown>, cb: (donnees: Record<string, unknown>) => void) => {
           if (commande.type === 'home_desk/abonner' && commande.nom === 'Salon') evenementCb = cb;

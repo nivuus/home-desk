@@ -93,10 +93,10 @@ describe('printer card — detect (print_status values of ha-bambulab)', () => {
 describe('printer card — frame', () => {
   it('the percentage large, the end time through Intl, the layer n / total', () => {
     const text = middle(printer()).textContent!;
-    expect(text).toContain(new Intl.NumberFormat(undefined, { style: 'unit', unit: 'percent' }).format(42));
-    expect(text).toContain(new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
+    expect(text).toContain(new Intl.NumberFormat('fr', { style: 'unit', unit: 'percent' }).format(42));
+    expect(text).toContain(new Intl.DateTimeFormat('fr', { hour: 'numeric', minute: '2-digit' })
       .format(new Date(T0 + 95 * 60_000)));
-    const n = new Intl.NumberFormat();
+    const n = new Intl.NumberFormat('fr');
     expect(text).toContain(`${n.format(120)} / ${n.format(300)}`);
   });
 

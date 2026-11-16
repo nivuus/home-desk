@@ -19,11 +19,37 @@ export class Etat {
 
   surMaj(cb: () => void) { this.rappels.push(cb); }
 
+  /** Every entity id any code has ever asked this object about, paints or not. The connection
+   *  subscribes to these and to nothing else (`Connexion.followEntities`, wired in
+   *  `boot/wiring.ts`): the set is derived from what the screen actually reads, never from a
+   *  second list kept by hand. It only grows: a branch that stops reading an entity may read it
+   *  again, and following a few more entities costs less than a new subscription each time.
+   *
+   *  A branch that reads an entity only once another one has a value (the car's air conditioning
+   *  once the car is known) asks for it at that moment; the subscription catches up within the
+   *  same task (`newlyRequested`) and the state arrives with its own repaint. */
+  private requested = new Set<string>();
+  private newlyRequested: string[] = [];
+  private requestCallbacks: ((ids: string[]) => void)[] = [];
+
+  /** Called with the ids asked for for the first time, at most once per task. */
+  onRequest(cb: (ids: string[]) => void) {
+    this.requestCallbacks.push(cb);
+    if (this.requested.size > 0) cb([...this.requested]);
+  }
+
+  /** Asks for entities no paint may read but a reaction to their changes needs (`boot/wiring.ts`
+   *  reloads the maintenance tasks and resumes a recipe on a pushed state). */
+  follow(...ids: string[]) { for (const id of ids) this.noterLecture(id); }
+
+  /** The entity ids asked for so far. */
+  requestedEntities(): string[] { return [...this.requested]; }
+
   /** The entity ids the last COMPLETE paint read, or `null` when unknown (no paint yet, or the
    *  last one threw): then every change notifies.
    *
-   *  The connection subscribes to every `state_changed` of the installation, and each applied
-   *  state used to schedule a full repaint. Which entities a screen shows is decided by its
+   *  The connection follows every entity the screen ever asked about (`requested`), and each
+   *  applied state used to schedule a full repaint. Which entities a screen shows is decided by its
    *  renderers — the screen configuration, the house, the card detectors, the named constants —
    *  and every one of them reads through this object. Recording those reads derives the set from
    *  what the renderers actually read, never from a second list kept by hand: an entity a paint
@@ -46,7 +72,17 @@ export class Etat {
     }
   }
 
-  private noterLecture(id: string) { this.lectureEnCours?.add(id); }
+  private noterLecture(id: string) {
+    this.lectureEnCours?.add(id);
+    if (this.requested.has(id)) return;
+    this.requested.add(id);
+    if (this.newlyRequested.push(id) > 1) return;
+    queueMicrotask(() => {
+      const ids = this.newlyRequested;
+      this.newlyRequested = [];
+      for (const cb of this.requestCallbacks) cb(ids);
+    });
+  }
 
   /** Would a change of this entity change what is painted? */
   private estPeinte(id: string): boolean {
@@ -55,6 +91,11 @@ export class Etat {
 
   /** Un état venu de HA fait autorité : il écrase toujours un état optimiste. */
   appliquer(e: EvenementEtat) {
+    if (e.removed) {
+      // Gone from Home Assistant: absent, as if it had never been known (`isPresent`).
+      if (this.entites.delete(e.entity_id) && this.estPeinte(e.entity_id)) this.notifier();
+      return;
+    }
     const avant = this.entites.get(e.entity_id);
     // On ne réhorodate que si l'état a réellement changé : un rafraîchissement massif
     // (get_states après reconnexion) ne doit pas faire croire que la maison vient de bouger.
@@ -69,6 +110,7 @@ export class Etat {
   }
 
   optimiste(id: string, etat: string) {
+    this.noterLecture(id);
     const a = this.entites.get(id);
     this.entites.set(id, {
       etat, attributs: a?.attributs ?? {}, changeLe: a?.changeLe ?? Date.now(),

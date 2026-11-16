@@ -76,7 +76,7 @@ describe('timer card — frame', () => {
     const named = frame(card, frameWith({ timers: [running('timer.cuisine', 300, 0, 'Pâtes')] }), s);
     expect(named.title).toBe('Pâtes');
     expect(frame(card, frameWith({ timers: [running('timer.cuisine', 300, 1)] }), s).title).toBe('N° 2');
-    const ring = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
+    const ring = new Intl.DateTimeFormat('fr', { hour: 'numeric', minute: '2-digit' })
       .format(new Date(T0 + 300_000));
     expect(named.subtitle).toContain(ring);
   });
@@ -91,7 +91,7 @@ describe('timer card — frame', () => {
     const t = host.querySelector<HTMLElement>('.mn-temps')!;
     expect(t.dataset.minuteur).toBe('1');
     expect(t.textContent).toBe(formaterRestant(125));
-    expect(host.textContent).toContain(new Intl.NumberFormat(undefined, { signDisplay: 'always' }).format(2));
+    expect(host.textContent).toContain(new Intl.NumberFormat('fr', { signDisplay: 'always' }).format(2));
   });
   it('alone, the card shows no +N', () => {
     const host = document.createElement('div');

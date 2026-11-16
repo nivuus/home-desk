@@ -102,7 +102,7 @@ describe('rendreReglageMinuteur', () => {
 
   it('shows the duration in minutes and the four steps', () => {
     const el = rendre(rendreReglageMinuteur(7, null, ETIQUETTES));
-    expect(el.querySelector('.mn-duree')!.textContent).toContain('7 min');
+    expect(el.querySelector('.mn-duree')!.textContent).toContain('7\u00a0min');
     for (const action of ['moins', 'moins1', 'plus1', 'plus']) {
       el.querySelector<HTMLElement>(`[data-action="${action}"]`)!
         .dispatchEvent(new Event('pointerdown'));

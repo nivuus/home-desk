@@ -48,12 +48,11 @@ describe('temperatureCourte', () => {
     expect(temperatureCourte(-0.4)).toBe('0°');
   });
 
-  // LE CONTRAT dont dépend l'accent coloré de la pastille (`Pastille.accent`, tâche 2, puis le
-  // garde `startsWith` de `bandeau.ts`, tâche 5) : si `phraseDemain` cessait un jour de commencer
-  // par cette température, l'accent serait posé sur le mauvais fragment. Ce test est le seul
-  // endroit où cette dépendance est vérifiée.
-  it('est le préfixe exact de phraseDemain', () => {
+  // THE CONTRACT the coloured accent of the band's pill depends on (`Pastille.accent`, and the
+  // guard of `bandeau.ts`): the sentence holds this exact temperature text, wherever the language
+  // places it. This test is the only place that checks it.
+  it('is found as is inside phraseDemain', () => {
     const prev = p('00', 'sunny', 29.9, 0) as any;
-    expect(phraseDemain(prev).startsWith(temperatureCourte(prev.temperature))).toBe(true);
+    expect(phraseDemain(prev)).toContain(temperatureCourte(prev.temperature));
   });
 });

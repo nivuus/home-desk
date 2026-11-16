@@ -15,6 +15,7 @@ import { laterButton } from './actions';
 import { declaresView, shoppingButton } from './kitchen';
 import { attributeOf, stateOf } from './readings';
 import { S } from './strings';
+import { numberFormat } from '../i18n';
 
 const MAX_PRODUCTS = 3;
 const keyOf = (): string => `garde-manger:${CAPTEUR_EXPIRATIONS}`;
@@ -43,12 +44,12 @@ export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
   const hidden = all.length - MAX_PRODUCTS;
   return {
     key: card.key,
-    label: S.pantryLabel,
-    title: S.pantry,
-    ...(hidden > 0 ? { subtitle: S.pantryMore(new Intl.NumberFormat().format(hidden)) } : {}),
+    label: S().pantryLabel,
+    title: S().pantry,
+    ...(hidden > 0 ? { subtitle: S().pantryMore(hidden, numberFormat().format(hidden)) } : {}),
     middle: html`${all.slice(0, MAX_PRODUCTS).map((n) => html`<div class="carte-ligne" dir="auto">${n}</div>`)}`,
     buttons: [laterButton(s, card.key, false),
-      { icon: 'jar', label: S.pantryOpen, primary: true, act: () => { location.hash = '#garde-manger'; } },
+      { icon: 'jar', label: S().pantryOpen, primary: true, act: () => { location.hash = '#garde-manger'; } },
       shoppingButton(s)],
     background: { kind: 'solid', token: 'neutral' },
     motion: { block: 'bloc:garde-manger' },

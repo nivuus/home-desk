@@ -11,15 +11,7 @@
  *  fichier, séparé, PUR : l'horloge est reçue en paramètre, aucune lecture d'`Etat`, aucun
  *  réseau. Même discipline que `contexte.ts`, `jauge.ts` et `modes.ts`. */
 
-/** Les quatre créneaux de `home_stock` (`MEAL_SLOT_KEYS`, `const.py`), en français. */
-const ETIQUETTES_CRENEAU: Record<string, string> = {
-  breakfast: 'Petit-déjeuner',
-  lunch: 'Déjeuner',
-  dinner: 'Dîner',
-  snack: 'Collation',
-};
-
-const JOURS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+import { t, dateTimeFormat } from './i18n';
 
 /** Fuseau LOCAL, comme partout ailleurs dans ce projet (`estCeJour`, `agenda.ts`) : `day` est une
  *  date CIVILE sans zone, la comparer en UTC décalerait le basculement du soir. `null` si elle est
@@ -49,12 +41,14 @@ function ecartEnJours(cible: Date, maintenant: Date): number {
 export function etiquetteRepas(
   jour: string | null, creneau: string | null, maintenant: Date,
 ): string {
-  const nom = (creneau && ETIQUETTES_CRENEAU[creneau]) ?? null;
-  if (!nom) return 'Repas';
+  const m = t().meal;
+  // home-stock's four slots (`MEAL_SLOT_KEYS`, `const.py`), named by the catalog.
+  const nom = (creneau && Object.prototype.hasOwnProperty.call(m.slots, creneau) && m.slots[creneau]) || null;
+  if (!nom || !creneau) return m.fallback;
   const cible = jour ? dateCivile(jour) : null;
   if (!cible) return nom;
   const ecart = ecartEnJours(cible, maintenant);
   if (ecart <= 0) return nom;
-  const prefixe = ecart === 1 ? 'Demain' : JOURS[cible.getDay()];
-  return `${prefixe}, ${nom.toLowerCase()}`;
+  if (ecart === 1) return m.tomorrow(creneau);
+  return m.onDay(dateTimeFormat({ weekday: 'long' }).format(cible), creneau);
 }

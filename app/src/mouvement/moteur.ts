@@ -316,7 +316,7 @@ export function creerMoteur(racine: HTMLElement, options: OptionsMoteur = {}): M
    *  appelée depuis `ws.onmessage` (`Connexion`), qui n'a aucun `try/catch` sur ce chemin. */
   function desactiver(e: unknown): void {
     actif = false;
-    console.error('moteur de mouvement désactivé', e);
+    console.error('motion engine disabled', e);
   }
 
   /** Ronde de correction 1 — le SEUL point d'appel de `rendre`, pour que la garantie qu'il ne

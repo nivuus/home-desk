@@ -28,6 +28,7 @@ import { html, type TemplateResult } from 'lit';
 import type { Etat } from '../etat';
 import type { Ecran } from '../screen-types';
 import { icone } from './icones';
+import { t, dateTimeFormat, numberFormat } from '../i18n';
 
 export function rendreNuit(
   etat: Etat, maintenant: Date, piece: Ecran, horsLigne = false,
@@ -36,8 +37,8 @@ export function rendreNuit(
   // branché », tests/nuit.test.ts).
   surReveil?: () => void,
 ): TemplateResult {
-  const hh = String(maintenant.getHours()).padStart(2, '0');
-  const mm = String(maintenant.getMinutes()).padStart(2, '0');
+  // The clock in the person's locale (23:05, 11:05 PM), from the tablet's own clock.
+  const heure = dateTimeFormat({ hour: '2-digit', minute: '2-digit' }).format(maintenant);
   // Mineur (revue finale) — deux clés DISTINCTES, detail:nuit-horsligne et detail:nuit-ferme,
   // là où les deux branches partageaient la même auparavant. Les branches restent exclusives
   // (jamais les deux en même temps), donc aucune collision au sens de comparer() : mais basculer
@@ -49,17 +50,20 @@ export function rendreNuit(
   if (horsLigne) {
     return html`
       <div class="nuit" data-mvt="vue:nuit" @pointerdown=${() => surReveil?.()}>
-        <div class="hn">${hh}:${mm}</div>
-        <div class="on" data-mvt="detail:nuit-horsligne">${icone('horsligne')}Dernières données</div>
+        <div class="hn">${heure}</div>
+        <div class="on" data-mvt="detail:nuit-horsligne">${icone('horsligne')}${t().night.lastData}</div>
       </div>`;
   }
-  const t = etat.estUtilisable(piece.temperature)
-    ? Number(etat.lire(piece.temperature)!.etat).toFixed(1).replace('.', ',') : null;
+  // The room name is shown as Home Assistant has it: changing its case is not a translation
+  // (German nouns, proper names, Turkish dotted/dotless i).
+  const temp = etat.estUtilisable(piece.temperature)
+    ? numberFormat({ minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(Number(etat.lire(piece.temperature)!.etat))
+    : null;
   const ferme = etat.lire('lock.aqara_smart_lock_u200_lite')?.etat === 'locked';
   return html`
     <div class="nuit" data-mvt="vue:nuit" @pointerdown=${() => surReveil?.()}>
-      <div class="hn">${hh}:${mm}</div>
-      ${t ? html`<div class="tn" data-mvt="detail:nuit-temp">${t}° ${piece.nom.toLowerCase()}</div>` : ''}
-      ${ferme ? html`<div class="on" data-mvt="detail:nuit-ferme">${icone('lock')}Tout est fermé</div>` : ''}
+      <div class="hn">${heure}</div>
+      ${temp ? html`<div class="tn" data-mvt="detail:nuit-temp">${t().night.temperature(temp, piece.nom)}</div>` : ''}
+      ${ferme ? html`<div class="on" data-mvt="detail:nuit-ferme">${icone('lock')}${t().night.allLocked}</div>` : ''}
     </div>`;
 }

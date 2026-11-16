@@ -96,7 +96,7 @@ describe('pets card — frame', () => {
   });
   it('the filter line adds its days left, through Intl', () => {
     const text = lines(pets({ on: ['filtre'] }))[0];
-    expect(text).toContain(new Intl.NumberFormat(undefined, { style: 'unit', unit: 'day', unitDisplay: 'long' }).format(3));
+    expect(text).toContain(new Intl.NumberFormat('fr', { style: 'unit', unit: 'day', unitDisplay: 'long' }).format(3));
   });
   it('no days role, or unreadable days, no days', () => {
     const noDays = lines(pets({ on: ['filtre'], sans: ['joursFiltre'] }))[0];

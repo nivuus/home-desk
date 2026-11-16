@@ -23,6 +23,7 @@ import type { Card, Rank } from '../stack/types';
 import { cardAct } from './actions';
 import { numberOf, percent } from './format';
 import { S } from './strings';
+import { t } from '../i18n';
 
 const TYPE = 'aspirateur';
 const RANKS: Record<string, 2 | 4> = { cleaning: 4, returning: 4, error: 2, paused: 2 };
@@ -91,20 +92,20 @@ export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
   const error = errorText(s, robot, e.etat);
   return {
     key: card.key,
-    label: S.vacuumStates[e.etat] ?? S.vacuumBusy,
-    title: String(e.attributs['friendly_name'] ?? '') || S.vacuum,
+    label: S().vacuumStates[e.etat] ?? S().vacuumBusy,
+    title: String(e.attributs['friendly_name'] ?? '') || S().vacuum,
     ...(error !== undefined ? { subtitle: error } : {}),
     middle: html`${battery !== null ? html`<div class="carte-chiffre">${percent(battery)}</div>` : ''}
-      ${rooms.length ? html`<div class="carte-ligne" dir="auto">${rooms.join(S.separator)}</div>` : ''}`,
+      ${rooms.length ? html`<div class="carte-ligne" dir="auto">${rooms.join(t().separator)}</div>` : ''}`,
     buttons: [
       // Already on its way to the base: a base button would do nothing new.
       e.etat === 'returning'
         ? undefined
-        : { icon: 'home', label: S.vacuumBase, act: () => cardAct('vacuum', 'return_to_base', id) },
+        : { icon: 'home', label: S().vacuumBase, act: () => cardAct('vacuum', 'return_to_base', id) },
       running
-        ? { icon: 'pause', label: S.pause, primary: true, act: () => cardAct('vacuum', 'pause', id) }
-        : { icon: 'lecture', label: S.play, primary: true, act: () => cardAct('vacuum', 'start', id) },
-      { icon: 'list', label: S.vacuumRooms, act: () => openVacuumChoice(s, id) },
+        ? { icon: 'pause', label: S().pause, primary: true, act: () => cardAct('vacuum', 'pause', id) }
+        : { icon: 'lecture', label: S().play, primary: true, act: () => cardAct('vacuum', 'start', id) },
+      { icon: 'list', label: S().vacuumRooms, act: () => openVacuumChoice(s, id) },
     ],
     ...(map !== undefined
       ? imageToPaint(card.key, map, s.measuredCard)

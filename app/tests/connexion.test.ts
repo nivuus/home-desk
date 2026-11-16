@@ -60,7 +60,7 @@ describe('rafraichir', () => {
       ok: false, status: 400, json: async () => ({ error: 'invalid_grant' }),
     }) as any;
     const j: any = { refresh_token: 'r', clientId: 'c', expires: 0, access_token: '' };
-    await expect(rafraichir(j, fetchFn, 0)).rejects.toThrow('Rafraîchissement refusé : 400');
+    await expect(rafraichir(j, fetchFn, 0)).rejects.toThrow('token refresh refused: 400');
   });
 });
 
@@ -154,10 +154,11 @@ describe('Connexion — le code d un refus survit jusqu à l appelant', () => {
       error: { code: 'version_inconnue', message: 'la sous-entree ne porte aucune version' },
     });
 
+    // `rejects` first: an `expect` inside `.catch()` never runs when the promise resolves, and a
+    // test with zero assertions passes.
     await expect(promesse).rejects.toBeInstanceOf(RefusHA);
-    await promesse.catch((e: RefusHA) => {
-      expect(e.code).toBe('version_inconnue');
-      expect(e.message).toBe('la sous-entree ne porte aucune version');
+    await expect(promesse).rejects.toMatchObject({
+      code: 'version_inconnue', message: 'la sous-entree ne porte aucune version',
     });
   });
 
@@ -169,10 +170,8 @@ describe('Connexion — le code d un refus survit jusqu à l appelant', () => {
     const promesse = cx.envoyerCommande({ type: 'peu/importe' });
     const envoye = ws.envoyes.find((m) => m.type === 'peu/importe')!;
     ws.recevoir({ id: envoye.id, type: 'result', success: false });
-    await promesse.catch((e: RefusHA) => {
-      expect(e.code).toBe('inconnu');
-      expect(e.message).toBe('commande refusée');
-    });
+    await expect(promesse).rejects.toBeInstanceOf(RefusHA);
+    await expect(promesse).rejects.toMatchObject({ code: 'inconnu', message: 'command refused' });
   });
 });
 
@@ -208,8 +207,8 @@ describe('Connexion — abonnement par une commande de l intégration', () => {
 
     const envoyee = ws.envoyes.find((m) => m.type === 'home_desk/abonner');
     expect(envoyee).toMatchObject({ type: 'home_desk/abonner', nom: 'cuisine' });
-    expect(ws.envoyes.filter((m) => m.type === 'subscribe_events').map((m) => m.event_type))
-      .toEqual(['state_changed']);
+    // No bus subscription at all: states come through `subscribe_entities` (`followEntities`).
+    expect(ws.envoyes.filter((m) => m.type === 'subscribe_events')).toEqual([]);
 
     ws.recevoir({ type: 'event', id: envoyee.id, event: { nom: 'cuisine' } });
     expect(vus).toEqual([{ nom: 'cuisine' }]);
@@ -275,27 +274,26 @@ describe('Connexion — abonnement par une commande de l intégration', () => {
     const id = ws.envoyes.find((m) => m.type === 'home_desk/abonner').id;
     ws.recevoir({ type: 'result', id, success: false,
       error: { code: 'unknown_command', message: 'Unknown command.' } });
-    expect(erreur).toHaveBeenCalledWith('abonnement refusé', 'unknown_command', 'Unknown command.');
+    expect(erreur).toHaveBeenCalledWith('subscription refused', 'unknown_command', 'Unknown command.');
     erreur.mockRestore();
   });
 
-  it('laisse INTACT le chemin state_changed, qui ne passe pas par abonner', async () => {
-    // Contre-épreuve : les 1049 tests existants reposent sur `surChangement`. Un abonnement
-    // générique qui détournerait `state_changed` les casserait tous d'un coup.
+  it('leaves the entity states path INTACT: it does not go through abonner', async () => {
+    // Counter-check: the existing suites rely on `surChangement`. A generic subscription that
+    // took the entity subscription's events would break them all at once.
     const cx = connexionDeTest();
     const etats: unknown[] = [];
+    const vus: unknown[] = [];
     cx.surChangement((e) => etats.push(e));
+    cx.abonner({ type: 'home_desk/abonner', nom: 'cuisine' }, (e) => vus.push(e));
+    cx.followEntities(['light.x']);
     await cx.connecter();
     const ws = WsCapture.derniere!;
     ws.recevoir({ type: 'auth_ok' });
-    ws.recevoir({
-      type: 'event',
-      event: {
-        event_type: 'state_changed',
-        data: { new_state: { entity_id: 'light.x', state: 'on', attributes: { a: 1 } } },
-      },
-    });
+    const id = ws.envoyes.find((m) => m.type === 'subscribe_entities').id;
+    ws.recevoir({ type: 'event', id, event: { a: { 'light.x': { s: 'on', a: { a: 1 } } } } });
     expect(etats).toEqual([{ entity_id: 'light.x', state: 'on', attributes: { a: 1 } }]);
+    expect(vus).toEqual([]);
   });
 });
 
@@ -316,7 +314,7 @@ describe('Connexion — une commande sans réponse ne pend pas pour toujours', (
     rappel!();
 
     await expect(promesse).rejects.toBeInstanceOf(RefusHA);
-    await promesse.catch((e: RefusHA) => expect(e.code).toBe('delai_depasse'));
+    await expect(promesse).rejects.toMatchObject({ code: 'delai_depasse' });
   });
 
   it('n arme aucun rejet tardif quand la réponse arrive à temps', async () => {
@@ -356,9 +354,8 @@ describe('Connexion — une commande sans réponse ne pend pas pour toujours', (
     expect(minuteurFn.mock.calls[0][1]).toBe(3000);
     rappel!();
 
-    await promesse.catch((e: RefusHA) => {
-      expect(e.message).toBe("Home Assistant n'a pas répondu en 3 s");
-    });
+    await expect(promesse).rejects.toBeInstanceOf(RefusHA);
+    await expect(promesse).rejects.toMatchObject({ message: 'Home Assistant did not answer within 3 s' });
   });
 });
 
@@ -429,45 +426,35 @@ describe('Connexion — un abonné aux états posé APRÈS la connexion', () => 
   // `abonner`, dans cette même classe, traite DÉJÀ le cas de l'abonnement tardif
   // (`if (this.authentifiee) this.envoyerAbonnement(...)`) ; `surChangement` était le frère resté
   // sans filet.
-  it('reçoit quand même l état courant, au lieu de rater l instantané initial', async () => {
+  it('receives the current state anyway, from what the connection already received', async () => {
     const cx = connexionDeTest();
+    cx.followEntities(['light.hotte']);
     await cx.connecter();
     const ws = WsCapture.derniere!;
     ws.recevoir({ type: 'auth_ok' });
 
-    // L'instantané initial part ICI, et personne n'est encore abonné : il tombe dans le vide.
-    const premier = ws.envoyes.find((m) => m.type === 'get_states');
-    expect(premier).toBeDefined();
-    ws.recevoir({
-      type: 'result', id: premier.id, success: true,
-      result: [{ entity_id: 'light.hotte', state: 'off', attributes: {} }],
-    });
+    // The initial states go out HERE, and nobody is subscribed yet.
+    const souscription = ws.envoyes.find((m) => m.type === 'subscribe_entities');
+    ws.recevoir({ type: 'event', id: souscription.id, event: { a: { 'light.hotte': { s: 'off', a: {}, lc: 1 } } } });
 
-    // C'est l'ordre exact de `startScreen()` : connecter, résoudre l'écran, PUIS monter le corps.
+    // The exact order of `startScreen()`: connect, resolve the screen, THEN mount the body.
     const vus: string[] = [];
-    cx.surChangement((e) => vus.push(e.entity_id));
-
-    const demandes = ws.envoyes.filter((m) => m.type === 'get_states');
-    expect(demandes).toHaveLength(2);
-
-    ws.recevoir({
-      type: 'result', id: demandes[1].id, success: true,
-      result: [{ entity_id: 'light.hotte', state: 'off', attributes: {} }],
-    });
-    expect(vus).toEqual(['light.hotte']);
+    cx.surChangement((e) => vus.push(`${e.entity_id}=${e.state}`));
+    expect(vus).toEqual(['light.hotte=off']);
+    // Handed from what was received: nothing is asked of Home Assistant again.
+    expect(ws.envoyes.filter((m) => m.type === 'subscribe_entities')).toHaveLength(1);
   });
 
-  it('ne redemande RIEN quand l abonné est posé AVANT la connexion', async () => {
-    // Contre-épreuve : la branche `data-piece` s'abonne avant de connecter, et les 1 148 tests
-    // existants montent par là. Un rattrapage qui partirait aussi dans ce cas doublerait
-    // l'instantané initial sur le chemin normal — un aller-retour payé pour rien sur une Fire 7.
+  it('asks for nothing more when the subscriber is set BEFORE the connection', async () => {
     const cx = connexionDeTest();
     cx.surChangement(() => {});
+    cx.followEntities(['light.hotte']);
     await cx.connecter();
     const ws = WsCapture.derniere!;
     ws.recevoir({ type: 'auth_ok' });
 
-    expect(ws.envoyes.filter((m) => m.type === 'get_states')).toHaveLength(1);
+    expect(ws.envoyes.filter((m) => m.type === 'subscribe_entities')).toHaveLength(1);
+    expect(ws.envoyes.filter((m) => m.type === 'get_states')).toEqual([]);
   });
 });
 

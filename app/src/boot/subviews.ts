@@ -11,6 +11,7 @@ import { renderPantry } from '../rendu/pantry-lists';
 import { renderVacuumChoice } from '../rendu/vacuum-choice';
 import type { Frame } from './frame';
 import type { ScreenState } from './state';
+import { recipeMessage } from './recipe';
 
 /** Paints the sub-view designated by the hash, if any, and says whether it did — `false` hands
  *  over to the home view. */
@@ -27,7 +28,8 @@ export function paintSubView(s: ScreenState, f: Frame): boolean {
   // off locally (`cochage.estMasquee`, optimistic removal) and reserving the last line for a
   // summary if everything does not fit in the budget of the view.
   if (location.hash === '#taches') {
-    const plates = aplatirTaches(s.taches, s.roomLists, s.cochage.estMasquee);
+    const plates = aplatirTaches(s.taches, s.roomLists, s.cochage.estMasquee,
+      (id) => s.etat.lire(id)?.attributs['friendly_name']);
     const { visibles, reste } = repartirTaches(plates);
     s.moteur.peindre(html`${rendreTaches(visibles, reste, s.cochage.estArmee, s.horsLigne)}`);
     return true;
@@ -71,7 +73,7 @@ export function paintSubView(s: ScreenState, f: Frame): boolean {
       pageIngredients: s.pageIngredients,
       horsLigne: s.horsLigne,
       armee: (cle: string) => s.armementRepas.estArmee(cle),
-      ...(s.messageRecette ? { message: s.messageRecette } : {}),
+      ...(s.messageRecette ? { message: recipeMessage(s.messageRecette) } : {}),
     };
     s.moteur.peindre(html`${rendreVueRecette(vueRecette)}`);
     // Sub-splitting: measured on the painted DOM, never estimated. `reScinder` returns `null` when

@@ -6,7 +6,7 @@ import { RefusHA } from '../src/connexion';
 import { createArming } from '../src/cochage';
 import {
   newPantryState, loadPantry, openLocation, openAisle, openSoon, openBatch, nextPage, back,
-  chooseFraction, stepQuantity, pressReason, injectStock, SILENCE_MESSAGE, type PantryHost,
+  chooseFraction, stepQuantity, pressReason, injectStock, type PantryHost,
 } from '../src/boot/pantry';
 
 const SOON = 'todo.stock_soon';
@@ -253,19 +253,19 @@ describe('pressReason', () => {
     await pressReason(h.s, 'consumption');
     await pressReason(h.s, 'consumption');
     expect(h.s.pantry.level).toBe('sheet');
-    expect(h.s.pantry.message).toBe('Il ne reste que 100 g.');
+    expect(h.s.pantry.notice).toEqual({ kind: 'refused', reason: 'Il ne reste que 100 g.' });
     expect(h.s.pantry.batches).toBe(batches);
     expect(h.s.pantry.batches.map((b) => b.id)).toEqual([11, 12, 21]);
     expect(h.listCalls()).toBe(before);
   });
 
-  it('on a silence, warns that nothing left and retries with the same key', async () => {
+  it('on a silence, records an unknown outcome and retries with the same key', async () => {
     const h = makeHost({ consume: new RefusHA('delai_depasse', 'Home Assistant n’a pas répondu en 15 s') });
     await loadedSheet(h);
     await pressReason(h.s, 'consumption');
     await pressReason(h.s, 'consumption');
     expect(h.s.pantry.level).toBe('sheet');
-    expect(h.s.pantry.message).toBe(SILENCE_MESSAGE);
+    expect(h.s.pantry.notice).toEqual({ kind: 'unanswered' });
     const key = h.s.pantry.pendingKey;
     expect(key).toBeDefined();
     await pressReason(h.s, 'consumption');
@@ -280,7 +280,7 @@ describe('pressReason', () => {
     await loadedSheet(h);
     await pressReason(h.s, 'consumption');
     await pressReason(h.s, 'consumption');
-    expect(h.s.pantry.message).toBe(SILENCE_MESSAGE);
+    expect(h.s.pantry.notice).toEqual({ kind: 'unanswered' });
   });
 
   it('sends nothing and arms nothing offline', async () => {
@@ -302,7 +302,7 @@ describe('pressReason', () => {
     back(h.s);
     expect(h.s.pantry.level).not.toBe('sheet');
     expect(h.s.pantry.pendingKey).toBeUndefined();
-    expect(h.s.pantry.message).toBeUndefined();
+    expect(h.s.pantry.notice).toBeUndefined();
     expect(h.s.armementStock.estArmee('consumption')).toBe(false);
   });
 });
@@ -325,7 +325,7 @@ describe('after a silence (review C1, I3)', () => {
     back(h.s);
     openBatch(h.s, h.s.pantry.batches.find((b) => b.id === 11)!);
     expect(h.s.pantry.quantity).toBe(175);
-    expect(h.s.pantry.message).toBe(SILENCE_MESSAGE);
+    expect(h.s.pantry.notice).toEqual({ kind: 'unanswered' });
     await pressReason(h.s, 'consumption');
     await pressReason(h.s, 'consumption');
     const calls = h.consumeCalls();
@@ -359,7 +359,7 @@ describe('after a silence (review C1, I3)', () => {
     await pressReason(h.s, 'consumption');
     await pressReason(h.s, 'consumption');
     openBatch(h.s, h.s.pantry.batches.find((b) => b.id === 11)!);
-    expect(h.s.pantry.message).toBeUndefined();
+    expect(h.s.pantry.notice).toBeUndefined();
     expect(h.s.pantry.quantity).toBe(350);
   });
 
@@ -410,7 +410,7 @@ describe('a late answer (review I1)', () => {
     d.reject(new RefusHA('insufficient_stock', 'Il ne reste que 100 g.'));
     await sending;
     expect(h.s.pantry.selected?.id).toBe(12);
-    expect(h.s.pantry.message).toBeUndefined();
+    expect(h.s.pantry.notice).toBeUndefined();
   });
 });
 
