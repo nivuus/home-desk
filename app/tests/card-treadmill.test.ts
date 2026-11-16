@@ -62,9 +62,9 @@ describe('treadmill card — frame', () => {
     const hote = document.createElement('div');
     render(frame(CARD, f, s).middle, hote);
     const text = hote.textContent!;
-    expect(text).toContain(new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(3.5));
+    expect(text).toContain(new Intl.NumberFormat('fr', { maximumFractionDigits: 1 }).format(3.5));
     expect(text).toContain('km/h');
-    expect(text).toContain(new Intl.NumberFormat().format(4210));
+    expect(text).toContain(new Intl.NumberFormat('fr').format(4210));
     expect(text).toContain('steps');
     expect(text).toContain('km');
   });

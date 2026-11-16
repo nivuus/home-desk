@@ -26,7 +26,7 @@ function deps(sur: Record<string, unknown> = {}) {
     minuteurFn: vi.fn() as any,
     maintenant: () => new Date(2026, 7, 1, 14, 0),
     chargerEcran: async () => ({ ok: true as const, value: ecranVide }),
-    loadLanguage: async () => ({ ok: true as const, value: 'fr' }),
+    loadLanguage: async () => ({ ok: true as const, value: { language: 'fr' } }),
     ...sur,
   };
 }

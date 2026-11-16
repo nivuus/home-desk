@@ -89,7 +89,7 @@ function press(id: string | undefined, b: Omit<CardButton, 'act'>): CardButton |
 function endTime(etat: Etat, id: string | undefined): string | undefined {
   if (id === undefined || !etat.estUtilisable(id)) return undefined;
   const ms = Date.parse(etat.lire(id)!.etat);
-  return Number.isFinite(ms) ? S.chargeEnds(clockTime(ms)) : undefined;
+  return Number.isFinite(ms) ? S().chargeEnds(clockTime(ms)) : undefined;
 }
 
 export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
@@ -103,20 +103,20 @@ export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
   const end = on ? endTime(s.etat, v.finCharge) : undefined;
   return {
     key: card.key,
-    label: on ? S.carCharging : S.carPlugIn,
-    title: S.car,
+    label: on ? S().carCharging : S().carPlugIn,
+    title: S().car,
     ...(end !== undefined ? { subtitle: end } : {}),
     middle: html`<div class="carte-chiffres">
         ${level !== null ? html`<span class="carte-chiffre">${percent(level)}</span>` : ''}
         ${range !== null ? html`<span class="carte-ligne">${kilometres(range)}</span>` : ''}
       </div>
-      ${limit !== null ? html`<div class="carte-ligne">${S.chargeLimit(percent(limit))}</div>` : ''}`,
+      ${limit !== null ? html`<div class="carte-ligne">${S().chargeLimit(percent(limit))}</div>` : ''}`,
     buttons: [
-      press(v.boutonLimite, { icon: 'batterie', label: S.carLimit }),
-      on ? press(v.arreterCharge, { icon: 'stop', label: S.carStop, primary: true })
-        : press(v.demarrerCharge, { icon: 'lecture', label: S.carStart, primary: true }),
+      press(v.boutonLimite, { icon: 'batterie', label: S().carLimit }),
+      on ? press(v.arreterCharge, { icon: 'stop', label: S().carStop, primary: true })
+        : press(v.demarrerCharge, { icon: 'lecture', label: S().carStart, primary: true }),
       v.clim === undefined ? undefined : {
-        icon: 'clim', label: climOn ? S.carClimStop : S.carClimStart,
+        icon: 'clim', label: climOn ? S().carClimStop : S().carClimStart,
         act: () => actionsVoiture().clim(!climOn),
         // An order in flight: the press would contradict it. Kept in place, bound to nothing.
         ...(s.climEnVol !== null ? { inert: true as const } : {}),

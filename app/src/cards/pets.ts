@@ -22,15 +22,18 @@ import { cardAct, doneButton, laterButton } from './actions';
 import { numberOf } from './format';
 import { nameOf, attributeOf, stateOf } from './readings';
 import { S } from './strings';
+import { t } from '../i18n';
+import { numberFormat } from '../i18n';
 
 const TYPE = 'animaux';
 /** The problem roles, in the order of their lines — and of the key: the first one declared. */
 const PROBLEMS = ['fontaineVide', 'filtre', 'panneFontaine', 'panneDistributeur'] as const;
 type Problem = typeof PROBLEMS[number];
-const TEXT: Record<Problem, string> = {
-  fontaineVide: S.petsFountainEmpty, filtre: S.petsFilter,
-  panneFontaine: S.petsFountainFault, panneDistributeur: S.petsFeederFault,
-};
+/** Read at render time, in the language of that render. */
+const text = (r: Problem): string => ({
+  fontaineVide: S().petsFountainEmpty, filtre: S().petsFilter,
+  panneFontaine: S().petsFountainFault, panneDistributeur: S().petsFeederFault,
+})[r];
 
 type Pets = Partial<Record<Problem | 'joursFiltre' | 'nourrir', string>>;
 
@@ -63,7 +66,7 @@ export function detect(_f: Frame, s: ScreenState): Card[] {
 function daysLeft(s: ScreenState, p: Pets): string | undefined {
   const n = numberOf(stateOf(s.etat, p.joursFiltre));
   if (n === null || n < 0) return undefined;
-  return S.petsFilterLeft(new Intl.NumberFormat(undefined,
+  return S().petsFilterLeft(numberFormat(
     { style: 'unit', unit: 'day', unitDisplay: 'long', maximumFractionDigits: 0 }).format(n));
 }
 
@@ -72,8 +75,8 @@ function daysLeft(s: ScreenState, p: Pets): string | undefined {
 function line(s: ScreenState, p: Pets, r: Problem) {
   const name = nameOf(s.etat, p[r]);
   const days = r === 'filtre' ? daysLeft(s, p) : undefined;
-  const sep = html`<span class="sep">${S.separator}</span>`;
-  return html`<div class="carte-ligne composee"><span>${TEXT[r]}</span>${days !== undefined
+  const sep = html`<span class="sep">${t().separator}</span>`;
+  return html`<div class="carte-ligne composee"><span>${text(r)}</span>${days !== undefined
     ? html`${sep}<span>${days}</span>` : ''}${name !== undefined
     ? html`${sep}<span dir="auto">${name}</span>` : ''}</div>`;
 }
@@ -93,7 +96,7 @@ function feedButton(s: ScreenState, id: string | undefined): CardButton | undefi
   if (id === undefined || stateOf(s.etat, id) === undefined) return undefined;
   const portion = portionOf(s, id);
   if (portion === null) return undefined;
-  return { icon: 'gamelle', label: S.petsFeed, act: () => cardAct(id.split('.')[0], 'set_value', id, { value: portion }) };
+  return { icon: 'gamelle', label: S().petsFeed, act: () => cardAct(id.split('.')[0], 'set_value', id, { value: portion }) };
 }
 
 export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
@@ -101,8 +104,8 @@ export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
   if (p === undefined) throw new Error(`pets card: no appliance for ${card.key}`);
   return {
     key: card.key,
-    label: S.todo,
-    title: S.pets,
+    label: S().todo,
+    title: S().pets,
     middle: html`${raised(s, p).map((r) => line(s, p, r))}`,
     buttons: [feedButton(s, p.nourrir), doneButton(s, card.key), laterButton(s, card.key, false)],
     background: { kind: 'solid', token: 'calm' },

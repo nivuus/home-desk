@@ -122,7 +122,7 @@ describe('the later button', () => {
     const b = laterButton(s, KEY);
     expect(b.icon).toBe('snooze');
     expect(CHEMINS.snooze).toBeDefined();
-    expect(b.label).toBe(S.later);
+    expect(b.label).toBe(S().later);
     b.act();
     expect(envoyerCommande).toHaveBeenCalledWith({ type: 'home_desk/plus_tard', cle: KEY });
   });
@@ -150,7 +150,7 @@ describe('the later button', () => {
     const [left, centre, right] = frame(detect(f, s)[0], f, s).buttons;
     expect(left).toBeUndefined();
     expect(right).toBeUndefined();
-    expect(centre).toMatchObject({ icon: 'snooze', label: S.later, primary: true });
+    expect(centre).toMatchObject({ icon: 'snooze', label: S().later, primary: true });
   });
 });
 

@@ -14,6 +14,7 @@
 import { html, type TemplateResult } from 'lit';
 import { icone } from './icones';
 import type { TacheAffichee } from '../cochage';
+import { numberFormat, t } from '../i18n';
 
 let cocher: (entite: string, uid: string) => void = () => {};
 export function brancherCochageTaches(fn: typeof cocher) { cocher = fn; }
@@ -26,17 +27,17 @@ export function rendreTaches(
   const vide = visibles.length === 0 && reste === 0;
   return html`
     <div class="corps" data-mvt="vue:taches">
-      <div class="etiquette ${horsLigne ? 'hl' : ''}">${horsLigne ? 'Hors ligne' : 'Tâches'}</div>
+      <div class="etiquette ${horsLigne ? 'hl' : ''}">${horsLigne ? t().offline : t().tasks.title}</div>
       <div class="taches-liste">
-        ${vide ? html`<div class="taches-vide" data-mvt="detail:taches-vide">Aucune tâche</div>` : ''}
-        ${visibles.map((t) => {
-          const armee = estArmee(t.entite, t.uid);
+        ${vide ? html`<div class="taches-vide" data-mvt="detail:taches-vide">${t().tasks.empty}</div>` : ''}
+        ${visibles.map((tache) => {
+          const armee = estArmee(tache.entite, tache.uid);
           return html`
-          <div class="ligne-tache ${armee ? 'armee' : ''}" data-mvt="ligne:${t.uid}"
-               @pointerdown=${() => cocher(t.entite, t.uid)}>
+          <div class="ligne-tache ${armee ? 'armee' : ''}" data-mvt="ligne:${tache.uid}"
+               @pointerdown=${() => cocher(tache.entite, tache.uid)}>
             ${icone(armee ? 'coche' : 'case')}
-            <div><div class="t">${t.texte}</div>
-              <div class="s">${armee ? 'Toucher pour confirmer' : t.list}</div></div>
+            <div><div class="t">${tache.texte}</div>
+              <div class="s">${armee ? t().tasks.touchToConfirm : tache.list}</div></div>
           </div>`;
         })}
         <!-- Contrairement à TOUTE_LA_MAISON (tableau fixe), une liste todo.* n'est pas bornée à la
@@ -47,10 +48,10 @@ export function rendreTaches(
              sur ce qu'elle fait. -->
         ${reste > 0 ? html`
           <div class="ligne-tache reste" data-mvt="detail:taches-reste">${icone('list')}
-            <div><div class="t">+${reste} tâche${reste > 1 ? 's' : ''}</div>
-              <div class="s">Voir Home Assistant pour la suite</div></div>
+            <div><div class="t">${t().tasks.more(reste, numberFormat().format(reste))}</div>
+              <div class="s">${t().tasks.seeHomeAssistant}</div></div>
           </div>` : ''}
       </div>
-      <div class="xl" @pointerdown=${() => (location.hash = '')}>${icone('home')}Retour</div>
+      <div class="xl" @pointerdown=${() => (location.hash = '')}>${icone('home')}${t().back}</div>
     </div>`;
 }

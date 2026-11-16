@@ -17,7 +17,7 @@ export const cardAct: Agir = (...args) => agir(...args);
  *  colour: the one place the button sits in is the card's choice. */
 export function laterButton(s: ScreenState, key: string, primary = true): CardButton {
   return {
-    icon: 'snooze', label: S.later, ...(primary ? { primary: true as const } : {}),
+    icon: 'snooze', label: S().later, ...(primary ? { primary: true as const } : {}),
     act: () => {
       if (s.horsLigne) return;
       snoozeCard(s.cx, key).catch((err: unknown) => console.error('home-desk: snooze refused', key, err));
@@ -28,5 +28,5 @@ export function laterButton(s: ScreenState, key: string, primary = true): CardBu
 /** "Done", for a card whose problem has no Home Assistant action to run: it is "later" under
  *  another icon, so the same snooze, never a second implementation of it. */
 export function doneButton(s: ScreenState, key: string): CardButton {
-  return { ...laterButton(s, key), icon: 'coche', label: S.done };
+  return { ...laterButton(s, key), icon: 'coche', label: S().done };
 }

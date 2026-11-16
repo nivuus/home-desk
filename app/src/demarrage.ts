@@ -370,7 +370,8 @@ export async function startScreen(
       // included, speaks the language Home Assistant reports for this user.
       const reported = await loadLanguageFn(cx);
       if (!reported.ok) throw new Error(reported.panne);
-      setLanguage(reported.value);
+      const { language: reportedLanguage, ...formats } = reported.value;
+      setLanguage(reportedLanguage, formats);
 
       // `?ecran=` absent: we already know the answer, no point asking for a screen named "".
       if (nomEcran === '') { await offerScreenList(); return; }

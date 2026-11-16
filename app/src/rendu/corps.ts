@@ -9,6 +9,7 @@ import { bouton, commandeActive, pressTile } from './tile';
 import { arrangementEcran, ordreCommandes, type ContexteModes } from '../modes';
 import { AGENCEMENT_DEFAUT, type Agencement, type Zone } from '../agencement';
 import type { CardType } from '../stack/types';
+import { listFormat, t } from '../i18n';
 
 /** The timer entry tile, drawn by its caller for the place it takes: the Ambiance row
  *  (`dansGrille` false), or the first place of the controls grid when the arrangement drops that
@@ -69,7 +70,7 @@ export function rendreAlerte(a: Alerte): TemplateResult {
  *  qui se vide ou qui ment vaudrait pire qu'un écran éteint (cf. brief tâche 9). */
 export function rendreHorsLigne(): TemplateResult {
   return html`<div class="hors-ligne" data-zone="blocCentral" data-mvt="bloc:hors-ligne">${icone('horsligne')}
-    <div><div class="t">Hors ligne</div><div class="v">Dernières données connues</div></div></div>`;
+    <div><div class="t">${t().offline}</div><div class="v">${t().home.lastKnownData}</div></div></div>`;
 }
 
 /** Évalue une seule entrée déclarée, sans jamais regarder le domaine de l'entité (ronde de
@@ -125,7 +126,7 @@ export function ligneSynthese(etat: Etat, entites: EntreeSynthese[]): { texte: s
     const e = etat.lire(entree.entite)!;
     if (estEcart(e.etat, entree)) ecarts.push(formaterTexte(entree.texte, e.etat));
   }
-  return { texte: ecarts.length ? 'Tout est fermé —' : 'Tout est fermé, rien à signaler', ecarts };
+  return { texte: ecarts.length ? t().home.allClosedBut : t().home.allClosed, ecarts };
 }
 
 /** `data-zone` — INERTE POUR LE RENDU, et lu par une seule machine : `outils/mesurer-hauteurs.mjs`,
@@ -272,7 +273,7 @@ export function rendreCorps(
              Aucune pièce n'est dans ce cas aujourd'hui — la condition le prévoit plutôt que de le
              laisser se découvrir un jour à l'écran.
              (Pas de guillemet oblique dans ce commentaire : il vit DANS un template literal.) -->
-        <div class="etiquette" data-zone="etiquetteAmbiance">Ambiance</div>
+        <div class="etiquette" data-zone="etiquetteAmbiance">${t().home.ambience}</div>
         <!-- Tâche 3 : --ambiances porte le compte RÉEL de tuiles, la tuile minuteur comprise —
              c'est cette variable que .groupe (base.css) lit pour son nombre de colonnes
              (repeat(var(--ambiances, 3), …)). Le repli à 3 dans le CSS garde intact tout rendu
@@ -358,7 +359,7 @@ export function rendreCorps(
         <div class="synthese ${syntheseReduite ? 'reduite' : ''}" data-zone="synthese"
              data-mvt="ligne:synthese" data-mvt-swap data-mvt-etat=${`${s.texte}|${s.ecarts.join(',')}`}
              @pointerdown=${() => (location.hash = '#taches')}>${icone('lock')}
-          <div class="synthese-texte">${s.texte} <span class="ecart">${s.ecarts.join(', ')}</span></div>
+          <div class="synthese-texte">${s.texte} <span class="ecart">${listFormat(s.ecarts, 'unit')}</span></div>
         </div>`;
 
   // Table zone -> rendu, construite ICI pour capturer les variables locales ci-dessus (piece,
@@ -425,6 +426,6 @@ export function rendreCorps(
         ([, t]) => t)}
       <div class="xl" data-zone="touteLaMaison" data-mvt="tuile:toute-la-maison"
            @pointerdown=${() => (location.href = '#maison')}>
-        ${icone('home')}Toute la maison</div>
+        ${icone('home')}${t().home.wholeHouse}</div>
     </div>`;
 }

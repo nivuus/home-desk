@@ -66,7 +66,7 @@ describe('ink card — frame', () => {
     expect(b).toHaveLength(3);
     expect(b.map((x) => x.querySelector('[dir="auto"]')!.textContent)).toEqual(['Black', 'Cyan', 'Yellow']);
     expect(b[1].querySelector<HTMLElement>('.jauge-niveau')!.style.width).toBe('10%');
-    expect(b[1].textContent).toContain(new Intl.NumberFormat(undefined, { style: 'unit', unit: 'percent' }).format(10));
+    expect(b[1].textContent).toContain(new Intl.NumberFormat('fr', { style: 'unit', unit: 'percent' }).format(10));
   });
   it('names in CJK and Arabic go through untouched', () => {
     const names = ['黒インク — とても長い名前の', 'حبر أسود'];
@@ -83,7 +83,7 @@ describe('ink card — frame', () => {
   });
   it('hidden cartridges are counted in the subtitle, and the lowest are never the hidden ones', () => {
     const six = frame(CARD, ...two(ink({ levels: ['90', '10', '80', '20', '70', '5'], names: [...NAMES, 'Gray'] })));
-    expect(six.subtitle).toBe(S.inkMore(new Intl.NumberFormat().format(1)));
+    expect(six.subtitle).toBe('et 1 autre');
     const hote = document.createElement('div');
     render(six.middle, hote);
     const names = Array.from(hote.querySelectorAll('[dir="auto"]')).map((n) => n.textContent);

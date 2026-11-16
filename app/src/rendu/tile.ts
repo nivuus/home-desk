@@ -10,6 +10,8 @@ import type { Bouton } from '../screen-types';
 import { icone } from './icones';
 import { descripteurJauge, fractionJauge } from '../jauge';
 import { offersVacuumChoice } from '../boot/vacuum';
+import { percent } from '../cards/format';
+import { t } from '../i18n';
 
 /** A command is coloured only when the device is active: the colour carries the information,
  *  never a code to remember. `climate.radiateur` (VersatileThermostat) NEVER has the state `on`
@@ -101,8 +103,8 @@ export const bouton = (etat: Etat, b: Bouton, actif: boolean, classe: string) =>
 
 // Task 16 review — DEFECT VISIBLE ON SCREEN: `lock.`/`cover.` fell back on `return e.etat`, hence
 // Home Assistant's raw state, IN ENGLISH ("locked", "closed"…), captured on the real living-room
-// tablet. The rule of the comment below ("never a raw English token, French everywhere including
-// on screen") had been written ONLY for `climate.` at task 8/9; the two domains added much later
+// tablet. The rule of the comment below ("never a raw state token, the person's language everywhere
+// including on screen", the catalog's `tiles`) had been written ONLY for `climate.` at task 8/9; the two domains added much later
 // by task 5 (`lock.aqara_smart_lock_u200_lite`, `cover.rideau_salon`) had never joined it. Width
 // checked in a real browser (Chromium, real font/weight/size of `.commande .s`, 150.5 px tile —
 // see the task 16 report): the labels below all fit with at least 17 px of margin on the
@@ -111,24 +113,14 @@ export const bouton = (etat: Etat, b: Bouton, actif: boolean, classe: string) =>
 // Never a guessed unknown state: the HA states of `lock.`/`cover.` form a closed enumeration
 // (`LockState`/`CoverState`) — anything outside it on an otherwise usable entity
 // (`Etat.estUtilisable` has already ruled out `unavailable`/`unknown`/empty) is a real
-// integration anomaly, never a value to translate at random. `ETAT_INCONNU` below is neither an
-// English word nor an empty string that would leave an unexplained blank on a wall: it is an
+// integration anomaly, never a value to translate at random. `tiles.unknownState` is neither a
+// raw token nor an empty string that would leave an unexplained blank on a wall: it is an
 // explicit admission, as readable from afar as a translated state.
-const ETAT_INCONNU = 'État inconnu';
 
 /** `lock.aqara_smart_lock_u200_lite` (Matter, built-in door sensor — hence `open`/`opening`,
  *  which describe the door leaf, not only the bolt): seven possible HA states, see the brief. */
 function libelleSerrure(etatBrut: string): string {
-  switch (etatBrut) {
-    case 'locked': return 'Verrouillée';
-    case 'unlocked': return 'Déverrouillée';
-    case 'locking': return 'Verrouille…';
-    case 'unlocking': return 'Déverrouille…';
-    case 'jammed': return 'Bloquée';
-    case 'open': return 'Ouverte';
-    case 'opening': return 'Ouverture…';
-    default: return ETAT_INCONNU;
-  }
+  return t().tiles.lock[etatBrut] ?? t().tiles.unknownState;
 }
 
 /** `cover.rideau_salon`/`cover.rideau_cuisine`: four possible HA states. "The curtain has a
@@ -139,16 +131,11 @@ function libelleSerrure(etatBrut: string): string {
  *  open. At 100 (or with the attribute missing/unusable — a player without `SET_POSITION`), the
  *  percentage adds nothing: plain "Ouvert". */
 function libelleRideau(e: { etat: string; attributs: Record<string, unknown> }): string {
-  switch (e.etat) {
-    case 'closed': return 'Fermé';
-    case 'opening': return 'Ouverture…';
-    case 'closing': return 'Fermeture…';
-    case 'open': {
-      const position = Number(e.attributs['current_position']);
-      return Number.isFinite(position) && position < 100 ? `Ouvert ${Math.round(position)} %` : 'Ouvert';
-    }
-    default: return ETAT_INCONNU;
+  if (e.etat === 'open') {
+    const position = Number(e.attributs['current_position']);
+    if (Number.isFinite(position) && position < 100) return t().tiles.openAt(percent(Math.round(position)));
   }
+  return t().tiles.cover[e.etat] ?? t().tiles.unknownState;
 }
 
 /** Task 19: the openings declared as a COMMAND (the office's Velux today). Decided on
@@ -161,7 +148,7 @@ const CLASSES_OUVRANT = new Set(['door', 'window', 'opening', 'garage_door']);
 
 function libelleOuvrant(e: { etat: string; attributs: Record<string, unknown> }): string | null {
   if (!CLASSES_OUVRANT.has(String(e.attributs['device_class'] ?? ''))) return null;
-  return e.etat === 'on' ? 'Ouvert' : 'Fermé';
+  return e.etat === 'on' ? t().tiles.opened : t().tiles.closed;
 }
 
 export function etiquette(etat: Etat, b: Bouton): string {
@@ -182,7 +169,7 @@ export function etiquette(etat: Etat, b: Bouton): string {
   // `fan.`: a fan or a purifier is not "switched on", it runs. No percentage shown although
   // `percentage` exists on both devices: these tiles have no gauge (nothing to set by finger, see
   // `jauge.ts`), a number one cannot touch would only make a longer line on a 150.5 px tile.
-  if (b.entite.startsWith('fan.')) return e.etat === 'on' ? 'En marche' : 'Arrêté';
+  if (b.entite.startsWith('fan.')) return e.etat === 'on' ? t().tiles.running : t().tiles.stopped;
   // `binary_sensor.`: a door leaf, when HA declares it as such (see `libelleOuvrant`).
   const ouvrant = b.entite.startsWith('binary_sensor.') ? libelleOuvrant(e) : null;
   if (ouvrant !== null) return ouvrant;
@@ -197,14 +184,14 @@ export function etiquette(etat: Etat, b: Bouton): string {
   // `climate.radiateur`: `heat`/`off` are internal English tokens of VersatileThermostat, never a
   // label to show as is (project constraint: French everywhere, on screen included). Only these
   // two states exist for this thermostat.
-  if (b.entite.startsWith('climate.')) return e.etat === 'off' ? 'Éteint' : 'Chauffe';
+  if (b.entite.startsWith('climate.')) return e.etat === 'off' ? t().tiles.off : t().tiles.heating;
   if (b.entite.startsWith('lock.')) return libelleSerrure(e.etat);
   if (b.entite.startsWith('cover.')) return libelleRideau(e);
   if (e.etat === 'on') {
     const l = e.attributs['brightness'];
-    return l ? `Allumées ${Math.round((Number(l) / 255) * 100)} %` : 'Allumé';
+    return l ? t().tiles.onAt(percent(Math.round((Number(l) / 255) * 100))) : t().tiles.on;
   }
-  return e.etat === 'off' ? 'Éteint' : e.etat;
+  return e.etat === 'off' ? t().tiles.off : e.etat;
 }
 
 /** Filled in by task 7: the optimistic feedback. */

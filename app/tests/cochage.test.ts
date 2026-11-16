@@ -56,11 +56,10 @@ describe('roomTodoLists', () => {
 });
 
 describe('listLabel', () => {
-  it('connait les trois listes reelles du parc', () => {
-    expect(listLabel('todo.maintenance')).toBe('Entretien');
-    expect(listLabel('todo.travail')).toBe('Travail');
-    expect(listLabel('todo.home_stock_shopping')).toBe('Courses');
-    expect(listLabel('todo.home_stock_expirations')).toBe('À consommer');
+  it('is the list\'s name as Home Assistant names it, in whatever language and script', () => {
+    const names: Record<string, string> = { 'todo.maintenance': 'Entretien', 'todo.travail': 'Работа' };
+    expect(listLabel('todo.maintenance', (id) => names[id])).toBe('Entretien');
+    expect(listLabel('todo.travail', (id) => names[id])).toBe('Работа');
   });
 
   it('replie sur le nom brut (sans le prefixe todo.) pour une liste non prevue, jamais un texte vide', () => {
@@ -74,7 +73,8 @@ describe('aplatirTaches', () => {
       'todo.travail': [{ uid: 'a', texte: 'Rapport' }],
       'todo.maintenance': [{ uid: 'b', texte: 'Changer une pile' }, { uid: 'c', texte: 'Vider le bac' }],
     };
-    const r = aplatirTaches(parListe, ['todo.travail', 'todo.maintenance']);
+    const names: Record<string, string> = { 'todo.maintenance': 'Entretien', 'todo.travail': 'Travail' };
+    const r = aplatirTaches(parListe, ['todo.travail', 'todo.maintenance'], undefined, (id) => names[id]);
     expect(r).toEqual([
       { entite: 'todo.travail', uid: 'a', texte: 'Rapport', list: 'Travail' },
       { entite: 'todo.maintenance', uid: 'b', texte: 'Changer une pile', list: 'Entretien' },

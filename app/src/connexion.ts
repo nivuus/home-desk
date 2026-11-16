@@ -77,7 +77,7 @@ export async function rafraichir(
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: corps,
   });
-  if (!rep.ok) throw new Error(`Rafraîchissement refusé : ${rep.status}`);
+  if (!rep.ok) throw new Error(`token refresh refused: ${rep.status}`);
   const d = await rep.json();
   return {
     ...j,
@@ -322,7 +322,7 @@ export class Connexion {
       } else if (m.type === 'result' && this.abonnementsParId.has(m.id) && !m.success) {
         // A refused subscription is the silent failure this method exists to end: say it, with
         // Home Assistant's code (`unknown_command` = a component too old for this page).
-        console.error('abonnement refusé', m.error?.code, m.error?.message);
+        console.error('subscription refused', m.error?.code, m.error?.message);
       } else if (m.type === 'event' && m.event?.data?.new_state) {
         this.emettre(versEvenement(m.event.data.new_state));
       } else if (m.type === 'result' && this.enAttenteCommandes.has(m.id)) {
@@ -331,7 +331,7 @@ export class Connexion {
         if (m.success) p.resolve(m.result);
         else p.reject(new RefusHA(
           typeof m.error?.code === 'string' ? m.error.code : 'inconnu',
-          m.error?.message ?? 'commande refusée',
+          m.error?.message ?? 'command refused',
         ));
       } else if (m.type === 'result' && Array.isArray(m.result)) {
         for (const n of m.result) this.emettre(versEvenement(n));
@@ -393,7 +393,7 @@ export class Connexion {
     payload: Record<string, unknown>, delaiMs: number = DELAI_COMMANDE_MS,
   ): Promise<unknown> {
     return new Promise((resolve, reject) => {
-      if (!this.ws) { reject(new Error('websocket indisponible')); return; }
+      if (!this.ws) { reject(new Error('websocket unavailable')); return; }
       const id = this.id++;
       const finir = <T>(suite: (v: T) => void) => (v: T) => {
         this.enAttenteCommandes.delete(id);
@@ -405,7 +405,7 @@ export class Connexion {
       this.deps.minuteurFn(
         finir(() => reject(new RefusHA(
           'delai_depasse',
-          `Home Assistant n'a pas répondu en ${Math.round(delaiMs / 1000)} s`,
+          `Home Assistant did not answer within ${Math.round(delaiMs / 1000)} s`,
         ))),
         delaiMs,
       );

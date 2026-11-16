@@ -72,7 +72,7 @@ describe('meal card — frame', () => {
     const fr = frame(CARD, f, s);
     expect(fr.title).toBe('Gratin');
     const h = render0(fr);
-    expect(h.textContent).toContain(new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(T0 + 30 * MIN)));
+    expect(h.textContent).toContain(new Intl.DateTimeFormat('fr', { hour: 'numeric', minute: '2-digit' }).format(new Date(T0 + 30 * MIN)));
     expect(h.textContent).toContain('3');
   });
   it('no missing ingredient: no missing line', () => {

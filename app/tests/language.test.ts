@@ -23,14 +23,14 @@ function transport(answers: Record<string, Answer>) {
 describe('loadLanguage', () => {
   it('prefers the language the user chose in their profile', async () => {
     const cx = transport({ 'frontend/get_user_data': { value: { language: 'nl', number_format: 'language' } } });
-    expect(await loadLanguage(cx)).toEqual({ ok: true, value: 'nl' });
+    expect(await loadLanguage(cx)).toEqual({ ok: true, value: { language: 'nl', numberFormat: 'language' } });
     expect(cx.envoyerCommande).toHaveBeenCalledWith({ type: 'frontend/get_user_data', key: 'language' });
     expect(cx.envoyerCommande).toHaveBeenCalledTimes(1);
   });
 
   it('falls back to the instance language when the user chose none', async () => {
     const cx = transport({ 'frontend/get_user_data': { value: null }, get_config: { language: 'ja', version: '2026.11.1' } });
-    expect(await loadLanguage(cx)).toEqual({ ok: true, value: 'ja' });
+    expect(await loadLanguage(cx)).toEqual({ ok: true, value: { language: 'ja' } });
   });
 
   it('falls back to the instance language when the frontend command is refused', async () => {
@@ -38,7 +38,23 @@ describe('loadLanguage', () => {
       'frontend/get_user_data': new RefusHA('unknown_command', 'Unknown command.'),
       get_config: { language: 'de' },
     });
-    expect(await loadLanguage(cx)).toEqual({ ok: true, value: 'de' });
+    expect(await loadLanguage(cx)).toEqual({ ok: true, value: { language: 'de' } });
+  });
+
+  it('carries the profile\'s number and time formats', async () => {
+    const cx = transport({ 'frontend/get_user_data': {
+      value: { language: 'en-GB', number_format: 'decimal_comma', time_format: '12', first_weekday: 'monday' },
+    } });
+    expect(await loadLanguage(cx)).toEqual({
+      ok: true, value: { language: 'en-GB', numberFormat: 'decimal_comma', timeFormat: '12' },
+    });
+  });
+
+  it('keeps the formats chosen without a language, on the instance language', async () => {
+    const cx = transport({
+      'frontend/get_user_data': { value: { time_format: '24' } }, get_config: { language: 'en' },
+    });
+    expect(await loadLanguage(cx)).toEqual({ ok: true, value: { language: 'en', timeFormat: '24' } });
   });
 
   it('a lost link is a network failure, never a guessed language', async () => {
@@ -75,7 +91,7 @@ describe('startScreen applies the reported language', () => {
     const chargerEcran = vi.fn(async () => { order.push('screen'); return { ok: true as const, value: ecranVide }; });
     await startScreen(document.createElement('div'), 'Salon', deps(async () => {
       order.push('language');
-      return { ok: true, value: 'en-GB' };
+      return { ok: true, value: { language: 'en-GB' } };
     }, chargerEcran));
     expect(order).toEqual(['language', 'screen']);
     expect(language()).toBe('en');

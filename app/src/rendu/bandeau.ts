@@ -4,18 +4,17 @@ import type { Moment } from '../contexte';
 import type { Pastille } from '../agenda';
 import { temperatureCourte } from '../meteo';
 import { icone } from './icones';
+import { dateTimeFormat, numberFormat, t } from '../i18n';
 
-const JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
-const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-              'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
-
-/** Colore le seul préfixe que la donnée déclare comme étant une température (`Pastille.accent`,
- *  posé par `agenda.ts`). Le `startsWith` est un GARDE, pas une politesse : si `agenda.ts` et
- *  `meteo.ts` divergeaient un jour sur le format, on retombe sur du texte non coloré — jamais sur
- *  un texte amputé au mauvais endroit sur un mur. */
+/** Colours the one fragment the data declares as a temperature (`Pastille.accent`, set by
+ *  `agenda.ts`), wherever the catalog's sentence puts it. The search is a GUARD: if `agenda.ts`
+ *  and `meteo.ts` ever diverged on the format, the text stays uncoloured — never cut at the wrong
+ *  place on a wall. */
 function valeurPastille(p: Pastille) {
-  return p.accent && p.valeur.startsWith(p.accent)
-    ? html`<span class="val">${p.accent}</span>${p.valeur.slice(p.accent.length)}`
+  // Wherever the language puts the temperature in its sentence: first, last or in the middle.
+  const at = p.accent ? p.valeur.indexOf(p.accent) : -1;
+  return p.accent && at >= 0
+    ? html`${p.valeur.slice(0, at)}<span class="val">${p.accent}</span>${p.valeur.slice(at + p.accent.length)}`
     : p.valeur;
 }
 
@@ -25,9 +24,10 @@ export function rendreBandeau(
   // et un bandeau sans pastille reste un bandeau valide (météo indisponible, cas normal ici).
   pastille?: Pastille | null,
 ): TemplateResult {
-  const hh = String(maintenant.getHours()).padStart(2, '0');
-  const mm = String(maintenant.getMinutes()).padStart(2, '0');
-  const date = `${JOURS[maintenant.getDay()]} ${maintenant.getDate()} ${MOIS[maintenant.getMonth()]}`;
+  // The clock and the date in the person's locale and clock (12 or 24 h): each character of the
+  // time is its own span, which the motion engine replays when it changes.
+  const heure = dateTimeFormat({ hour: '2-digit', minute: '2-digit' }).format(maintenant);
+  const date = dateTimeFormat({ weekday: 'long', day: 'numeric', month: 'long' }).format(maintenant);
 
   // Ronde de correction 1 : `weather.maison` tombe régulièrement en `unavailable` sur cette
   // installation. Un attribut `temperature` peut alors traîner, périmé, dans l'état résiduel
@@ -36,7 +36,7 @@ export function rendreBandeau(
   const meteo = etat.estUtilisable('weather.maison') ? etat.lire('weather.maison') : undefined;
   const dehors = meteo?.attributs['temperature'];
   const dedans = etat.estUtilisable(capteurTemp)
-    ? Number(etat.lire(capteurTemp)!.etat).toFixed(1).replace('.', ',')
+    ? numberFormat({ minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(Number(etat.lire(capteurTemp)!.etat))
     : null;
 
   return html`
@@ -56,13 +56,13 @@ export function rendreBandeau(
              au milieu de la colonne au lieu de rester sous l'heure. -->
         <div class="bloc-heure">
           <div class="heure">${
-            [...`${hh}:${mm}`].map((c, i) => html`<span
+            [...heure].map((c, i) => html`<span
               class="chiffre" data-mvt="chiffre:${i}" data-mvt-etat=${c}>${c}</span>`)
           }</div>
           <div class="date">${date}</div>
         </div>
-        ${dedans ? html`<div class="phrase" data-mvt="detail:dedans">Il fait
-          <b class="val chiffre" data-mvt="chiffre:dedans" data-mvt-etat=${dedans}>${dedans}°</b> ici.</div>` : ''}
+        ${dedans ? html`<div class="phrase" data-mvt="detail:dedans">${t().band.inside(
+          html`<b class="val chiffre" data-mvt="chiffre:dedans" data-mvt-etat=${dedans}>${dedans}°</b>`)}</div>` : ''}
       </div>
       <!-- Colonne droite : c'est ELLE qui était vide sous la température. La pastille s'y
            range, jamais en pleine largeur sous la phrase — sinon le vide reste. -->

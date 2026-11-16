@@ -23,6 +23,7 @@ import { gaugeRow } from './gauge';
 import { valueOf } from './measure';
 import { nameOf } from './readings';
 import { S } from './strings';
+import { numberFormat } from '../i18n';
 
 const TYPE = 'encre';
 /** Bars the middle zone holds; the lowest levels keep theirs. */
@@ -70,9 +71,9 @@ export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
   const hidden = all.length - MAX_BARS;
   return {
     key: card.key,
-    label: S.inkLabel,
-    title: S.ink,
-    ...(hidden > 0 ? { subtitle: S.inkMore(new Intl.NumberFormat().format(hidden)) } : {}),
+    label: S().inkLabel,
+    title: S().ink,
+    ...(hidden > 0 ? { subtitle: S().inkMore(hidden, numberFormat().format(hidden)) } : {}),
     middle: html`<div class="encre-barres">${shown(all).map((l) => gaugeRow(nameOf(s.etat, l.id), l.value))}</div>`,
     buttons: [undefined, laterButton(s, card.key), undefined],
     background: { kind: 'solid', token: 'neutral' },

@@ -14,6 +14,7 @@ import { icone } from './icones';
 import { assainir, MOTIF_TAG } from '../recette';
 import { formaterRestant } from '../minuteur';
 import { scinderSelonHauteur } from '../scinder';
+import { numberFormat, t } from '../i18n';
 
 /** Une ligne du plan de décrément (`home_stock/meal/preview`), telle que la tablette la LIT.
  *  Ni `product_id`, ni `batches`, ni `needed`/`available` : la tablette ne retire rien, elle
@@ -248,19 +249,19 @@ function rendrePanneau(v: VueRecette): TemplateResult {
     <div class="ing-panneau">
       <div class="ing-liste">
         ${ingredients.length === 0
-          ? html`<div class="ing-vide" data-mvt="detail:ing-vide">Aucun ingrédient</div>` : ''}
+          ? html`<div class="ing-vide" data-mvt="detail:ing-vide">${t().recipe.noIngredients}</div>` : ''}
         ${visibles.map((i, idx) => html`
             <div class="ing-ligne">
               <div>
                 <div class="t">${i.nom}</div>
                 <div class="s">${i.quantite}${i.manque
                   ? html` — <span class="ing-stock manque" data-mvt="detail:manque-${idx}"
-                          >manquant</span>` : ''}</div>
+                          >${t().recipe.missing}</span>` : ''}</div>
               </div>
             </div>`)}
       </div>
       <div class="ing-actions">
-        <div class="ing-fermer" @pointerdown=${() => actions.fermerPanneau()}>Fermer</div>
+        <div class="ing-fermer" @pointerdown=${() => actions.fermerPanneau()}>${t().recipe.close}</div>
       </div>
     </div>`;
 }
@@ -280,12 +281,12 @@ export function rendreVueRecette(v: VueRecette): TemplateResult {
   // bouton, une colonne de grille sur trois à 14 px, la ferait passer à quatre lignes et grandir
   // la rangée d'actions. Le lot n'ajoute pas un pixel.
   const arme = v.armee('terminer');
-  const entete = arme ? 'Terminer — le stock sera décrémenté' : v.etiquette;
+  const entete = arme ? t().recipe.finishArmed : v.etiquette;
   return html`
     <div class="corps recette" data-mvt="vue:recette">
       <div class="etiquette ${v.horsLigne ? 'hl' : ''}">
-        ${v.horsLigne ? 'Hors ligne' : v.message ?? entete}
-        <span class="recette-pages">${pageActuelle + 1}/${nbPages}</span>
+        ${v.horsLigne ? t().offline : v.message ?? entete}
+        <span class="recette-pages">${t().recipe.pages(numberFormat().format(pageActuelle + 1), numberFormat().format(nbPages))}</span>
       </div>
       <div class="recette-titre">${v.plat}</div>
       ${v.panneauOuvert ? rendrePanneau(v)
@@ -300,12 +301,12 @@ export function rendreVueRecette(v: VueRecette): TemplateResult {
       </div>
       <div class="recette-actions">
         <div class="recette-ingredients" @pointerdown=${() => actions.ouvrirPanneau()}>
-          ${icone('list')}Ingrédients</div>
+          ${icone('list')}${t().recipe.ingredients}</div>
         <div class="recette-reduire" @pointerdown=${() => actions.reduire()}>
-          ${icone('home')}Réduire</div>
+          ${icone('home')}${t().recipe.collapse}</div>
         <div class="recette-terminer ${v.horsLigne ? 'inactif' : ''} ${arme ? 'armee' : ''}"
              @pointerdown=${() => { if (!v.horsLigne) actions.terminer(); }}>
-          ${icone('coche')}${arme ? 'Confirmer' : 'Terminer'}</div>
+          ${icone('coche')}${arme ? t().recipe.confirm : t().recipe.finish}</div>
       </div>
     </div>`;
 }

@@ -28,6 +28,7 @@ import type { SwipeHandlers } from '../stack/swipe';
 import type { ConnexionLike, DependancesDemarrage } from './types';
 import { newPantryState, type PantryState } from './pantry';
 import { newVacuumState, type VacuumState } from './vacuum';
+import type { RecipeProblem } from './recipe';
 
 export class ScreenState {
   // Correction round 2: a single instance of `Connexion` (and of `Etat`) for the whole lifetime
@@ -118,9 +119,9 @@ export class ScreenState {
    *  the previous one are pending would display the steps of a recipe foreign to the one
    *  announced. */
   jetonRecette = 0;
-  /** A refusal from the server, already translated into French by the component
-   *  (`messages.py`), displayed in place of the label of the view. `null` = nothing to say. */
-  messageRecette: string | null = null;
+  /** Why the last confirmation did not go through, displayed in place of the label of the view
+   *  and worded when it renders (`boot/subviews.ts`). `null` = nothing to say. */
+  messageRecette: RecipeProblem | null = null;
   /** Restoring from storage happens only ONCE: afterwards `recetteUid` is the truth of the
    *  screen, and re-reading the storage on every state change would resurrect a recipe that
    *  "Terminer" has just closed. */

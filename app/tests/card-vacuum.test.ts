@@ -44,7 +44,7 @@ describe('vacuum card — frame', () => {
     expect(fr.background).toEqual({ kind: 'solid', token: 'neutral' });
     const hote = document.createElement('div');
     render(fr.middle, hote);
-    expect(hote.textContent).toContain(new Intl.NumberFormat(undefined, { style: 'unit', unit: 'percent' }).format(62));
+    expect(hote.textContent).toContain(new Intl.NumberFormat('fr', { style: 'unit', unit: 'percent' }).format(62));
   });
 
   it('base, pause (primary) and the room choice while cleaning', () => {

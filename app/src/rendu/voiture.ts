@@ -12,6 +12,8 @@ import { html, nothing, type TemplateResult } from 'lit';
 import type { Etat } from '../etat';
 import type { Voiture } from '../screen-types';
 import { icone } from './icones';
+import { kilometres, percent } from '../cards/format';
+import { t } from '../i18n';
 
 export type EnVolClim = 'demarrage' | 'arret' | null;
 
@@ -41,19 +43,19 @@ function actif(etat: Etat, id: string): boolean {
  *  donnée, exactement le même choix que `libelleEtat` d'`alertes.ts` pour un capteur muet — ne
  *  jamais prétendre à un état qu'on ne connaît pas, mais ne jamais bloquer le bloc pour autant. */
 function libelleEtat(etat: Etat, v: Voiture): string {
-  if (actif(etat, v.clim)) return 'Clim en marche';
-  if (actif(etat, v.enCharge)) return 'En charge';
-  if (actif(etat, v.branchee)) return 'Branchée';
-  return 'Débranchée';
+  if (actif(etat, v.clim)) return t().car.climOn;
+  if (actif(etat, v.enCharge)) return t().car.charging;
+  if (actif(etat, v.branchee)) return t().car.pluggedIn;
+  return t().car.unplugged;
 }
 
 export function rendreVoiture(etat: Etat, v: Voiture, enVol: EnVolClim): TemplateResult {
   const niveau = nombre(etat, v.batterie);
   const autonomie = nombre(etat, v.autonomie);
   const marche = actif(etat, v.clim);
-  const libelleBouton = enVol === 'demarrage' ? 'Démarrage…'
-    : enVol === 'arret' ? 'Arrêt…'
-    : marche ? 'Arrêter la clim' : 'Lancer la clim';
+  const libelleBouton = enVol === 'demarrage' ? t().car.starting
+    : enVol === 'arret' ? t().car.stopping
+    : marche ? t().car.climStop : t().car.climStart;
   // Everything the block shows, as its motion state: the engine swaps the block when it changes.
   // Without it the charge, the range and the label changed at once under a stable key.
   const shown = [niveau === null ? '' : Math.round(niveau), autonomie === null ? '' : Math.round(autonomie),
@@ -62,11 +64,11 @@ export function rendreVoiture(etat: Etat, v: Voiture, enVol: EnVolClim): Templat
     <div class="voiture" data-zone="blocCentral" data-mvt="bloc:voiture" data-mvt-etat=${shown}>
       <div class="vt-chiffres">
         ${niveau !== null
-          ? html`<span class="vt-niveau" data-mvt="detail:vt-niveau">${Math.round(niveau)} %</span>`
+          ? html`<span class="vt-niveau" data-mvt="detail:vt-niveau">${percent(Math.round(niveau))}</span>`
           : nothing}
         ${autonomie !== null
           ? html`<span class="vt-autonomie" data-mvt="detail:vt-autonomie"
-                 >${Math.round(autonomie)} km</span>`
+                 >${kilometres(Math.round(autonomie))}</span>`
           : nothing}
       </div>
       <div class="vt-etat">${libelleEtat(etat, v)}</div>

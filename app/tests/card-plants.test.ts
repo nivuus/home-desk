@@ -99,7 +99,7 @@ describe('plants card — frame', () => {
   it('the label is the entity friendly name in any script, dir=auto; the value through Intl', () => {
     const [g] = gauges(plants({ probes: [['12', { friendly_name: 'シダ — 玄関の鉢植え' }]] }));
     expect(g.querySelector('[dir="auto"]')!.textContent).toBe('シダ — 玄関の鉢植え');
-    expect(g.textContent).toContain(new Intl.NumberFormat(undefined, { style: 'unit', unit: 'percent' }).format(12));
+    expect(g.textContent).toContain(new Intl.NumberFormat('fr', { style: 'unit', unit: 'percent' }).format(12));
   });
   it('the gauge fills to the reading', () => {
     const [g] = gauges(plants({ probes: [['12', {}]] }));

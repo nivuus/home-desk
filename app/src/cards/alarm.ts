@@ -22,6 +22,7 @@ import type { Card, Rank } from '../stack/types';
 import { cardAct } from './actions';
 import { attributeOf, nameOf, stateOf } from './readings';
 import { S } from './strings';
+import { numberFormat } from '../i18n';
 
 const TYPE = 'alarme';
 const ARMED = new Set(['armed_home', 'armed_away', 'armed_night', 'armed_vacation', 'armed_custom_bypass']);
@@ -60,16 +61,16 @@ export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
   const coded = needsCode(s, zones);
   const hidden = zones.length - MAX_ZONES;
   const disarm: CardButton | undefined = coded ? undefined : {
-    icon: 'lock', label: S.alarmDisarm, primary: true,
+    icon: 'lock', label: S().alarmDisarm, primary: true,
     act: () => { for (const z of zones) cardAct('alarm_control_panel', 'alarm_disarm', z); },
   };
   return {
     key: card.key,
-    label: S.alarmLabel,
-    title: S.alarm,
-    ...(hidden > 0 ? { subtitle: S.alarmMore(new Intl.NumberFormat().format(hidden)) } : {}),
+    label: S().alarmLabel,
+    title: S().alarm,
+    ...(hidden > 0 ? { subtitle: S().alarmMore(hidden, numberFormat().format(hidden)) } : {}),
     middle: html`${zones.slice(0, MAX_ZONES).map((z) => html`<div class="carte-ligne" dir="auto">${nameOf(s.etat, z) ?? z}</div>`)}
-      ${coded ? html`<div class="carte-ligne">${S.alarmCode}</div>` : ''}`,
+      ${coded ? html`<div class="carte-ligne">${S().alarmCode}</div>` : ''}`,
     buttons: [undefined, disarm, undefined],
     background: { kind: 'solid', token: 'neutral' },
     motion: { block: 'bloc:alarme' },

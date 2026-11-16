@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { duration } from '../src/cards/format';
 
-// The expectations are built from the same `Intl` calls in the page's locale: the test pins the
-// arithmetic and the parts, never one language's words.
+// The expectations are built from the same `Intl` calls in the suite's locale (French, see
+// `setup-language.ts`): the test pins the arithmetic and the parts, never one language's words.
 const unit = (u: string, n: number) =>
-  new Intl.NumberFormat(undefined, { style: 'unit', unit: u, unitDisplay: 'long' }).format(n);
-const parts = (...p: string[]) => new Intl.ListFormat(undefined, { type: 'unit', style: 'long' }).format(p);
+  new Intl.NumberFormat('fr', { style: 'unit', unit: u, unitDisplay: 'long' }).format(n);
+const parts = (...p: string[]) => new Intl.ListFormat('fr', { type: 'unit', style: 'long' }).format(p);
 const MIN = 60_000;
 
 describe('duration', () => {

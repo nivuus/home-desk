@@ -60,7 +60,7 @@ describe('last_changed is carried from Home Assistant', () => {
     const host = document.createElement('div');
     render(frame(detect(f, s)[0], f, s).middle, host);
     expect(host.textContent).toContain(
-      new Intl.NumberFormat(undefined, { style: 'unit', unit: 'hour', unitDisplay: 'long' }).format(2));
+      new Intl.NumberFormat('fr', { style: 'unit', unit: 'hour', unitDisplay: 'long' }).format(2));
   });
 
   it('falls back on the reception time only when last_changed is missing or unreadable', () => {

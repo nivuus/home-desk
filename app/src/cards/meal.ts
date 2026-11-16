@@ -23,6 +23,7 @@ import { clockTime } from './format';
 import { declaresView, shoppingButton } from './kitchen';
 import { stateOf } from './readings';
 import { S } from './strings';
+import { numberFormat } from '../i18n';
 
 const WINDOW_MS = 60 * 60_000;
 
@@ -43,14 +44,14 @@ export function frame(card: Card, f: Frame, s: ScreenState): CardFrame {
   const start = startIfInWindow(f, s);
   if (meal === undefined || start === null) throw new Error(`meal card: no meal in its window for ${card.key}`);
   const missing = meal.manquants > 0
-    ? html`<div class="carte-ligne repas-manquants" data-tone-box>${S.mealMissing(new Intl.NumberFormat().format(meal.manquants))}</div>` : '';
+    ? html`<div class="carte-ligne repas-manquants" data-tone-box>${S().mealMissing(numberFormat().format(meal.manquants))}</div>` : '';
   const recipe: CardButton | undefined = meal.recetteId === null ? undefined
-    : { icon: 'book', label: S.mealOpenRecipe, primary: true, act: () => { location.hash = '#recette'; } };
+    : { icon: 'book', label: S().mealOpenRecipe, primary: true, act: () => { location.hash = '#recette'; } };
   const validate: CardButton | undefined = stateOf(s.etat, SCRIPT_VALIDER_REPAS) === undefined ? undefined
-    : { icon: 'coche', label: S.mealValidate, act: () => cardAct('script', 'turn_on', SCRIPT_VALIDER_REPAS) };
+    : { icon: 'coche', label: S().mealValidate, act: () => cardAct('script', 'turn_on', SCRIPT_VALIDER_REPAS) };
   return {
     key: card.key,
-    label: S.meal,
+    label: S().meal,
     title: meal.plat,
     middle: html`<div class="carte-ligne" data-tone-box>${clockTime(start)}</div>${missing}`,
     buttons: [shoppingButton(s), recipe, validate],

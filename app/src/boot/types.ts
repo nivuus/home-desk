@@ -6,6 +6,7 @@ import type { ConnexionAppelable } from '../interaction';
 import type { Ecran } from '../screen-types';
 import type { House, ListEntry, Result, TransportConfig } from '../configuration';
 import type { chargerLottie } from '../lottie';
+import type { ReportedLocale } from './language';
 
 /** What `startWithScreen` expects from a connection: just enough not to depend on the concrete
  *  `Connexion` class, so that it can be replaced by a double in the tests (revoked refresh token,
@@ -60,7 +61,7 @@ export type DependancesDemarrage = {
   loadHouse: (cx: TransportConfig) => Promise<Result<House>>;
   /** The language Home Assistant reports for the tablet's user (`boot/language.ts`), read before
    *  the first render of the screen. */
-  loadLanguage: (cx: TransportConfig) => Promise<Result<string>>;
+  loadLanguage: (cx: TransportConfig) => Promise<Result<ReportedLocale>>;
   /** Resolves the Lottie player, loading its bundle on first use (`lottie.ts`). Injectable so
    *  that the tests never inject a real `<script>`. */
   chargerLottie: () => ReturnType<typeof chargerLottie>;

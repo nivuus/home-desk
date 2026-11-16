@@ -29,7 +29,7 @@ export function cameraButton(s: ScreenState, key: string): CardButton {
     s.dessiner();
   };
   return {
-    icon: 'camera', label: S.printerCamera, act: () => {},
+    icon: 'camera', label: S().printerCamera, act: () => {},
     hold: { ...CAMERA_HOLD, fire: () => set(key), onEnd: () => { if (shown === key) set(null); } },
   };
 }

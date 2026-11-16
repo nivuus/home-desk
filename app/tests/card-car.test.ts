@@ -115,12 +115,12 @@ describe('car card — frame', () => {
     const fr = frame(CARD, f, s);
     const hote = document.createElement('div');
     render(fr.middle, hote);
-    const pct = new Intl.NumberFormat(undefined, { style: 'unit', unit: 'percent' });
+    const pct = new Intl.NumberFormat('fr', { style: 'unit', unit: 'percent' });
     expect(hote.textContent).toContain(pct.format(64));
     expect(hote.textContent).toContain(pct.format(80));
     expect(hote.textContent).toContain(
-      new Intl.NumberFormat(undefined, { style: 'unit', unit: 'kilometer' }).format(230));
-    expect(fr.subtitle).toContain(new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
+      new Intl.NumberFormat('fr', { style: 'unit', unit: 'kilometer' }).format(230));
+    expect(fr.subtitle).toContain(new Intl.DateTimeFormat('fr', { hour: 'numeric', minute: '2-digit' })
       .format(new Date(end)));
   });
 

@@ -15,6 +15,7 @@ import type { Card } from '../stack/types';
 import { laterButton } from './actions';
 import { duration } from './format';
 import { S } from './strings';
+import { t } from '../i18n';
 
 const TYPE = 'aeration';
 
@@ -45,9 +46,9 @@ export function frame(card: Card, f: Frame, s: ScreenState): CardFrame {
   const since = f.maintenantMs - s.etat.lire(open[0])!.changeLe;
   return {
     key: card.key,
-    label: S.airing,
-    title: open.map((id) => openingName(s.etat, id)).join(S.separator),
-    middle: html`<div class="carte-ligne">${S.openSince(duration(since))}</div>`,
+    label: S().airing,
+    title: open.map((id) => openingName(s.etat, id)).join(t().separator),
+    middle: html`<div class="carte-ligne">${S().openSince(duration(since))}</div>`,
     buttons: [undefined, laterButton(s, card.key), undefined],
     background: { kind: 'solid', token: 'neutral' },
     motion: { block: 'bloc:aeration' },

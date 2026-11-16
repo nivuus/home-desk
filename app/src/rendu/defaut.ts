@@ -29,6 +29,7 @@ import { formaterRestant } from '../minuteur';
 import type { NextMeal } from '../garde-manger';
 import { icone } from './icones';
 import { S } from '../cards/strings';
+import { numberFormat, t } from '../i18n';
 
 /** Cuisine : le repas SUIVANT, lu dans les attributs de `sensor.home_stock_next_meal`
  *  (`nextMeal`, `src/garde-manger.ts`). `.t` porte l'étiquette du créneau, `.v` le plat sur
@@ -67,8 +68,8 @@ export function renderNextMeal(r: NextMeal | undefined): TemplateResult | undefi
  *  recipe card since card-stack task 6 (`cards/recipe.ts`), which draws this line. */
 export type EtapeRecette = { etape: number; total: number; restantS?: number };
 export function ligneEtape(v: EtapeRecette): string {
-  const decompte = v.restantS === undefined ? '' : `${S.separator}${formaterRestant(v.restantS)}`;
-  return `${S.step(v.etape, v.total)}${decompte}`;
+  const decompte = v.restantS === undefined ? '' : `${t().separator}${formaterRestant(v.restantS)}`;
+  return `${S().step(numberFormat().format(v.etape), numberFormat().format(v.total))}${decompte}`;
 }
 
 /** Bureau : le prochain rendez-vous du jour, parmi les mêmes calendriers que la pastille du
@@ -137,27 +138,27 @@ export function rendreEntretien(items: { uid: string; texte: string }[]): Templa
     <div class="mode-bloc" data-zone="blocCentral" data-mvt="bloc:entretien"
          data-mvt-etat=${nommees.map((i) => i.texte).join('|')}>${icone('entretien')}
       <div class="mode-texte">
-        <div class="t">Entretien — ${nommees.length} tâche${nommees.length > 1 ? 's' : ''}</div>
-        <div class="v deux-lignes">${nommees.map((i) => i.texte).join(' · ')}</div>
+        <div class="t">${t().home.maintenance(nommees.length, numberFormat().format(nommees.length))}</div>
+        <div class="v deux-lignes">${nommees.map((i) => i.texte).join(t().separator)}</div>
       </div>
     </div>`;
 }
 
 export function rendreProchainRdv(evenements: Evenement[], maintenant: Date): TemplateResult | undefined {
-  const t = maintenant.getTime();
+  const now = maintenant.getTime();
   const prochain = evenements
     // An all-day event has no hour to give (`journeeEntiere`), whatever the time zone.
     .filter((e) => !e.estAnniversaire && !e.journeeEntiere && estCeJour(e.debut, maintenant))
     .map((e) => ({ e, quand: new Date(e.debut).getTime() }))
-    .filter(({ quand }) => quand > t)
+    .filter(({ quand }) => quand > now)
     .sort((a, b) => a.quand - b.quand)[0];
   if (!prochain) return undefined;
   return html`
     <div class="mode-bloc" data-zone="blocCentral" data-mvt="bloc:agenda"
          data-mvt-etat=${`${prochain.e.debut}|${prochain.e.resume}`}>${icone('agenda')}
       <div class="mode-texte">
-        <div class="t">Rendez-vous</div>
-        <div class="v deux-lignes">${heureCourte(prochain.e.debut)} — ${prochain.e.resume}</div>
+        <div class="t">${t().agenda.appointment}</div>
+        <div class="v deux-lignes">${t().agenda.appointmentLine(heureCourte(prochain.e.debut), prochain.e.resume)}</div>
       </div>
     </div>`;
 }

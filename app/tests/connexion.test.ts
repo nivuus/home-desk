@@ -60,7 +60,7 @@ describe('rafraichir', () => {
       ok: false, status: 400, json: async () => ({ error: 'invalid_grant' }),
     }) as any;
     const j: any = { refresh_token: 'r', clientId: 'c', expires: 0, access_token: '' };
-    await expect(rafraichir(j, fetchFn, 0)).rejects.toThrow('Rafraîchissement refusé : 400');
+    await expect(rafraichir(j, fetchFn, 0)).rejects.toThrow('token refresh refused: 400');
   });
 });
 
@@ -171,7 +171,7 @@ describe('Connexion — le code d un refus survit jusqu à l appelant', () => {
     const envoye = ws.envoyes.find((m) => m.type === 'peu/importe')!;
     ws.recevoir({ id: envoye.id, type: 'result', success: false });
     await expect(promesse).rejects.toBeInstanceOf(RefusHA);
-    await expect(promesse).rejects.toMatchObject({ code: 'inconnu', message: 'commande refusée' });
+    await expect(promesse).rejects.toMatchObject({ code: 'inconnu', message: 'command refused' });
   });
 });
 
@@ -274,7 +274,7 @@ describe('Connexion — abonnement par une commande de l intégration', () => {
     const id = ws.envoyes.find((m) => m.type === 'home_desk/abonner').id;
     ws.recevoir({ type: 'result', id, success: false,
       error: { code: 'unknown_command', message: 'Unknown command.' } });
-    expect(erreur).toHaveBeenCalledWith('abonnement refusé', 'unknown_command', 'Unknown command.');
+    expect(erreur).toHaveBeenCalledWith('subscription refused', 'unknown_command', 'Unknown command.');
     erreur.mockRestore();
   });
 
@@ -356,7 +356,7 @@ describe('Connexion — une commande sans réponse ne pend pas pour toujours', (
     rappel!();
 
     await expect(promesse).rejects.toBeInstanceOf(RefusHA);
-    await expect(promesse).rejects.toMatchObject({ message: "Home Assistant n'a pas répondu en 3 s" });
+    await expect(promesse).rejects.toMatchObject({ message: 'Home Assistant did not answer within 3 s' });
   });
 });
 

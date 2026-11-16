@@ -16,10 +16,10 @@
  *  add its parser to the tablet bundle for plural selection that `Intl.PluralRules` already does. */
 import { en, type Messages } from './en';
 import { fr } from './fr';
-import { useLocale } from './locale';
+import { useLocale, type FormatPreferences } from './locale';
 
-export type { Messages };
-export { locale, language, numberFormat, dateTimeFormat, compareText, plural, capitalise } from './locale';
+export type { Messages, FormatPreferences };
+export { locale, language, numberFormat, dateTimeFormat, listFormat, compareText, plural, capitalise } from './locale';
 
 /** The reference language of the code, and the fallback catalog. */
 export const SOURCE_LANGUAGE = 'en';
@@ -39,15 +39,16 @@ function canonical(tag: string): string | null {
   }
 }
 
-/** Applies a language tag. Returns the catalog language actually used, which differs from the
- *  tag's base language when no catalog exists for it. */
-export function setLanguage(tag: string): string {
+/** Applies a language tag and the profile's format preferences (`locale.ts`). Returns the
+ *  catalog language actually used, which differs from the tag's base language when no catalog
+ *  exists for it. */
+export function setLanguage(tag: string, preferences: FormatPreferences = {}): string {
   const tagLocale = canonical(tag.trim());
   let shown = SOURCE_LANGUAGE;
   if (tagLocale === null) {
     console.warn(`home-desk: "${tag}" is not a language tag; showing English`);
     messages = en;
-    useLocale(SOURCE_LANGUAGE, SOURCE_LANGUAGE);
+    useLocale(SOURCE_LANGUAGE, SOURCE_LANGUAGE, preferences);
   } else {
     const base = new Intl.Locale(tagLocale).language;
     const found = CATALOGS[base];
@@ -58,7 +59,7 @@ export function setLanguage(tag: string): string {
       shown = base;
     }
     messages = found ?? en;
-    useLocale(tagLocale, shown);
+    useLocale(tagLocale, shown, preferences);
   }
   if (typeof document !== 'undefined') document.documentElement.lang = shown;
   return shown;

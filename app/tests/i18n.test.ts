@@ -4,7 +4,8 @@
 // and the screens it converts, in a language other than French.
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render } from 'lit';
-import { CATALOGS, SOURCE_LANGUAGE, setLanguage, t, locale, compareText } from '../src/i18n';
+import { CATALOGS, SOURCE_LANGUAGE, setLanguage, t, locale, compareText, numberFormat, dateTimeFormat, listFormat } from '../src/i18n';
+import { phraseDemain } from '../src/meteo';
 import { formatQuantity } from '../src/pantry/quantity';
 import { shortDate } from '../src/rendu/pantry-frame';
 import { aislesOf, parseBatches } from '../src/pantry/model';
@@ -105,6 +106,90 @@ describe('formats follow the locale, not fr-FR', () => {
       aisle_id: null, aisle_name: null, aisle_position: null,
     }]);
     expect(aislesOf(batches, 1).map((a) => a.name)).toEqual(['No aisle']);
+  });
+});
+
+describe('the profile\'s number and time formats, applied like Home Assistant\'s frontend', () => {
+  const late = new Date(2026, 7, 1, 23, 5);
+  const clock = () => dateTimeFormat({ hour: 'numeric', minute: '2-digit' }).format(late);
+
+  it('the language decides when the profile says nothing', () => {
+    setLanguage('en-US');
+    expect(clock()).toMatch(/^11:05\sPM$/u);
+    expect(numberFormat().format(1234.5)).toBe('1,234.5');
+    setLanguage('fr');
+    expect(clock()).toBe('23:05');
+  });
+
+  it('time_format 24 and 12 force the clock, whatever the language', () => {
+    setLanguage('en-US', { timeFormat: '24' });
+    expect(clock()).toBe('23:05');
+    setLanguage('fr', { timeFormat: '12' });
+    expect(clock()).toMatch(/^11:05\sPM$/u);
+  });
+
+  it('number_format picks the separators Home Assistant picks, the words stay the language\'s', () => {
+    setLanguage('en-US', { numberFormat: 'decimal_comma' });
+    expect(numberFormat().format(1234.5)).toBe('1.234,5');
+    setLanguage('en-US', { numberFormat: 'space_comma' });
+    expect(numberFormat().format(1234.5)).toBe('1\u202f234,5');
+    setLanguage('fr', { numberFormat: 'comma_decimal' });
+    expect(numberFormat().format(1234.5)).toBe('1,234.5');
+    setLanguage('fr', { numberFormat: 'quote_decimal' });
+    expect(numberFormat().format(1234.5)).toBe("1'234.5");
+    setLanguage('fr', { numberFormat: 'none' });
+    expect(numberFormat().format(1234.5)).toBe('1234.5');
+    setLanguage('en-US', { numberFormat: 'space_comma' });
+    expect(numberFormat({ style: 'unit', unit: 'minute', unitDisplay: 'long' }).format(5)).toBe('5 minutes');
+  });
+
+  it('startScreen applies the formats Home Assistant reported', async () => {
+    const { startScreen } = await import('../src/demarrage');
+    const { ecranVide, stockageAvecSession } = await import('./aides');
+    await startScreen(document.createElement('div'), 'Salon', {
+      stockage: stockageAvecSession,
+      createConnection: () => ({
+        connecter: () => Promise.resolve(), prete: () => Promise.resolve(),
+        surChangement: () => {}, surSilence: () => {},
+        appelerService: vi.fn(), listerTaches: vi.fn(async () => []), envoyerCommande: vi.fn(),
+        abonner: () => {},
+      }) as never,
+      intervalFn: vi.fn() as never, minuteurFn: vi.fn() as never,
+      maintenant: () => new Date(2026, 7, 1, 14, 0),
+      chargerEcran: async () => ({ ok: true as const, value: ecranVide }),
+      loadHouse: async () => ({ ok: true as const, value: { sources: [], appareils: [] } }),
+      loadLanguage: async () => ({ ok: true as const, value: { language: 'en-US', timeFormat: '24', numberFormat: 'decimal_comma' } }),
+    } as never);
+    expect(clock()).toBe('23:05');
+    expect(numberFormat().format(1234.5)).toBe('1.234,5');
+  });
+});
+
+describe('whole sentences, not word groups', () => {
+  it('the weather is one sentence per kind of weather, in each catalog', () => {
+    const day = { datetime: '2026-08-02T00:00:00', condition: 'cloudy', temperature: 18.4 };
+    setLanguage('en');
+    expect(phraseDemain(day)).toBe('18° and clouds');
+    expect(phraseDemain({ ...day, precipitation: 3 })).toBe('18° and rain');
+    expect(phraseDemain({ ...day, condition: 'exceptional' })).toBe('18° and overcast skies');
+    setLanguage('fr');
+    expect(phraseDemain(day)).toBe('18° et des nuages');
+  });
+
+  it('plurals through the language\'s rules: French 0 and 1 are singular, English 0 is plural', () => {
+    setLanguage('en');
+    expect(t().tasks.more(1, '1')).toBe('+1 task');
+    expect(t().cards.inkMore(0, '0')).toBe('and 0 others');
+    setLanguage('fr');
+    expect(t().cards.inkMore(0, '0')).toBe('et 0 autre');
+    expect(t().home.maintenance(2, '2')).toBe('Entretien — 2 tâches');
+  });
+
+  it('lists are joined by the language', () => {
+    setLanguage('en');
+    expect(listFormat(['a', 'b', 'c'])).toBe('a, b, and c');
+    setLanguage('fr');
+    expect(listFormat(['a', 'b', 'c'])).toBe('a, b et c');
   });
 });
 

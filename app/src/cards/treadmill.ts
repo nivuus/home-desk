@@ -68,8 +68,8 @@ function stepButtons(s: ScreenState, id: string | undefined): [CardButton?, Card
   if (id === undefined || current === null || step === null || step <= 0 || min === null || max === null) return [];
   const set = (value: number) => () => cardAct(id.split('.')[0], 'set_value', id, { value: tidy(value) });
   return [
-    current > min ? { icon: 'moins', label: S.treadmillSlower, act: set(Math.max(min, current - step)) } : undefined,
-    current < max ? { icon: 'plus', label: S.treadmillFaster, act: set(Math.min(max, current + step)) } : undefined,
+    current > min ? { icon: 'moins', label: S().treadmillSlower, act: set(Math.max(min, current - step)) } : undefined,
+    current < max ? { icon: 'plus', label: S().treadmillFaster, act: set(Math.min(max, current + step)) } : undefined,
   ];
 }
 
@@ -77,7 +77,7 @@ function stepButtons(s: ScreenState, id: string | undefined): [CardButton?, Card
  *  reads `unknown` (the printer card's rule, `etat.isPresent`). */
 function stopButton(s: ScreenState, id: string | undefined): CardButton | undefined {
   return id === undefined || !s.etat.isPresent(id) ? undefined
-    : { icon: 'stop', label: S.treadmillStop, primary: true, act: () => cardAct('button', 'press', id) };
+    : { icon: 'stop', label: S().treadmillStop, primary: true, act: () => cardAct('button', 'press', id) };
 }
 
 export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
@@ -90,8 +90,8 @@ export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
   };
   return {
     key: card.key,
-    label: S.treadmillWalking,
-    title: S.treadmill,
+    label: S().treadmillWalking,
+    title: S().treadmill,
     middle: html`<div class="carte-chiffres"><span class="carte-chiffre composee">${reading(s, t.vitesse)}</span></div>
       ${line(t.pas)}${line(t.distance)}`,
     buttons: [slower, stopButton(s, t.arret), faster],

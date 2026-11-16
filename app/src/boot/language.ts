@@ -19,34 +19,49 @@
  *  instance language. */
 import { RefusHA } from '../connexion';
 import type { Result, TransportConfig } from '../configuration';
-import { SOURCE_LANGUAGE } from '../i18n';
+import { SOURCE_LANGUAGE, type FormatPreferences } from '../i18n';
+
+/** What Home Assistant reports: the language, and the profile's number and time formats when the
+ *  user chose some (`i18n/locale.ts` applies them like Home Assistant's frontend does). */
+export type ReportedLocale = { language: string } & FormatPreferences;
 
 function text(v: unknown): string | null {
   return typeof v === 'string' && v.trim() !== '' ? v : null;
 }
 
-async function profileLanguage(cx: TransportConfig): Promise<string | null> {
+type ProfileValue = { language?: unknown; number_format?: unknown; time_format?: unknown };
+
+/** The profile's choices, or `null` when the user never saved any. The two formats are kept even
+ *  without a language: Home Assistant stores the three together, each one optional in effect. */
+async function profile(cx: TransportConfig): Promise<{ language: string | null } & FormatPreferences | null> {
   try {
     const answer = await cx.envoyerCommande({ type: 'frontend/get_user_data', key: 'language' });
-    const value = (answer as { value?: { language?: unknown } | null } | null)?.value;
-    return text(value?.language);
+    const value = (answer as { value?: ProfileValue | null } | null)?.value;
+    if (value === null || value === undefined) return null;
+    const numberFormat = text(value.number_format);
+    const timeFormat = text(value.time_format);
+    return {
+      language: text(value.language),
+      ...(numberFormat !== null ? { numberFormat } : {}),
+      ...(timeFormat !== null ? { timeFormat } : {}),
+    };
   } catch (error) {
     if (error instanceof RefusHA && error.code !== 'delai_depasse') return null;
     throw error;
   }
 }
 
-export async function loadLanguage(cx: TransportConfig): Promise<Result<string>> {
+export async function loadLanguage(cx: TransportConfig): Promise<Result<ReportedLocale>> {
   try {
-    const chosen = await profileLanguage(cx);
-    if (chosen !== null) return { ok: true, value: chosen };
+    const { language: chosen = null, ...formats } = await profile(cx) ?? {};
+    if (chosen !== null) return { ok: true, value: { language: chosen, ...formats } };
     const config = await cx.envoyerCommande({ type: 'get_config' });
     const instance = text((config as { language?: unknown } | null)?.language);
-    if (instance !== null) return { ok: true, value: instance };
+    if (instance !== null) return { ok: true, value: { language: instance, ...formats } };
     // Home Assistant always sends one ("en" by default, `core_config.py`); a build that does not
     // gets that same default, said rather than guessed.
     console.warn(`home-desk: Home Assistant reported no language; using "${SOURCE_LANGUAGE}"`);
-    return { ok: true, value: SOURCE_LANGUAGE };
+    return { ok: true, value: { language: SOURCE_LANGUAGE, ...formats } };
   } catch {
     return { ok: false, panne: 'reseau' };
   }

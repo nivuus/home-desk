@@ -6,7 +6,8 @@
  *  like `rendu/repli.ts`: its sentences are what the household reads on the wall. */
 import { html, nothing, type TemplateResult } from 'lit';
 import { icone } from './icones';
-import { passRange, singlePassReason, type VacuumState } from '../boot/vacuum';
+import { passRange, singlePassReason, type VacuumProblem, type VacuumState } from '../boot/vacuum';
+import { t } from '../i18n';
 
 export type VacuumActions = {
   toggle(entite: string, zone: string): void;
@@ -43,7 +44,7 @@ function passes(v: VacuumState): TemplateResult | typeof nothing {
   if (max > min) {
     const choix = Array.from({ length: max - min + 1 }, (_, i) => min + i);
     return html`
-      <div class="asp-titre">Passages</div>
+      <div class="asp-titre">${t().vacuum.passes}</div>
       <div class="mn-etiquettes" data-mvt="detail:asp-passages">
         ${choix.map((n) => html`
           <div class="mn-etiquette ${n === v.passes ? 'choisie' : ''}" data-passages=${n}
@@ -53,37 +54,44 @@ function passes(v: VacuumState): TemplateResult | typeof nothing {
   }
   // Held to one pass for a reason: said, never a selector that silently disappeared.
   return singlePassReason(v) !== undefined
-    ? html`<div class="asp-info">Un seul passage : le robot n’a pas donné ses limites.</div>`
+    ? html`<div class="asp-info">${t().vacuum.singlePass}</div>`
     : nothing;
 }
 
+/** A problem in the words of the wall. The integration's refusal codes have their sentence in the
+ *  catalog (`vacuum.reasons`); any other code, or none, is the connection's fault, and said so. */
+function vacuumMessage(p: VacuumProblem): string {
+  const m = t().vacuum;
+  if (p.kind === 'load') return m.loadFailed;
+  return m.launchFailed((p.code === null ? undefined : m.reasons[p.code]) ?? m.noAnswer);
+}
+
 function body(v: VacuumState, horsLigne: boolean): TemplateResult {
-  if (v.status === 'loading') return html`<div class="asp-info">Lecture des pièces…</div>`;
+  if (v.status === 'loading') return html`<div class="asp-info">${t().vacuum.readingRooms}</div>`;
   if (v.status === 'failed' && !v.robots.length) {
     return html`
-      <div class="asp-info">${v.message}</div>
-      <div class="mn-nouveau" @pointerdown=${() => act.retry()}>Réessayer</div>`;
+      ${v.message ? html`<div class="asp-info">${vacuumMessage(v.message)}</div>` : nothing}
+      <div class="mn-nouveau" @pointerdown=${() => act.retry()}>${t().pantry.retry}</div>`;
   }
   if (!v.robots.length) {
-    return html`<div class="asp-info">Aucune pièce n’est associée à un aspirateur dans Home
-      Assistant (réglages de l’aspirateur, « associer les segments aux pièces »).</div>`;
+    return html`<div class="asp-info">${t().vacuum.noRooms}</div>`;
   }
   const pret = v.chosen.length > 0 && !horsLigne && v.status !== 'sending';
   return html`
     ${rooms(v)}
     ${passes(v)}
-    ${v.message ? html`<div class="asp-info asp-erreur">${v.message}</div>` : nothing}
-    ${horsLigne ? html`<div class="asp-info asp-erreur">Hors ligne</div>` : nothing}
+    ${v.message ? html`<div class="asp-info asp-erreur">${vacuumMessage(v.message)}</div>` : nothing}
+    ${horsLigne ? html`<div class="asp-info asp-erreur">${t().offline}</div>` : nothing}
     <div class="mn-nouveau ${pret ? '' : 'inactif'}" data-action="lancer" data-mvt="detail:asp-lancer"
          @pointerdown=${() => { if (pret) act.launch(); }}>
-      ${icone('aspirateur')}${v.status === 'sending' ? 'Envoi…' : 'Lancer'}</div>`;
+      ${icone('aspirateur')}${v.status === 'sending' ? t().vacuum.sending : t().vacuum.launch}</div>`;
 }
 
 export function renderVacuumChoice(v: VacuumState, horsLigne: boolean): TemplateResult {
   return html`
     <div class="corps asp-choix" data-mvt="vue:aspirer">
-      <div class="mn-nom">Aspirer</div>
+      <div class="mn-nom">${t().vacuum.title}</div>
       ${body(v, horsLigne)}
-      <div class="xl" @pointerdown=${() => act.close()}>${icone('home')}Retour</div>
+      <div class="xl" @pointerdown=${() => act.close()}>${icone('home')}${t().back}</div>
     </div>`;
 }
