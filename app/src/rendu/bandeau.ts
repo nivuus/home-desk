@@ -12,7 +12,7 @@ import { dateTimeFormat, numberFormat, t } from '../i18n';
  *  place on a wall. */
 function valeurPastille(p: Pastille) {
   // Wherever the language puts the temperature in its sentence: first, last or in the middle.
-  const at = p.accent ? p.valeur.indexOf(p.accent) : -1;
+  const at = p.accent ? p.valeur.indexOf(p.accent) : -1;   // policy: allow-fr (`Pastille` field names)
   return p.accent && at >= 0
     ? html`${p.valeur.slice(0, at)}<span class="val">${p.accent}</span>${p.valeur.slice(at + p.accent.length)}`
     : p.valeur;

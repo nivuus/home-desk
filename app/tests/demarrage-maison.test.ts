@@ -18,7 +18,7 @@ function deps(sur: Record<string, unknown> = {}) {
     stockage: stockageAvecSession,
     createConnection: () => ({
       connecter: () => Promise.resolve(), prete: () => Promise.resolve(),
-      suivreEntites: () => {}, surChangement: () => {}, surSilence: () => {},
+      followEntities: () => {}, surChangement: () => {}, surSilence: () => {},
       appelerService: vi.fn(), listerTaches: vi.fn(async () => []), envoyerCommande: vi.fn(),
       abonner: () => {},
     }),
@@ -40,7 +40,7 @@ describe('startScreen — the shared house list', () => {
       loadHouse,
       createConnection: () => ({
         connecter: () => Promise.resolve(), prete: () => Promise.resolve(),
-        suivreEntites: () => {}, surChangement: () => {}, surSilence: () => {},
+        followEntities: () => {}, surChangement: () => {}, surSilence: () => {},
         appelerService: vi.fn(), listerTaches: vi.fn(async () => []), envoyerCommande: vi.fn(),
         abonner: (c: Record<string, unknown>, cb: (e: Record<string, unknown>) => void) => {
           if (c.type === 'home_desk/abonner') onChange = cb;

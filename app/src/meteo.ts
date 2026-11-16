@@ -21,12 +21,12 @@ const KINDS: Readonly<Record<string, Weather>> = {
 
 /** A day's weather as one sentence of the catalog: its temperature (`temperatureCourte`) and its
  *  kind of weather. Used by `phraseDemain` and by the band's next change (`agenda.ts`). */
-export function phraseMeteo(condition: string, temperature: number): string {
+export function weatherSentence(condition: string, temperature: number): string {
   return t().weather[KINDS[condition] ?? 'overcast'](temperatureCourte(temperature));
 }
 
 /** The display format of a temperature, in one place — and shared by several callers:
- *  `phraseMeteo` below, the two weather branches of `pastilleBandeau` (`agenda.ts`) and the
+ *  `weatherSentence` below, the two weather branches of `pastilleBandeau` (`agenda.ts`) and the
  *  outdoor temperature (`rendu/bandeau.ts`). That sharing, and it alone, guarantees that
  *  `Pastille.accent` is EXACTLY the text of the temperature inside `Pastille.valeur`, never by
  *  coincidence of formatting. The number goes through `Intl` in the person's number format; a
@@ -38,5 +38,5 @@ export function temperatureCourte(temperature: number): string {
 /** Tomorrow's weather: rain wins over the condition as soon as some is forecast. */
 export function phraseDemain(p: Prevision | undefined): string {
   if (!p) return '';
-  return phraseMeteo((p.precipitation ?? 0) > 0.2 ? 'rainy' : p.condition, p.temperature);
+  return weatherSentence((p.precipitation ?? 0) > 0.2 ? 'rainy' : p.condition, p.temperature);
 }

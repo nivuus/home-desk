@@ -44,9 +44,9 @@ export type ConnexionLike = {
   /** The hot reload subscribes through here, with the integration's own command (see
    *  `Connexion.abonner`). */
   abonner(commande: Record<string, unknown>, cb: (evenement: Record<string, unknown>) => void): void;
-  /** Follows these entities, and only those (`Connexion.suivreEntites`): fed by every entity id
-   *  the screen asks the state about (`Etat.surDemande`). */
-  suivreEntites(ids: Iterable<string>): void;
+  /** Follows these entities, and only those (`Connexion.followEntities`): fed by every entity id
+   *  the screen asks the state about (`Etat.onRequest`). */
+  followEntities(ids: Iterable<string>): void;
 } & ConnexionAppelable;
 
 export type DependancesDemarrage = {

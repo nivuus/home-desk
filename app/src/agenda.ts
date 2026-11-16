@@ -4,7 +4,7 @@
  *
  *  Fonctions pures : `maintenant` est toujours reçu en paramètre, jamais lu d'une horloge
  *  implicite — même discipline que `contexte.ts` et `modes.ts`. */
-import { phraseDemain, phraseMeteo, temperatureCourte, type Prevision } from './meteo';
+import { phraseDemain, weatherSentence, temperatureCourte, type Prevision } from './meteo';
 import { t, dateTimeFormat } from './i18n';
 
 export type Evenement = {
@@ -143,7 +143,7 @@ export function pastilleBandeau(
     const accent = temperatureCourte(changement.temperature);
     return {
       etiquette: changement.jour,
-      valeur: phraseMeteo(changement.condition, changement.temperature),
+      valeur: weatherSentence(changement.condition, changement.temperature),   // policy: allow-fr (`Pastille` field names)
       accent,
     };
   }

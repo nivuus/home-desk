@@ -150,7 +150,7 @@ describe('the profile\'s number and time formats, applied like Home Assistant\'s
       stockage: stockageAvecSession,
       createConnection: () => ({
         connecter: () => Promise.resolve(), prete: () => Promise.resolve(),
-        suivreEntites: () => {}, surChangement: () => {}, surSilence: () => {},
+        followEntities: () => {}, surChangement: () => {}, surSilence: () => {},
         appelerService: vi.fn(), listerTaches: vi.fn(async () => []), envoyerCommande: vi.fn(),
         abonner: () => {},
       }) as never,

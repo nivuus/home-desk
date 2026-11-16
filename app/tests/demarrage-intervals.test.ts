@@ -32,7 +32,7 @@ describe('startWithScreen — intervals across a retry', () => {
         // The first paint after a successful connect throws, once.
         connecter: async () => { painter.throwOnce = retries.length === 0; },
         prete: async () => {},
-        suivreEntites: () => {}, surChangement: () => {}, surSilence: () => {}, appelerService: () => {},
+        followEntities: () => {}, surChangement: () => {}, surSilence: () => {}, appelerService: () => {},
         listerTaches: async () => [],
         envoyerCommande: async () => { throw new Error('no answer in this test'); },
         abonner: () => {},

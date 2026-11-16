@@ -33,7 +33,7 @@ beforeEach(() => { SocketFactice.ouvertes = []; });
 describe('what goes over the wire', () => {
   it('never the whole house: no state_changed subscription, no get_states', async () => {
     const cx = connexion();
-    cx.suivreEntites(['light.a']);
+    cx.followEntities(['light.a']);
     const ws = await ouverte(cx);
     expect(ws.envoyes.filter((m) => m.type === 'subscribe_events' || m.type === 'get_states')).toEqual([]);
     expect(souscriptions(ws)).toEqual([{ id: expect.any(Number), type: 'subscribe_entities', entity_ids: ['light.a'] }]);
@@ -43,16 +43,16 @@ describe('what goes over the wire', () => {
     const cx = connexion();
     const ws = await ouverte(cx);
     expect(souscriptions(ws)).toEqual([]);   // nothing asked yet: nothing subscribed
-    cx.suivreEntites(['light.a', 'sensor.b']);
-    cx.suivreEntites(['light.a', 'cover.c']);
+    cx.followEntities(['light.a', 'sensor.b']);
+    cx.followEntities(['light.a', 'cover.c']);
     expect(souscriptions(ws).map((m) => m.entity_ids)).toEqual([['light.a', 'sensor.b'], ['cover.c']]);
   });
 
   it('a reconnection subscribes to every followed entity at once, under a new id', async () => {
     const cx = connexion();
     const premiere = await ouverte(cx);
-    cx.suivreEntites(['light.a']);
-    cx.suivreEntites(['sensor.b']);
+    cx.followEntities(['light.a']);
+    cx.followEntities(['sensor.b']);
     premiere.couper();
     const seconde = await ouverte(cx);
     expect(seconde).not.toBe(premiere);
@@ -62,7 +62,7 @@ describe('what goes over the wire', () => {
   it('an id Home Assistant would refuse is not sent: one would refuse the whole command', async () => {
     const cx = connexion();
     const ws = await ouverte(cx);
-    cx.suivreEntites(['light.a', '', 'Light.B', 'light.', 'light.__x', 'sensor.c_1']);
+    cx.followEntities(['light.a', '', 'Light.B', 'light.', 'light.__x', 'sensor.c_1']);
     expect(souscriptions(ws).map((m) => m.entity_ids)).toEqual([['light.a', 'sensor.c_1']]);
   });
 });
@@ -72,7 +72,7 @@ describe('what comes back, applied as Home Assistant\'s own client applies it', 
     const cx = connexion();
     const vus: EvenementEtat[] = [];
     cx.surChangement((e) => vus.push(e));
-    cx.suivreEntites(ids);
+    cx.followEntities(ids);
     const ws = await ouverte(cx);
     const id = souscriptions(ws)[0]!.id;
     return { cx, ws, vus, recevoir: (event: unknown) => ws.recevoir({ type: 'event', id, event }) };
@@ -116,7 +116,7 @@ describe('the silence watch measures the link, not how busy the house is', () =>
     try {
       const intervalFn = vi.fn();
       const cx = connexion(intervalFn);
-      cx.suivreEntites(['light.a']);
+      cx.followEntities(['light.a']);
       const ws = await ouverte(cx);
       const tick = intervalFn.mock.calls[0]![0] as () => void;
       const pings = () => ws.envoyes.filter((m) => m.type === 'ping').length;
@@ -144,11 +144,11 @@ describe('the screen asks for what it reads', () => {
   it('every entity read, once, at most one call per task', async () => {
     const etat = new Etat();
     const demandes: string[][] = [];
-    etat.surDemande((ids) => demandes.push(ids));
+    etat.onRequest((ids) => demandes.push(ids));
     etat.lire('light.a');
     etat.estUtilisable('sensor.b');
     etat.isPresent('light.a');
-    etat.suivre('todo.c');
+    etat.follow('todo.c');
     await Promise.resolve();
     etat.lire('light.a');
     await Promise.resolve();

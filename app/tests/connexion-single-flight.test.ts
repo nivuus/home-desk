@@ -100,7 +100,7 @@ describe('startScreen — the start-up retry opens no connection of its own', ()
     const connecter = vi.fn().mockRejectedValueOnce(new Error('refresh refused')).mockResolvedValue(undefined);
     const cx: ConnexionLike = {
       connecter, prete: () => ready,
-      suivreEntites: () => {}, surChangement: () => {}, surSilence: () => {}, appelerService: () => {},
+      followEntities: () => {}, surChangement: () => {}, surSilence: () => {}, appelerService: () => {},
       listerTaches: async () => [], envoyerCommande: async () => { throw new Error('closed'); },
       abonner: () => {},
     };

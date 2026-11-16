@@ -114,7 +114,7 @@ export function frame(card: Card, _f: Frame, s: ScreenState): CardFrame {
     buttons: [
       press(v.boutonLimite, { icon: 'batterie', label: S().carLimit }),
       on ? press(v.arreterCharge, { icon: 'stop', label: S().carStop, primary: true })
-        : press(v.demarrerCharge, { icon: 'lecture', label: S().carStart, primary: true }),
+        : press(v.demarrerCharge, { icon: 'lecture', label: S().carStart, primary: true }),   // policy: allow-fr (contract role and icon names)
       v.clim === undefined ? undefined : {
         icon: 'clim', label: climOn ? S().carClimStop : S().carClimStart,
         act: () => actionsVoiture().clim(!climOn),

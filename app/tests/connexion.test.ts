@@ -207,7 +207,7 @@ describe('Connexion — abonnement par une commande de l intégration', () => {
 
     const envoyee = ws.envoyes.find((m) => m.type === 'home_desk/abonner');
     expect(envoyee).toMatchObject({ type: 'home_desk/abonner', nom: 'cuisine' });
-    // No bus subscription at all: states come through `subscribe_entities` (`suivreEntites`).
+    // No bus subscription at all: states come through `subscribe_entities` (`followEntities`).
     expect(ws.envoyes.filter((m) => m.type === 'subscribe_events')).toEqual([]);
 
     ws.recevoir({ type: 'event', id: envoyee.id, event: { nom: 'cuisine' } });
@@ -286,7 +286,7 @@ describe('Connexion — abonnement par une commande de l intégration', () => {
     const vus: unknown[] = [];
     cx.surChangement((e) => etats.push(e));
     cx.abonner({ type: 'home_desk/abonner', nom: 'cuisine' }, (e) => vus.push(e));
-    cx.suivreEntites(['light.x']);
+    cx.followEntities(['light.x']);
     await cx.connecter();
     const ws = WsCapture.derniere!;
     ws.recevoir({ type: 'auth_ok' });
@@ -428,7 +428,7 @@ describe('Connexion — un abonné aux états posé APRÈS la connexion', () => 
   // sans filet.
   it('receives the current state anyway, from what the connection already received', async () => {
     const cx = connexionDeTest();
-    cx.suivreEntites(['light.hotte']);
+    cx.followEntities(['light.hotte']);
     await cx.connecter();
     const ws = WsCapture.derniere!;
     ws.recevoir({ type: 'auth_ok' });
@@ -448,7 +448,7 @@ describe('Connexion — un abonné aux états posé APRÈS la connexion', () => 
   it('asks for nothing more when the subscriber is set BEFORE the connection', async () => {
     const cx = connexionDeTest();
     cx.surChangement(() => {});
-    cx.suivreEntites(['light.hotte']);
+    cx.followEntities(['light.hotte']);
     await cx.connecter();
     const ws = WsCapture.derniere!;
     ws.recevoir({ type: 'auth_ok' });

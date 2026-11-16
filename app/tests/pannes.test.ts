@@ -83,7 +83,7 @@ function connexionAvecSilence() {
   const cx: ConnexionLike = {
     connecter: () => Promise.resolve(),
     prete: () => Promise.resolve(),
-    suivreEntites: () => {}, surChangement: (cb) => { cbEtat = cb; },
+    followEntities: () => {}, surChangement: (cb) => { cbEtat = cb; },
     appelerService: vi.fn(),
     surSilence: (cb) => { cbSilence = cb; },
     listerTaches: async () => [],
@@ -267,7 +267,7 @@ describe('vue Taches hors ligne (tache 18, meme regle que Toute la maison)', () 
     const cx: ConnexionLike = {
       connecter: () => Promise.resolve(),
       prete: () => Promise.resolve(),
-      suivreEntites: () => {}, surChangement: () => {},
+      followEntities: () => {}, surChangement: () => {},
       appelerService,
       surSilence: (cb) => { cbSilence = cb; },
       listerTaches: async () => [{ uid: 'u1', texte: 'Changer une pile' }],

@@ -23,16 +23,16 @@ const ENTITY_ID = /^(?!.+__)(?!_)[\da-z_]+(?<!_)\.(?!_)[\da-z_]+(?<!_)$/;
 
 /** Without any message for this long, the socket is asked for a `pong`: the silence watch must
  *  measure the link, not how busy the house is, now that only the screen's entities arrive. */
-const SONDE_MS = 10_000;
+const PROBE_MS = 10_000;
 
 /** A state as `subscribe_entities` compresses it (`as_compressed_state`, Home Assistant core):
  *  `s` state, `a` attributes, `lc` last changed (epoch seconds). */
-type EtatCompresse = { s: string; a?: Record<string, unknown>; lc?: number };
+type CompressedState = { s: string; a?: Record<string, unknown>; lc?: number };
 /** A change: what is added or replaced (`+`), and the attribute keys removed (`-`). */
-type DiffCompresse = { '+'?: { s?: string; a?: Record<string, unknown>; lc?: number }; '-'?: { a?: string[] } };
-type MajEntites = { a?: Record<string, EtatCompresse>; c?: Record<string, DiffCompresse>; r?: string[] };
+type CompressedDiff = { '+'?: { s?: string; a?: Record<string, unknown>; lc?: number }; '-'?: { a?: string[] } };
+type EntitiesUpdate = { a?: Record<string, CompressedState>; c?: Record<string, CompressedDiff>; r?: string[] };
 
-const isoDe = (secondes: number): string => new Date(secondes * 1000).toISOString();
+const isoFrom = (secondes: number): string => new Date(secondes * 1000).toISOString();
 
 /** A refusal from Home Assistant, with ITS CODE.
  *
@@ -138,19 +138,19 @@ export class Connexion {
    *  anything but `auth` before that, so a subscription registered in the meantime waits for
    *  `auth_ok`, which sends it. */
   private authentifiee = false;
-  /** The entities this page follows (`suivreEntites`): the ids the screen has asked about. Only
+  /** The entities this page follows (`followEntities`): the ids the screen has asked about. Only
    *  these are subscribed to (`subscribe_entities` with `entity_ids`), never the whole house: a
    *  wall tablet with ~130 MB free used to receive, parse and keep every `state_changed` of the
    *  installation (~1 700 entities), and a full `get_states` after every Wi-Fi drop. */
-  private entitesSuivies = new Set<string>();
+  private followed = new Set<string>();
   /** The `id`s of the `subscribe_entities` requests sent on the CURRENT socket. */
-  private souscriptionsEntites = new Set<number>();
+  private entitySubscriptions = new Set<number>();
   /** The last state of each followed entity, kept to apply the changes Home Assistant sends as
    *  differences, and to hand a late subscriber what it missed (`surChangement`). */
-  private etatsSuivis = new Map<string, EvenementEtat>();
+  private followedStates = new Map<string, EvenementEtat>();
   /** The subscription sent at `auth_ok` with every followed entity: its first message is the
    *  complete picture, and an entity the cache holds that it does not name left meanwhile. */
-  private souscriptionComplete: number | null = null;
+  private fullSubscription: number | null = null;
   /** Resolved on the first `auth_ok`, NEVER put back to pending on reconnection.
    *
    *  `prete()` answers "can a command be sent?" for the FIRST command, the startup one — the only
@@ -213,17 +213,17 @@ export class Connexion {
    *  states already received, from the cache, without asking Home Assistant again. */
   surChangement(cb: (e: EvenementEtat) => void) {
     this.rappelsEtat.push(cb);
-    for (const e of this.etatsSuivis.values()) cb(e);
+    for (const e of this.followedStates.values()) cb(e);
   }
 
   /** Follows these entities from now on: Home Assistant sends their current state, then every
    *  change of theirs, and nothing of any other entity. Callable before `connecter()`; the ids
    *  already followed are not sent again, and a reconnection subscribes to all of them at once. */
-  suivreEntites(ids: Iterable<string>) {
-    const nouvelles = [...ids].filter((id) => ENTITY_ID.test(id) && !this.entitesSuivies.has(id));
-    if (nouvelles.length === 0) return;
-    for (const id of nouvelles) this.entitesSuivies.add(id);
-    if (this.authentifiee) this.souscrireEntites(nouvelles);
+  followEntities(ids: Iterable<string>) {
+    const added = [...ids].filter((id) => ENTITY_ID.test(id) && !this.followed.has(id));
+    if (added.length === 0) return;
+    for (const id of added) this.followed.add(id);
+    if (this.authentifiee) this.subscribeEntities(added);
   }
   surSilence(cb: (ms: number) => void) { this.rappelsSilence.push(cb); }
 
@@ -248,9 +248,9 @@ export class Connexion {
     if (this.authentifiee) this.envoyerAbonnement(abonnement);
   }
 
-  private souscrireEntites(ids: string[]): number {
+  private subscribeEntities(ids: string[]): number {
     const id = this.id++;
-    this.souscriptionsEntites.add(id);
+    this.entitySubscriptions.add(id);
     this.ws?.send(JSON.stringify({ id, type: 'subscribe_entities', entity_ids: ids }));
     return id;
   }
@@ -258,41 +258,41 @@ export class Connexion {
   /** Applies one message of a `subscribe_entities` subscription, as Home Assistant's own client
    *  does (`home-assistant-js-websocket`, `lib/states.ts`): `a` full states, `c` differences
    *  against the last state, `r` entities gone. Each resulting state goes to the subscribers. */
-  private recevoirEntites(id: number, maj: MajEntites) {
-    if (id === this.souscriptionComplete) {
-      this.souscriptionComplete = null;
-      for (const entite of [...this.etatsSuivis.keys()]) {
-        if (maj.a?.[entite] === undefined) this.oublier(entite);
+  private receiveEntities(id: number, update: EntitiesUpdate) {
+    if (id === this.fullSubscription) {
+      this.fullSubscription = null;
+      for (const entityId of [...this.followedStates.keys()]) {
+        if (update.a?.[entityId] === undefined) this.forget(entityId);
       }
     }
-    for (const [entite, n] of Object.entries(maj.a ?? {})) {
-      this.retenir({
-        entity_id: entite, state: n.s, attributes: n.a ?? {},
-        ...(typeof n.lc === 'number' ? { last_changed: isoDe(n.lc) } : {}),
+    for (const [entityId, full] of Object.entries(update.a ?? {})) {
+      this.keep({
+        entity_id: entityId, state: full.s, attributes: full.a ?? {},
+        ...(typeof full.lc === 'number' ? { last_changed: isoFrom(full.lc) } : {}),
       });
     }
-    for (const [entite, diff] of Object.entries(maj.c ?? {})) {
-      const avant = this.etatsSuivis.get(entite);
-      if (avant === undefined) continue;   // a change of a state never received: nothing to apply it to
-      const ajout = diff['+'] ?? {};
-      const attributes = ajout.a || diff['-']?.a ? { ...avant.attributes, ...ajout.a } : avant.attributes;
-      for (const cle of diff['-']?.a ?? []) delete attributes[cle];
-      this.retenir({
-        ...avant, state: ajout.s ?? avant.state, attributes,
-        ...(typeof ajout.lc === 'number' ? { last_changed: isoDe(ajout.lc) } : {}),
+    for (const [entityId, diff] of Object.entries(update.c ?? {})) {
+      const previous = this.followedStates.get(entityId);
+      if (previous === undefined) continue;   // a change of a state never received: nothing to apply it to
+      const added = diff['+'] ?? {};
+      const attributes = added.a || diff['-']?.a ? { ...previous.attributes, ...added.a } : previous.attributes;
+      for (const key of diff['-']?.a ?? []) delete attributes[key];
+      this.keep({
+        ...previous, state: added.s ?? previous.state, attributes,
+        ...(typeof added.lc === 'number' ? { last_changed: isoFrom(added.lc) } : {}),
       });
     }
-    for (const entite of maj.r ?? []) this.oublier(entite);
+    for (const entityId of update.r ?? []) this.forget(entityId);
   }
 
-  private retenir(e: EvenementEtat) {
-    this.etatsSuivis.set(e.entity_id, e);
+  private keep(e: EvenementEtat) {
+    this.followedStates.set(e.entity_id, e);
     this.emettre(e);
   }
 
-  private oublier(entite: string) {
-    if (!this.etatsSuivis.delete(entite)) return;
-    this.emettre({ entity_id: entite, state: '', attributes: {}, removed: true });
+  private forget(entityId: string) {
+    if (!this.followedStates.delete(entityId)) return;
+    this.emettre({ entity_id: entityId, state: '', attributes: {}, removed: true });
   }
 
   private envoyerAbonnement(abonnement: { commande: Record<string, unknown>; cb: RappelAbonnement }) {
@@ -315,7 +315,7 @@ export class Connexion {
     this.deps.intervalFn(() => {
       const ms = Date.now() - this.lastMessageAt;
       // A quiet house sends nothing for minutes: a `ping` keeps the measure about the link.
-      if (ms >= SONDE_MS && this.authentifiee) this.ws?.send(JSON.stringify({ id: this.id++, type: 'ping' }));
+      if (ms >= PROBE_MS && this.authentifiee) this.ws?.send(JSON.stringify({ id: this.id++, type: 'ping' }));
       for (const cb of this.rappelsSilence) cb(ms);
     }, 5000);
   }
@@ -359,8 +359,8 @@ export class Connexion {
     const ws = new this.deps.WebSocketImpl(url);
     this.ws = ws;
     // New socket: the subscription ids of the previous one mean nothing on it.
-    this.souscriptionsEntites.clear();
-    this.souscriptionComplete = null;
+    this.entitySubscriptions.clear();
+    this.fullSubscription = null;
     this.authentifiee = false;
 
     // Every handler acts on ITS socket only: a socket that is no longer the current one (dropped
@@ -374,14 +374,14 @@ export class Connexion {
       } else if (m.type === 'auth_ok') {
         this.attempt = 0;
         this.authentifiee = true;
-        if (this.entitesSuivies.size > 0) this.souscriptionComplete = this.souscrireEntites([...this.entitesSuivies]);
+        if (this.followed.size > 0) this.fullSubscription = this.subscribeEntities([...this.followed]);
         this.abonnementsParId.clear();
         for (const abonnement of this.abonnements) this.envoyerAbonnement(abonnement);
         this.resoudrePrete?.();
         this.resoudrePrete = null;
-      } else if (m.type === 'event' && this.souscriptionsEntites.has(m.id)) {
-        this.recevoirEntites(m.id, m.event ?? {});
-      } else if (m.type === 'result' && this.souscriptionsEntites.has(m.id) && !m.success) {
+      } else if (m.type === 'event' && this.entitySubscriptions.has(m.id)) {
+        this.receiveEntities(m.id, m.event ?? {});
+      } else if (m.type === 'result' && this.entitySubscriptions.has(m.id) && !m.success) {
         console.error('entity subscription refused', m.error?.code, m.error?.message);
       } else if (m.type === 'event' && this.abonnementsParId.has(m.id)) {
         // Checked BEFORE the `new_state` branch: a subscription's `event` is recognised by its

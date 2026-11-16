@@ -35,7 +35,7 @@ describe('last_changed is carried from Home Assistant', () => {
     );
     const seen: EvenementEtat[] = [];
     cx.surChangement((e) => seen.push(e));
-    cx.suivreEntites([WINDOW, 'light.x']);
+    cx.followEntities([WINDOW, 'light.x']);
     await cx.connecter();
     const ws = RecordingSocket.last!;
     ws.receive({ type: 'auth_ok' });

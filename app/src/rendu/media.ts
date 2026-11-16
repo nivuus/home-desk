@@ -70,7 +70,7 @@ export function writeProgress(card: HTMLElement, a: Ancre, horlogeMs: number, mo
 type Transport = 'precedent' | 'pause' | 'lecture' | 'suivant';
 /** Read at render time, in the language of that render. */
 const transportLabel = (name: Transport): string =>
-  ({ precedent: S().previous, pause: S().pause, lecture: S().play, suivant: S().next })[name];
+  ({ precedent: S().previous, pause: S().pause, lecture: S().play, suivant: S().next })[name];   // policy: allow-fr (icon names)
 
 function transportButton(
   name: Transport, entity: string, service: string, primary: boolean,

@@ -20,35 +20,35 @@ export class Etat {
   surMaj(cb: () => void) { this.rappels.push(cb); }
 
   /** Every entity id any code has ever asked this object about, paints or not. The connection
-   *  subscribes to these and to nothing else (`Connexion.suivreEntites`, wired in
+   *  subscribes to these and to nothing else (`Connexion.followEntities`, wired in
    *  `boot/wiring.ts`): the set is derived from what the screen actually reads, never from a
    *  second list kept by hand. It only grows: a branch that stops reading an entity may read it
    *  again, and following a few more entities costs less than a new subscription each time.
    *
    *  A branch that reads an entity only once another one has a value (the car's air conditioning
    *  once the car is known) asks for it at that moment; the subscription catches up within the
-   *  same task (`demandeesNouvelles`) and the state arrives with its own repaint. */
-  private demandees = new Set<string>();
-  private demandeesNouvelles: string[] = [];
-  private rappelsDemande: ((ids: string[]) => void)[] = [];
+   *  same task (`newlyRequested`) and the state arrives with its own repaint. */
+  private requested = new Set<string>();
+  private newlyRequested: string[] = [];
+  private requestCallbacks: ((ids: string[]) => void)[] = [];
 
   /** Called with the ids asked for for the first time, at most once per task. */
-  surDemande(cb: (ids: string[]) => void) {
-    this.rappelsDemande.push(cb);
-    if (this.demandees.size > 0) cb([...this.demandees]);
+  onRequest(cb: (ids: string[]) => void) {
+    this.requestCallbacks.push(cb);
+    if (this.requested.size > 0) cb([...this.requested]);
   }
 
   /** Asks for entities no paint may read but a reaction to their changes needs (`boot/wiring.ts`
    *  reloads the maintenance tasks and resumes a recipe on a pushed state). */
-  suivre(...ids: string[]) { for (const id of ids) this.noterLecture(id); }
+  follow(...ids: string[]) { for (const id of ids) this.noterLecture(id); }
 
   /** The entity ids asked for so far. */
-  entitesDemandees(): string[] { return [...this.demandees]; }
+  requestedEntities(): string[] { return [...this.requested]; }
 
   /** The entity ids the last COMPLETE paint read, or `null` when unknown (no paint yet, or the
    *  last one threw): then every change notifies.
    *
-   *  The connection follows every entity the screen ever asked about (`demandees`), and each
+   *  The connection follows every entity the screen ever asked about (`requested`), and each
    *  applied state used to schedule a full repaint. Which entities a screen shows is decided by its
    *  renderers — the screen configuration, the house, the card detectors, the named constants —
    *  and every one of them reads through this object. Recording those reads derives the set from
@@ -74,13 +74,13 @@ export class Etat {
 
   private noterLecture(id: string) {
     this.lectureEnCours?.add(id);
-    if (this.demandees.has(id)) return;
-    this.demandees.add(id);
-    if (this.demandeesNouvelles.push(id) > 1) return;
+    if (this.requested.has(id)) return;
+    this.requested.add(id);
+    if (this.newlyRequested.push(id) > 1) return;
     queueMicrotask(() => {
-      const ids = this.demandeesNouvelles;
-      this.demandeesNouvelles = [];
-      for (const cb of this.rappelsDemande) cb(ids);
+      const ids = this.newlyRequested;
+      this.newlyRequested = [];
+      for (const cb of this.requestCallbacks) cb(ids);
     });
   }
 
