@@ -58,6 +58,8 @@ export function connexionFactice(...sequence: ('succes' | 'echec')[]): Connexion
     // Aucun des tests qui utilisent ce double n'édite l'écran depuis Home Assistant pendant le
     // test, donc pas besoin de faire autre chose que satisfaire le type.
     abonner: () => {},
+    // The REST loaders (`boot/loaders.ts`) ask the connection for a valid token on every call.
+    jetonValide: async () => jetons.access_token,
   };
 }
 
@@ -239,6 +241,8 @@ export async function monterDemarrage(piece: Ecran, options: OptionsMontage = {}
       // Records every subscription, so that a test can push an event of a given command type
       // (`diffuser`) exactly as the real `Connexion` routes it by subscription id.
       abonner: (commande, cb) => { abonnements.push({ commande, cb }); },
+      // The token the REST loaders authenticate with; the offline `fetch` double ignores it.
+      jetonValide: async () => jetons.access_token,
     })),
     // L'écran est fourni directement : ces tests montent un écran CONNU, ils n'ont rien à
     // apprendre du transport. Mais ils traversent quand même la coquille — écran d'attente,

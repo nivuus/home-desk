@@ -87,6 +87,7 @@ function connexionAvecSilence() {
     appelerService: vi.fn(),
     surSilence: (cb) => { cbSilence = cb; },
     listerTaches: async () => [],
+    jetonValide: async () => 'a',
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
     abonner: () => {},
   };
@@ -271,6 +272,7 @@ describe('vue Taches hors ligne (tache 18, meme regle que Toute la maison)', () 
       appelerService,
       surSilence: (cb) => { cbSilence = cb; },
       listerTaches: async () => [{ uid: 'u1', texte: 'Changer une pile' }],
+      jetonValide: async () => 'a',
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
       abonner: () => {},
     };

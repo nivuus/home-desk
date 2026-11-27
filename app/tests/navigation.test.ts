@@ -74,6 +74,7 @@ function connexionFactice(): ConnexionLike {
     // fichier ne teste le grisage, donc pas besoin de faire autre chose que satisfaire le type.
     surSilence: (_cb: (ms: number) => void) => {},
     listerTaches: async () => [],
+    jetonValide: async () => 'a',
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
     abonner: () => {},
   };
@@ -514,6 +515,7 @@ describe('navigation (nuit / toute la maison)', () => {
           appelerService: vi.fn(),
           surSilence: (_cb: (ms: number) => void) => {},
           listerTaches: async () => [],
+          jetonValide: async () => 'a',
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
       abonner: () => {},
         }),
