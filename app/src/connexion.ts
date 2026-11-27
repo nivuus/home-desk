@@ -95,6 +95,9 @@ export type DependancesConnexion = {
   stockage: Storage;
   origineWs: string;
   WebSocketImpl: new (url: string) => WebSocket;
+  /** The page whose visibility tells that the screen came back on (see `armerReprise`).
+   *  Absent outside a browser — no page, nothing that can be hidden. */
+  page: Pick<Document, 'visibilityState' | 'addEventListener'> | undefined;
 };
 
 export class Connexion {
@@ -146,6 +149,8 @@ export class Connexion {
    *  guard, each reconnection stacked one more `setInterval` — fatal on a tablet with 130 MB
    *  free that regularly drops off the Wi-Fi. */
   private silenceArme = false;
+  /** Same once-only guard as `silenceArme`, for the page visibility listener. */
+  private repriseArmee = false;
   private readonly deps: DependancesConnexion;
 
   constructor(jetons: Jetons, deps: Partial<DependancesConnexion> = {}) {
@@ -160,6 +165,7 @@ export class Connexion {
       stockage: deps.stockage ?? localStorage,
       origineWs: deps.origineWs ?? location.origin.replace(/^http/, 'ws'),
       WebSocketImpl: deps.WebSocketImpl ?? WebSocket,
+      page: deps.page ?? globalThis.document,
     };
   }
 
@@ -236,8 +242,47 @@ export class Connexion {
     }, 5000);
   }
 
+  /** Screen back on: the socket from before cannot be trusted, so take a fresh one now.
+   *
+   *  When a wall tablet turns its screen off, Fully hides the WebView and the page's JavaScript
+   *  is throttled, then frozen. Measured on the living-room tablet on 2026-11-27: frozen for an
+   *  hour, Home Assistant had dropped the socket for lack of pong (`heartbeat=55` in
+   *  `websocket_api/http.py`), and on wake the page first replayed 232 stale messages the browser
+   *  had buffered (5.5 s, one redraw each, all of it hours old) before the close came through,
+   *  then waited for its reconnection: the screen stayed stale for well over ten seconds.
+   *  `visibilitychange` fired 30 ms after the screen came back on, before any of that.
+   *
+   *  Same answer as Home Assistant's own frontend (`reconnect(force)` of
+   *  home-assistant-js-websocket on a page that becomes visible again): abandon the old socket
+   *  without reading what it buffered, connect at once (no backoff: nothing failed), and let
+   *  `get_states` on `auth_ok` deliver the whole current state. Unconditional on purpose: a
+   *  socket that survived a short screen-off costs one snapshot, and no threshold has to guess
+   *  how long Fully takes to freeze a hidden page. */
+  private reprendre() {
+    const ancienne = this.ws;
+    if (!ancienne) return;   // never connected: start-up owns the first socket
+    this.ws = null;          // abandoned: its handlers check they are still current
+    ancienne.close();
+    this.attempt = 0;
+    // Same principle as `armerSurveillanceSilence`: silence counts from when we listen again.
+    // Left alone, the first tick after an hour-long freeze would grey the screen out for the
+    // second the fresh socket takes to answer.
+    this.lastMessageAt = Date.now();
+    void this.connecter().catch(() => this.reconnecter());
+  }
+
+  private armerReprise() {
+    if (this.repriseArmee) return;
+    this.repriseArmee = true;
+    const page = this.deps.page;
+    page?.addEventListener('visibilitychange', () => {
+      if (page.visibilityState === 'visible') this.reprendre();
+    });
+  }
+
   async connecter(): Promise<void> {
     this.armerSurveillanceSilence();
+    this.armerReprise();
 
     // Idempotent on purpose: `startScreen()` connects to resolve the configuration, then passes
     // THE SAME instance to the body, which calls `connecter()` again. Without this guard, the
@@ -248,7 +293,11 @@ export class Connexion {
     // The guard does NOT hinder real reconnection: when `ws.onclose` calls `connecter()` again,
     // `readyState` is CLOSED (3), never OPEN. And a test double without `readyState`
     // (`undefined !== 1`) passes the guard as before.
-    if (this.ws && this.ws.readyState === 1) return;
+    //
+    // CONNECTING (0) counts as already connecting since `reprendre` became a second entry point:
+    // a backoff timer armed before the screen went off can fire while the fresh socket is still
+    // opening, and must not open a third one beside it.
+    if (this.ws && (this.ws.readyState === 0 || this.ws.readyState === 1)) return;
 
     if (doitRafraichir(this.jetons, Date.now())) {
       this.jetons = await rafraichir(this.jetons, this.deps.fetchFn, Date.now());
@@ -264,6 +313,7 @@ export class Connexion {
     this.authentifiee = false;
 
     ws.onmessage = (ev) => {
+      if (this.ws !== ws) return;   // abandoned by `reprendre`: what it buffered is stale
       this.lastMessageAt = Date.now();
       const m = JSON.parse(ev.data);
       if (m.type === 'auth_required') {
@@ -302,7 +352,7 @@ export class Connexion {
           this.emettre({ entity_id: n.entity_id, state: n.state, attributes: n.attributes });
       }
     };
-    ws.onclose = () => this.reconnecter();
+    ws.onclose = () => { if (this.ws === ws) this.reconnecter(); };
   }
 
   /** Task 9: single entry point of the internal reconnection, called both by `ws.onclose`
