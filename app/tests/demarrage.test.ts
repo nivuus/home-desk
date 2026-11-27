@@ -118,6 +118,7 @@ describe('startScreen', () => {
         appelerService: vi.fn(),
         surSilence: (_cb: (ms: number) => void) => {},
         listerTaches: async () => [],
+        jetonValide: async () => 'a',
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
       abonner: () => {},
       }),
@@ -294,6 +295,7 @@ describe('startScreen', () => {
         appelerService,
         surSilence: (_cb: (ms: number) => void) => {},
         listerTaches: async () => [],
+        jetonValide: async () => 'a',
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
       abonner: () => {},
       }),
@@ -349,6 +351,7 @@ describe('startScreen', () => {
           appelerService: vi.fn(),
           surSilence: (_cb: (ms: number) => void) => {},
           listerTaches: async () => [],
+          jetonValide: async () => 'a',
       envoyerCommande: async () => { throw new Error('websocket indisponible'); },
       abonner: () => {},
         }),
@@ -407,6 +410,7 @@ describe('startScreen', () => {
         appelerService,
         surSilence: (_cb: (ms: number) => void) => {},
         listerTaches: async () => [{ uid: 'u1', texte: 'Changer une pile' }],
+        jetonValide: async () => 'a',
         envoyerCommande: async () => { throw new Error('websocket indisponible'); },
         abonner: () => {},
       }),
@@ -1561,6 +1565,7 @@ describe('startScreen — la coquille résout l écran avant de déléguer', () 
         prete: () => Promise.resolve(),
         surChangement: () => {}, surSilence: () => {},
         appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
+        jetonValide: async () => 'a',
         abonner: () => {},
       }),
       intervalFn: vi.fn() as any,
@@ -1690,6 +1695,7 @@ describe('startScreen — la coquille résout l écran avant de déléguer', () 
       connecter: () => Promise.resolve(), prete: () => Promise.resolve(),
       surChangement: () => {}, surSilence: () => {},
       appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
+      jetonValide: async () => 'a',
       abonner: () => {},
     }));
     await startScreen(document.createElement('div'), 'Salon', deps({
@@ -1716,6 +1722,7 @@ describe('startScreen — la coquille résout l écran avant de déléguer', () 
         prete: () => pretePromesse,
         surChangement: () => {}, surSilence: () => {},
         appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
+        jetonValide: async () => 'a',
         abonner: () => {},
       }),
       chargerEcran,
@@ -1751,6 +1758,7 @@ describe('startScreen — la coquille résout l écran avant de déléguer', () 
         prete: () => Promise.resolve(),
         surChangement: () => {}, surSilence: () => {},
         appelerService: vi.fn(), listerTaches: vi.fn(), envoyerCommande: vi.fn(),
+        jetonValide: async () => 'a',
         abonner: (commande: Record<string, unknown>, cb: (donnees: Record<string, unknown>) => void) => {
           if (commande.type === 'home_desk/abonner' && commande.nom === 'Salon') evenementCb = cb;
         },

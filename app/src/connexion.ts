@@ -151,6 +151,10 @@ export class Connexion {
   private silenceArme = false;
   /** Same once-only guard as `silenceArme`, for the page visibility listener. */
   private repriseArmee = false;
+  /** The refresh in flight, shared by every caller of `jetonValide` until it settles. Home
+   *  Assistant accepts concurrent uses of one refresh token, but two refreshes racing would each
+   *  write a different access token back to storage, the last one winning by chance. */
+  private rafraichissement: Promise<Jetons> | null = null;
   private readonly deps: DependancesConnexion;
 
   constructor(jetons: Jetons, deps: Partial<DependancesConnexion> = {}) {
@@ -299,10 +303,7 @@ export class Connexion {
     // opening, and must not open a third one beside it.
     if (this.ws && (this.ws.readyState === 0 || this.ws.readyState === 1)) return;
 
-    if (doitRafraichir(this.jetons, Date.now())) {
-      this.jetons = await rafraichir(this.jetons, this.deps.fetchFn, Date.now());
-      this.deps.stockage.setItem('hassTokens', JSON.stringify(this.jetons));
-    }
+    await this.jetonValide();
     const url = this.deps.origineWs + '/api/websocket';
     const ws = new this.deps.WebSocketImpl(url);
     this.ws = ws;
@@ -353,6 +354,31 @@ export class Connexion {
       }
     };
     ws.onclose = () => { if (this.ws === ws) this.reconnecter(); };
+  }
+
+  /** An access token Home Assistant will accept now, refreshed first when it is about to expire
+   *  (`doitRafraichir`) and written back to storage. The single refresh path of the page: the
+   *  socket opening (`connecter`) and the REST loaders (`boot/loaders.ts`) both go through here.
+   *
+   *  The REST loaders used to read the token from storage as is, and only `connecter()` refreshed
+   *  it — that is, only when a socket was (re)opened. A wall tablet keeps one socket for days and
+   *  the token lives 30 minutes, so every forecast and calendar request past that half hour got a
+   *  401 (measured on 2026-11-27: ~175 a day across the three tablets), and both blocks vanished.
+   *
+   *  Concurrent callers share one refresh (`rafraichissement`). Rejects when Home Assistant
+   *  refuses the refresh token; the next call tries again. */
+  async jetonValide(): Promise<string> {
+    if (doitRafraichir(this.jetons, Date.now())) {
+      this.rafraichissement ??= rafraichir(this.jetons, this.deps.fetchFn, Date.now())
+        .then((j) => {
+          this.jetons = j;
+          this.deps.stockage.setItem('hassTokens', JSON.stringify(j));
+          return j;
+        })
+        .finally(() => { this.rafraichissement = null; });
+      await this.rafraichissement;
+    }
+    return this.jetons.access_token;
   }
 
   /** Task 9: single entry point of the internal reconnection, called both by `ws.onclose`

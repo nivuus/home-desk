@@ -43,6 +43,10 @@ export type ConnexionLike = {
   /** The hot reload subscribes through here, with the integration's own command (see
    *  `Connexion.abonner`). */
   abonner(commande: Record<string, unknown>, cb: (evenement: Record<string, unknown>) => void): void;
+  /** A currently valid access token for the REST loaders (`boot/loaders.ts`), refreshed when it
+   *  is about to expire — see `Connexion.jetonValide`. Never read the token from storage: only
+   *  this method keeps it fresh while the websocket stays open. */
+  jetonValide(): Promise<string>;
 } & ConnexionAppelable;
 
 export type DependancesDemarrage = {
